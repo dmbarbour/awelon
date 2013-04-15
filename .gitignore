@@ -1,0 +1,8 @@
+dist/
+tmp/
+*~
+*.hi
+*.o
+*.prof
+cabal-dev/
+.shelly
