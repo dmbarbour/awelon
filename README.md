@@ -36,19 +36,20 @@ This design is not without its caveats. The effective *meaning* of a module is p
 Compilation and Real World Integration
 --------------------------------------
 
-Compilation consists of parsing each module, allowing them to interact in a link environment, then waiting for the link environment to stabilize. The stable runtime behavior can be extracted from a standard location then serialized to an Awelon Object (the/an AO). Awelon has a standard Awelon Object language (AO) used for this serialization. AO is a pure, strongly typed, proof-carrying language that defines a typed RDP behavior in context of a abstract RDP-based API (i.e. effects handlers). AO is like portable assembly for RDP.
+Compilation consists of parsing each module, allowing the set of modules to interact in a link environment, then waiting for the link environment to stabilize. The stable runtime behavior is extracted from a standard location then serialized to an Awelon Object (the/an AO). Awelon has a standard Awelon Object language (AO) used for this serialization. AO is a pure, strongly typed, proof-carrying language that defines a typed RDP behavior in context of a typed RDP-based API.
 
-The AO may be interpreted or further compiled to imperative code. If the AO describes an end-user application, perhaps assuming an API analogous to the HTML5 DOM, it might further be compiled to Wx and C++, or HTML and JavaScript. The compiler doesn't need to be specialized, e.g. if it allows some extra inputs to link an appropriate runtime API. Initial backends compilers will focus on support for end-user apps and real-time web-app servers. 
+The AO may be interpreted or further compiled to imperative code. If the AO describes an end-user application assuming an API analogous to the HTML5 DOM, it might further be compiled to Wx and C++, or HTML and JavaScript. A compiler doesn't need to be specialized, e.g. if it supports linking a pluggable runtime API.
 
-Awelon does not provide a foreign function interface (FFI). FFIs are deeply problematic (with regards to safety, security, extension, distribution, optimization, portability, GC). An imperative FFI would be an awkward fit for RDP in any case. 
+Early backends for Awelon will target standalone end-user apps and real-time web-app servers. I may also pursue a backend to support a popular low-level pubsub architecture (e.g. ROS or DDS) for flexible systems integration.
 
+Awelon does not provide a foreign function interface (FFI). FFIs are deeply problematic with regards to safety, security, extension, distribution, optimization, portability, and GC. An imperative FFI would be also be an awkward fit for RDP.
 
 Parsing Modules and User-Defined Languages
 ------------------------------------------
 
-Every Awelon module begins with an `@foo` header at the start of a line. The word `foo` identifies the interpreter with which the rest of the module is to be parsed and processed. (*Aside:* Awelon allows multiple modules in a string or file; any line starting with `@` is a assumed to begin a new module.) Each parse occurs in a fresh *parse environment*. Like the link environment, the parse environment must stabilize and may afterwards be discarded. A parse can be cached by extracting the resulting link-time behavior to an AO. 
+The first word of every module identifies the interpreter with which the rest of the module is to be parsed and processed. Each parse occurs in a fresh *parse environment*. Like the link environment, the parse environment must stabilize and may afterwards be discarded. A parse can be cached by extracting the resulting link-time behavior to an AO. 
 
-New user-defined languages are developed as separate applications. A language app will receive a string and generate a link-time behavior, and operates in a parse environment. The language app is compiled and provided as an AO. General purpose user-defined language can feasibly be bootstrapped, such that it is eventually maintained in itself.
+New user-defined languages are developed as separate applications. A language app will receive a string and generate a link-time behavior, and operates in a parse environment. The Awelon compiler will recognize languages provided as AOs. General purpose user-defined language can feasibly be bootstrapped, such that it is eventually maintained in itself.
 
 Users have a great deal of freedom in language definition. Languages don't need to be general purpose. A user might define highly problem-specific languages, e.g. for world maps or dialog trees or UI widgets. It is possible to have tool-specific languages, e.g. to support easy correspondence between a graphical program editor and the text. But many languages will be small tweaks to address painful boiler-plate or utility definitions. The Awelon compiler will distribute with a suite of default languages, but developers don't need to use them. Developers have full ability to configure which language processors are used per application.
 
@@ -57,21 +58,53 @@ User-defined language is a primary mechanism for reusable abstractions in Awelon
 Abstractions typically come in two flavors: vocabulary extensions and abstract interfaces. In the former case, we want a specific meaning without writing it out by hand each time. In the latter case, we don't know specifically what we want; that's somebody else's problem. For vocabulary extension, Awelon developers don't have a very effective choice other than language manipulation. A language may provide local definitions, but those aren't reusable. Awelon has no built-in import semantics. We can potentially model import as a link-time behavior, but the boiler-plate involved with a big list of imports would still be a suitable target for a new language.
 
 
-Annotation and Optimization
----------------------------
+Annotation, Optimization, Postprocessing
+----------------------------------------
 
-An AO extracted from a link or parse can be subjected to ad-hoc optimizations. RDP has rich equational reasoning properties, and there are many optimizations that might be applied. But one might also develop specialized optimizations based on knowledge of the target API and resource model, or even more specialized knowledge of the usage context, or performance assumptions.
+An AO extracted from a link or parse can be subjected to ad-hoc optimizations. RDP has rich equational reasoning properties, and there are many optimizations that might be applied. But one might also develop specialized optimizations based on knowledge of the target API and resource model, or even more specialized knowledge of the usage context, or performance assumptions. Developers will have much freedom to implement their own optimizers.
 
-Developers will have much freedom to implement their own optimizations. Technically, optimizers can be developed in external language like Haskell, since AO will be well defined for external use. But I would like to encourage optimizers be developed as Awelon appplications. Much like user-defined languages, the Awelon compiler will only directly support user-defined optimizers if they are provided as AOs. User-defined optimizations don't need to be correct (behavior preserving), nor even type-preserving - those issues are left to the discretion and discipline of developers and external validation. But optimizations must result in a new, provably typesafe behavior.
+Awelon provides support for annotation of behaviors and types, accessible via an AO. This allows developers or intermediate processes to encourage specific optimizations - e.g. to cache or memoize a particular value, or to specialize against a presumably stable signal. Annotations can also support debugging (e.g. traces, probes, assertions), metadata (e.g. authors, PKI signatures, licenses, source tracking), or could even be used for alternative composition models (e.g. aspect-oriented programming, defaults and overrides). But annotations are not a formal part of semantics, and are not directly observable from within Awelon. Annotations may be scrubbed in some cases to discourage accidental dependencies.
 
-To support specialized optimization, Awelon provides standard support for annotation of behaviors and types with literal values, and these annotations are preserved in the AO. Thus, if developers wish to encourage an optimization, they will have some ability to suggest it through annotations. Annotations can potentially be used for much more than optimizations. They can also support debugging, live programming, license tracking, or alternative development models (e.g. aspect-oriented techniques). But annotations are never a part of semantics, and are not observable from within Awelon. It should always be possible to scrub annotations without changing the meaning of the behavior.
+User-defined optimizers and post-processes aren't required to be behavior preserving, nor even type-preserving. Those concerns are left to the discretion and discipline of developers. But the resulting AO must describe a provably typesafe behavior. Like user-defined language, Awelon compilers only recognize postprocesses provided as AOs. 
 
 
 Application Specification
 -------------------------
 
-How do we say which modules are in "the set" for an application?
+A configured application (excluding the backends) consists of:
 
+* specified external API and target behavior type
+* language interpreters (override defaults)
+* pipeline of postprocessors (if not default)
+* the set of anonymous module sources
+
+In general, the first three are reusable across applications and are provided as AOs. The external API and target are provided as a 'example' AOs (though the behavior may be trivial). The Awelon platform should come with examples for every  backend it knows. Language interpreters are provided as a lang:AO pairs. The postprocessing pipeline is simply a list of AOs. These AOs might be named in the filesystem, using the ".ao" extension. And while anonymous modules cannot be named, a source or container of modules can be named. An example configuration might look like:
+
+        (myApp.app)
+        @target standaloneUI.ao
+        @lang foo foo.ao
+        @postproc optx.ao >> opty.ao >> optz.ao
+        @lang bar bar.ao
+        @source myApp.aw 
+        @source aux.aw
+
+A file may contain any number of modules. Each module starts with `@` on a newline. The first word of each module identifies the language processor with which the rest is interpreted. I.e. `@foo` will specify use of the `foo` language. Ordering of modules is irrelevant. Everything past the first word to the next module or end of file is processed by the appropriate languge element.
+
+*Aside:* The syntax is inspired from Joe Armstrong of Erlang's ML9, which has a flat structure suitable for Awelon. However, this is not ML9 because there is no default support for Erlang-style records (though each language may choose to provide such).
+
+For convenience, the app config can also specify a few simple link-time environment variables. These are accessible only in the link-time environments. Only the values specified are accessible (no hidden dependencies). Text or binary cans be provided from external resources.
+
+        @bool debug true
+        @inum x 11
+        @rnum y 2.3
+        @textfile license license.txt
+        @textfile appSpec myApp.app
+        @text xyzzy You are in a maze of twisty little passages, all alike.
+        @binaryfile image myImage.jpg
+        @binary64 foo blahblahblah===
+        @env path PATH
+
+At the moment, Awelon is based in the filesystem, but Awelon's design is such that it would not be difficult to have alternative development environments (e.g. based in a database, or a wiki). 
 
 Hierarchical Applications
 -------------------------
