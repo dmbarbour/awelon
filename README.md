@@ -23,31 +23,31 @@ Awelon's application model is very different from the tradition developed for pr
 Application Definition and the Module System
 --------------------------------------------
 
-An application in Awelon is formally a set of anonymous modules. There is no privileged 'main' module; any module in the set may contribute to the runtime behavior of the application. It is possible to extend an Awelon application by adding a module. 
+An application in Awelon is a set of anonymous modules. Any module in the set may contribute to the runtime behavior of the application; there is no privileged 'main' module. It is possible to extend an Awelon application by adding a module. 
 
-Contributions are achieved effectfully. An Awelon compiler provides a *link environment*. Effects from each module are applied in this link environment simultaneously (feasible due to RDP's semantics). Contributions to specific resources become part of the runtime behavior. However, in practice, many modules won't contribute directly to behavior. Developers have access to abundant resources, which they may leverage for collaborative data structures or link-time metaprogramming. Knowledge, constraints, world-maps, dialog trees, UI specification, etc. may be scattered across modules then combined at link time. 
+Contributions are achieved effectfully. An Awelon compiler provides a *link environment*, and modules act as effectful agents, manipulating the environment synchronously (at the same logical time, via RDP's semantics). In practice, many modules won't contribute directly to runtime behavior. The link environment has abundant resources, which developers may leverage for collaborative data structures or link-time metaprogramming. Knowledge, constraints, world-maps, dialog trees, UI specification, etc. may be scattered across modules then combined at link time by a few specific modules. It is easier to reuse modules that operate on peripheral resources. A few modules will contribute to specific resources that determine the runtime behavior.
 
-The link environment must reach a stable state such that the constants may be extracted and the environment discarded. The environment is still *logically* present, e.g. with respect to dynamic behaviors that would otherwise expire. During development, the link environment may be kept available for browsing and debugging.
+The link environment must reach a stable state. In a stable state, the runtime behavior is constant and may be extracted. The environment is still *logically* present, e.g. with respect to dynamic behaviors that would otherwise expire, but the computation may be discarded. During development, the link environment may be kept available for browsing and debugging.
 
-Awelon's application model supports a style I call [stone soup programming](http://awelonblue.wordpress.com/2012/09/12/stone-soup-programming/). Developers provide the ingredients for a 'soup' of modules, which meld in their link environment, ultimately generating a runtime behavior. In Awelon, the entire responsibility of each module is to define its own link-time behavior, aided by the resources and utilities in the link environment. 
+Awelon's application model supports a style I call [stone soup programming](http://awelonblue.wordpress.com/2012/09/12/stone-soup-programming/). Developers provide the ingredients for a 'soup' of modules, which meld in their link environment, ultimately generating a runtime behavior. In Awelon, the entire responsibility of each module is to define its own link-time behavior, manipulating the link environment. 
 
-This design is not without its caveats. The effective *meaning* of a module is potentially context dependent, difficult to understand in isolation. It can be difficult to isolate bugs to a particular module, especially if higher levels of metaprogramming are involved. But I believe these issues can be addressed by a good development environment. And they certainly can be mitigated by a little discipline (e.g. ensuring modules have just one clearly documented responsibility).
+This design is not without its caveats. The effective *meaning* of a module is context dependent, difficult to understand or validate in isolation. Similarly, it can be difficult to isolate bugs to a particular module, especially if high levels of metaprogramming are involved. But I believe these issues can be addressed by a good development environment and mitigated by a little discipline (e.g. ensuring modules have just one clearly documented responsibility).
 
 Compilation and Real World Integration
 --------------------------------------
 
-Compilation consists of parsing each module, allowing the set of modules to interact in a link environment, then waiting for the link environment to stabilize. The stable runtime behavior is extracted from a standard location then serialized to an Awelon Object (the/an AO). Awelon has a standard Awelon Object language (AO) used for this serialization. AO is a pure, strongly typed, proof-carrying language that defines a typed RDP behavior in context of a typed RDP-based API.
+Compilation consists of parsing each module, allowing the set of modules to interact in a link environment, waiting for the link environment to stabilize. The stable runtime behavior is extracted from a standard location then serialized to an Awelon Object (the/an AO), which is later postprocessed (e.g. optimized). Awelon has a standard Awelon Object language (AO) used for this serialization. AO is a pure, strongly typed, proof-carrying language that defines a typed RDP behavior in context of a typed RDP-based API.
 
-The AO may be interpreted or further compiled to imperative code. If the AO describes an end-user application assuming an API analogous to the HTML5 DOM, it might further be compiled to Wx and C++, or HTML and JavaScript. A compiler doesn't need to be specialized, e.g. if it supports linking a pluggable runtime API.
+The generated AO may be interpreted or further compiled to imperative code. If the AO describes an end-user application assuming an API analogous to the HTML5 DOM, it might further be compiled to Wx and C++, or HTML and JavaScript. A compiler could be specialized for its API and target, or could be generic via pluggable runtimes.
 
-Early backends for Awelon will target standalone end-user apps and real-time web-app servers. I may also pursue a backend to support a popular low-level pubsub architecture (e.g. ROS or DDS) for flexible systems integration.
+Early backends for Awelon will target standalone end-user apps and real-time web-app servers. I may also pursue support for a popular low-level pubsub architecture (e.g. ROS or DDS) for flexible systems integration.
 
 Awelon does not provide a foreign function interface (FFI). FFIs are deeply problematic with regards to safety, security, extension, distribution, optimization, portability, and GC. An imperative FFI would be also be an awkward fit for RDP.
 
 Parsing Modules and User-Defined Languages
 ------------------------------------------
 
-The first word of every module identifies the interpreter with which the rest of the module is to be parsed and processed. Each parse occurs in a fresh *parse environment*. Like the link environment, the parse environment must stabilize and may afterwards be discarded. A parse can be cached by extracting the resulting link-time behavior to an AO. 
+Every module identifies the interpreter with which the module text is to be parsed and processed. Within an Awelon source file, each module starts with `@foo` on a new line where `foo` is any symbol and identifies the language. Each parse occurs in a fresh *parse environment*. Like the link environment, the parse environment must stabilize and may afterwards be discarded. A parse can be cached by extracting the resulting link-time behavior to an AO. 
 
 New user-defined languages are developed as separate applications. A language app will receive a string and generate a link-time behavior, and operates in a parse environment. The Awelon compiler will recognize languages provided as AOs. General purpose user-defined language can feasibly be bootstrapped, such that it is eventually maintained in itself.
 
@@ -71,46 +71,48 @@ User-defined optimizers and post-processes aren't required to be behavior preser
 Application Specification
 -------------------------
 
-A configured application (excluding the backends) consists of:
+A configured application (excluding the backends) primarily consists of:
 
-* specified external API and target behavior type
+* specified runtime API and behavior type
 * language interpreters (override defaults)
 * pipeline of postprocessors (if not default)
-* the set of anonymous module sources
+* the set of anonymous modules
 
-In general, the first three are reusable across applications and are provided as AOs. The external API and target are provided as a 'example' AOs (though the behavior may be trivial). The Awelon platform should come with examples for every  backend it knows. Language interpreters are provided as a lang:AO pairs. The postprocessing pipeline is simply a list of AOs. These AOs might be named in the filesystem, using the ".ao" extension. And while anonymous modules cannot be named, a source or container of modules can be named. An example configuration might look like:
+In general, the first three are reusable across applications and are provided as AOs. The runtime API and behavior type are provided by a 'prototype' behavior AO. The Awelon platform will come with prototypes for the different kinds of backends it supports. Language interpreters are provided as a id:AO pairs. The postprocessing pipeline is simply a list of AOs. While anonymous modules cannot be named, they can be provided directly, or an external source or container of modules may be named.
 
-        (myApp.app)
-        @target standaloneUI.ao
-        @lang foo foo.ao
-        @postproc optx.ao >> opty.ao >> optz.ao
-        @lang bar bar.ao
-        @source myApp.aw 
+Awelon's implmentation assumes configuration via the filesystem. AOs are named in the filesystem with a ".ao" extension, an Awelon project with ".ap", and an Awelon source file with ".aw". An Awelon project configures an application, centralizes its definition, ensures there are no hidden dependencies. An example configuration might look like:
+
+        (myApp.ap)
+        @prototype standaloneUI.ao
+        @postproc optx.ao opty.ao optz.ao
+        @language foo fooLang.ao 
+        @language bar dir/path/bar.ao
+        @source myApp.aw
         @source aux.aw
 
-A file may contain any number of modules. Each module starts with `@` on a newline. The first word of each module identifies the language processor with which the rest is interpreted. I.e. `@foo` will specify use of the `foo` language. Ordering of modules is irrelevant. Everything past the first word to the next module or end of file is processed by the appropriate languge element.
+A ".aw" source file may contain any number of modules. Each module starts with `@` on a new line. (The space prior to the first module ignored.) The first word of each module identifies the language processor with which the rest is interpreted. I.e. `@foo` will specify use of the `foo` language. Everything past the first word to the next module or end of file is processed by the appropriate languge element. 
 
-*Aside:* The syntax is inspired from Joe Armstrong of Erlang's ML9, which has a flat structure suitable for Awelon. However, this is not ML9 because there is no default support for Erlang-style records (though each language may choose to provide such).
+*Aside:* This configuration syntax is from Joe Armstrong of Erlang's ML9. The flat structure suitable for Awelon. However, Awelon does not generally support the Erlang record at the start of a section (though a particular language might).
 
-For convenience, the app config can also specify a few simple link-time environment variables. These are accessible only in the link-time environments. Only the values specified are accessible (no hidden dependencies). Text or binary cans be provided from external resources.
+### Inline Project Modules
 
-        @bool debug true
-        @inum x 11
-        @rnum y 2.3
-        @textfile license license.txt
-        @textfile appSpec myApp.app
-        @text xyzzy You are in a maze of twisty little passages, all alike.
-        @binaryfile image myImage.jpg
-        @binary64 foo blahblahblah===
-        @env path PATH
+The Awelon project supports inline modules.
 
-At the moment, Awelon is based in the filesystem, but Awelon's design is such that it would not be difficult to have alternative development environments (e.g. based in a database, or a wiki). 
+        @module foo this is parsed in language identified as 'foo'
+        and so is this, until next @ symbol on new line (or EOF)
 
-Hierarchical Applications
--------------------------
+The first word specifies the interpreter with which the rest of the module is parsed. Inline modules allow an entire application to be embedded in one big project file.
 
-combining applications
+### Application Decomposition and Composition
 
+Often it would be useful to decompose an application into components, which may be separately compiled then composed. The pools of modules for each component may be smaller, and the component types more specialized. I'm still thinking of how best to achieve this. Separating the app isn't the hard part; it's naming the pieces and stitching them together in the parent app that gets tough.
+
+* environment extension is feasible (modeled as a post-process) but has the negative consequence of specializing modules to their application (i.e. because we have application-specific environments).
+* the type system could also enforce unique fan-in on certain resources. This could achieve the same as environment extension at risk of compile-time conflicts between modules that target the same resource. While more flexible, this does hinder ad-hoc app extensibility, which I'd prefer to avoid.
+* the component app could simply form another link-time stage.
+* support hierarchical environments? no, I do want separate compilation.
+
+In general, we cannot usefully compose applications just by tossing all their modules into one set. By analogy, that's like attempting a "clam beef chowder stew" just by putting the uncooked ingredients in one pot - it might work, it might not, but it's quite an experiment and difficult to reason about. A valid alternative is to build multiple apps separately then compose them (or, conversely, decompose a big app into smaller ones).
 
 
 Live Programming and Debugging
@@ -152,7 +154,10 @@ Sealer Per Module
 Awelon Object Language (AO)
 ---------------------------
 
+AO is a plain text language, closer to assembly than byte code.
 
+        @ao v1.0
+        
 
 When Awelon is compiled, it targets an intermediate RDP-based Awelon Object language (AO). AO has rigid syntax and structure, a simplified type system, and carries swiftly verifiable proofs for the types it exposes. An AO is *pure* up to dependencies; one can understand AO as a pure function from a collection of behaviors to a collection of behaviors. 
 
