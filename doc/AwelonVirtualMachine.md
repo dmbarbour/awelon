@@ -1,4 +1,13 @@
 
+Application, Not Machine
+========================
+
+The real requirement is to define what primitives and parameters are available to an application. In a sense, this is an environment that contains even the lowest level primitives (e.g. adding two integers); there are no implicit primitives. But in another sense, this represents the 'machine' primitives, i.e. the machine code. Using partitions, this code can be heterogeneous. 
+
+One relevant concern is how to handle implicit vs. explicit authority, in particular the distribution thereof to dynamic behaviors. I would like to ensure capability security, which suggests that the implicit capabilities must be those that grant no authority and instead represent calculation features. But it may be feasible to treat all as capabilities, assuming the low level primitives can be packaged conveniently. 
+
+
+
 The Heterogeneous, Partitioned, Distributed Machine
 ===================================================
 
@@ -26,7 +35,7 @@ To support a little bit of modularity, AVMs can be composed by a simplistic form
 No Assumptions
 ==============
 
-Other than the behaviors and types explicitly declared as primitive, there are no primitives. Awelon does not require any universal assumptions beyond the type system's own computations. 
+Other than the behaviors and types explicitly declared as primitive in the AVM file, there are no runtime primitives. Awelon does not require any universal assumptions beyond the type system's own computations. However, Awelon does need a common (assumed) type description language 
 
 Capabilities vs Ambient Authority
 =================================

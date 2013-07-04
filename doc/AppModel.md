@@ -79,6 +79,10 @@ A ".aw" source file may contain any number of modules. Each module starts with `
 
 *Aside:* This configuration syntax is from Joe Armstrong of Erlang's ML9. The flat structure suitable for Awelon. However, Awelon does not generally support the Erlang record at the start of a section (though a particular language might).
 
+### Thoughts on Sources
+
+A possibility is to automatically load files as modules based on their extensions and locations in a project. This would make it easier to load text, textures, meshes, and other resources. 
+
 ### Inline Project Modules
 
 The Awelon project supports inline modules.
