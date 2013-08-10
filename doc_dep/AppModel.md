@@ -2,6 +2,30 @@
 Awelon's Application Model
 ==========================
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Awelon's application model is very different from the tradition developed for procedural languages. However, I believe this new application model will result in a generally superior programming experience.
 
 
