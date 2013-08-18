@@ -3,13 +3,26 @@ Version: 0.0.1
 Synopsis: distributed orchestration via dataflow programming
 Category: Compilers/Interpreters, Reactivity
 Description:
-  Awelon is a general purpose programming language designed for use
-  in open distributed systems. Awelon is based on the bidirectional
-  dataflow paradigm, reactive demand programming (RDP). Awelon adds
-  features such as dependent types, sealers/unsealers, ad-hoc state,
-  effect handlers, and specialized matrix/vector processing.
-  
-  See the README for details.
+  Awelon is a general purpose programming language for constructing 
+  dataflow systems based on Reactive Demand Programming (RDP). RDP 
+  supports effects - continuous queries and control signals - in a
+  constrained manner that protects useful invariants and declarative
+  properties. RDP is designed for open, heterogeneous, distributed
+  applications and overlay networks. RDP is also suitable for multi
+  agent systems and component based programming. 
+
+  Awelon is a tacit language in the style of FORTH; it has almost
+  no syntax and is easy to process. Constructing a dataflow graph in
+  Awelon has an imperative feel to it: developers pick up signals or
+  components, move them around, and wire them together. Essentially,
+  Awelon models an editing process; abstractions of this editing can
+  be ad-hoc, deep, and expressive. 
+
+  Awelon is richly typed and type-safe, including support for linear
+  types. Types are implicit in the code, computed at compile time. 
+  Polymorphism in Awelon is very ad-hoc: developers can introspect 
+  types and static values and decide how to procede. This supports a 
+  high level of metaprogramming, adaptation, and extension. 
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
@@ -27,7 +40,8 @@ Source-repository head
 
 Library
   hs-Source-Dirs: src
-  Build-Depends: base (>= 4.5 && < 5)
+  Build-Depends: base (>= 4.5 && < 5),
+    text (>= 0.11.2)
   Exposed-Modules:
     Awelon
   Other-Modules:

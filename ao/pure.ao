@@ -1,0 +1,9 @@
+
+-- Module: 'pure'
+--
+-- Purpose: provides a big library of convenient primitives that do
+-- not assume a complex environment.
+
+import avmprim
+
+

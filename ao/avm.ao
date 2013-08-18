@@ -1,0 +1,31 @@
+
+-- This is the default Awelon Virtual Machine definition module. 
+--
+-- It describes primitives to the parser, or to other modules.
+--
+
+import avmboot
+
+-- avmboot gives us very few operations:
+--
+--   first      :: (x ~> x') * (x * y) ~> (x' * y)
+--   swap       :: (x * y) ~> (y * x)
+--   assocl     :: (x * (y * z)) ~> ((x * y) * z)
+--   copyText   :: Static Text ~> (Static Text * Static Text)
+--   copyBlock  :: Static Block ~> (Static Block * Static Block)
+--   copyNumber :: Static Number ~> (Static Number * Static Number)
+--
+-- There aren't many because these must be initially provided by
+-- a parser (as part of a bootstrap process). 
+--
+-- Our initial environment is Awelon's standard environment (so this
+-- module can be used by standard modules). 
+--     lb * 
+--     (1) empty hands
+--     
+--    
+-- In addition, we have normal access to literals.
+
+
+
+
