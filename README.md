@@ -19,39 +19,41 @@ At runtime, the environment is gone and the data plumbing is compiled completely
 
 Like many tacit programming languages, Awelon supports stack-based programming. One of the key aspects of tacit programming is how *literals* are handled - e.g. if a developer writes `10 11 12`, what happens? Somehow, those literals must be added to the environment. For example, by pushing it onto a stack.
 
-        42 -- e ~> (Static Integer * e)
-        12.3 -- e ~> (Static Rational * e), exact 123/10
-        "literal string" -- e ~> (Static Text * e)
-        [swap] -- e ~> (Static ((a * b) ~> (b * a)) * e)
+        42 %  e ~> (Static Integer * e)
+        12.3 %  e ~> (Static Rational * e), exact 123/10
+        "literal string" %  e ~> (Static Text * e)
+        [swap] %  e ~> (Static ((a * b) ~> (b * a)) * e)
 
 In Awelon, literals are simply numbers, text, or blocks of code. Developers often choose to distinguish rational numbers from integrals (e.g. by testing that the number is integral), but Awelon lumps them together. Also, due to polymorphism, Awelon essentially treats blocks as untyped until they're applied. Literals have 'Static' types, meaning their values are available at compile-time both for operations and decisions. Static types also are the key ingredient to make tacit programming work with an arrowized model, enabling us to model 'first' without use of explicit parameters.
 
-        -- first :: (x ~> x') -> ((x*y) ~> (x'*y))              HASKELL
-        -- first :: (Static (x ~> x') * (x * y)) ~> (x' * y)    AWELON
-        [swap] first -- ((a*b)*c) ~> ((b*a)*c)
+        %  first :: (x ~> x') -> ((x*y) ~> (x'*y))              HASKELL
+        %  first :: (Static (x ~> x') * (x * y)) ~> (x' * y)    AWELON
+        [swap] first %  ((a*b)*c) ~> ((b*a)*c)
 
 Support for partial application with 'first' is valuable for both code reuse and expressiveness. Awelon's model for 'first' has greater expressiveness because it allows the specification of the behavior to be cleanly separated from its call site, thus avoiding the need for an orthogonal abstraction model (such as lambdas). There is a price: Awelon's first is expressive enough to cause trouble. The traditional non-terminating lambda (`(\x->(x x) \x->(x x)`) can be represented (`[copy apply] [copy apply] first`).
 
 To help illustrate what tacit code often looks like, I'll define a few more functions:
 
-        -- assocl :: (x * (y * z)) ~> ((x * y) * z)         PRIMITIVE
-        -- swap   :: (x * y) ~> (y * x)                     PRIMITIVE
-        -- intro1 :: x ~> (Unit * x)                        PRIMITIVE
-        -- elim1  :: (Unit * x) ~> x                        PRIMITIVE
-        -- copy   :: x ~> (x * x)                           polymorphic; see below
+        %  assocl :: (x * (y * z)) ~> ((x * y) * z)         PRIMITIVE
+        %  swap   :: (x * y) ~> (y * x)                     PRIMITIVE
+        %  intro1 :: x ~> (Unit * x)                        PRIMITIVE
+        %  elim1  :: (Unit * x) ~> x                        PRIMITIVE
+        %  copy   :: x ~> (x * x)                           polymorphic; see below
         
-        apply  = [intro1 swap] second first swap elim1      -- (Static (x ~> x') * x) ~> x'
-        second = swap [swap] first swap first swap          -- (Static (y~>y') * (x*y)) ~> (x*y')
-        assocr = [swap] first swap assocl [swap] first swap -- ((x * y) * z) ~> (x * (y * z))
-        roll2  = assocl [swap] first assocr                 -- (x * (y * z)) ~> (y * (x * z))
-        roll3  = [roll2] second roll2                       -- (a * (b * (c * d)))) ~> (c * (a * (b * d)))
+        apply  = [intro1 swap] second first swap elim1      %  (Static (x ~> x') * x) ~> x'
+        second = swap [swap] first swap first swap          %  (Static (y~>y') * (x*y)) ~> (x*y')
+        assocr = [swap] first swap assocl [swap] first swap %  ((x * y) * z) ~> (x * (y * z))
+        roll2  = assocl [swap] first assocr                 %  (x * (y * z)) ~> (y * (x * z))
+        roll3  = [roll2] second roll2                       %  (a * (b * (c * d)))) ~> (c * (a * (b * d)))
         roll4  = [roll3] second roll2
         unroll2 = roll2
-        unroll3 = unroll2 [unroll2] second                  -- (c * (a * (b * d))) ~> (a * (b * (c * d)))
+        unroll3 = unroll2 [unroll2] second                  %  (c * (a * (b * d))) ~> (a * (b * (c * d)))
         unroll4 = unroll2 [unroll3] second
-        dup    = [copy] first assocr                        -- (a * e) ~> (a * (a * e))
-        pick1  = [dup] second roll2                         -- (a * (b * e)) ~> (b * (a * (b * e)))
+        dup    = [copy] first assocr                        %  (a * e) ~> (a * (a * e))
+        pick1  = [dup] second roll2                         %  (a * (b * e)) ~> (b * (a * (b * e)))
         pick2  = [pick1] second roll2
+        %  Note: the above definitions are for illustrations; those
+        %  in use may be different (e.
 
 Tacit code is easy to incrementally parse and process, and similarly easy to generate. Those are useful properties for Awelon's goals as a distribution or target language. Tacit code is naturally composable, and should be effective for representing software components. Avoiding direct manipulation by names enables many of RDP's invariants to be enforced constructively. Tacit code has very little syntactic noise. 
 
@@ -63,27 +65,27 @@ Data plumbing on a stack is relatively simple: developers mostly operate near th
 
 #### Multi Stack Environment
 
-Awelon's static environment contains a non-empty *list* of stacks. There is always a current stack, and all the single stack operators now apply to the current stack. Developers can add new stacks, drop old stacks, and navigate between them. These additional stacks quickly find use by developers: different stacks for different tasks, scratch spaces, temporary storage, and that stuff you never get back to but keep thinking you might. 
+Awelon's static environment contains a non-empty *list* of stacks. There is always a current stack, and all the single stack operators now apply to the current stack. Literals are added to the current stack. Developers can add new stacks, drop old stacks, and navigate between them. These additional stacks quickly find use by developers: different stacks for different tasks, scratch spaces, temporary storage, and that stuff you never get back to but keep thinking you might. 
 
-        -- List of Stacks:  (stacksLeft * (currentStack * stacksRight))
-        -- stepLeft  :: ((sT * sL) * (sC * sR)) ~> (sL * (sT * (sC * sR)))
-        -- stepRight :: (sL * (sC * (sT * sR))) ~> ((sC * sL) * (sT * sR))
+        %  List of Stacks:  (stacksLeft * (currentStack * stacksRight))
+        %  stepLeft  :: ((sT * sL) * (sC * sR)) ~> (sL * (sT * (sC * sR)))
+        %  stepRight :: (sL * (sC * (sT * sR))) ~> ((sC * sL) * (sT * sR))
         stepLeft = [swap] first assocr
         stepRight = assocl [swap] first [assertIsProduct] second
 
-        -- New, dup, and drop for stacks create or destroy a stack to your right
-        --
-        -- newStack  :: (sL * (sC * sR)) ~> (sL * (sC * (Unit * sR)))
-        -- dupStack  :: (sL * (sC * sR)) ~> (sL * (sC * (sC * sR))) -- if non-linear sC
-        -- dropStack :: (sL * (sC * (sD * sR))) ~> (sL * (sC * sR)) -- if non-linear sD  
+        %  New, dup, and drop for stacks create or destroy a stack to your right
+        %  
+        %  newStack  :: (sL * (sC * sR)) ~> (sL * (sC * (Unit * sR)))
+        %  dupStack  :: (sL * (sC * sR)) ~> (sL * (sC * (sC * sR))) %  if non-linear sC
+        %  dropStack :: (sL * (sC * (sD * sR))) ~> (sL * (sC * sR)) %  if non-linear sD  
         newStack = assocl [swap] first [intro1] second
         copyStack = [[copy] first assocr] second
         dropStack =  [[dropFirst] second] second
        
-        -- more basics
-        erase   :: x ~> Unit        -- for non-linear x
-        dropFirst = [erase] first elim1  -- (e * x) ~> x, for non-linear e
-        dropSecond = swap dropFirst      -- (x * e) ~> x, for non-linear e
+        %  more basics
+        erase   :: x ~> Unit        %  for non-linear x
+        dropFirst = [erase] first elim1  %  (e * x) ~> x, for non-linear e
+        dropSecond = swap dropFirst      %  (x * e) ~> x, for non-linear e
 
 Of course, multiple stacks are useless if we don't have an effective way to move elements between them. I could potentially model throwing things between stacks, but there is a better way.
 
@@ -99,52 +101,35 @@ Awelon developers will be capable of creating dataflow applications that are ord
 
 ### Hands to Carry Things
 
-Awelon's multi stack environment is further extended with the concept of *hands*. With hands, a developer can take elements from one stack, navigate to another, then put or apply them. Hands are also convenient for operations on a single stack, i.e. rather than rolling stuff to the top, just pick up the top several elements and do some work, then put those several elements back down.
+Awelon's multi stack environment is further extended with the concept of *hands*. With one hand, a developer can take and put, moving objects easily and intuitively from one stack to another, or even moving stacks. Hands would be convenient even for operations on a single stack, i.e. rather than rolling stuff to the top, just pick up the top several elements and do some work, then put several elements back down. 
 
-Overall, hands offer a simple, intuitive, and expressive approach to data plumbing. 
+Hands offer a simple, intuitive, and expressive approach to data plumbing. 
 
-Hands are modeled as a pair of stacks, and paired with the current environment, such that our overall environment is a structure of the form: `(sL*(sC*sR))*(hL*(x*hR))`. Here current stack, and x is the active object - if any. Unlike the list of stacks, the developer's hands may be empty.
+Hands are modeled as a pair of stacks, and are paired with the current environment, such that our overall environment is a structure of the form: `(sL*(sC*sR))*(hL*(x*hR))`. Here current stack, and x is the active object - if any. Unlike the list of stacks, the developer's hands may be empty.
 
-        -- take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
+        %  take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
         take = [[assocr] second roll2] first assocr roll2 [roll2] second
 
-By convention, only the right hand is used for volatile operations and world interactions. The left hand is used instead for environment extensions based on introspection and metaprogramming - such as modeling named stacks.
+        %  swapStackHand :: (sL*(sC*sR))*(hL*hR) ~> (sL*(hR*sR))*(hL*sC)
+        %  left as exercise for reader :)
+
+By convention, the right hand is used for volatile operations (take, put, etc.). The left hand is used instead for environment extensions based on introspection and metaprogramming - such as modeling named stacks. 
+
+Literals are still added to the current stack. 
 
 *NOTE:* The programmer's hands are generally NOT passed to partially applied behaviors. The intuition here is that the developer is installing a behavior that will then execute without further guidance or interference. Also, conversely, the installed behavior must not affect the contents of the programmer's hand. Arguments to a partially applied behavior must be explicitly provided. 
 
-### The Literals Brush
-
-Thus far, I've modified the environment from a single stack, to a multi-stack, to a multi-stack with hands. Each time, I have needed to adjust how literals are added to the current stack. If developers wish to create an alternative environment, they would also need to adjust how literals are introduced. Other words can be adjusted through the module system. Other literals need special attention.
-
-To address this concern, a literals brush (lb) is added to the environment. We now have `(lb*env)`. Whenever a literal is added to the code, the literals brush is copied (it must be a static block) then applied to the resulting `(literal*env)` pair to determine the new environment. 
-
-Let's consider how this literals brush would have evolved over the last three environments:
-
-        -- single stack environment
-        -- (x * e) ~> (x * e)
-        lbSS = id
-
-        -- multi-stack environment
-        -- (x * (sL * (sC * sR))) ~> (sL * ((x * sC) * sR))
-        lbMS = rot2 [assocl] second
-
-        -- multi-stack environment with hands
-        -- (x * ((sL * (sC * sR)) * (lH * rH)) ~> ((sL * ((x * sC) * sR)) * (lH * rH)
-        lbHMS = assocl [rot2 [assocl] second] first assocr
-
-Developers shouldn't think about the literals brush unless they're planning an environment extension. It is also possible to use the literals brush for some modal operations, which might prove useful for modeling DSLs.  Naturally, the literals brush must be highly polymorphic.
-
 ### Named Stacks via Metaprogramming
 
-Awelon supports storing and loading elements by name. Use of names is a valid and convenient solution for many data plumbing problems: simply tuck a value away with an arbitrarily chosen name, then later recover it using the same name. Names are easier to remember than relative locations. 
+Awelon will support storing and loading elements by name. Use of names is a valid and convenient solution for many data plumbing problems: simply tuck a value away with an arbitrarily chosen name, then later recover it using the same name. Names are easier to remember than relative locations. 
 
 Names are modeled by use of polymorphic, introspective behaviors (see later section) that will search the left hand for a named stack, then add or remove an item (adding or removing the stack as appropriate). The use of stacks can serve a similar role to lexical scope, though developers must be careful to erase names when they exit logical scope. 
 
-        "foo" store    -- store element to "foo" stack (removes from current stack)
-        "foo" load     -- load element from "foo" stack (removes from foo stack)
-        "foo" loadCopy -- load, dup, store 
-        "foo" erase    -- load, drop
-        -- possibly loadStack and storeStack operations, too.
+        "foo" store    %  store element to "foo" stack (removes from current stack)
+        "foo" load     %  load element from "foo" stack (removes from foo stack)
+        "foo" loadCopy %  load, dup, store 
+        "foo" erase    %  load, drop
+        %  possibly loadStack and storeStack operations, too.
 
 The default movement semantics are suitable for linear types, or cases where developers wish to model updates. (These variables are 'pure' from Awelon's perspective.) Unlike traditional programming, developers must explicitly erase words th
 
@@ -152,22 +137,22 @@ Names can become syntactic noise and clutter if overused. I prefer to use names 
 
 ## Awelon's Module System
 
-Awelon has a very simple module system. Essentially, a module consists of zero or one import lines followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a name and a module is externally determined (e.g. by file name) and should be simple alphanumeric words. Modules may be associated with local names. Imports must be acyclic. 
+Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple alphanumeric words. Modules may be associated with local names. Imports must be acyclic. 
 
         import common, packageWithLongName AS p, foo
         _s = swap [swap] first swap first swap
-        f = foo [p:bar foo:bar] first -- here 'foo' means 'foo:this'
+        f = foo [p:bar foo:bar] first %  here 'foo' means 'foo:this'
         this = [f] _s
 
 Words within a module must be defined before they are used. All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any potential ambiguity for a word (i.e. if it is exported from two of the modules, including this one), it becomes necessary to use the prefixed form.
 
 The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix for a module's words. When imported, the word 'this' is mapped instead to the import name, e.g. 'foo' means 'foo:this' after importing foo (assuming no ambiguity). Also, the word 'this' in Awelon serves the same role as 'main' in many other languages. Awelon is intended for component based software; I believe 'this' has nice connotations for treating modules as possible software components.
 
-All imports and definitions must start at the beginning of a new line of text, and continue to the end of the logical line. A logical line continues until a non whitespace character begins a new line of text, i.e. so developers can distribute some code or imports vertically. Awelon has line comments in Haskell's style, starting with `--` (as a distinct word). 
+All imports and definitions must start at the beginning of a new line of text, and continue to the end of the logical line. A logical line continues until a non whitespace character begins a new line of text, i.e. so developers can distribute some code or imports vertically. Awelon has simple line comments starting eith `%`. 
 
         import common
-        -- take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
-        take = [[assocr] second roll2] first -- (x*(sL*(sC*sR)))*(hL*hR)
+        % take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
+        take = [[assocr] second roll2] first %  (x*(sL*(sC*sR)))*(hL*hR)
                assocr roll2 [roll2] second
 
 Note: there are no default words or imports in Awelon. Only literals can be used without an import.
@@ -179,6 +164,8 @@ Note: there are no default words or imports in Awelon. Only literals can be used
 The Awelon Virtual Machine (AVM) is a description of an RDP-based programming environment. 
 
 This description includes types, partitions, and behavior primitives. It is a complete description, repeating even the ‘standard’ primitives like first and compose. Unlike a traditional VM, an AVM can describe heterogeneous systems, where different partitions have different behavior primitives and asymmetric communication. An AVM may additionally include: equational laws, proposed rewrite rules, and other properties. An application model would describe behavior types for applications or pluggable applets, along with some English text about how it is used. 
+
+Within the avm, the type of a behavior is represented as a block to execute on a type descriptor. The 
 
 The AVM is represented as an Awelon module that operates in a restricted subset of Awelon to construct its description (i.e. as opposed to using JSON or XML). The AVM definition module can import one module, called 'avmboot' The parser must understand this module implicitly, and it provides just a few primitives for static operations.
 
@@ -196,20 +183,6 @@ In general, developers do not directly import the primitives module. Primitives 
 
 Modules in Awelon are called Awelon Objects or AOs. The extension **.ao** should be used for modules represented in the filesystem. AO files should be encoded in UTF-8. The name of the module is simply the filename excluding the extension. If there are ambiguous filenames (e.g. with installed packages), they must be resolved externally.
 
-#### Multi Module Files
-
-There are cases where representing multiple modules in a single document or stream is useful. In this case, the recommendation is that each module starts with an `@moduleName` header, on a new line of text.
-
-        @lbms -- literal brush for multi-stacks
-        import pure
-        this = assocl [rot2 [assocl] second] first assocr
-        @bar
-        import foo, common
-        ...
-
-Modules still don't know their own names (i.e. they're still 'this' internally). A multi-module file should have the extension **.ao9**. 
-
-
 ## Polymorphic Behaviors
 
 In many cases, developers want a word to have a 'higher level' meaning whose precise application depends on context. For example, the word 'copy' should duplicate any element to which it is applied. Awelon has several behaviors that are polymorphic (first, swap, assocl, etc.) but none of them support 'copy' directly because not all types in Awelon can be copied (e.g. linear types cannot be copied). 
@@ -224,13 +197,13 @@ Awelon distinguishes static choice `(x | y)` from sums `(x + y)`. A static choic
 
 Static choice is the basis for ad-hoc polymorphism. Developers can introspect types and values to make decisions:
 
-        -- basic structure exposing primitives
+        %  basic structure exposing primitives
         testIsProduct :: x ~> ((a * b) | x)
         testIsSum :: x ~> ((a + b) | x)
         testIsChoice :: x ~> ((a | b) | x)
         testIsOffer :: x ~> ((a & b) | x)
-        testIsNumber :: x ~> (Static Rational | x) -- integer or rational
-        testIsIntegral :: x ~> (Static Integer | x) -- just integers
+        testIsNumber :: x ~> (Static Rational | x) %  integer or rational
+        testIsIntegral :: x ~> (Static Integer | x) %  just integers
         testIsText :: x ~> (Static Text | x)
         testIsBlock :: x ~> (Static (a ~> b) | x)
         testNumLessThan :: (Static Number * Static Number) ~> (Unit | Unit)
@@ -242,77 +215,88 @@ Note that programmers cannot test the type of a block. Programmers should *know*
 
 Basic operations one might expect for a choice are also supported:
 
-        choiceLeft   :: (Static (x ~> x') * (x | y)) ~> (x' | y)
+        choiceFirst  :: (Static (x ~> x') * (x | y)) ~> (x' | y)
         choiceAssocl :: (x | (y | z)) ~> ((x | y) | z)
-        choiceMirror :: (x | y) ~> (y | x)
+        choiceSwap   :: (x | y) ~> (y | x)
         choiceDist   :: (x * (y | z)) ~> ((x * y) | (x * z))
-        -- etc.
+        choiceIntro0 :: x ~> (0 | x)
+        choiceElim0  :: (0 | x) ~> x
+        %  etc.
 
 One of the big advantages of static choice is that all-powerful static disjoin primitive. The runtime version of that primitive is much more constrained.
 
 Modeling choice in this first-class manner is much more extensible, expressive, and simpler than passing blocks as arguments. But eventually, developers will want to stop wrapping every operation up with 'choiceLeft'. Since developers are generally aware of which choice they're in, they're free to forget:
 
-        choiceForget :: (x | y) ~> x, or maybe (x | y) ~> y.
+        choiceForget :: (x | y) ~> x OR  (x | y) ~> y %  choice no longer visible
 
-After forgetting, developers should either be writing for the correct choice, or writing more polymorphic code that doesn't really care which choice was made. 
+After forgetting, developers should either be writing for the correct choice, or writing more polymorphic code that doesn't really care which choice was made. The runtime version of choice is 'merge' but is constrained to have identical types.
 
+## Static Latent Choice
 
-### Structural Induction
+Awelon also provides a static type `(x & y)` that offers a latent choice (aka 'additive conjunction' in linear logic, or just 'offer' in Awelon). The intuition is that we are offering x or y, but the choice hasn't been made yet. The utility of latent choice comes from a programmer's ability to continue extrapolating on the different paths before making a choice. 
 
-Awelon can also model repetition, e.g. based on static integral arguments. 
+Latent choice is useful for modeling lookahead searches, or for adaptive software where we want to examine multiple valid static outcomes and pick a 'best' one according to some static heuristic. Simpler searches, e.g. scanning an association list of `(Static Text * value)` pairs, don't require latent choice. Since latent choice can be a relatively expensive compile-time feature, it should be avoided if unnecessary. 
 
-        recurseOnProduct :: (LeafOp * LeafJoin * Te
+        offerFork   :: x ~> (x & x)
+        offerAccept :: (x & y) ~> x
+        offerDist   :: (x * (y & z)) ~> ((x * y) & (x * z))
+        offerFirst  :: Static (x ~> x') * (x & y) ~> (x' & y)
+        offerAssocl :: (x & (y & z)) ~> ((x & y) & z)
+        offerSwap   :: (x & y) ~> (y & x)
+        %  no unit type, but fork/accept can do the same work
 
+Of course, to actually make choices we need some way to compare them. Developers are able to extract primtive static values from a subprogram to help make a choice or to use in other ways (it might be useful to exchange values between paths).
 
-Awelon's recursive combinators  are currently built within the Y combinator rather than provided as primitives, though
+        offerExtractText :: ((Static Text * x) & y) ~> Static Text * (x & y)
+        offerExtractNumber :: ((Static Number * x) & y) ~> Static Number * (x & y)
+        offerExtractBlock :: ((Static Block * x) & y) ~> Static Block * (x & y)
 
+Offers are linear; an offer *must* be accepted before the application will compile. 
 
-#### The Y Combinator
+### Recursion and Repetition
 
+A common situation, as with 'copy', is that developers need to operate on deep structures. For basic tree structures, we can take advantage that the type of an Awelon program is always finite. A simple recursion combinator for a tree might look like:
 
+        mapTree :: OnLeaf * JoinTrees * Trees ~> whatever
 
- - mostly because I don't want to deal with recursion in the compiler. The cost of this approach is that 
+Of course, we may want more complicated combinators: static folds, searches, etc.. Awelon doesn't build in any particular combinators, and instead leverages its compile time expressiveness. Awelon is Turing complete:
 
-is sufficiently expressive for the anonymous Y combinator. 
+        (λx.(x x) λx.(x x)) %  "Forever" in Lambda Calculus.
+        [copy apply] [copy apply] apply %  "Forever" in Awelon
 
-        Yv = λf.(λx.f (λv.((x x) v))) (λx.f (λv.((x x) v)))
+Anyhow, Awelon must use a [fixpoint combinator](http://en.wikipedia.org/wiki/Fixed-point_combinator) and builds a library of recursive combinators atop it.
+
+        %  a couple call-by-value fixpoint combinators from Curry and Turing
+        Yv = λf. (λx.f (λv.((x x) v))) (λx.f (λv.((x x) v)))
         Θv = (λx. λy. (y (λz. x x y z))) (λx. λy. (y (λz. x x y z)))
 
-
-Without some form of polymorphism, a developer might need to use separate operations - e.g. 'copyStaticText' vs. 'copyRuntimeInteger' - and it would be infeasible to develop copy operations for ad-hoc `(x*(y*z))` types without primitive support. But polymorphic *primitives* are in many cases undesirable, because they assume too much; it is easy to overlook exceptions (such as linear types, which are uncopyable).
-
-In Awelon, polymorphic behaviors are achieved by compile-time introspection of static inputs and types, and selecting a program based on these goals. 
-
-        exposeProduct :: x ~> ((a * b) | x)
-        exposeSwitch  :: x ~> ((a + b) | x)
-
-I'm not sure what this technique gains me, except perhaps a more precise understanding of the dependent types. OTOH, that might be sufficient to obtain a better understanding of the overall types.
-
-
-### Anonymous Recursion in Awelon
-
-In case of recursive structural operations (e.g. copy, drop), developers must utilize a fixpoint combinator.
-
-Awelon does not support recursive definitions. Sadly, this means most people will never fully grok recursion in Awelon. However, recursion isn't all that common in Awelon.
-
-
-**NEEDED** copy, drop examples; K pick/roll; 
+At some point, I'll need to convert those into the associated Awelon behaviors. It can be done, I'm certain. But, right now, they make my head swim.
 
 ### Support for Sloppy Programming
 
+There is a valuable role in this wide world for *sloppy* programming: rapid prototyping and executable pseudocode, plug-and-pray integration efforts, auto-configuration against available features, and live programming environments where active developers can easily gain feedback and refine on-the-fly.
+
+Awelon's ad-hoc polymorphism should make a fair level of sloppiness feasible in terms of "smart" wiring logic and glue words, and leveraging latent choice extensively. The cost of sloppiness is a more expensive compile-time computation, since developers are pushing more work to the compiler.
 
 ### Aspect Oriented Awelon
 
-IDEA: use a `"foo" signal` to represent a join-point named 'foo'. The signal operation will then search the left hand for appropriate advice. This is a bit weaker than true AOP, since it requires developers specify the join points; but it is still very powerful.
-
+A potential feature leveraging ad-hoc polymorphism is to model [aspect-oriented programming](http://en.wikipedia.org/wiki/Aspect-oriented_programming) in the Awelon compile-time. Basically, developers can model join-points using explicit `"foo" signal` code (to mark a "foo" join point). The 'signal' operation can look up the current advice (a block) associated with "foo" and effectively insert it in place of the signal. AOP can be very expressive.
 
 ## Awelon's Types
 
-Awelon's basic static types are Number, Text, and Block. Numbers are exact rationals, but some operations may require integral or even natural numbers. 
+Awelon is very richly typed, though not in a conventional manner. Programmers don't often explicitly describe types. And when they do so it is by introspection and compile-time assertion, rather than by ascription.
 
- are exact rationals or integers, and some operations may require integ
- can additionally be distinguished between integers and rationals, though for Awelon this is more a state than a 
+Types mentioned so far:
 
+* static numbers, rational or integral
+* static text
+* static blocks
+* products `(x * y)`
+* sums `(x + y)` 
+* choices `(x | y)`
+* offers `(x & y)`
+
+However, the AVM is free to define new primitive types: linearity, 
 
 
 So far every primitive behavior is typed by:
@@ -349,8 +333,11 @@ Awelon does not have
 
 ### Linear Types
 
-Linear types, from linear logic, are very expressive. Awelon makes extensive use of them to model:
+Linear types, from linear logic, are very expressive. Essentially, linear types are types that either cannot be copied or cannot be dropped. By default, all primitive types in Awelon are linear unless specific AVM primitives are provided to copy (`x ~> x*x`) or drop (`x ~> Unit`) them. 
 
+Awelon makes extensive use of linear types to model:
+
+* uniqueness sources
 * sealer/unsealer pairs 
 * abstract data types
 * subprogram responsibilities
@@ -362,11 +349,13 @@ Linear types, from linear logic, are very expressive. Awelon makes extensive use
 
 These patterns are discussed in other sections. 
 
-Due to its idempotence, RDP has difficulty expressing exclusivity without linearity. Two RDP behaviors each asking for the OOP equivalent of a `new Dog()` would necessarily receive the same dog. The two subprograms could distinguish their dogs - one asking for `new Dog("fido")` and the other asking for `new Dog("spot")`. But that doesn't guarantee exclusivity. Linear elements address this problem: we can ask for a `new(linearValue) Dog()`, and guarantee that our new dog is unique - and, consequently, that we initially have exclusive control over its state.
+Due to its idempotence, RDP has difficulty expressing exclusivity without linearity. Two RDP behaviors each asking for the OOP equivalent of a `new Dog()` would necessarily receive the same dog. The two subprograms could distinguish their dogs - one asking for `new Dog("fido")` and the other asking for `new Dog("spot")`. But that doesn't guarantee exclusivity. Linear elements address this problem: we can ask for a `new(uniqueSource) Dog()`, and guarantee that our new dog is unique - and, consequently, that we initially have exclusive control over its state.
 
 A feature valuable for live programming, debugging, and orthogonal persistence is that state will be stable across restarts and changes in code. In Awelon, developers must use the aforementioned techniques together, i.e. using "fido" vs. "spot" to stabilize the relationship between external storage and the code. This is achieved by 'forking' a linear source with static values, assigning different subprograms to different subtrees in a stable manner. The AVM enforces this for most primitive linear operations.
 
-Linear values cannot be created in RDP. But they can be divided, potentially to an arbitrary degree.
+Most linear computations in Awelon are static. Static blocks can be wrapped to become linear static blocks, enforcing that they be used exactly once. 
+
+*NOTE:* RDP behaviors cannot output unique values unless a uniqueness source is also an input. Unique sources are necessarily linear. RDP behaviors can, however, output non-unique linear values, which simply model 'must use' contracts within the source code.
 
 ### Capabilities
 
@@ -395,7 +384,7 @@ Developers can create their own ad-hoc application models by essentially wrappin
         this = gatherFooCaps enterHighestSecurityMode runFooApp
         @app
         import appStuff
-        this = meh blah boring -- assuming access to FooCaps
+        this = meh blah boring %  assuming access to FooCaps
 
 Instead of compiling `app` directly, then, developers simply compile `[app] appModel`.
 
@@ -417,6 +406,7 @@ In Awelon, these would be reactive dataflow objects and ADTs, consisting of runt
 
 Awelon's design favors ad-hoc polymorphism; a behavior is free to specialize or generalize based on knowledge about types. (Ad-hoc polymorphism may serve better for heterogeneous computation systems.) But there is also utility in parametric polymorphism - enforcing a uniform structure for a given class of types. Modeling ADTs or objects can easily enforce parametricity.
 
+
 ## Awelon Language Primitives
 
 ### Debugging and Live Programming Support
@@ -433,20 +423,13 @@ beat and backbeat
 every signal augmented with direction (the signals that can be, anyway)
 every signal augmented with beat#
 
-           S1 ~> (CoStatic N x :&: Static N x) -- receive costat, output stat
-           (CoStatic (N - 1) x :&: Static N x) ~> S1 -- receive stat, output costat
+           S1 ~> (CoStatic N x :&: Static N x) %  receive costat, output stat
+           (CoStatic (N - 1) x :&: Static N x) ~> S1 %  receive stat, output costat
 
 
 ### Distributing Data
 
 Partitions, disruption, type conversions... 
-
-
-
-
-
-
-
 
 
 

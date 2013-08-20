@@ -1,19 +1,38 @@
 
 import avmprim
 
--- This module provides words used by the AVM module.
---   first      :: (x ~> x') * (x * y) ~> (x' * y)
---   swap       :: (x * y) ~> (y * x)
---   assocl     :: (x * (y * z)) ~> ((x * y) * z)
---   copyText   :: Static Text ~> (Static Text * Static Text)
---   copyBlock  :: Static Block ~> (Static Block * Static Block)
---   copyNumber :: Static Number ~> (Static Number * Static Number)
--- These are primitives provided by the avm, ultimately, so the defs
--- are pretty simple. They're just necessary for the bootstrap.
+% This module simply repeats the *subset* of Awelon words that the
+% interpreter for the AVM provides. Naturally, this subset is small 
+% as I can make it, which means it's a static subset of primitives.
+%
+% BASIC DATA PLUMBING  
+%   first      :: (x ~> x') * (x * y) ~> (x' * y)
+%   swap       :: (x * y) ~> (y * x)
+%   assocl     :: (x * (y * z)) ~> ((x * y) * z)
+%   intro1     :: x ~> (Unit * x)
+%   elim1      :: (Unit * x) ~> x
+%   rot3       :: (a * (b * (c * d))) ~> (c * (a * (b * d)))
+%
+% Note that 'rot3' is a primitive. It was introduced as a primitive
+% just to support bootstrap, as it allows all the needed plumbing to
+% be implemented without blocks.
+%
 
 first       = avmprim:productFirst
 swap        = avmprim:productSwap
 assocl      = avmprim:productAssocLeft
+rot3        = avmprim:productRotate3
+intro1      = avmprim:productIntro1
+elim1       = avmprim:productElim1
+
+%
+% OTHER PRIMITIVES
+%   copyBlock  :: Static Block ~> (Static Block * Static Block)
+%   copyText   :: Static Text ~> (Static Text * Static Text)
+%   copyNumber :: Static Number ~> (Static Number * Static Number)
+% These are primitives provided by the avm, ultimately, so the defs
+% are pretty simple. They're just necessary for the bootstrap.
+
 copyText    = avmprim:copyStaticText
 copyBlock   = avmprim:copyStaticBlock
 copyNumber  = avmprim:copyStaticNumber

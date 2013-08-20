@@ -1,30 +1,63 @@
-
--- This is the default Awelon Virtual Machine definition module. 
---
--- It describes primitives to the parser, or to other modules.
---
-
 import avmboot
 
--- avmboot gives us very few operations:
---
---   first      :: (x ~> x') * (x * y) ~> (x' * y)
---   swap       :: (x * y) ~> (y * x)
---   assocl     :: (x * (y * z)) ~> ((x * y) * z)
---   copyText   :: Static Text ~> (Static Text * Static Text)
---   copyBlock  :: Static Block ~> (Static Block * Static Block)
---   copyNumber :: Static Number ~> (Static Number * Static Number)
---
--- There aren't many because these must be initially provided by
--- a parser (as part of a bootstrap process). 
---
--- Our initial environment is Awelon's standard environment (so this
--- module can be used by standard modules). 
---     lb * 
---     (1) empty hands
---     
---    
--- In addition, we have normal access to literals.
+% This is the default Awelon Virtual Machine definition module. 
+% Its purpose is to provide a description of Awelon to the 
+% compiler/interpreter. This description consists of:
+%
+%   primitive behaviors
+%     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
+%     types are represented as blocks operating on typerep
+%
+%   a few non-primitive behaviors (provided as blocks)
+%     literal insert action
+%     default environment-builder for the initial input
+%
+%   equational laws (not sure how to represent these yet)
+%   rewrite rules (ditto)
+%
+%   application models:
+%     named models with initial env and types
+%
+% NOTE: avm assumes the standard Awelon environment.
+%     (sL * (sC * sR)) * (lH * rH)
+%         STACKS           HANDS 
+
+
+
+% But before all that, I need a whole ton of helper functions. Some
+% of these will be re-exported by other modules, so aren't wasted. 
+%
+% These operations are 'blockless' so they don't depend on blocks
+% being added to the environment at a particular location.
+% 
+assocr = swap assocl swap assocl swap               % reverse of assocl
+rot2 = intro1 rot3 intro1 rot3 elim1 elim1          % simple rotate of two elements
+zip2 = assocr rot3 rot2 assocl                      % aka transpose2 (want higher values?)
+insert = rot2 swap rot3 rot2 zip2 rot3 rot3 swap    % outside env to current stack
+extract = swap rot3 zip2 rot3 rot2 swap rot2        % current stack to outside env
+insertStack = assocl swap rot3 rot2 swap            % insert whole stack, becomes current
+extractStack = swap rot3 assocl swap rot2           % extract whole stack, invalid state
+take = extract rot3 rot3                            % from current stack to hand
+put = rot3 insert                                   % from hand to current stack
+newStack = swap assocl intro1 rot3 rot3 assocr swap % create empty stack to user's right
+remStack = swap assocl rot3 elim1 assocr swap       % remove EMPTY stack to user's right
+stepLeft = assocr zip2 rot2 assocl                  % move to stack on left (must exist)
+stepRight = assocr rot2 zip2 assocl                 % move to stack on right (must exist)
+
+% wrapping a value in a fresh sub-environment, or unwrapping it
+%  wrapVal and unwrapVal operate on a single element.
+wrapVal = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+unwrapVal = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+
+% also a few block operators. These assume block is on current stack.
+second = assocl swap rot2 first swap                % operate on second element in pair
+appX = extract rot2 extract rot3 first insert       % apply block on stack to top element 
+appS = extractStack assocr first insertStack        % apply block on stack to rest of stack
+appE = extract intro1 swap assocr first swap elim1  % apply block on stack to full environment
+
+
+
+
 
 
 
