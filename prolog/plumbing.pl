@@ -20,31 +20,43 @@ lib([A,[B,C]],  rot2  ,[B,[A,C]],
     [intro1,rot3,intro1,rot3,elim1,elim1]).
 lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]],
     [assocr,rot3,rot2,assocl]).
+% some functions I'd prefer to avoid when building some functions
+% comment them back in if you want to try them.
 lib([X,[[SL,[SC,SR]],H]],  insert  ,[[SL,[[X,SC],SR]],H],
     [rot2,swap,rot3,rot2,zip2,rot3,rot3,swap]).
 lib([[SL,[[X,SC],SR]],H],  extract  ,[X,[[SL,[SC,SR]],H]],
     [swap,rot3,zip2,rot3,rot2,swap,rot2]).
-lib([SC,[[SL,SR],H]],  insertStack  ,[[SL,[SC,SR]],H],
-    [assocl,swap,rot3,rot2,swap]).
-lib([[SL,[SC,SR]],H],  extractStack  ,[SC,[[SL,SR],H]],
-    [swap,rot3,assocl,swap,rot2]).
-lib([[SL,[[X,SC],SR]],[HL,HR]], take  ,[[SL,[SC,SR]],[HL,[X,HR]]],
-    [extract,rot3,rot3]).
-lib([[SL,[SC,SR]],[HL,[X,HR]]], put  ,[[SL,[[X,SC],SR]],[HL,HR]],
-    [rot3,insert]).
-lib([[SL,[SC,SR]],H],  newStack  ,[[SL, [SC, [unit,SR]]], H],
-    [swap,assocl,intro1,rot3,rot3,assocr,swap]).
-lib([[SL, [SC, [unit,SR]]], H],  remStack  ,[[SL,[SC,SR]],H],
-    [swap,assocl,rot3,elim1,assocr,swap]).
-lib([[[ST,SL],[SC,SR]],H],  stepLeft,  [[SL,[ST,[SC,SR]]],H],
-    [assocr,zip2,rot2,assocl]).
-lib([[SL,[SC,[ST,SR]]],H],  stepRight,  [[[SC,SL],[ST,SR]],H],
-    [assocr,rot2,zip2,assocl]).
+%lib([SC,[[SL,SR],H]],  insertStack  ,[[SL,[SC,SR]],H],
+%    [assocl,swap,rot3,rot2,swap]).
+%lib([[SL,[SC,SR]],H],  extractStack  ,[SC,[[SL,SR],H]],
+%    [swap,rot3,assocl,swap,rot2]).
+%lib([[SL,[[X,SC],SR]],[HL,HR]], take  ,[[SL,[SC,SR]],[HL,[X,HR]]],
+%    [extract,rot3,rot3]).
+%lib([[SL,[SC,SR]],[HL,[X,HR]]], put  ,[[SL,[[X,SC],SR]],[HL,HR]],
+%    [rot3,insert]).
+%lib([[SL,[SC,SR]],H],  newStack  ,[[SL, [SC, [unit,SR]]], H],
+%    [swap,assocl,intro1,rot3,rot3,assocr,swap]).
+%lib([[SL, [SC, [unit,SR]]], H],  remStack  ,[[SL,[SC,SR]],H],
+%    [swap,assocl,rot3,elim1,assocr,swap]).
+%lib([[[ST,SL],[SC,SR]],H],  stepLeft,  [[SL,[ST,[SC,SR]]],H],
+%    [assocr,zip2,rot2,assocl]).
+%lib([[SL,[SC,[ST,SR]]],H],  stepRight,  [[[SC,SL],[ST,SR]],H],
+%    [assocr,rot2,zip2,assocl]).
+%lib([[SL,[SC,SR]],[HL,HR]],  swapStack,  [[SL,[HR,SR]],[HL,SC]],
+%    [swap,zip2,rot3,rot2,zip2,swap]).
+lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
+    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
+lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
+    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
+stackToElement(N) :- path( [[sL,[sC,sR]],h],
+                        [[sL,[[sC,unit],sR]],h], N).
+elementToStack(N) :- path( [[sL,[[sC,unit],sR]],h],
+                        [[sL,[sC,sR]],h], N). 
 
-lib(X,  wrapV,  WX, 
+lib(X,  wrapEnv,  WX, 
     [intro1,swap,intro1,swap,intro1,intro1,intro1,assocl,swap])
     :- wrapped(X,WX).
-lib(WX, unwrapV, X,
+lib(WX, unwrapEnv, X,
     [swap,assocr,elim1,elim1,elim1,swap,elim1,swap,elim1])
     :- wrapped(X,WX).
 
@@ -63,21 +75,39 @@ lib(WX, unwrapV, X,
 %lib([[SL,[[F,SC],SR]],H],  prep_appE  ,[F, [[[SL,[SC,SR]],H],unit]  ],
 %    [extract,intro1,swap,assocr]). % unit is there so we can apply 'first'
 
+
+
+
 newStack(N) :- path([[sL,[sC,sR]],h], 
                     [[sL,[sC,[unit,sR]]],h], N).
 remStack(N) :- path([[sL,[sC,[unit,sR]]],h],
                     [[sL,[sC,sR]],h], N).
-
 stepLeft(N) :- path([[[sT,sL],[sC,sR]],h],
                     [[sL,[sT,[sC,sR]]],h], N).
 stepRight(N) :- path( [[sL,[sC,[sT,sR]]],h],
                       [[[sC,sL],[sT,sR]],h], N).  
+swapStackHand(N) :- path( [[sL,[sC,sR]],[hL,hR]],
+                          [[sL,[hR,sR]],[hL,sC]], N).
+stackToElement(N) :- path( [[sL,[sC,sR]],h],
+                        [[sL,[[sC,unit],sR]],h], N).
+elementToStack(N) :- path( [[sL,[[sC,unit],sR]],h],
+                        [[sL,[sC,sR]],h], N). 
 
-% create a new 
+
+% wrap value as first element in environment
 wrapped(X,[[unit,[[X,unit],unit]],[unit,unit]]).  
 
 wrapEnv(N) :- wrapped(x,WX),!,path(x,WX,N).
 unwrapEnv(N) :- wrapped(x,WX),!,path(WX,x,N).
+
+wrapX(N) :-
+    wrapped(x,WX),!,
+    path([[sL,[[x,sC],sR]],[hL,hR]]
+        ,[[sL,[[WX,sC],sR]],[hL,hR]], N).
+unwrapX(N) :-
+    wrapped(x,WX),!,
+    path([[sL,[[WX,sC],sR]],[hL,hR]]
+        ,[[sL,[[x,sC],sR]],[hL,hR]], N).
 
 
 % test for a function of up to N elements.

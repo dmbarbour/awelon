@@ -8,6 +8,10 @@ import avmboot
 %     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
 %     types are represented as blocks operating on typerep
 %
+%   support for ad-hoc type attributes:
+%     e.g. shapes and colors (for debugging / display)
+%     
+%
 %   a few non-primitive behaviors (provided as blocks)
 %     literal insert action
 %     default environment-builder for the initial input
@@ -28,7 +32,8 @@ import avmboot
 % of these will be re-exported by other modules, so aren't wasted. 
 %
 % These operations are 'blockless' so they don't depend on blocks
-% being added to the environment at a particular location.
+% being added to the environment at a particular location, but
+% do depend on the standard environment structure.
 % 
 assocr = swap assocl swap assocl swap               % reverse of assocl
 rot2 = intro1 rot3 intro1 rot3 elim1 elim1          % simple rotate of two elements
@@ -37,28 +42,52 @@ insert = rot2 swap rot3 rot2 zip2 rot3 rot3 swap    % outside env to current sta
 extract = swap rot3 zip2 rot3 rot2 swap rot2        % current stack to outside env
 insertStack = assocl swap rot3 rot2 swap            % insert whole stack, becomes current
 extractStack = swap rot3 assocl swap rot2           % extract whole stack, invalid state
-take = extract rot3 rot3                            % from current stack to hand
-put = rot3 insert                                   % from hand to current stack
-newStack = swap assocl intro1 rot3 rot3 assocr swap % create empty stack to user's right
-remStack = swap assocl rot3 elim1 assocr swap       % remove EMPTY stack to user's right
+take = extract rot3 rot3                            % from current stack to right hand
+put = rot3 insert                                   % from right hand to current stack
+swapStack = swap zip2 rot3 rot2 zip2 swap           % swap full current stack with full right hand 
 stepLeft = assocr zip2 rot2 assocl                  % move to stack on left (must exist)
 stepRight = assocr rot2 zip2 assocl                 % move to stack on right (must exist)
+newStack = swap assocl intro1 rot3 rot3 assocr swap % create empty stack at user's right
+remStack = swap assocl rot3 elim1 assocr swap       % remove empty stack at user's right
+stackToElem = assocr intro1 rot3 zip2               % capture current stack as element; becomes 
+              assocl rot2 assocl                    %   single element stack (oldCurrStack*unit)
+elemToStack = swap rot3 assocr rot2                 % restore captured stack from single element;  
+              elim1 rot3 rot3 swap                  %   stack must otherwise be empty
+wrapE = intro1 swap intro1 swap intro1              % wrap object in fresh environment; becomes 
+        intro1 intro1 assocl swap                   %   top element of current stack in new env
+unwrapE = swap assocr elim1 elim1 elim1             % unwrap environment from single value; must be
+          swap elim1 swap elim1                     %   all values on single stack.
 
-% wrapping a value in a fresh sub-environment, or unwrapping it
-%  wrapVal and unwrapVal operate on a single element.
-wrapVal = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
-unwrapVal = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
 
-% also a few block operators. These assume block is on current stack.
+% block application operators. These assume block is top element on current stack.
 second = assocl swap rot2 first swap                % operate on second element in pair
 appX = extract rot2 extract rot3 first insert       % apply block on stack to top element 
 appS = extractStack assocr first insertStack        % apply block on stack to rest of stack
 appE = extract intro1 swap assocr first swap elim1  % apply block on stack to full environment
 
+% wrapped application operators. These wrap target in fresh environment before
+% application, then unwrap afterwards. Currently NOT blockless (got impatient with Prolog)
+% (Note that target behavior must have same basic structure on output.)
+appWX = take [wrapE] appX put appX [unwrapE] appX
+appWS = take stackToElem [wrapE elemToStack] appX put
+        appX [stackToElem unwrapE] appX elemToStack
+
+% the common use applicators, aliased.
+apply = appWX
+applyStack = appWS
+applyEnv = appE
 
 
 
+% wrapped application. These combine the act of wrap and apply; currently not blockless
+%   appXW - apply block on stack to top element of stack in new env
+%   appSW - apply block on stack to rest of stack in new env
+appXW = take [wrapE] appX put appX [unwrapE] appX
+_X2S = [swap elim1] appS    % (a*(b*(c*unit)))*unit ~> (a*(b*(c*unit)))
+_S2X = [intro1 swap] appS   % reverse of _X2S
+appSW = take [
 
+wrapE _X2S] appS put appS [_S2X unwrapE] appS
 
 
 
