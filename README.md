@@ -137,14 +137,16 @@ Names can become syntactic noise and clutter if overused. I prefer to use names 
 
 ## Awelon's Module System
 
-Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple alphanumeric words. Modules may be associated with local names. Imports must be acyclic. 
+Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple alphanumeric words. Modules may be associated with local names. Imports may be cyclic.
 
         import common, packageWithLongName AS p, foo
-        _s = swap [swap] first swap first swap
-        f = foo [p:bar foo:bar] first %  here 'foo' means 'foo:this'
         this = [f] _s
+        f = foo [p:bar foo:bar] first %  here 'foo' means 'foo:this'
+        _s = swap [swap] first swap first swap
 
-Words within a module must be defined before they are used. All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any potential ambiguity for a word (i.e. if it is exported from two of the modules, including this one), it becomes necessary to use the prefixed form.
+Words may be defined in any order within a module. However, definitions cannot be cyclic or recursive.
+
+All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any potential ambiguity for a word (i.e. if it is exported from two of the modules, including this one), it becomes necessary to use the prefixed form.
 
 The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix for a module's words. When imported, the word 'this' is mapped instead to the import name, e.g. 'foo' means 'foo:this' after importing foo (assuming no ambiguity). Also, the word 'this' in Awelon serves the same role as 'main' in many other languages. Awelon is intended for component based software; I believe 'this' has nice connotations for treating modules as possible software components.
 
@@ -193,7 +195,7 @@ For example, a 'copy' behavior might look at its argument and decide between a c
 
 ### Static Choice
 
-Awelon distinguishes static choice `(x | y)` from sums `(x + y)`. A static choice is made based on observing a static value or introspecting a static type. A sum may be static or dynamic. Compilers can optimize a static sum under the hood, but developers must assume (with regards to type safety) that a sum is dynamic. Developers have much greater control and awareness of static choice.
+Awelon supports a concept of static choice `(x | y)` distinct from from sums `(x + y)`. A static choice is made based on observing a static value or introspecting a static type. A sum may be static or dynamic. Compilers can optimize a static sum under the hood, but developers must assume (with regards to type safety) that a sum is dynamic. Developers have much greater control and awareness of static choice.
 
 Static choice is the basis for ad-hoc polymorphism. Developers can introspect types and values to make decisions:
 
@@ -231,9 +233,10 @@ Modeling choice in this first-class manner is much more extensible, expressive, 
 
 After forgetting, developers should either be writing for the correct choice, or writing more polymorphic code that doesn't really care which choice was made. The runtime version of choice is 'merge' but is constrained to have identical types.
 
+
 ## Static Latent Choice
 
-Awelon also provides a static type `(x & y)` that offers a latent choice (aka 'additive conjunction' in linear logic, or just 'offer' in Awelon). The intuition is that we are offering x or y, but the choice hasn't been made yet. The utility of latent choice comes from a programmer's ability to continue extrapolating on the different paths before making a choice. 
+Awelon also supports a concept of latent choice `(x & y)`. This is called additive conjunction in linear logic, and called an 'offer' in Awelon. The intuition is that we are offering x or y, but the choice hasn't been made yet. The utility of latent choice comes from a programmer's ability to continue extrapolating on the different paths before making a choice. 
 
 Latent choice is useful for modeling lookahead searches, or for adaptive software where we want to examine multiple valid static outcomes and pick a 'best' one according to some static heuristic. Simpler searches, e.g. scanning an association list of `(Static Text * value)` pairs, don't require latent choice. Since latent choice can be a relatively expensive compile-time feature, it should be avoided if unnecessary. 
 

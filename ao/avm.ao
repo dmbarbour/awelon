@@ -1,7 +1,7 @@
 import avmboot
 
 % This is the default Awelon Virtual Machine definition module. 
-% Its purpose is to provide a description of Awelon to the 
+% Its main purpose is to provide a description of Awelon to the 
 % compiler/interpreter. This description consists of:
 %
 %   primitive behaviors
@@ -10,7 +10,6 @@ import avmboot
 %
 %   support for ad-hoc type attributes:
 %     e.g. shapes and colors (for debugging / display)
-%     
 %
 %   a few non-primitive behaviors (provided as blocks)
 %     literal insert action
@@ -19,75 +18,157 @@ import avmboot
 %   equational laws (not sure how to represent these yet)
 %   rewrite rules (ditto)
 %
-%   application models:
-%     named models with initial env and types
+%   application models: just input types, really.
 %
-% NOTE: avm assumes the standard Awelon environment.
-%     (sL * (sC * sR)) * (lH * rH)
-%         STACKS           HANDS 
+% But before all that, I want a whole ton of helper functions. The
+% useful functions will be exported by common modules.
 
-
-
-% But before all that, I need a whole ton of helper functions. Some
-% of these will be re-exported by other modules, so aren't wasted. 
-%
-% These operations are 'blockless' so they don't depend on blocks
-% being added to the environment at a particular location, but
-% do depend on the standard environment structure.
-% 
+% Environment Agnostic Data Plumbing (not very useful to programmers)
 assocr = swap assocl swap assocl swap               % reverse of assocl
 rot2 = intro1 rot3 intro1 rot3 elim1 elim1          % simple rotate of two elements
-zip2 = assocr rot3 rot2 assocl                      % aka transpose2 (want higher values?)
-insert = rot2 swap rot3 rot2 zip2 rot3 rot3 swap    % outside env to current stack
-extract = swap rot3 zip2 rot3 rot2 swap rot2        % current stack to outside env
-insertStack = assocl swap rot3 rot2 swap            % insert whole stack, becomes current
-extractStack = swap rot3 assocl swap rot2           % extract whole stack, invalid state
-take = extract rot3 rot3                            % from current stack to right hand
-put = rot3 insert                                   % from right hand to current stack
-swapStack = swap zip2 rot3 rot2 zip2 swap           % swap full current stack with full right hand 
+rot4 = assocl rot3 rot2 assocr rot3                 % simple rotate of four elements
+rot5 = assocl rot4 rot2 assocr rot3                 % simple rotate of five elements
+rot6 = assocl rot5 rot2 assocr rot3                 % simple rotate of six elements
+zip2 = assocr rot3 rot2 assocl                      % firsts with firsts, seconds with seconds
+second = assocl swap rot2 first swap                % operate on second element
+
+% Environment Specific Data Plumbing
+%
+%   The following definitions rely on Awelon's standard environment.
+%
+%       MULTI-STACK * HANDS
+%       (sL*(sC*sR))*(lH*rH)  
+%
+%   They will need redefined if we change Awelon's environment.
+%
+% By convention, the left hand is for 'rich' language extensions
+% (e.g. named stacks) and the right is temporary storage and means 
+% place to carry things - but not really an active area. The current
+% stacks is where most actions apply, and where literals are added. 
+% Multiple stacks provide scratch areas and area to spread concurrent
+% tasks (i.e. when we need to share intermediate values).
+%
+% Many of these environment manipulations are 'blockless'. This is
+% essential for the basic operations because adding blocks to the
+% current stack would interfere with some manipulations. Blockless 
+% encoding also seems elegant, so I use it even where unnecessary. 
+%
+% These functions were mostly discovered by logic search. 
+%
+jugl2 = assocl rot3 rot2 assocr                     % rotate two elements in right hand
+jugl3 = assocl jugl2 assocr jugl2                   % rotate three elements in right hand
+jugl4 = assocl jugl3 assocr jugl2                   % rotate four elements in right hand
+jugl5 = assocl jugl4 assocr jugl2                   % rotate five elements in right hand
+jugl6 = assocl jugl5 assocr jugl2                   % rotate six elements in right hand
+_insert = rot2 swap rot3 rot2 zip2 rot3 rot3 swap   % outside env to top of current stack
+_extract = swap rot3 zip2 rot3 rot2 swap rot2       % top of current stack to outside env
+take = _extract rot3 rot3                           % from current stack to right hand
+put = rot3 _insert                                  % from right hand to current stack
+swapHands = assocl swap rot2                        % switch right and left hands
+swapStack = swap zip2 rot3 rot2 zip2 swap           % switch current stack right hand stack 
+
+roll2 = swap rot3 swap rot3 rot2 swap rot3 rot3 swap % rotate two elements in current stack
+roll3 = take roll2 put roll2                        % rotate three elements in current stack
+roll4 = take roll3 put roll2                        % rotate four elements in current stack
+roll5 = take roll4 put roll2                        % rotate five elements in current stack
+roll6 = take roll5 put roll2                        % rotate six elements in current stack
 stepLeft = assocr zip2 rot2 assocl                  % move to stack on left (must exist)
 stepRight = assocr rot2 zip2 assocl                 % move to stack on right (must exist)
 newStack = swap assocl intro1 rot3 rot3 assocr swap % create empty stack at user's right
 remStack = swap assocl rot3 elim1 assocr swap       % remove empty stack at user's right
-stackToElem = assocr intro1 rot3 zip2               % capture current stack as element; becomes 
-              assocl rot2 assocl                    %   single element stack (oldCurrStack*unit)
-elemToStack = swap rot3 assocr rot2                 % restore captured stack from single element;  
-              elim1 rot3 rot3 swap                  %   stack must otherwise be empty
-wrapE = intro1 swap intro1 swap intro1              % wrap object in fresh environment; becomes 
-        intro1 intro1 assocl swap                   %   top element of current stack in new env
-unwrapE = swap assocr elim1 elim1 elim1             % unwrap environment from single value; must be
-          swap elim1 swap elim1                     %   all values on single stack.
+intro1S = intro1 _insert                            % add unit to top of stack
+elim1S = _extract elim1                             % remove unit from top of stack
 
 
-% block application operators. These assume block is top element on current stack.
-second = assocl swap rot2 first swap                % operate on second element in pair
-appX = extract rot2 extract rot3 first insert       % apply block on stack to top element 
-appS = extractStack assocr first insertStack        % apply block on stack to rest of stack
-appE = extract intro1 swap assocr first swap elim1  % apply block on stack to full environment
+% Sub-Structural Operators: 
+%
+% 'expand2' will break a pair on the stack into two stack elems.
+% 'shrink2' will combine two stack elements into a pair on the stack
+%
+% Higher numbered variations allow breaking apart 'deeper' structures.
+% E.g. (a*(b*(c*d))) can be broken into four elements by use of expand4.
+% OTOH (((a*b)*c)*d) can be broken using expand2 three times.
+%
+% Combined with take, put, a little rolling or juggling, developers 
+% should be able to pick apart any structure they need to pick apart.
+%
+expand2 = swap rot3 swap rot2 assocr rot3 swap rot3 rot3 swap
+expand3 = expand2 take expand2 put
+expand4 = expand2 take expand3 put
+expand5 = expand2 take expand4 put
+expand6 = expand2 take expand5 put
+shrink2 = swap rot3 swap rot3 rot3 assocl rot2 swap rot3 rot3 swap
+shrink3 = take shrink2 put shrink2
+shrink4 = take shrink3 put shrink2
+shrink5 = take shrink4 put shrink2
+shrink6 = take shrink5 put shrink2
 
-% wrapped application operators. These wrap target in fresh environment before
-% application, then unwrap afterwards. Currently NOT blockless (got impatient with Prolog)
-% (Note that target behavior must have same basic structure on output.)
-appWX = take [wrapE] appX put appX [unwrapE] appX
-appWS = take stackToElem [wrapE elemToStack] appX put
-        appX [stackToElem unwrapE] appX elemToStack
 
-% the common use applicators, aliased.
-apply = appWX
-applyStack = appWS
-applyEnv = appE
+% Environment Manipulations
+%
+%    wrapE - capture environment as a value on the stack or wrap any
+%      value in a new environment. unwrapE to reverse.
+%    wrapS - capture current stack as a value, leaving a stack with
+%      only one element. unwrapS to reverse.
+%
+%
+% Mostly, these are used to control inputs to subprograms. 
+%
+wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+wrapS = assocr intro1 rot3 zip2 assocl rot2 assocl
+unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
+
+% Block Applicators
+%
+%  These apply the block on the top of the current stack, removing
+%  said block from the environment in the process.
+%
+%   apply - apply to top element of current stack in fresh env
+%   appE - apply to full environment (as if block is inlined)
+%   appX - apply to top element of current stack (naked apply)
+%   appS - apply to current stack in fresh env
+%
+%   apf - apply to first element of pair on current stack
+%   aps - apply to second element of pair on current stack
+% 
+appE = _extract intro1 swap assocr first swap elim1
+appX = _extract rot2 _extract rot3 first _insert
+apply = take [wrapE] appX put appX [unwrapE] appX
+appS = take wrapS [wrapE unwrapS] appX put appX [wrapS unwrapE] appX unwrapS
+apf = take expand2 put apply shrink2
+aps = take expand2 roll2 put apply roll2 shrink2
 
 
 
-% wrapped application. These combine the act of wrap and apply; currently not blockless
-%   appXW - apply block on stack to top element of stack in new env
-%   appSW - apply block on stack to rest of stack in new env
-appXW = take [wrapE] appX put appX [unwrapE] appX
-_X2S = [swap elim1] appS    % (a*(b*(c*unit)))*unit ~> (a*(b*(c*unit)))
-_S2X = [intro1 swap] appS   % reverse of _X2S
-appSW = take [
+% Hopefully that's enough to start getting some useful primitives
+% described. I'll add more if I need more, though.
 
-wrapE _X2S] appS put appS [_S2X unwrapE] appS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

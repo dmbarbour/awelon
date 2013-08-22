@@ -33,13 +33,14 @@ data AppCX = AppCX
     { prims :: [Prim]
     }
 
--- Support some basic types...
+-- Support some basic Awelon type representations...
 data Type 
-    = One -- from intro1
-    | Zero -- from intro0
+    = Unit -- from intro1
     | ST Text -- static text
     | SN Rational -- static number
-    | 
+    | Sum Type Type
+    | Prod Type Type
+    | Dead Type
 
 
 -- get back to these...
