@@ -1,10 +1,8 @@
 
 
-This project does not *depend* on prolog. 
+This project does not *depend* on prolog. Rather, prolog was used to search for many of the blockless functions, and was part of the decision process that led to `rot3` becoming a primitive.
 
-Rather, prolog was used to find a few functions.
-
-And to determine that 'rot3' should be a primitive.
+Todo next: use Prolog to help construct recursive block combinators.
 
 
 

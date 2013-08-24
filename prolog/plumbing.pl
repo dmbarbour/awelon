@@ -73,11 +73,10 @@ lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
 %    [assocr,rot2,zip2,assocl]).
 %lib([[SL,[SC,SR]],[HL,HR]],  swapStack,  [[SL,[HR,SR]],[HL,SC]],
 %    [swap,zip2,rot3,rot2,zip2,swap]).
-%lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
-%    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
-%lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
-%    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
-
+lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
+    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
+lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
+    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
 
 %lib(X,  wrapEnv,  WX, 
 %    [intro1,swap,intro1,swap,intro1,intro1,intro1,assocl,swap])
@@ -85,8 +84,6 @@ lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
 %lib(WX, unwrapEnv, X,
 %    [swap,assocr,elim1,elim1,elim1,swap,elim1,swap,elim1])
 %    :- wrapped(X,WX).
-
-
 
 
 % hmmm. wrapVal is nice, but not exactly what I want. I need a 

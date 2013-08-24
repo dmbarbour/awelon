@@ -33,14 +33,19 @@ data AppCX = AppCX
     { prims :: [Prim]
     }
 
--- Support some basic Awelon type representations...
+-- I'm going to start minimal here and build up types as
+-- I need them. I already know I might want:
+--    sum types, dead types
+--    zero types
+--    error tracking; modeling errors in the type system*
+--    atom types, atomic signals
+--    
+--    
 data Type 
     = Unit -- from intro1
     | ST Text -- static text
     | SN Rational -- static number
-    | Sum Type Type
     | Prod Type Type
-    | Dead Type
 
 
 -- get back to these...

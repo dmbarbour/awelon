@@ -9,13 +9,11 @@ This Haskell project will provide an initial compiler for Awelon.
 
 ## Tacit Programming
 
-Awelon code is [tacit](http://en.wikipedia.org/wiki/Tacit_programming). Juxtaposition is composition. All inputs are implicit, in an environment. However, unlike most tacit languages, Awelon's environment exists only as a compile-time type, and all manipulations to it are pure. Developers use the environment at a *conceptual* level - a way to organize resources and code, to envision or specify what a program should be doing. 
+Awelon code is [tacit](http://en.wikipedia.org/wiki/Tacit_programming). Juxtaposition is composition. All inputs are implicit, in an environment. However, unlike most tacit languages, Awelon's environment exists only as a compile-time type, and all manipulations to it are pure. Developers use the environment at a *conceptual* level - a way to organize resources and workflows, and to integrate them. 
 
 At runtime, the environment is gone and the data plumbing is compiled completely away.
 
 ### Stack Based Programming
-
-#### Starting With One Stack
 
 Like many tacit programming languages, Awelon supports stack-based programming. One of the key aspects of tacit programming is how *literals* are handled - e.g. if a developer writes `10 11 12`, what happens? Somehow, those literals must be added to the environment. For example, by pushing it onto a stack.
 
@@ -89,15 +87,7 @@ Awelon's static environment contains a non-empty *list* of stacks. There is alwa
 
 Of course, multiple stacks are useless if we don't have an effective way to move elements between them. I could potentially model throwing things between stacks, but there is a better way.
 
-#### Why Stacks?
-
-Awelon is based on a dataflow model. Such paradigms are more traditionally represented with boxes and wires. Many might curiously ask: why does Awelon need a stack? 
-
-The stacks in Awelon essentially model the imperative process of editing wires and boxes into an application. The stack carries wires and boxes - signals and blocks - as first-class elements. By modeling the editing process with code, it becomes possible to abstract it. Those abstractions are fine grained, higher order, ad hoc, adaptive, modeling reusable software components, smart wiring logic, deep wiring, complicated scatter/gather patterns, and repetition. 
-
-Imperative metaprogramming of a declarative program is perhaps the opposite of what most people expect, but it is very effective. The declarative target makes reasoning about the imperative code much simpler. In return, the imperative code allows precise, ad-hoc construction of complicated declarative models. Also, the imperative process performs predictably, which is important.
-
-Awelon developers will be capable of creating dataflow applications that are orders of magnitude larger and more complicated than boxes and wires languages, and thus able to address a wider variety of problem domains.
+*NOTE:* Many of the above definitions will don't account for blocks being added to the current stack in the middle of the manipulation. Awelon uses a 'block-free' encoding for the basic environment manipulations. See `stdenv.ao` for details.
 
 ### Hands to Carry Things
 
@@ -114,8 +104,6 @@ Hands are modeled as a pair of stacks, and are paired with the current environme
         %  left as exercise for reader :)
 
 By convention, the right hand is used for volatile operations (take, put, etc.). The left hand is used instead for environment extensions based on introspection and metaprogramming - such as modeling named stacks. 
-
-Literals are still added to the current stack. 
 
 *NOTE:* The programmer's hands are generally NOT passed to partially applied behaviors. The intuition here is that the developer is installing a behavior that will then execute without further guidance or interference. Also, conversely, the installed behavior must not affect the contents of the programmer's hand. Arguments to a partially applied behavior must be explicitly provided. 
 
@@ -169,7 +157,7 @@ This description includes types, partitions, and behavior primitives. It is a co
 
 Within the avm, the type of a behavior is represented as a block to execute on a type descriptor. The 
 
-The AVM is represented as an Awelon module that operates in a restricted subset of Awelon to construct its description (i.e. as opposed to using JSON or XML). The AVM definition module can import one module, called 'avmboot' The parser must understand this module implicitly, and it provides just a few primitives for static operations.
+The AVM is represented as an Awelon module that operates in a restricted subset of Awelon to construct its description (i.e. as opposed to using JSON or XML). This restricted subset is provided by a module called 'avmboot'. The AVM may import avmboot or other modules that ultimately depend on avmboot (rather than avmprim). The parser must understand avmboot implicitly during the bootstrap process. It provides just a few primitives for static operations.
 
 Essentially, the AVM is a machine-processed standards document. There won't be many AVMs (probably the main line, a few experimental branches, maybe a didactic subset). After Awelon matures, the AVM will evolve very slowly. 
 
@@ -183,7 +171,7 @@ In general, developers do not directly import the primitives module. Primitives 
 
 ### Awelon Objects
 
-Modules in Awelon are called Awelon Objects or AOs. The extension **.ao** should be used for modules represented in the filesystem. AO files should be encoded in UTF-8. The name of the module is simply the filename excluding the extension. If there are ambiguous filenames (e.g. with installed packages), they must be resolved externally.
+Modules in Awelon are called Awelon Objects or AOs. The extension **.ao** should be used for modules represented in the filesystem (thogh I would like to move Awelon to a more wiki-like environment). AO files should be encoded in UTF-8. The name of the module is simply the filename excluding the extension. If there are ambiguous filenames (e.g. with installed packages), they must be resolved externally.
 
 ## Polymorphic Behaviors
 
@@ -195,7 +183,7 @@ For example, a 'copy' behavior might look at its argument and decide between a c
 
 ### Static Choice
 
-Awelon supports a concept of static choice `(x | y)` distinct from from sums `(x + y)`. A static choice is made based on observing a static value or introspecting a static type. A sum may be static or dynamic. Compilers can optimize a static sum under the hood, but developers must assume (with regards to type safety) that a sum is dynamic. Developers have much greater control and awareness of static choice.
+Awelon supports a concept of static choice `(x | y)` distinct from from dynamic sums `(x + y)`. A static choice is made based on observing a static value or introspecting a static type. A sum may be static or dynamic. Compilers can optimize a static sum under the hood, but developers must assume (with regards to type safety) that a sum is dynamic. Developers have much greater control and awareness of static choice.
 
 Static choice is the basis for ad-hoc polymorphism. Developers can introspect types and values to make decisions:
 
@@ -232,29 +220,6 @@ Modeling choice in this first-class manner is much more extensible, expressive, 
         choiceForget :: (x | y) ~> x OR  (x | y) ~> y %  choice no longer visible
 
 After forgetting, developers should either be writing for the correct choice, or writing more polymorphic code that doesn't really care which choice was made. The runtime version of choice is 'merge' but is constrained to have identical types.
-
-
-## Static Latent Choice
-
-Awelon also supports a concept of latent choice `(x & y)`. This is called additive conjunction in linear logic, and called an 'offer' in Awelon. The intuition is that we are offering x or y, but the choice hasn't been made yet. The utility of latent choice comes from a programmer's ability to continue extrapolating on the different paths before making a choice. 
-
-Latent choice is useful for modeling lookahead searches, or for adaptive software where we want to examine multiple valid static outcomes and pick a 'best' one according to some static heuristic. Simpler searches, e.g. scanning an association list of `(Static Text * value)` pairs, don't require latent choice. Since latent choice can be a relatively expensive compile-time feature, it should be avoided if unnecessary. 
-
-        offerFork   :: x ~> (x & x)
-        offerAccept :: (x & y) ~> x
-        offerDist   :: (x * (y & z)) ~> ((x * y) & (x * z))
-        offerFirst  :: Static (x ~> x') * (x & y) ~> (x' & y)
-        offerAssocl :: (x & (y & z)) ~> ((x & y) & z)
-        offerSwap   :: (x & y) ~> (y & x)
-        %  no unit type, but fork/accept can do the same work
-
-Of course, to actually make choices we need some way to compare them. Developers are able to extract primtive static values from a subprogram to help make a choice or to use in other ways (it might be useful to exchange values between paths).
-
-        offerExtractText :: ((Static Text * x) & y) ~> Static Text * (x & y)
-        offerExtractNumber :: ((Static Number * x) & y) ~> Static Number * (x & y)
-        offerExtractBlock :: ((Static Block * x) & y) ~> Static Block * (x & y)
-
-Offers are linear; an offer *must* be accepted before the application will compile. 
 
 ### Recursion and Repetition
 
