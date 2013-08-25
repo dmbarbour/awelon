@@ -23,7 +23,8 @@ type Definition = (Word,Code)
 data Module = Module
     { name        :: ModuleName
     , imports     :: [Import] 
-    , definitions :: [Definition]  
+    , definitions :: [Definition]
+    , other       :: [Text]
     }
 data App = App
     { appStart :: Code -- words name modules
@@ -32,6 +33,27 @@ data App = App
 data AppCX = AppCX
     { prims :: [Prim]
     }
+type Code = [ WX ]
+data WX 
+    = W  ModuleName Word -- words
+    | LN Rational        -- 
+    | LT Text
+    | B  Code
+data Prim = Prim
+data Type 
+    = Unit -- from intro1
+    | ST Text -- static text
+    | SN Rational -- static number
+    | Prod Type Type 
+    | DSum Type Type -- dynamic sum
+    | SSum Type Type -- static sum
+    | Zero Type
+
+
+avmboot :: AppCX
+avmboot = AppCX { prims = bootprims }
+
+ 
 
 -- I'm going to start minimal here and build up types as
 -- I need them. I already know I might want:
@@ -41,29 +63,18 @@ data AppCX = AppCX
 --    atom types, atomic signals
 --    
 --    
-data Type 
-    = Unit -- from intro1
-    | ST Text -- static text
-    | SN Rational -- static number
-    | Prod Type Type
 
 
 -- get back to these...
-data Prim = Prim
+
 
 
 -- code is a list of word-expressions. 
 -- (Empty code is equivalent to id.)
-type Code = [ WX ]
 
 -- | a word-expression is a word, a number, text, 
 -- or a block of the same. Awelon is very easy to
 -- process. 
-data WX 
-    = W  ModuleName Word
-    | LN Rational
-    | LT Text
-    | B  Code
 
 
 -- PARSING MODULES

@@ -8,10 +8,16 @@ import avmboot,stdenv
 % primitive behaviors to the compiler or interpreter. This must
 % include the bootstrap primitives. 
 %
-% At the moment, I'm not quite sure how I want to describe these
-% primitives. As a named transformation on type descriptors? Or
-% perhaps I should list every type twice: string, and a block to
-% compute it.
+% At the moment, there are two issues I need to address:
+% 
+%   1) decide what primitives to describe
+%   2) decide how to describe these primitives
+%
+% Regarding the latter point, I think one feature I want is a behavior
+% to compute the typerep of the output given the typerep of the input.
+% In addition, I want english descriptors. But for the moment I could
+% limit it to just some descriptors and names!
+% 
 %
 %   primitive behaviors
 %     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
@@ -25,6 +31,8 @@ import avmboot,stdenv
 %     default environment-builder for the initial input
 %
 %   equational laws (not sure how to represent these yet)
+%     I'd like to support code-proofs. E.g. `addCommutes` and
+%     so on.
 %   rewrite rules (ditto)
 %
 %   application models: just input types, really.
@@ -33,7 +41,8 @@ import avmboot,stdenv
 % primitives) but can import other modules that are restricted
 % to avmboot.
 
-% Normal Data Plumbing Primitives
+% Basic Data Plumbing Primitives
+%
 %   first    ((x~>x')*(x*y))~>(x'*y)
 %   assocl   (x*(y*z))~>((x*y)*z)
 %   swap     (x*y)~>(y*x)
@@ -42,25 +51,128 @@ import avmboot,stdenv
 %   rot3     (a*(b*(c*d)))~>(c*(a*(b*d)))
 %  
 %   left     ((x~>x')*(x+y))~>(x'+y)
-%   assocls  (x+(y+z))~>((x+y)+z)
+%   assocl+  (x+(y+z))~>((x+y)+z)
 %   mirror   (x+y)~>(y+x)
-%   intro0   x~>(0+x)
-%   elim0    (0+x)~>x
-%   rot3s    (a+(b+(c+d)))~>(c+(a+(b+d)))
+%   intro0   x~>((0*x)+x)
+%   elim0    ((0*y)+x)~>x
+%   rot3+    (a+(b+(c+d)))~>(c+(a+(b+d)))
 %
-%   nochoice x~>(x+x)
+% The left, mirror, etc. primitives are polymorphic for dynamic and 
+% static sums (x|y). I could have overloaded first/swap/etc. to work
+% with sums too, but I decided that the distinction between sum and
+% product is significant enough that developers should need a parallel
+% vocabulary. The distinction between static and dynamic sums, OTOH,
+% is limited to a few distribution and merge operators. Basic data
+% plumbing should all be the same.
+%
+% 
+
+
+% Debugging Primitives
+%
+%   error :: (Text*x)~>x
+%   warn  :: (Text*x)~>x
+%   trace :: (Text*x)~>x
+%
+% Error will create a type-error at `x`, will automatically track
+% the expansion in which this error was introduced, and will taint
+% everything that uses `x` (except pure data plumbing). An error
+% is reduced to a warning if it occurs in a dead-code branch.
+%
+% Warn and trace do the same thing, but have different levels of
+% severity. Trace is potentially useful for IDEs and debugging, i.e.
+% to add color to a program or a rendered type representation.
+
+
+
+% Manipulating Static Values - we do a lot of this in Awelon
+%
+% Statics can generally be captured, copied, or dropped. 
+%   staticTextCapture   :: T~>(1~>T)
+%   staticNumberCapture :: N~>(1~>N)
+%   staticBlockCapture  :: B~>(1~>B)   (not for linearized blocks)
+%
+%   staticTextCopy      :: T~>(T*T)
+%   staticNumberCopy    :: N~>(N*N)
+%   staticBlockCopy     :: B~>(B*B)
+%
+%   staticTextDrop      :: T~>1
+%   staticNumberDrop    :: N~>1
+%   staticBlockDrop     :: B~>1
+%
+% Numbers can be manipulated in several useful ways...
+%
+%   staticNumberAdd (N*N)~>N
+%   staticNumberAdd (N*N)~>N
+%   staticNumberMul (N*N)~>N
+%   staticNumberInv; assert non-zero; N~>N
+%   staticNumberNeg N~>N
+%   staticNumberMin (N*N)~>N
+%   staticNumberMax (N*N)~>N
+%   staticNumberCmp  
+%   
+
+%   testIsStaticNumber x~>(x|x)
+%   testIsStaticIntegral x~>(x|x)
+%   testNumberLessThan (N*N)~>((N*N)|(N*N)) -- less-than
+
+% Static Text Operators
+%   staticTextAppend  (T*T)~>T
+%   staticTextSplitAt (T*T)~>(T*T)
+%   staticTextCopy T~>(T*T)
+%   staticText
+%   
+
+
+% Temporal Primitives?
+%
+%   delay :: (Number * x) ~> x'
+%   synch :: x ~> x'
+%   usebefore :: (Number * block) ~> block
+%   useafter  :: (Number * block) ~> block
+%
+% Note: I'm not sure I want synch and delay as primitives. Not every
+% parititon should support them. However, 
+
+
+% Linearity Primtives - enforcing negotiation protocols, contracts,
+% exclusivity, uniqueness, and resource control. Linearity is a very
+% expressive yet simple concept.
+%
+% Note that while some applications of linearity can be "declared",
+% others - in particular those involving uniqueness or exclusivity -
+% require a linear object called the "unique source" (or unisauce)
+% to be threaded through the application. Awelon cannot simply create
+% a unique source due to RDP's idempotence properties.
+%
+% Declarative Linearity
+%   can only be applied to 'blocks' because only blocks have a well
+%   defined notion of "usage" - e.g. by first, left, dynamic eval,
+%   or collection-oriented evals. For convenience, linear blocks are
+%   not treated distinctly by those operators, rather only by copy or
+%   drop behaviors. Block composition with a linear block (for either
+%   or both arguments) will result in a linear block.
+%
 %   
 %
-
-% Question: Should I model static choice (x|y) and offers (x&y) as
-% language primitives, or should I model them above regular choice
-% and products and fractional types? Or maybe a mix, where some of
-% the primitives will operate only on static choice?
+%   Other values can be linearized by either lifting them to blocks
+%   (any static can be lifted) or clever use of sealer/unsealer patterns. 
 %
-% Thoughts: It might be better to use more primitives than needed,
-% then later work my way backwards, if it means getting something
-% implemented faster. OTOH, in some cases adding more primitives is
-% more difficult. 
+%   When composed, 
+%   blocks have a well-defined concept for 'used'. Declarative linearity can only effectively be applied to blocks. For convenience,
+%
+%     linearize :: block ~> linearBlock (transparent to first, left, eval)
+%     
+%   linearize ::  (x~>y) ~> Linear(x~>y)
+%      a linear block is transparently applied by first or left.
+%      however, it cannot be dropped without application
+
+
+
+% Collection-Oriented Awelon - matrices of signals
+% 
+% 
+
 
 
 
@@ -74,20 +186,6 @@ import avmboot,stdenv
 %   staticBlockCopy B~>(B*B)
 
 % Static Number Operators
-%   staticNumberAdd (N*N)~>N
-%   staticNumberMul (N*N)~>N
-%   staticNumberInv; assert non-zero; N~>N
-%   staticNumberNeg N~>N
-%   staticNumberCopy N~>(N*N)
-%   testIsStaticNumber x~>(x|x)
-%   testIsStaticIntegral x~>(x|x)
-%   testNumberLessThan (N*N)~>((N*N)|(N*N)) -- less-than
-
-% Static Text Operators
-%   staticTextAppend  (T*T)~>T
-%   staticTextSplitAt (T*T)~>(T*T)
-%   staticTextCopy T~>(T*T)
-%   staticText
 
 % Product Primitives
 

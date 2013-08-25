@@ -110,8 +110,9 @@ shrink6 = take shrink5 put shrink2
 % Environment Manipulations
 %
 %  wrapE - wrap a value in a fresh environment; wrapped value becomes
-%    the only element in a fresh current stack. If `wrapE` is called
-%    without a specific target, it captures the current environment.
+%    the only element in a fresh env's current stack. If `wrapE` is 
+%    called without a specific target, it captures the current 
+%    environment.
 %  wrapS - capture current stack as a value, which is afterwards the
 %    only value on the current stack. 
 %  unwrapE/unwrapS - reverse these manipulations.
@@ -141,11 +142,13 @@ unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
 %  would locate 'b'. 'apsfs' locates (d*e). Locators are provided up
 %  to four deep.
 %
-%  For 'app' the locator's target is the second element on the stack.
-%  The first argument allows extra parameters to the behavior.
+%  For 'app' the locator's target is the second element on the stack
+%  (originally the third, before removing the block). The target will
+%  also be arranged below the extra argument in the target stack.
 %
-%  Upon returning, the (potentially modified) arguments are restored to 
-%  their original locations. 
+%  Upon returning from 'ap' or 'app' the target and potential extra 
+%  argument are restored to their original locations. They may have
+%  been modified.
 %   
 % 
 appX = _extract rot2 _extract rot3 first _insert

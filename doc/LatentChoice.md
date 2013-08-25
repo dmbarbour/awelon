@@ -1,6 +1,6 @@
-Still thinking about this. It seems it would make a decent primitive just because of the easy distribution properties. OTOH, it might be something I can model using a fractional (backwards flowing) type to make the choice. OTOH, it might be difficult to compute a beat index if I want to examine static properties of each branch before making a choice.
+Still thinking about this (additive conjunction). I need a really good use-case for them that wouldn't be better handled by sending some typereps backwards. Also, it seems feasible to model these using fractional types, as far as the compiler is concerned.
 
-I've decided to table this idea for now.
+I'd like to model it within the language, not as a primitive, perhaps using fractional types. Until I have a good approach for it, I'll table the idea; there are more important features, such as collections processing...
 
 #### Static Latent Choice
 
