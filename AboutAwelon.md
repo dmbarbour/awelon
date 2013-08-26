@@ -257,25 +257,13 @@ Awelon is very richly typed, though not in a conventional manner. Awelon types a
 
 Awelon provides basic products, sums, statics, and collections. Awelon must also support a variety of runtime value types. And then there are a few more 'rich' types that make a huge difference in the programming experience and API design:
 
-* dynamic collections (sets, vectors)
 * fractional and negative types (right-to-left dataflow)
 * linear types (enforcing contracts, protocol completion)
 * uniquness source ('create' unique values or exclusive state)
-* sealer/unsealer pairs (modeling encryption, signed values, ADTs)
-* dynamic behaviors 
-* expiration and ripening of dynamic behaviors
-
-### Dynamic Collections
-
-Any general purpose programming language should have effective support for collections - lists or arrays - of both static and dynamic sizes. This is especially true for a reactive model, where there is a big difference between "a signal of arrays" (where the array updates atomically) and "an array of signals" (where each element may update independently). In Awelon, arrays and matrices of static size can be modeled by clever use of products and introspection; I'll leave those to libraries. 
-
-However, primitive support is required for efficient, dynamic collections in Awelon.
-
-Awelon will provide two dynamic collection types: vectors and sets of homogeneous type (which also means all static values must be the same). These collections will be processed by collection-oriented primitives, e.g. foreach operations, or folds for vectors. Vectors are the more expressive, having set operations plus support for order-dependent operations. 
-
-*Note:* I am hoping to avoid 'indexing' into vectors. 
-
-Desiderata: supporting vectors with *coupled* dimensionality. Knowing two vectors have the same size, even if I don't know what is that size, would be very useful for some analyses.
+* sealer/unsealer pairs (modeling encryption, ADTs)
+* dynamic behaviors (runtime metaprogramming, linking)
+* dynamic collections (sets, vectors)
+* expiration and ripening (control latency)
 
 ### Fractional and Negative Types
 
@@ -303,53 +291,80 @@ A potential issue is that developers can now express invalid data-cycles:
 
                <-- 1/a --<       THIS IS BAD
               /           \
-        beat 1             1 backbeat     
+          beat             backbeat     
               \           /
                >--- a --->
-
-This would be very problematic if developers use `a` for side-effects! 
 
 Fortunately, these cycles are easy to detect statically. Unfortunately, these cycles are difficult to detect *compositionally*, i.e. in terms of shallow types without global analysis. The main consequence is that fractional types are not supported for dynamic behaviors; they can only be used internally to Awelon's static computation.
 
 Use of beat and backbeat with block composition can also be used to twist inputs to different sides of blocks. The most useful operation is probably just to flip a block around and install it backwards. e.g. `(x~>y)~>(1/y~>1/x)`.
 
-### Dynamic Behaviors
-
-
-
-### Static Types
-
-
-### Type Ascription
-
-Awelon does not have 
-
-
 ### Linear Types
 
-Linear types, from linear logic, are very expressive. Essentially, linear types are types that either cannot be copied or cannot be dropped. By default, all primitive types in Awelon are linear unless specific AVM primitives are provided to copy (`x ~> x*x`) or drop (`x ~> Unit`) them. 
+Linear types are a very simple concept: values that cannot simply be dropped or copied, but must properly be consumed. These types are useful for enforcing that responsibilities are discharged, that protocols and handshakes are completed, that resources are used carefully, and so on.
 
-Awelon makes extensive use of linear types to model:
+In Awelon, linear types are simply modeled by NOT providing drop (`x ~> 1`) or copy (`x ~> x*x`) primitives for that type. (Awelon has an easier time of this than most languages - no worries about variables, closures, intermediate state, and so on.) Awelon can also model affine types (no copy) or relevant types (no drop). Many use-cases for linear types in Awelon involve static values. 
 
-* uniqueness sources
-* sealer/unsealer pairs 
-* abstract data types
-* subprogram responsibilities
-* exclusive control of state
-* creating unique values
-* ad-hoc state models
-* resource distribution
-* fan-in and fan-out limits
+One simple linearity primitive is to mark blocks as linear:
 
-These patterns are discussed in other sections. 
+        linearize :: (x~>y) ~> LinearBlock(x~>y)  
 
-Due to its idempotence, RDP has difficulty expressing exclusivity without linearity. Two RDP behaviors each asking for the OOP equivalent of a `new Dog()` would necessarily receive the same dog. The two subprograms could distinguish their dogs - one asking for `new Dog("fido")` and the other asking for `new Dog("spot")`. But that doesn't guarantee exclusivity. Linear elements address this problem: we can ask for a `new(uniqueSource) Dog()`, and guarantee that our new dog is unique - and, consequently, that we initially have exclusive control over its state.
+Linear blocks are consumed normally by first, left, etc.. They can also be composed, resulting in a larger linear block. But they cannot be dropped or copied. Basically, it's almost an invisible type tag. (*Note:* linearize actually involves marking a block both affine and relevant.)
 
-A feature valuable for live programming, debugging, and orthogonal persistence is that state will be stable across restarts and changes in code. In Awelon, developers must use the aforementioned techniques together, i.e. using "fido" vs. "spot" to stabilize the relationship between external storage and the code. This is achieved by 'forking' a linear source with static values, assigning different subprograms to different subtrees in a stable manner. The AVM enforces this for most primitive linear operations.
+In addition to enforcing properties, substructural types can help programmers organize their tasks - i.e. the type-system supports those "get back to this!" flags and "to do" lists.
 
-Most linear computations in Awelon are static. Static blocks can be wrapped to become linear static blocks, enforcing that they be used exactly once. 
+### Uniqueness Source
 
-*NOTE:* RDP behaviors cannot output unique values unless a uniqueness source is also an input. Unique sources are necessarily linear. RDP behaviors can, however, output non-unique linear values, which simply model 'must use' contracts within the source code.
+The uniquness source is a static object that represents a source of "unique values". Developers can use this object for to create sealer/unsealer pairs or exclusive state resources. Due to the idempotence of RDP, Awelon primitive behaviors cannot 'create' a uniqueness source: if an application has uniqueness at all, the source must be an argument to the application. Most application models will provide uniqueness, though.
+
+The uniqueness source can be dropped, but it cannot be copied in the traditional sense. Rather than copies, the source can be "forked", but each fork requires programmers provide a text identifier:
+
+        fork :: (Text * U!) ~> (U! * U!')
+
+The goal of this design is to ensure unique values are *stable* across changes in source code. The text provides a stable directory-like structure: we can think of 'fork' as a 'mkdir' operation in a filesystem, with the first output being the fresh directory and the second output being the modified parent directory that typefully forbids a second 'fork' with the same child name. Typically, the child (which has a fresh namespace) will be passed to a subprogram or otherwise consumed, while the parent will be stored away in the hand for later use. 
+
+This resulting stability is valuable for live programming, debugging, runtime update, and orthogonal persistence. The text - forming a verifiably unique path in the code - is also usable in the implementation of unique values.
+
+
+### Sealer/Unsealer Pairs
+
+A sealer/unsealer pair can be created if you have a uniqueness source:
+
+        newSealerUnsealerPair :: (Text * U!) ~> ((Sealer U! * Unsealer U!) * U!')
+        type Sealer u = x ~> Sealed u x
+        type Unsealer u = Sealed u x ~> x
+
+Sealers and unsealers are just static blocks. They can be copied or dropped as normal. However, they are uniquely paired: the only means to unseal a value is to have a copy of the corresponding unsealer. The text associated with the sealer/unsealer pair is there mostly for debugging and error messages.
+
+Sealer/unsealer pairs can be used in a number of creative ways. They can enforce parametricity or security properties. They can express rights-amplification patterns. They can model identity and blame (cf. [Horton's Who Done It](http://www.erights.org/elib/capability/horton/)). They can also model first-class abstract data types or existentials. 
+
+In most use cases, sealer/unsealer pairs can be completely eliminated before runtime. However, in a distributed system, sealed values can guide encryption decisions for specific signals (orthogonal to transport-layer encryption). In particular, if sending information to a host that the compiler doesn't statically know will possess the unsealer, it may be worth encrypting the value. 
+
+*Note:* Sealed values are implicitly linear. They must be unsealed before they can be dropped or copied.
+
+### Abstract Data Types and Existentials
+
+Awelon's introspection sometimes interferes with modularity, implementation-hiding, and user-defined types. However, idiomatic use of sealer/unsealer pairs can model a first-class module system, complete with ADTs or existentials. How this works:
+
+1. The hidden type (an ad-hoc sum or product) is modeled by use of a sealer
+2. A record of functions (product of blocks) is formulated to operate on the hidden type.
+3. Each function is wrapped with the unseal/seal operations for the hidden type.
+4. For ADTs, the record of functions is held separate from the sealed type
+5. For existentials, the record of functions is coupled to each instance of the type
+
+That's it. The sort of implementation hiding performed by most module systems is quite simple. Though, API designers must explicitly include the drop and copy methods if they don't want their new type to be linear.
+
+In Awelon, these ADTs would implicitly be reactive, but would have relatively static structure.
+
+### Dynamic Collections
+
+Any general purpose programming language should have effective support for collections - lists or arrays - of both static and dynamic sizes. This is especially true for a reactive model, where there is a big difference between "a signal of arrays" (where the array updates atomically) and "an array of signals" (where each element may update independently). In Awelon, arrays and matrices of static size can be modeled by clever use of products and introspection; I'll leave those to libraries. 
+
+However, primitive support is required for efficient, dynamic collections in Awelon.
+
+Awelon will provide two dynamic collection types: vectors and sets of homogeneous type (which also means all static values must be the same). These collections will be processed by collection-oriented primitives, e.g. foreach operations, or folds for vectors. Vectors are the more expressive, having set operations plus support for order-dependent operations. 
+
+*Desiderata:* supporting vectors with coupled dimensionality. Knowing two vectors have the same size, even if I don't know what is that size, would be very useful for some analyses. Also, I am hoping to avoid 'indexing' into vectors. 
 
 ### Capabilities
 
@@ -388,18 +403,6 @@ This is the design that Awelon favors.
 
 Linear types allow an API to say what a subprogram *must* do, and capabilities allow an API to say what a subprogram *can* do. They can be combined by requiring linear arguments to a capability, or by use of linear capabilities. This combination can be very expressive, while still supporting a great degree of flexibility in how things are achieved.
 
-### Modeling ADTs and Objects
-
-Awelon programmers don't have user-defined types per se, but they can model ad-hoc types. 
-
-By simple use of sealer/unsealer pairs, programmers can model abstract data types (ADTs) and objects or existential types. The idea in both cases is that we have sealed values (representing the ADT or object) along with a collection of named behaviors that will unseal the value, operate on it, seal it back up, and maybe return something. An ADT differs from an object simply by separating the 'collection of operations' from the sealed values.
-
-In Awelon, these would be reactive dataflow objects and ADTs, consisting of runtime signals. The set of objects in an Awelon application would generally be static, but they can still be useful.
-
-#### Parametric Polymorphism
-
-Awelon's design favors ad-hoc polymorphism; a behavior is free to specialize or generalize based on knowledge about types. (Ad-hoc polymorphism may serve better for heterogeneous computation systems.) But there is also utility in parametric polymorphism - enforcing a uniform structure for a given class of types. Modeling ADTs or objects can easily enforce parametricity.
-
 ## Awelon Language Primitives
 
 ### Debugging and Live Programming Support
@@ -408,21 +411,6 @@ Warnings, Deprecations, Gauges.
 
 Due to its support for static types, Awelon code can readily be augmented with 'active' documentation - e.g. commands that don't do anything except indicate how to display or debug the code itself. 
 
-### Collections Oriented Programming
-
-### Reverse Dataflows
-
-beat and backbeat
-every signal augmented with direction (the signals that can be, anyway)
-every signal augmented with beat#
-
-           S1 ~> (CoStatic N x :&: Static N x) %  receive costat, output stat
-           (CoStatic (N - 1) x :&: Static N x) ~> S1 %  receive stat, output costat
-
-
-### Distributing Data
-
-Partitions, disruption, type conversions... 
 
 
 

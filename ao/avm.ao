@@ -23,6 +23,10 @@ import avmboot,stdenv
 %     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
 %     types are represented as blocks operating on typerep
 %
+%   partitions: perhaps support inheritance... or partitions like
+%     typeclasses, partition types can inherit properties or prims
+%     of another, just to avoid repetition.
+%
 %   support for ad-hoc type attributes:
 %     e.g. shapes and colors (for debugging / display)
 %
@@ -40,6 +44,9 @@ import avmboot,stdenv
 % This module executes in a bootstrap environment (only a few
 % primitives) but can import other modules that are restricted
 % to avmboot.
+
+
+
 
 % Basic Data Plumbing Primitives
 %
@@ -64,8 +71,8 @@ import avmboot,stdenv
 % vocabulary. The distinction between static and dynamic sums, OTOH,
 % is limited to a few distribution and merge operators. Basic data
 % plumbing should all be the same.
-%
-% 
+
+
 
 
 % Debugging Primitives
@@ -90,15 +97,15 @@ import avmboot,stdenv
 % Statics can generally be captured, copied, or dropped. 
 %   staticTextCapture   :: T~>(1~>T)
 %   staticNumberCapture :: N~>(1~>N)
-%   staticBlockCapture  :: B~>(1~>B)   (not for linearized blocks)
+%   staticBlockCapture  :: B~>(1~>B) (inherits affine/relevant)
 %
 %   staticTextCopy      :: T~>(T*T)
 %   staticNumberCopy    :: N~>(N*N)
-%   staticBlockCopy     :: B~>(B*B)
+%   staticBlockCopy     :: B~>(B*B)  (error for affine blocks)
 %
 %   staticTextDrop      :: T~>1
 %   staticNumberDrop    :: N~>1
-%   staticBlockDrop     :: B~>1
+%   staticBlockDrop     :: B~>1      (error for relevant blocks)
 %
 % Numbers can be manipulated in several useful ways...
 %
@@ -135,15 +142,20 @@ import avmboot,stdenv
 % parititon should support them. However, 
 
 
-% Linearity Primtives - enforcing negotiation protocols, contracts,
+% Declarative Linearity
+%
+%   Blocks in Awelon are transparently marked with substructural types:
+%
+%     affine - may not be copied; use at most once
+%     relevant - may not be dropped; use at least once
+%
+%   Linearity can be declared by marking a block affine AND relevant.
+%
+
+
+% Linearity Primitives - enforcing negotiation protocols, contracts,
 % exclusivity, uniqueness, and resource control. Linearity is a very
 % expressive yet simple concept.
-%
-% Note that while some applications of linearity can be "declared",
-% others - in particular those involving uniqueness or exclusivity -
-% require a linear object called the "unique source" (or unisauce)
-% to be threaded through the application. Awelon cannot simply create
-% a unique source due to RDP's idempotence properties.
 %
 % Declarative Linearity
 %   can only be applied to 'blocks' because only blocks have a well
@@ -153,19 +165,18 @@ import avmboot,stdenv
 %   drop behaviors. Block composition with a linear block (for either
 %   or both arguments) will result in a linear block.
 %
-%   
-%
-%   Other values can be linearized by either lifting them to blocks
-%   (any static can be lifted) or clever use of sealer/unsealer patterns. 
-%
-%   When composed, 
-%   blocks have a well-defined concept for 'used'. Declarative linearity can only effectively be applied to blocks. For convenience,
-%
 %     linearize :: block ~> linearBlock (transparent to first, left, eval)
 %     
 %   linearize ::  (x~>y) ~> Linear(x~>y)
 %      a linear block is transparently applied by first or left.
 %      however, it cannot be dropped without application
+%
+%
+% Note that while some applications of linearity can be "declared",
+% others - in particular those involving uniqueness or exclusivity -
+% require a linear object called the "unique source" (or unisauce)
+% to be threaded through the application. Awelon cannot simply create
+% a unique source due to RDP's idempotence properties.
 
 
 

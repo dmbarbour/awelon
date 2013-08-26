@@ -44,14 +44,18 @@ data Type
     = Unit -- from intro1
     | ST Text -- static text
     | SN Rational -- static number
+    | Block BType
     | Prod Type Type 
     | DSum Type Type -- dynamic sum
     | SSum Type Type -- static sum
-    | Zero Type
+    | Zero -- from intro0
 
+data BType = Block 
+    { affine :: Bool    -- forbid copy
+    , relevant :: Bool  -- forbid drop
+    , code :: Code 
+    }
 
-avmboot :: AppCX
-avmboot = AppCX { prims = bootprims }
 
  
 
