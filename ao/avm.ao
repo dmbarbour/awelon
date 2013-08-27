@@ -17,7 +17,6 @@ import avmboot,stdenv
 % to compute the typerep of the output given the typerep of the input.
 % In addition, I want english descriptors. But for the moment I could
 % limit it to just some descriptors and names!
-% 
 %
 %   primitive behaviors
 %     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
@@ -26,6 +25,7 @@ import avmboot,stdenv
 %   partitions: perhaps support inheritance... or partitions like
 %     typeclasses, partition types can inherit properties or prims
 %     of another, just to avoid repetition.
+%       (something like typeclasses might be suitable for basic types, too)
 %
 %   support for ad-hoc type attributes:
 %     e.g. shapes and colors (for debugging / display)
@@ -73,8 +73,6 @@ import avmboot,stdenv
 % plumbing should all be the same.
 
 
-
-
 % Debugging Primitives
 %
 %   error :: (Text*x)~>x
@@ -97,7 +95,7 @@ import avmboot,stdenv
 % Statics can generally be captured, copied, or dropped. 
 %   staticTextCapture   :: T~>(1~>T)
 %   staticNumberCapture :: N~>(1~>N)
-%   staticBlockCapture  :: B~>(1~>B) (inherits affine/relevant)
+%   staticBlockCapture  :: B~>(1~>B) (inherits affine/relevant properties)
 %
 %   staticTextCopy      :: T~>(T*T)
 %   staticNumberCopy    :: N~>(N*N)
@@ -142,14 +140,15 @@ import avmboot,stdenv
 % parititon should support them. However, 
 
 
-% Declarative Linearity
+% Declarative Linearity (blocks only)
 %
 %   Blocks in Awelon are transparently marked with substructural types:
 %
 %     affine - may not be copied; use at most once
 %     relevant - may not be dropped; use at least once
 %
-%   Linearity can be declared by marking a block affine AND relevant.
+%   Linearity for a block is declared by marking a block both
+%   affine and relevant.
 %
 
 

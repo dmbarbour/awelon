@@ -15,10 +15,11 @@ import avmboot
 % list. 
 %
 % The left and right hands are also stacks. They allow the intuition
-% of carrying things from one stack to another. The right hand is used
-% for volatile operations and anonymous objects, primarily take and put.
-% The left hand is used for special extensions, and doesn't get much
-% attention in this module.  
+% of carrying things from one stack to another. The right hand is 
+% for volatile operations and anonymous objects, like take and put.
+% The left hand is for introspection-based metaprogramming, such as
+% named stacks. 
+% 
 %
 % Only the following primitive behaviors are necessary to bootstrap 
 % Awelon's standard environment and operations:

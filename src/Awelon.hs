@@ -38,21 +38,21 @@ data WX
     = W  ModuleName Word -- words
     | LN Rational        -- 
     | LT Text
-    | B  Code
+    | LB Code
 data Prim = Prim
 data Type 
     = Unit -- from intro1
     | ST Text -- static text
     | SN Rational -- static number
-    | Block BType
+    | SB BType
     | Prod Type Type 
     | DSum Type Type -- dynamic sum
     | SSum Type Type -- static sum
     | Zero -- from intro0
 
 data BType = Block 
-    { affine :: Bool    -- forbid copy
-    , relevant :: Bool  -- forbid drop
+    { nocopy :: Bool  -- affine type
+    , nodrop :: Bool  -- relevant type
     , code :: Code 
     }
 

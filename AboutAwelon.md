@@ -15,7 +15,7 @@ At runtime, the environment is gone and the data plumbing is compiled completely
 
 ### Stack Based Programming
 
-Like many tacit programming languages, Awelon supports stack-based programming. One of the key aspects of tacit programming is how *literals* are handled - e.g. if a developer writes `10 11 12`, what happens? Somehow, those literals must be added to the environment. For example, by pushing it onto a stack.
+Like many tacit programming languages, Awelon supports stack-based programming. One of the key aspects of tacit programming is how *literals* are handled - e.g. if a developer writes `10 11 12`, what happens? Somehow, those literals must be added to the environment. For example, we can push literals onto a stack.
 
         42 %  e ~> (Static Integer * e)
         12.3 %  e ~> (Static Rational * e), exact 123/10
@@ -44,9 +44,6 @@ To help illustrate what tacit code often looks like, I'll define a few more func
         roll2  = assocl [swap] first assocr                 %  (x * (y * z)) ~> (y * (x * z))
         roll3  = [roll2] second roll2                       %  (a * (b * (c * d)))) ~> (c * (a * (b * d)))
         roll4  = [roll3] second roll2
-        unroll2 = roll2
-        unroll3 = unroll2 [unroll2] second                  %  (c * (a * (b * d))) ~> (a * (b * (c * d)))
-        unroll4 = unroll2 [unroll3] second
         dup    = [copy] first assocr                        %  (a * e) ~> (a * (a * e))
         pick1  = [dup] second roll2                         %  (a * (b * e)) ~> (b * (a * (b * e)))
         pick2  = [pick1] second roll2
@@ -59,90 +56,49 @@ However, tacit code has a weakness: much of the data plumbing becomes explicit. 
 
 *ASIDE:* Traditional languages also have difficulty with data plumbing - it just happens in higher layers: concurrency, callbacks, collections. RDP is designed to address many challenges in those higher layers.
 
-Data plumbing on a stack is relatively simple: developers mostly operate near the top of the stack, and occasionally roll or copy elements to the top. It does not take long to become familiar with these manipulations, and stacks are effective for linear operations. Unfortunately, a single stack is inadequate for representing incremental tasks or concurrent workflows, especially if there is some interweaving of intermediate results. Also, there are cases where devilish data plumbing problems on a single stack would be solved trivially with just a little extra scratch space.
+### Awelon's Multi-Stack Environment
 
-#### Multi Stack Environment
+A single stack environment can feel cramped. This is especially the case for a model like RDP, where we often have multiple tasks or concurrent workflows that require ad-hoc integration of intermediate results. Awelon favors *multiple stacks for multiple tasks*, and thus uses a richer environment: 
 
-Awelon's static environment contains a non-empty *list* of stacks. There is always a current stack, and all the single stack operators now apply to the current stack. Literals are added to the current stack. Developers can add new stacks, drop old stacks, and navigate between them. These additional stacks quickly find use by developers: different stacks for different tasks, scratch spaces, temporary storage, and that stuff you never get back to but keep thinking you might. 
+        (currentStack * (hand * (currentStackName * listOfNamedStacks)))
 
-        %  List of Stacks:  (stacksLeft * (currentStack * stacksRight))
-        %  stepLeft  :: ((sT * sL) * (sC * sR)) ~> (sL * (sT * (sC * sR)))
-        %  stepRight :: (sL * (sC * (sT * sR))) ~> ((sC * sL) * (sT * sR))
-        stepLeft = [swap] first assocr
-        stepRight = assocl [swap] first [assertIsProduct] second
+Literals are added to the current stack. Stack operators like `roll` are adjusted to operate on the current stack. There is a library of useful applicators to apply a block on the stack to objects near the top of the stack.
 
-        %  New, dup, and drop for stacks create or destroy a stack to your right
-        %  
-        %  newStack  :: (sL * (sC * sR)) ~> (sL * (sC * (Unit * sR)))
-        %  dupStack  :: (sL * (sC * sR)) ~> (sL * (sC * (sC * sR))) %  if non-linear sC
-        %  dropStack :: (sL * (sC * (sD * sR))) ~> (sL * (sC * sR)) %  if non-linear sD  
-        newStack = assocl [swap] first [intro1] second
-        copyStack = [[copy] first assocr] second
-        dropStack =  [[dropFirst] second] second
-       
-        %  more basics
-        erase   :: x ~> Unit        %  for non-linear x
-        dropFirst = [erase] first elim1  %  (e * x) ~> x, for non-linear e
-        dropSecond = swap dropFirst      %  (x * e) ~> x, for non-linear e
+The "hand" is also a stack. Developers use `take` and `put` to move items between the hand and the current stack, and `juggle` to rotate items in the hand. The main purpose of the hand is to carry items between stacks, i.e. an easy approach to data plumbing. However, the hand is convenient even for operating on a single stack: one can pick up a few objects, do some deep-stack operations, then drop the objects again. This seems easier than carefully rolling objects to the top of the stack then back down. 
 
-Of course, multiple stacks are useless if we don't have an effective way to move elements between them. I could potentially model throwing things between stacks, but there is a better way.
+Finally, there is a list of named stacks (plus a name for the current stack). Each element in the list is a (name*stack) pair, where the name is simply a text literal. Named stacks have a variety of purposes:
 
-*NOTE:* Many of the above definitions will don't account for blocks being added to the current stack in the middle of the manipulation. Awelon uses a 'block-free' encoding for the basic environment manipulations. See `stdenv.ao` for details.
+* Programmers can easily 'goto' stacks by name. This is useful for stacks that represent different tasks. The hand is convenient for carrying items between stacks.
+* Programmers can `load` and `store`, obtaining values from a remote stack. This is useful for stacks that represent variables or registers, which is often convenient for long-term storage. 
+* Named stacks can also support environment extensions.
 
-### Hands to Carry Things
+Named stacks require compile-time metaprogramming to systematically compare names in a list. Awelon supports this form of programming by use of introspection and static choice; see the section on polymorphic behavior.
 
-Awelon's multi stack environment is further extended with the concept of *hands*. With one hand, a developer can take and put, moving objects easily and intuitively from one stack to another, or even moving stacks. Hands would be convenient even for operations on a single stack, i.e. rather than rolling stuff to the top, just pick up the top several elements and do some work, then put several elements back down. 
+*NOTE:* Awelon uses a *blockless* encoding for most of its basic environment manipulations. This ensures there is no interference from blocks being added to the current stack. See `onestack.ao` for details.
 
-Hands offer a simple, intuitive, and expressive approach to data plumbing. 
-
-Hands are modeled as a pair of stacks, and are paired with the current environment, such that our overall environment is a structure of the form: `(sL*(sC*sR))*(hL*(x*hR))`. Here current stack, and x is the active object - if any. Unlike the list of stacks, the developer's hands may be empty.
-
-        %  take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
-        take = [[assocr] second roll2] first assocr roll2 [roll2] second
-
-        %  swapStackHand :: (sL*(sC*sR))*(hL*hR) ~> (sL*(hR*sR))*(hL*sC)
-        %  left as exercise for reader :)
-
-By convention, the right hand is used for volatile operations (take, put, etc.). The left hand is used instead for environment extensions based on introspection and metaprogramming - such as modeling named stacks. 
-
-*NOTE:* The programmer's hands are generally NOT passed to partially applied behaviors. The intuition here is that the developer is installing a behavior that will then execute without further guidance or interference. Also, conversely, the installed behavior must not affect the contents of the programmer's hand. Arguments to a partially applied behavior must be explicitly provided. 
-
-### Named Stacks via Metaprogramming
-
-Awelon will support storing and loading elements by name. Use of names is a valid and convenient solution for many data plumbing problems: simply tuck a value away with an arbitrarily chosen name, then later recover it using the same name. Names are easier to remember than relative locations. 
-
-Names are modeled by use of polymorphic, introspective behaviors (see later section) that will search the left hand for a named stack, then add or remove an item (adding or removing the stack as appropriate). The use of stacks can serve a similar role to lexical scope, though developers must be careful to erase names when they exit logical scope. 
-
-        "foo" store    %  store element to "foo" stack (removes from current stack)
-        "foo" load     %  load element from "foo" stack (removes from foo stack)
-        "foo" loadCopy %  load, dup, store 
-        "foo" erase    %  load, drop
-        %  possibly loadStack and storeStack operations, too.
-
-The default movement semantics are suitable for linear types, or cases where developers wish to model updates. (These variables are 'pure' from Awelon's perspective.) Unlike traditional programming, developers must explicitly erase words th
-
-Names can become syntactic noise and clutter if overused. I prefer to use names sparingly, for long-lived elements that spend most of their time in the background. Other programmers may prefer more extensive use.
 
 ## Awelon's Module System
 
-Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple alphanumeric words. Modules may be associated with local names. Imports may be cyclic.
+Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple words.
 
         import common, packageWithLongName AS p, foo
         this = [f] _s
         f = foo [p:bar foo:bar] first %  here 'foo' means 'foo:this'
         _s = swap [swap] first swap first swap
+        % TODO: switch this to a useful program
 
-Words may be defined in any order within a module. However, definitions cannot be cyclic or recursive.
+Imports may be cyclic. Words may be defined in any order within a module. However, definitions cannot be cyclic or recursive.
 
-All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any potential ambiguity for a word (i.e. if it is exported from two of the modules, including this one), it becomes necessary to use the prefixed form.
+All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any ambiguity for a word it becomes necessary to use the prefixed form. If the same word happens to have the same definition (same primitive expansion) it does not count as ambiguity. 
 
 The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix for a module's words. When imported, the word 'this' is mapped instead to the import name, e.g. 'foo' means 'foo:this' after importing foo (assuming no ambiguity). Also, the word 'this' in Awelon serves the same role as 'main' in many other languages. Awelon is intended for component based software; I believe 'this' has nice connotations for treating modules as possible software components.
 
 All imports and definitions must start at the beginning of a new line of text, and continue to the end of the logical line. A logical line continues until a non whitespace character begins a new line of text, i.e. so developers can distribute some code or imports vertically. Awelon has simple line comments starting eith `%`. 
 
         import common
-        % take :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
-        take = [[assocr] second roll2] first %  (x*(sL*(sC*sR)))*(hL*hR)
+        % takem :: (sL*((x*sC)*sR))*(hL*hR) ~> (sL*(sC*sR))*(hL*(x*hR))
+        %   (older version of Awelon's environment; TODO, update for new env 
+        takem= [[assocr] second roll2] first %  (x*(sL*(sC*sR)))*(hL*hR)
                assocr roll2 [roll2] second
 
 Note: there are no default words or imports in Awelon. Only literals can be used without an import.
@@ -261,18 +217,18 @@ Awelon provides basic products, sums, statics, and collections. Awelon must also
 * linear types (enforcing contracts, protocol completion)
 * uniquness source ('create' unique values or exclusive state)
 * sealer/unsealer pairs (modeling encryption, ADTs)
-* dynamic behaviors (runtime metaprogramming, linking)
 * dynamic collections (sets, vectors)
+* dynamic behaviors (runtime metaprogramming, linking)
 * expiration and ripening (control latency)
 
 ### Fractional and Negative Types
 
 To complete the set of algebraic types `(a * b)` and `(a + b)`, developers gain access to fractional and negative types: `1/a` and `-a`. These concepts are formally described in ["The Two Dualities of Computation: Negative and Fractional Types" by Amr Sabry and Roshan P James](http://www.cs.indiana.edu/~sabry/papers/rational.pdf). 
 
-Fractional types are incredibly useful. With them, one can model:
+Fractional types are incredibly useful for modeling:
 
 * adaptive code: polymorphic based on downstream requirements or preferences
-* [promises, futures](http://en.wikipedia.org/wiki/Futures_and_promises). One can easily create a few IOUs while working on one subprogram, keep them in hand, and step over to another subprogram to fulfill them. 
+* [promises, futures](http://en.wikipedia.org/wiki/Futures_and_promises), useful for quick integration without a lot of stack navigation since we can make promises in one place and fulfill them in another.
 * a sort of 'continuation passing' along a pipeline 
 * static negotiations between upstream and downstream components
 
@@ -366,48 +322,30 @@ Awelon will provide two dynamic collection types: vectors and sets of homogeneou
 
 *Desiderata:* supporting vectors with coupled dimensionality. Knowing two vectors have the same size, even if I don't know what is that size, would be very useful for some analyses. Also, I am hoping to avoid 'indexing' into vectors. 
 
-### Capabilities
+### Dynamic Behaviors
 
-If you are not familiar with the concept of object capability security, I recommend reading [Ode To Capabilities](http://erights.org/elib/capability/ode/ode-capabilities.html). Capabilities are an excellent way to manage authority, being very expressive and having most properties of [secure interaction design](http://zesty.ca/pubs/csd-02-1184.pdf). In context of RDP, capabilities are essentially behaviors passed as arguments to other behaviors. RDP is designed for distributed systems with runtime code-distribution between mutually distrustful systems; avoiding ambient authority is a very good idea. Capability security has been part of RDP's design from the beginning.
+Dynamic behaviors are, relatively, a second-class feature in Awelon and RDP. They operate under several constraints in order that they can be effectively implemented:
 
-In Awelon, capability security can be enforced by eliminating [ambient authority](http://en.wikipedia.org/wiki/Ambient_authority) behaviors (e.g. effectful primitives in the AVM) and shifting authorities to application parameters. Capabilities in Awelon may be *linear*, which can further enforce certain security properties. Capabilities can be *static* (and usually are, in Awelon), which is very nice for optimization purposes. 
+* cannot output static values (except unit)
+* inputs are synchronized and start in one partition
+* rigid structure for output types and latency
+* no support for fractional or negative types
 
-A good place for a programmer to store capabilities is the programmer's hands (part of Awelon's default tacit environment). By default, the contents of those hands are not passed to partially applied subprograms. This supports an intuition that it's the programmer holding the keys, and carefully granting authority to untrusted subprograms. 
+Despite these limitations, dynamic behaviors are useful for a wide variety of applications. They can model runtime resource or service discovery, plugins and extensions, authorities and capabilities, staged programming or metaprogramming, code distribution, or live update. Awelon application models will generally fit the dynamic behavior constraints.
 
-But we can do better! 
+I'm still deciding some aspects of this; dynamic behaviors might need some extra support to readily enforce static type safety. 
 
-#### Mixed Capability and Ambient Authority
 
-With a carefully designed AVM, Awelon can easily support a *mix* of ambient authority and capability security. Each host can support two or more kinds of partitions: one with ambient authority, one without, and asymmetric communication between them. Distrusted developers can be forced to target the secured variation of the partition, but their code will receive capabilities that reach back into the ambient authority partition. 
 
-There are at least a few advantages to this mixed design:
+------------
 
-* More uniform application model from compiler's perspective.
-* Developers have freedom to introduce new ad-hoc capabilities when necessary.
-* Ambient authority, for all its insecurity, is very convenient.
-
-Developers can create their own ad-hoc application models by essentially wrapping the main behavior.
-
-        @appModel
-        import frameworkStuff
-        this = gatherFooCaps enterHighestSecurityMode runFooApp
-        @app
-        import appStuff
-        this = meh blah boring %  assuming access to FooCaps
-
-Instead of compiling `app` directly, then, developers simply compile `[app] appModel`.
-
-This is the design that Awelon favors. 
-
-#### Coupling Power and Responsibility
-
-Linear types allow an API to say what a subprogram *must* do, and capabilities allow an API to say what a subprogram *can* do. They can be combined by requiring linear arguments to a capability, or by use of linear capabilities. This combination can be very expressive, while still supporting a great degree of flexibility in how things are achieved.
-
-## Awelon Language Primitives
+## Miscellaneous
 
 ### Debugging and Live Programming Support
 
-Warnings, Deprecations, Gauges.
+Errors, Warnings, Traces 
+
+Gauges? Maybe some way to say "hey, display this using XYZ, but only if we're looking at it"
 
 Due to its support for static types, Awelon code can readily be augmented with 'active' documentation - e.g. commands that don't do anything except indicate how to display or debug the code itself. 
 
