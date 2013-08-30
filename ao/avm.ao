@@ -46,8 +46,6 @@ import avmboot,stdenv
 % to avmboot.
 
 
-
-
 % Basic Data Plumbing Primitives
 %
 %   first    ((x~>x')*(x*y))~>(x'*y)
@@ -73,6 +71,45 @@ import avmboot,stdenv
 % plumbing should all be the same.
 
 
+% Substructural Types 
+%
+%     affine (B ~> B') - may not be copied; use at most once
+%     relevant (B ~> B') - may not be dropped; use at least once
+%
+% Linearity for a block is declared by marking a block both
+% affine and relevant.
+%
+
+
+% Uniqueness Source
+%
+%   A uniqueness source is a static source of uniqueness (though it
+%   may be a static argument to a dynamic behavior). It essentially
+%   enforces the construction of unique URL-like directory paths 
+%   within the source code. 
+%
+%   Unique values become the basis for:
+%     sealer/unsealer pairs
+%     exclusive binding to state
+%     unique identifiers
+%
+%   The unique source can be dropped, but cannot directly be copied.
+%   Instead of copies, the uniquness source can split a subdirectory
+%   with a static text identifier. This text provides stability for
+%   live programming, persistence, and changes in source code.
+%
+%     splitUniqueSource :: (Text * Up) ~> (Uc * Up')
+%     dropUniqueSource :: Ux ~> Unit
+%
+%   After split, the parent cannot reuse that child name. The child 
+%   has a fresh set of identifiers, though names problematic for a
+%   URL or filesystem will still be rejected. 
+%
+%   (Todo: support a mechanism for unique sources to split on dynamic 
+%   collection-oriented operations, once I know what I'm doing there.)
+
+
+
 % Debugging Primitives
 %
 %   error :: (Text*x)~>x
@@ -87,6 +124,8 @@ import avmboot,stdenv
 % Warn and trace do the same thing, but have different levels of
 % severity. Trace is potentially useful for IDEs and debugging, i.e.
 % to add color to a program or a rendered type representation.
+
+
 
 
 
@@ -140,42 +179,6 @@ import avmboot,stdenv
 % parititon should support them. However, 
 
 
-% Declarative Linearity (blocks only)
-%
-%   Blocks in Awelon are transparently marked with substructural types:
-%
-%     affine - may not be copied; use at most once
-%     relevant - may not be dropped; use at least once
-%
-%   Linearity for a block is declared by marking a block both
-%   affine and relevant.
-%
-
-
-% Linearity Primitives - enforcing negotiation protocols, contracts,
-% exclusivity, uniqueness, and resource control. Linearity is a very
-% expressive yet simple concept.
-%
-% Declarative Linearity
-%   can only be applied to 'blocks' because only blocks have a well
-%   defined notion of "usage" - e.g. by first, left, dynamic eval,
-%   or collection-oriented evals. For convenience, linear blocks are
-%   not treated distinctly by those operators, rather only by copy or
-%   drop behaviors. Block composition with a linear block (for either
-%   or both arguments) will result in a linear block.
-%
-%     linearize :: block ~> linearBlock (transparent to first, left, eval)
-%     
-%   linearize ::  (x~>y) ~> Linear(x~>y)
-%      a linear block is transparently applied by first or left.
-%      however, it cannot be dropped without application
-%
-%
-% Note that while some applications of linearity can be "declared",
-% others - in particular those involving uniqueness or exclusivity -
-% require a linear object called the "unique source" (or unisauce)
-% to be threaded through the application. Awelon cannot simply create
-% a unique source due to RDP's idempotence properties.
 
 
 

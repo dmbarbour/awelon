@@ -22,41 +22,41 @@ lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]],
     [assocr,rot3,rot2,assocl]).
 %lib([[A,B],[C,D]],  foil,  [[A,D],[B,C]], 
 %    [assocr,rot3,rot3,assocl,swap]).
-%lib([A,[B,[C,[D,E]]]],  rot4,  [D,[A,[B,[C,E]]]],
-%    [assocl,rot3,rot2,assocr,rot3]).
+lib([A,[B,[C,[D,E]]]],  rot4,  [D,[A,[B,[C,E]]]],
+    [assocl,rot3,rot2,assocr,rot3]).
 lib([A,[B,[C,[D,[E,F]]]]],  rot5,  [E,[A,[B,[C,[D,F]]]]],
     [assocl,rot4,rot2,assocr,rot3]).
-lib([A,[B,[C,[D,[E,[F,G]]]]]],  rot6,  [F,[A,[B,[C,[D,[E,G]]]]]],
-    [assocl,rot5,rot2,assocr,rot3]).
+%lib([A,[B,[C,[D,[E,[F,G]]]]]],  rot6,  [F,[A,[B,[C,[D,[E,G]]]]]],
+%    [assocl,rot5,rot2,assocr,rot3]).
 % some functions I'd prefer to avoid when building some functions
 % comment them back in if you want to try them.
-lib([X,[[SL,[SC,SR]],H]],  insert  ,[[SL,[[X,SC],SR]],H],
-    [rot2,swap,rot3,rot2,zip2,rot3,rot3,swap]).
-lib([[SL,[[X,SC],SR]],H],  extract  ,[X,[[SL,[SC,SR]],H]],
-    [swap,rot3,zip2,rot3,rot2,swap,rot2]).
-lib([[SL,[[X,SC],SR]],[HL,HR]], take  ,[[SL,[SC,SR]],[HL,[X,HR]]],
-    [extract,rot3,rot3]).
-lib([[SL,[SC,SR]],[HL,[X,HR]]], put  ,[[SL,[[X,SC],SR]],[HL,HR]],
-    [rot3,insert]).
-lib([S,[HL,[X,[Y,HR]]]],  jugl2  ,[S,[HL, [Y,[X,HR]]]],
-    [rot4, rot3, rot3]).
-lib([S,[HL,[X,[Y,[Z,HR]]]]],  jugl3  ,[S,[HL, [Z,[X,[Y,HR]]]]],
-    [assocl,rot4,rot2,assocr]).
-lib([S,[HL,[A,[B,[C,[D,HR]]]]]], jugl4  , [S,[HL, [D,[A,[B,[C,HR]]]]]],
-    [assocl,jugl3,assocr,jugl2]).
-lib([[SL,[[X,[Y,SC]],SR]],H], roll2, [[SL,[[Y,[X,SC]],SR]],H],
-    [swap,rot3,swap,rot3,rot2,swap,rot3,rot3,swap]).
-lib([[SL,[[X,[Y,[Z,SC]]],SR]],H], roll3, [[SL,[[Z,[X,[Y,SC]]],SR]],H],
-    [take,roll2,put,roll2]).
-lib([[SL,[[A,[B,[C,[D,SC]]]],SR]],H], roll4, [[SL,[[D,[A,[B,[C,SC]]]],SR]],H],
-    [take,roll3,put,roll2]).
+%lib([X,[[SL,[SC,SR]],H]],  insert  ,[[SL,[[X,SC],SR]],H],
+%    [rot2,swap,rot3,rot2,zip2,rot3,rot3,swap]).
+%lib([[SL,[[X,SC],SR]],H],  extract  ,[X,[[SL,[SC,SR]],H]],
+%    [swap,rot3,zip2,rot3,rot2,swap,rot2]).
+%lib([[SL,[[X,SC],SR]],[HL,HR]], take  ,[[SL,[SC,SR]],[HL,[X,HR]]],
+%    [extract,rot3,rot3]).
+%lib([[SL,[SC,SR]],[HL,[X,HR]]], put  ,[[SL,[[X,SC],SR]],[HL,HR]],
+%    [rot3,insert]).
+%lib([S,[HL,[X,[Y,HR]]]],  jugl2  ,[S,[HL, [Y,[X,HR]]]],
+%    [rot4, rot3, rot3]).
+%lib([S,[HL,[X,[Y,[Z,HR]]]]],  jugl3  ,[S,[HL, [Z,[X,[Y,HR]]]]],
+%    [assocl,rot4,rot2,assocr]).
+%lib([S,[HL,[A,[B,[C,[D,HR]]]]]], jugl4  , [S,[HL, [D,[A,[B,[C,HR]]]]]],
+%    [assocl,jugl3,assocr,jugl2]).
+%lib([[SL,[[X,[Y,SC]],SR]],H], roll2, [[SL,[[Y,[X,SC]],SR]],H],
+%    [swap,rot3,swap,rot3,rot2,swap,rot3,rot3,swap]).
+%lib([[SL,[[X,[Y,[Z,SC]]],SR]],H], roll3, [[SL,[[Z,[X,[Y,SC]]],SR]],H],
+%    [take,roll2,put,roll2]).
+%lib([[SL,[[A,[B,[C,[D,SC]]]],SR]],H], roll4, [[SL,[[D,[A,[B,[C,SC]]]],SR]],H],
+%    [take,roll3,put,roll2]).
 
-lib([[SL,[[[X,Y],SC],SR]],H],  expand,  [[SL,[[X,[Y,SC]],SR]],H],
-    [swap,rot3,swap,rot2,assocr,rot3,swap,rot3,rot3,swap]).
-lib([[SL,[[X,[Y,SC]],SR]],H],  shrink,  [[SL,[[[X,Y],SC],SR]],H],
-    [swap,rot3,swap,rot3,rot3,assocl,rot2,swap,rot3,rot3,swap]).
-lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
-    [assocl,rot2,assocr,rot3,assocr]).
+%lib([[SL,[[[X,Y],SC],SR]],H],  expand,  [[SL,[[X,[Y,SC]],SR]],H],
+%    [swap,rot3,swap,rot2,assocr,rot3,swap,rot3,rot3,swap]).
+%lib([[SL,[[X,[Y,SC]],SR]],H],  shrink,  [[SL,[[[X,Y],SC],SR]],H],
+%    [swap,rot3,swap,rot3,rot3,assocl,rot2,swap,rot3,rot3,swap]).
+%lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
+%    [assocl,rot2,assocr,rot3,assocr]).
 
 
 %lib([SC,[[SL,SR],H]],  insertStack  ,[[SL,[SC,SR]],H],
@@ -73,10 +73,10 @@ lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
 %    [assocr,rot2,zip2,assocl]).
 %lib([[SL,[SC,SR]],[HL,HR]],  swapStack,  [[SL,[HR,SR]],[HL,SC]],
 %    [swap,zip2,rot3,rot2,zip2,swap]).
-lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
-    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
-lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
-    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
+%lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
+%    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
+%lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
+%    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
 
 %lib(X,  wrapEnv,  WX, 
 %    [intro1,swap,intro1,swap,intro1,intro1,intro1,assocl,swap])

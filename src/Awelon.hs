@@ -51,11 +51,40 @@ data Type
     | Zero -- from intro0
 
 data BType = Block 
-    { nocopy :: Bool  -- affine type
-    , nodrop :: Bool  -- relevant type
-    , code :: Code 
+    { nocopy :: Maybe SrcLoc  -- affine type
+    , nodrop :: Maybe SrcLoc  -- relevant type
+    , code   :: Code 
+    , srcid  :: Text          -- fingerprint for construction of block
     }
 
+-- To help with source locators, first we'll treat blocks as words
+-- such that a block that is the 3rd item of word `foo` might be 
+-- implicitly named `foo:3` (programmers cannot use these words).
+-- The composition of blocks must also be named; maybe I'll simply
+-- use the combined text e.g. "foo:3 bar:2" to denote this 
+-- composition.
+--
+-- An expansion with first-class functions must also address usage
+-- context, i.e. the unique location of 'first' or 'left' (or use
+-- of 'foreach', potentially). 
+-- 
+-- An expansion must address not only source location, but context.
+-- For a block, usage context would always be the 
+
+-- A source location is an actual, physical location in a source
+-- file. It is specified by module, word, and a list of numbers.
+-- The list of numbers describes the deep 
+data SrcLoc = SrcLoc ModuleName Word [Int]
+
+
+-- Expanded location? In an "expansion" of the code, location 
+-- might be described by a path (described by data-plumbing) 
+-- and depth? Or maybe an alternative is to use a fingerprinting 
+-- technique for locations.
+
+-- IDEA: Automatically strip 'blocks' out of definitions and
+-- rename them to help with debugging. The name for a block
+-- might be `word#pos`. 
 
  
 

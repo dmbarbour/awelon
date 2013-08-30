@@ -30,7 +30,7 @@ In Awelon, literals are simply numbers, text, or blocks of code. Developers ofte
 
 Support for partial application with 'first' is valuable for both code reuse and expressiveness. Awelon's model for 'first' has greater expressiveness because it allows the specification of the behavior to be cleanly separated from its call site, thus avoiding the need for an orthogonal abstraction model (such as lambdas). There is a price: Awelon's first is expressive enough to cause trouble. The traditional non-terminating lambda (`(\x->(x x) \x->(x x)`) can be represented (`[copy apply] [copy apply] first`).
 
-To help illustrate what tacit code often looks like, I'll define a few more functions:
+To help illustrate what tacit code often looks like, I'll define a few more functions that assume a single stack:
 
         %  assocl :: (x * (y * z)) ~> ((x * y) * z)         PRIMITIVE
         %  swap   :: (x * y) ~> (y * x)                     PRIMITIVE
@@ -40,7 +40,7 @@ To help illustrate what tacit code often looks like, I'll define a few more func
         
         apply  = [intro1 swap] second first swap elim1      %  (Static (x ~> x') * x) ~> x'
         second = swap [swap] first swap first swap          %  (Static (y~>y') * (x*y)) ~> (x*y')
-        assocr = [swap] first swap assocl [swap] first swap %  ((x * y) * z) ~> (x * (y * z))
+        assocr = swap assocl swap assocl swap               %  ((x * y) * z) ~> (x * (y * z))
         roll2  = assocl [swap] first assocr                 %  (x * (y * z)) ~> (y * (x * z))
         roll3  = [roll2] second roll2                       %  (a * (b * (c * d)))) ~> (c * (a * (b * d)))
         roll4  = [roll3] second roll2
@@ -58,40 +58,46 @@ However, tacit code has a weakness: much of the data plumbing becomes explicit. 
 
 ### Awelon's Multi-Stack Environment
 
-A single stack environment can feel cramped. This is especially the case for a model like RDP, where we often have multiple tasks or concurrent workflows that require ad-hoc integration of intermediate results. Awelon favors *multiple stacks for multiple tasks*, and thus uses a richer environment: 
+A single stack environment can feel cramped. This is especially the case for a model like RDP, where we often have multiple tasks or concurrent workflows that require ad-hoc integration of intermediate results. Awelon favors *multiple stacks for multiple tasks*, and thus provides an extended environment: 
+
+        (currentStack * extendedEnvironment)
+
+Stack programming operators like `roll` or `pick` are tweaked to operate on the current stack. Literals are now added to the current stack. 
+
+        42                  %  (s*e) ~> ((N * s) * e) 
+        12.3                %  (s*e) ~> ((N * s) * e) exact 123/10
+        "literal string"    %  (s*e) ~> ((T * s) * e)
+        [swap]              %  (s*e) ~> ((B * s) * e)
+
+Other than that constraint, developers could create any extended environment they want. Adjusting the Awelon environment could be very useful to simplify integration with visual IDEs (i.e. such that gestures in the IDE correspond directly to streams of words). However, Awelon does provide a standard extended environment that should be expressive enough for human users:
 
         (currentStack * (hand * (currentStackName * listOfNamedStacks)))
 
-Literals are added to the current stack. Stack operators like `roll` are adjusted to operate on the current stack. There is a library of useful applicators to apply a block on the stack to objects near the top of the stack.
+The "hand" is another stack. Developers use `take` and `put` to move items between the hand and the current stack, and `juggle` to rotate items in the hand. The main purpose of the hand is to carry items between stacks, i.e. an intuitive approach to anonymous data plumbing. However, the hand is convenient even for operating on a single stack: one can pick up a few objects, do some deep-stack operations, then drop the objects again. This seems easier than carefully rolling objects to the top of the stack then back down.
 
-The "hand" is also a stack. Developers use `take` and `put` to move items between the hand and the current stack, and `juggle` to rotate items in the hand. The main purpose of the hand is to carry items between stacks, i.e. an easy approach to data plumbing. However, the hand is convenient even for operating on a single stack: one can pick up a few objects, do some deep-stack operations, then drop the objects again. This seems easier than carefully rolling objects to the top of the stack then back down. 
+Finally, there is a list of named stacks. Each element in the list is a (name*stack) pair, where the name is simply a text literal. Named stacks have a variety of purposes:
 
-Finally, there is a list of named stacks (plus a name for the current stack). Each element in the list is a (name*stack) pair, where the name is simply a text literal. Named stacks have a variety of purposes:
-
-* Programmers can easily 'goto' stacks by name. This is useful for stacks that represent different tasks. The hand is convenient for carrying items between stacks.
+* Programmers can easily navigate stacks by name. This is useful for stacks that represent different tasks. The hand is convenient for carrying items between stacks. In a sense, this is a "goto", but it's more about the programmer's workflow than the program's.
 * Programmers can `load` and `store`, obtaining values from a remote stack. This is useful for stacks that represent variables or registers, which is often convenient for long-term storage. 
-* Named stacks can also support environment extensions.
+* Named stacks can also support ad-hoc environment extensions, e.g. we could model aspect-oriented programming in Awelon in terms of explicit join-points (`"foo" signal`) and advice in the form of blocks. 
 
-Named stacks require compile-time metaprogramming to systematically compare names in a list. Awelon supports this form of programming by use of introspection and static choice; see the section on polymorphic behavior.
-
-*NOTE:* Awelon uses a *blockless* encoding for most of its basic environment manipulations. This ensures there is no interference from blocks being added to the current stack. See `onestack.ao` for details.
-
+Named stacks require compile-time metaprogramming to systematically compare names in a list. Awelon's support for compile-time introspection and metaprogramming is discussed in a later section on polymorphic behaviors.
+       
 
 ## Awelon's Module System
 
-Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names should be simple words.
+Awelon has a very simple module system. Essentially, a module consists of one import line followed by one or more definition lines. An import line contains a comma separated list of module names. The association between a module name and a module definition is externally determined (e.g. by file name). Module names must be simple words, i.e. valid as both Awelon export words and filesystem/URL components.
 
         import common, packageWithLongName AS p, foo
         this = [f] _s
         f = foo [p:bar foo:bar] first %  here 'foo' means 'foo:this'
         _s = swap [swap] first swap first swap
-        % TODO: switch this to a useful program
 
-Imports may be cyclic. Words may be defined in any order within a module. However, definitions cannot be cyclic or recursive.
+All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any ambiguity for a word it becomes necessary to use the prefixed form. A word imported from multiple modules is not ambiguous if its multiple definitions are identical (same primitive expansion).
 
-All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. If there is any ambiguity for a word it becomes necessary to use the prefixed form. If the same word happens to have the same definition (same primitive expansion) it does not count as ambiguity. 
+Words may be defined in any order within a module. Imports may be cyclic. However, *definitions* may not be cyclic or recursive, nor may they even appear to be. If developers wish to re-export a word, they must use the expanded form, e.g. `foo = foo:this` or `bar = p:bar`.
 
-The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix for a module's words. When imported, the word 'this' is mapped instead to the import name, e.g. 'foo' means 'foo:this' after importing foo (assuming no ambiguity). Also, the word 'this' in Awelon serves the same role as 'main' in many other languages. Awelon is intended for component based software; I believe 'this' has nice connotations for treating modules as possible software components.
+The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix to disambiguate a module's words. When imported, the word 'this' is mapped instead to the import name, e.g. 'foo' can mean 'foo:this' after importing foo. Also, the word 'this' in Awelon serves the same role as 'main' in many other languages. Awelon is intended for component based software; I believe Awelon's use of 'this' has nice connotations to encourage treating modules as software components.
 
 All imports and definitions must start at the beginning of a new line of text, and continue to the end of the logical line. A logical line continues until a non whitespace character begins a new line of text, i.e. so developers can distribute some code or imports vertically. Awelon has simple line comments starting eith `%`. 
 
@@ -101,7 +107,7 @@ All imports and definitions must start at the beginning of a new line of text, a
         takem= [[assocr] second roll2] first %  (x*(sL*(sC*sR)))*(hL*hR)
                assocr roll2 [roll2] second
 
-Note: there are no default words or imports in Awelon. Only literals can be used without an import.
+There are no default words or imports in Awelon. Only literals can be used without an import. If there is something like a common prelude or standard environment, it must be on the import line. Consequently, it is not difficult for developers to create alternative programming environments (the only requirement is that literals are added to the first element of a pair).
 
 *NOTE:* I believe developers shouldn't need more than a line of boiler plate before they get to useful work, which is why I allow multiple imports on one line. I discourage deep, hierarchical module systems. Libraries should generally be exported at the package layer. Ambiguity is rare in practice, and resolved easily enough. Modules as software components are encouraged to export 'this' and little else.
 
@@ -336,14 +342,165 @@ Despite these limitations, dynamic behaviors are useful for a wide variety of ap
 I'm still deciding some aspects of this; dynamic behaviors might need some extra support to readily enforce static type safety. 
 
 
-
-------------
-
 ## Miscellaneous
 
-### Debugging and Live Programming Support
+What follows are ideas and potential idioms for Awelon users.
 
-Errors, Warnings, Traces 
+### Multi-Line Text
+
+Awelon does not directly support multi-line text. However, developers can get the equivalent of multi-line text by using some sort of sentinel then using Awelon's static behaviors to construct the larger text:
+
+        author = "William Wordsworth"
+        daffo2 = linesStart
+            "Continuous as the stars that shine"
+            "And twinkle on the milky way,"
+            "They stretched in never-ending line"
+            "Along the margin of a bay:"
+            "Ten thousand saw I at a glance,"
+            "Tossing their heads in sprightly dance."
+            linesEnd
+
+Here, `linesStart` would place an obvious sentinel on the stack, and each line would then add to the stack. The `linesEnd` word would then introspect the stack, append the lines, and remove the sentinel, leaving the constructed text. This would occur at compile-time. (Developers aren't restricted to text literals, of course.)
+
+### Block-Free Data Plumbing
+
+Awelon's rich environment does have a cost: the primitive 'first' is no longer directly useful. Blocks are not placed where 'first' can apply them; further, most blocks would be designed to execute in the same complex environment. 
+
+These issues are accommodated by developing a library of application behaviors that wrap a few values into a new environment, apply a block in the new environment, then unwrap and restore everything to their original locations. To simplify this effort, Awelon supports block-free data plumbing, such that blocks aren't added to the environment while trying to move objects around. 
+
+The primitive data plumbing operators in Awelon are:
+
+        assocl  :: (a * (b * c)) ~> ((a * b) * c)
+        swap    :: (a * b) ~> (b * a)
+        intro1  :: a ~> (Unit * a) 
+        elim1   :: (Unit * a) ~> a
+        rot3    :: (a * (b * (c * d))) ~> (c * (a * (b * d)))
+
+The primitive rot3 was introduced just to enable block-free encodings. Together, these operators are very expressive. Any necessary pure data plumbing can be expressed without blocks. As a few examples:
+
+        assocr = swap assocl swap assocl swap       % ((a * b) * c) ~> (a * (b * c))
+        rot2 = intro1 rot3 intro1 rot3 elim1 elim1  % (a * (b * c)) ~> (b * (a * c))
+        rot4 = assocl rot3 rot2 assocr rot3         % (a * (b * (c * (d * e)))) ~> (d * (a * (b * (c * e))))
+        rot5 = assocl rot4 rot2 assocr rot3
+        zip2 = assocr rot3 rot2 assocl              % ((a * b) * (c * d)) ~> ((a * c) * (b * d))
+
+        % take :: ((x * s) * (h * ee)) ~> (s * ((x * h) * ee))
+        % put  :: (s * ((x * h) * ee)) ~> ((x * s) * (h * ee))
+        take = zip2 rot2
+        put  = rot2 zip2
+        
+        % roll2 :: ((a * (b * s)) * e) ~> ((b * (a * s)) * e)
+        % roll3 :: ((a * (b * (c * s))) * e) ~> ((c * (a * (b * s))) * e)
+        roll2 = swap rot3 rot2 swap
+        roll3 = swap rot4 rot2 swap
+        roll4 = swap rot5 rot2 swap
+
+Unfortunately, while very efficient, this approach to data plumbing isn't very intuitive. We can find patterns, easily guess what rot6 and roll5 might look like, but it isn't an implementation we'd provide inline if asked to think about it. A smarter approach is to rely on the structure of the environment:
+
+        roll5 = take roll4 put roll2
+        roll6 = take roll5 put roll2
+
+Here, the intuiton is clearer. To roll the fifth item to the top: take one item off the top, roll what is now the fourth item to the top, put the item we took back on the stack, then roll it below what was once the earlier the fifth item. This is busier at compile-time, but the runtime overhead is still zero.
+
+Other techniques are also available, for example based on [Huet's zippers](http://en.wikipedia.org/wiki/Zipper_(data_structure)), lenses, and traversals. Libraries of these data-plumbing behaviors will be developed.
+
+
+### Stateful Programming
+
+RDP requires that 
+
+* long-running computations (e.g. ray-tracing, searching a filesystem)
+* necessary state (e.g. text editors)
+
+### Stateful Communication
+
+There is always a temptation to use an external resource as a bypass, a way to communicate outside the lines and primary structure of the language. In most cases, giving into this temptation is a bad thing.
+
+Awelon mitigates this temptation in two ways. First, Awelon supports ad-hoc data plumbing by use of hands or named stacks: when a signal is needed, a developer can get to it and take or copy the signal, often with less effort than it would take to set up shared state. Second, Awelon supports promises by use of fractional types: developers can "promise" a signal into existence then later fulfill it. 
+
+However, stateful communication can be useful. And RDP is good at it.
+
+Stateful communication is useful for:
+
+* occasionally offline systems and disruption tolerance (like e-mail) 
+* open systems where the audience is unknown (like a website) 
+* open systems where the contributors are unknown (like a bulletin board)
+* cases where we must time-share limited resources - e.g. we need task queues for printers
+* cases where we don't know how long work will take - e.g. for ray-tracing or searching a filesystem
+
+RDP is good at stateful communication because:
+
+* vigilantly observe for changes in state, react immediately
+* easily observe *multiple* states, react when all are appropriate
+* easily support multiple observers, without update ordering issues
+* support for speculative evaluation of states; anticipation of change
+* external state enables orthogonal persistence by default
+
+RDP was initially designed to support [publish-subscribe](http://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) systems in a resilient, consistent, scalable manner. RDP is effective for integrating collaborative state: [blackboard system](http://en.wikipedia.org/wiki/Blackboard_system), [tuple spaces](http://en.wikipedia.org/wiki/Tuple_space), or even modeling ad-hoc [workflow patterns](http://en.wikipedia.org/wiki/Workflow_patterns).
+
+Awelon further augments RDP by supporting exclusive state via the uniqueness source. Developers can enforce that certain state is one-to-one, one-to-many, or many-to-one. 
+
+### Modeling Events
+
+One of the most awkward problems to express in RDP is the concept of 'instantaneous event'. 
+
+Fortunately, nothing we can observe is truly instantaneous. Good arguments can be made that even 'button presses' and similar examples should be modeled with time-varying signals. For example, if we use time-varying signals, we can easily recognize that alt+enter are pressed at the same time, without using intermediate state to model the world, and thus without risk of inconsistent state. Also, RDP state resources have no difficulty integrating short-lived signals. So real-world control systems can usually do without events.
+
+But occasionally, someone will come up with a problem like: "Hey, I just shot you in this game. I rolled the dice and you should take 12 damage. How do I model this in RDP?"
+
+The video game is its own reality, with its own laws, in this case including "I can tell you how much damage you took" events. We could change the rules, make the video-game more 'realistic' but that isn't the desired solution. Fortunately, despite being awkward, we can accommodate events. We use state
+
+A 'take 12 damage' event must be applied only once, which means we must record that the event was applied, which means we need a unique identifier for 'the event' - e.g. if the event contains a UID and timestamp.
+
+Use two states: a local state that records whether the event has been acknowledged (or at least delivered), and a remote state that receives the event. 
+
+Given an event, we can continuously watch our local state to see whether we should deliver it. If so, we send the signal then (with a little delay) record that we've sent the event into the local state. 
+
+The remaining challenge is to ensure each event is unique, e.g. by including a UID and time-value in the event, or by 
+
+ acknowledgement just a little, then release the event to execute. 
+
+One solution is to adjust the rules, make this video-game reality more like our own. 
+
+
+
+Button presses, for example, are often better modeled as time-varying button state (especially if we want to recognize when multiple buttons are pressed simultaneously). Short-lived signals can easily be folded into state.
+
+But occasionally, someone will come up with a problem like:  This is difficult to translate to RDP because we aren't working in reality anymore. We're working in a simulation, with events. 
+
+
+#### Demand Monitors
+
+
+
+#### Signal Sinks
+
+A trivial but useful form of single-writer state is to have a 'stateful signal' that is continuously updated by inputs to it, but that holds its old value (along with the time of last synchronization) after disruption (perhaps with an expiration). This concept is used to send Awelon applications for remote, disruption-tolerant execution.
+
+### Stable Stateless Models
+
+### Exponential Decay State
+
+### Agent-Resources
+
+
+### Debugging
+
+Errors, Warnings, Traces
+
+
+### IDE Integration
+
+translating drag and drop to words
+automatic rewriting to simplify the program
+
+Rendering Hints (relative positions?)
+
+Gauges (some sort of: "if the user is near, install this here" or "when there's someone in this forest, here's the sound to make")
+
+Diagrams-as-Data (idea: like Pure Data support diagrams as a form of input data, representing diagrams in type-system with static values).
+
+Gauges 
 
 Gauges? Maybe some way to say "hey, display this using XYZ, but only if we're looking at it"
 

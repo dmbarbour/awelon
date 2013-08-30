@@ -49,57 +49,94 @@ To support distribution, signals in RDP have location - i.e. there is a differen
 
 In addition to partition, runtime signals have **latency** properties. It can take time to communicate a signal between partitions, or to compute values, and this is described by logical static latency. The primary reason to track latency is to enforce RDP's duration coupling invariant: two time-varying integer cannot be added unless they have the same partition *and* latency. Introducing latency (via `delay` behavior) is also a useful technique to address consistency problems caused by straggling updates, and to control feedback loops when interacting with resources.
 
-Due to variation in logical latency there may be times where active durations for `(x + y)` overlap, and times where durations for `(x * y)` do not overlap. In this sense, composites are logically asynchronous. Signals must be explicitly synchronized for some operations, such as adding numbers.
+Due to variation in logical latency on different code paths, there may be times where active durations for `(x + y)` overlap, and times where durations for `(x * y)` do not overlap. In this sense, composites are logically asynchronous. 
 
-Though, asynchrony with static, logical latencies is qualitatively different than what most programmers consider asynchronous. I think the "update at different rates and times" feature for composite signals is a closer fit to what is popularly considered asynchronous.
+Asynchrony with static, logical latencies is qualitatively different than what most programmers consider asynchronous. I think the "update at different rates and times" feature for composite signals is a closer fit to what is popularly considered asynchronous. RDP can also easily model asynchronous communication by use of shared state.
 
+Signals must be synchronized for some operations. For example, to take the maximum of two integer signals requires both signals be in the same partition and have the same latency - they must coexist at the same space and time. Awelon will provide a `synch` operation that smartly synchs the different inputs by introducing a minimal set of delays.
 
+#### Continuous Signals
+
+Most signals in RDP systems are discrete-varying, i.e. jumping from one value to another at particular instants in time. But true contnuous-varying signals are valuable for modeling animations, collisions, sound, and other physical phenomena. Unfortunately, arbitrary continuous-varying signals can be too expensive to compute. Fortunately, we can often benefit even from approximations of physical signals, so long as we can control the error. 
+
+Potential models for continuous signals include polynomials, trigonometric polynomials, time-varying splines and surfaces. I would generally favor models that can be expressed as an array or matrix, either of coefficients or control points, and that would lend themselves to simple time-shift (`delay`), splitting on zero-crossings, and computations on a GPU (using CUDA). Operations on continuous-varying signals may generally be constrained. 
+
+(So far I haven't implemented continuous-varying signals in any RDP system. They're on the todo list.)
 
 ### Resources
-
 
 A **resource** is external to RDP yet open to programmatic observation or influence. Resources broadly include sensors, actuators, and state. Specific resources might be mouse, keyboard, video displays, speakers, robotic arms, motors, physical storage, and virtual resources such as files, canvases, or subwindows. An RDP system must provide some behaviors, as primitives or capabilities, to access external resources. The biggest challenge in making RDP useful is integrating a wide variety of resources. 
 
 Fortunately, RDP signals are a good fit for most sensors and actuators, and it is not difficult to invent RDP-compatible state models. Unfortunately, there are too many sensors and actuators to integrate directly, and adapting existing state resources can be awkward. The approach under consideration is to first support web application services for UI, then to integrate a pubsub model (likely [ROS](http://www.ros.org/wiki/) or [DDS](http://portals.omg.org/dds/)) to help integrate the broad variety of physical devices. After that, specific resources can be integrated with RDP to improve quality of service (temporal precision, latency, speculation, etc.).
 
+#### State Resources
+
+An important part of an RDP system is a useful pool of state resources - i.e. resources whose entire purpose is to accumulate information from the past. These resources should be *abundant* - i.e. applications use a finite set, but that finite set is as large as they need. A distinct identifier is provided for each state resource, much like filenames in a filesystem. By use of substructural types to enforce uniqueness, these resources may also be *exclusive*, offering benefits (implementation hiding, local protection of invariants) comparable to encapsulated state.
+
+RDP is carefully designed so that it cannot accumulate state internally. This property is critical for transparent switching between dynamic behaviors, valuable for security and extensibility, and convenient for orthogonal persistence or upgrade. Stateful resources cannot even be *modeled* entirely within RDP; to model a sensor or actuator requires a state resource to do the modeling. One valid concern is that: if all state resources are external to RDP, can developers define their own state resources that operate in problem-specific ways? Fortunately, this concern can be addressed in a number of ways, and developers can choose what is most convenient for themselves:
+
+1. Some external state resources are very expressive, enabling developers to model one state resource within another. Similarly, multiple simple state resources can often be used together to model ad-hoc systems.
+
+2. It is possible to carry an ad-hoc state model in the "identifier" for non-exclusive state - e.g. looking for a state resource that models a particular state-machine expressed as a regular expression. This approach a weakness: it is not stable across code updates that would tweak the state machine. However, this is an acceptable weakness for some problem domains.
+
+3. For exclusive state (via substructural types), we can couple an ad-hoc state model to a unique identifier. We can also stabilize the unique identifier across source-code changes, e.g. by using the uniqueness type to uniquely allocate names in a filesystem-like directory. The state model may contain instructions on how to upgrade from a prior version.
+
+The advantage of the latter two options is that they provide more *static* knowledge about the behavior of the state. This is valuable for performance, and for reasoning about system behavior. 
+
+Potential state models include, but are not limited to:
+
+* demand monitors - report the set of current inputs; can be used statefully via cycles
+* rolling, windowed history - like demand monitors, but support looking back a few seconds or minutes
+* exponential decay of history - supports looking back indefinitely (in logarithmic space) but with loss of fidelity and precision
+* tuple spaces, albeit tweaked a bit since RDP cannot 'take' a tuple
+* tuple spaces augmented with expiration (this tuple will self-destruct in K seconds), potentially with earlier expiration triggered by someone reading the tuple
+* state machine: switch states when the input signal changes
+* reactive state transition: signals provide a set of time-varying directed edges between nodes; state change is opportunistic; not limited to a static state machine structure
+* reactive term rewriting: the state is a term, and signals provide time-varying rewrite rules (which hopefully converge)
+* animated reactive term rewriting: augments reactive term rewriting with special terms that automatically change after a certain amount of time (or perhaps more continuously); may enforce that rewrites take time to prevent divergence
+
+Animated reactive term rewriting is even expressive enough to model ad-hoc imperative systems - and provides a decent approach to integrate RDP with imperative. If augmented further with static rewrite rules or metaprogramming (functions or procedures as terms), RDP developers can even have competitive performance and a more extensible approach to imperative programming.
+
+(At the very least, animated reactive term rewriting is a proof that RDP developers never need to worry about expressiveness of declarative control.)
+
+State in RDP should always be persistent unless there is a good reason to be volatile. Some state models are naturally volatile - e.g. a rolling window of history that is only ten seconds deep, or a tuple space where tuples expire after at most three minutes. Similarly, if state is associated with a unique volatile identifier (e.g. a session that will expire or can be killed) then a volatile implementation may be acceptable. Persistence by default is a valuable property that all RDP systems should provide.
+
+#### Distributed Resources, Heterogeneous Computation
+
+Resources are not 'globally' available in an RDP system. Instead, they are coupled to logical partitions. (And those logical partitions are generally coupled to physical partitions.) In order to observe or influence a resource, the developer must first figure out how to route a signal to the appropriate partition. In some cases, routing may be ad-hoc; in other cases, it is asymmetric. In some cases, connectivity is guaranteed; in others, developers must deal with disruption. This goal isn't to stump developers, but rather to more accurately reflect connectivity relationships in the world, resulting in a more robust and efficient system. 
+
+Different resources - sometimes even different collections-processing or numerical behaviors - can result in a very heterogeneous computation environment. To help with this challenge, Awelon provides rich metaprogramming, e.g. the type system can track which partitions are in use, and developers can automate some in-the-large computations to find appropriate implementations. 
+
+*NOTE:* Partitions are useful for security, e.g. some kinds of partitions might represent sandboxes with no [ambient authority](http://en.wikipedia.org/wiki/Ambient_authority), for which the only escape is explicit capabilities obtained from another partition.
+
+
+### Behaviors 
 
 
 
 
-, or [CCN](https://www.ccnx.org/wiki/CCNx/CCNxProtocolDescription)) to help, at least in the short term. The quality of resource control - precise timing, speculation, etc. - would likely suffer in this design. But it should make RDP more immediately useful, and the critical resources can then be adapted at their own pace.
+## Miscellaneous
 
-This would reduce the burden on compiler development.
+### Speculation and Anticipation
 
-though the quality of integration may suffer a little.
+A resource's state is *formally* determined by its current state and the set of signal values influencing it at the logical instant. However, resources are not forbidden to predict future input signal values and adjust or prepare accordingly. Doing so is often good sense. For example, if we anticipate that a particular file resource might be needed, we can load it a little in advance. In the worst case, we wasted some CPU and time. If our predictions are accurate often, the system can be more efficient (making better use of what might otherwise be idle cycles) and more responsive.
 
- services).
+Naturally, this sort of anticipation would be greatly improved in precision, accuracy, and even safety if we could actually peek at our future input signals. RDP is designed to support this pattern pervasively: 
 
-State in RDP always belongs to a resource. 
+* signal updates can carry information about speculated future values
+* conservative use of `delay` introduces natural time-buffers
+* resources can speculate their own future states to keep it compositional
+* signal updates very often apply to the future of the signal, keeping present stable
 
+The result is a system where the future is in a state of constant flux, but the present and recent past are stable or are rapidly stabilizing. This time information is also useful for focusing computation resources on the updates that are lagging behind, and for protecting against runaway speculation (deep-future speculation can be very idle in nature).
 
+This form of speculation enables RDP systems to be very responsive, predictable, and fair. RDP systems will 'gracefully degrade' when overloaded by slowly shifting speculative computations towards more critical ones. To the degree that speculation is often accurate, it can mitigate hiccups in network connectivity or scheduler latencies, resulting in a more robust systems. There are also efficiency benefits of signals carrying future values: it supports 'temporal batching' where a single update package can carry multiple future values, and it supports 'batch composition' where multiple batches can be composed then processed together (by combining individual signal updates). 
 
+Speculation is very useful for open composition of on-the-fly planning loops and prediction models.
 
+I believe speculation and anticipation will be one of RDP's "killer features". 
 
-
-### Distribution, Parallelism, Heterogeneous Effects
-
-Not all the resources used by an RDP application need to be on one physical box; RDP is designed for distributed applications. Sign
-
-
-Due to use of logical time, networked RDP requires clocks to be synchronized. An NTP configuration should be sufficient. 
-
-but is robust to small drift. An NTP configuration should be sufficient to keep clocks synchronized for RDP, and barring that an RDP implementation can maintain relative offsets 
-
-
-Resources in RDP may also be *distributed*
-
-* **spatial-temporal dataflow** - a single RDP behavior can reach out to many ad-hoc resources, gather information, and compute signals to influence yet other resources. RDP models these in terms of *latency* (e.g. for the time it takes to query a remote service) and *partitions* (i.e. so we can install RDP code near the resources). Partitions can also serve a role for heterogenous computation (e.g. CPU vs. GPU; server vs. client DOM), staged programming (e.g. modeling compile-time, link-time, or install-time environments, etc.).
-
-
-
-## State Resources and Linear Types
-
-## Code Distribution in Mutually Distrustful Systems
+### Code Distribution in Mutually Distrustful Systems
 
 Code distribution is common and useful, e.g. for flexible web applications, multi-agent systems, disruption tolerance, latency control, or overlay networks. But trust is often asymmetric: e.g. clients must trust servers but not vice versa. To make code distribution practical, usable, and widely acceptable, many concerns must be addressed:
 
@@ -131,55 +168,15 @@ A remaining issue is that Awelon has Turing-complete compile-time metaprogrammin
 
 RDP and Awelon are very well suited for code distribution from the security perspective. Further, they are very expressive in these domains - able to easily express software agents, overlay networks, web applications that interact with cloud and client.
 
+### The Void
+
+In RDP, duration coupling means our output signals must always match our input signals in duration. However, those signals don't always need to be accessible. Most RDP systems will support what is effectively a `/dev/null` partition called "void". Signals that enter void cannot escape; everything in the void can be eliminated as dead code. In most cases, of course, it would be a type error to throw linear types into the void.
+
+
 ## Dynamic Behaviors and Live Update
 
 ## Extension and Open Systems
 
 ## Distribution, Heterogeneous Computation, and Scale
-
-
-##
-
-
-At runtime, RDP is mostly push-driven: updates will be aggregated into batches and pushed to the subscriber. 
- 
-Reactive dataflow models are similar in nature to manipulating a spreadsheet: when values are changed, downstream computations will responsively adjust to accommodate the new values. However, traditional spreadsheets are insufficient for general purpose programming: they do not effectively address state, composition, extension,  distribution, dynamic behaviors, resource management, process control, time, and side-effects. General purpose reactive dataflow models, such as  or  (and now RDP) are similar with respect to the reactive dataflow aspect, all capable of representing highly responsive real-time applications. However, these different models diverge in those secondary aspects - state, time, effects, etc.. 
-
-RDP more broadly and effectively addresses those secondary concerns compared to any of many other programming model (not limited to reactive models) that has reached my awareness. (And there are quite a few.) 
-
-RDP has the following properties and corresponding features:
-
-* **bidirectional** - reactive dataflow in RDP always goes both directions: observation AND influence. For example, consider observing a camera resource for its video stream. In addition to receiving an updating video frame over time, the camera will receive a signal indicating, at the very least, that someone is observing it. This is valuable for implicit resource acquisition and management: the camera may be powered down whenever there are no observers. Rich signals might carry more information, e.g. to influence pan, tilt, zoom, focus, and other camera properties.
-
-* **duration coupling** - the output signal from every RDP behavior is active for the same contiguous durations as the input signal. This makes process control in RDP both trivial and precise: you can always halt a complex subprogram behavior by halting the input signal. This precise process control is, in turn, valuable for dynamic behaviors, live programming, upgrade, i.e. where we swap out one subprogram for another.
-
-
-RDP is an *extremely* expressive programming model, in the sense that a single RDP behavior can potentially serve many different roles: frameworks, overlay networks, software agents, applications, plugins, functions, queries, control or influence. RDP achieves this expressiveness without sacrificing performance: RDP supports implicitly batched updates and processing, logical synchronization, four layers to guard against observable inconsistency (latency, speculative evaluation, snapshot consistency, and eventual consistency), and many optimizations at multiple scales.
-
-RDP is primarily suitable for programming of real-time control systems, distributed sensor networks, user interfaces, even interactive multi-user simulations (e.g. games). However, even for traditional 'batch' applications, RDP can offer advantages in terms of robustness, persistence, resource management, process control, live programming, and extensibility.
-
-
-RDP Fundamentals
-----------------
-
-The fundamental concepts of RDP are **behaviors**, **signals**, **resources**, **partitions**, and **latency**. 
-
-Behaviors are what RDP programmers define. A behavior describes a continuous operation that takes a signal as an input and generates a signal as output. As part of this process, signals may be sent continuously to external resources - to query or control them. Behaviors may be impure, but even impure behaviors are not stateful (i.e. you never lose information by replacing a behavior with a fresh copy of itself). The concept of 'pure' signals has some value for security and safety reasons.
-
-Resources are external to RDP. Developers can only influence or observe a resource from afar. A
-
-Signals are hidden within RDP. Developers never directly create or manipulate signals. Nonetheless, the conept of signals is useful when understanding behavior types or how behaviors interact with resources. Typically, a signal represents the actual or desired state for a resource, such as the position of a mouse or the contents to be displayed in a window. Signals may be *atomic* or *complex*. An atomic signal is like a time-varying integer: the integer is the smallest unit we're watching for changes, and it exists at a specific location in space-time (partition and latency). A complex signal may model concurrency (`x & y`; signals that are logically active at the same time, like a pair) or switching (`x + y`; activity switches between signals based on some upstream decision, like a union). Complex signals may be distributed in space and time.
-
-Partitions represent *programmable locations*, often abstractly in terms of generic 'kind' - desktop, phone, cloud, client, server, CPU, GPU. Different partitions typically have access to different resources, and potentially even differ in what pure computations and types are feasible (e.g. GPU is much less flexible than CPU). An RDP application will usually start in one partition (where a 'go' signal is provided), but signals can be sent to different partitions using a "cross" behavior (like crossing a bridge), and code may further specify what should happen once the signal is received at its destination. (By design, RDP can always send the code with the initial signal.)
-
-Partitions can also serve a few other purposes, e.g. conceptual locations like Void (from which no signal escapes), Static (for compile-time computations), or staged computing (modeling link-time or install-time as partitions). 
-
-Latency is the 'time' concept, and is only meaningful within context of a behavior. Latency is measured relative to the start of a behavior. Latency serves a few roles. Most significantly, atomic signals cannot be combined (e.g. to add two integer signals) unless they have the same latency. (That property is essential to protect *duration coupling*.) Additionally, some signal values may be typed with use-before and use-no-earlier-than latency values, to model temporal constraints. 
-
-
-RDP Patterns and Idioms
------------------------
-
-RDP plus even a simplistic state resource forms a Turing complete system. Any solvable problem can be solved using RDP. However, some solutions will be more or less awkward than others. Developers are encouraged to think of problems in new ways to solve them within the constraints of RDP.
 
 
