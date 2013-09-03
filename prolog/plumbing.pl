@@ -20,30 +20,48 @@ lib([A,[B,C]],  rot2  ,[B,[A,C]],
     [intro1,rot3,intro1,rot3,elim1,elim1]).
 lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]],
     [assocr,rot3,rot2,assocl]).
-%lib([[A,B],[C,D]],  foil,  [[A,D],[B,C]], 
-%    [assocr,rot3,rot3,assocl,swap]).
 lib([A,[B,[C,[D,E]]]],  rot4,  [D,[A,[B,[C,E]]]],
     [assocl,rot3,rot2,assocr,rot3]).
 lib([A,[B,[C,[D,[E,F]]]]],  rot5,  [E,[A,[B,[C,[D,F]]]]],
     [assocl,rot4,rot2,assocr,rot3]).
+lib([[A,[B,C]],[D,[E,F]]],  zip3  ,[[A,D],[[B,E],[C,F]]],
+    [zip2,rot3,rot3,zip2,rot3]).
+
 %lib([A,[B,[C,[D,[E,[F,G]]]]]],  rot6,  [F,[A,[B,[C,[D,[E,G]]]]]],
 %    [assocl,rot5,rot2,assocr,rot3]).
+
+%lib([C,[A,[B,D]]], urot3,  [A,[B,[C,D]]], [rot3,rot3]).
+%lib([D,[A,[B,[C,E]]]],  urot4,  [A,[B,[C,[D,E]]]],
+%    [urot3,assocl,rot2,urot3,assocr]).
+%lib([E,[A,[B,[C,[D,F]]]]],  urot5,  [A,[B,[C,[D,[E,F]]]]],
+%    [urot3,assocl,rot2,urot4,assocr]).
+%lib([F,[A,[B,[C,[D,[E,G]]]]]],  urot6,  [A,[B,[C,[D,[E,[F,G]]]]]],
+%    [urot3,assocl,rot2,urot5,assocr]).
+
+
+%lib([[A,[B,[C,D]]],[E,[F,[G,H]]]], zip4, [[A,E],[[B,F],[[C,G],[D,H]]]], 
+%    [zip3,assocl,zip2,zip3,assocr]).
+%lib([[A,D],[[B,E],[C,F]]],  uzip3, [[A,[B,C]],[D,[E,F]]], 
+%    [urot3,zip2,rot3,zip2]).
+%lib([[A,E],[[B,F],[[C,G],[D,H]]]], uzip4,  [[A,[B,[C,D]]],[E,[F,[G,H]]]],
+%    [assocl,uzip3,zip2,assocr,uzip3]).
+
+
+lib([[A,[B,S]],E],  roll2,  [[B,[A,S]],E],
+    [swap,rot3,rot2,swap]).
+lib([[A,[B,[C,S]]],E],  roll3,  [[C,[A,[B,S]]],E],
+    [swap,rot4,rot2,swap]).
+
+
+lib([[X,S],[H,E]], take, [S,[[X,H],E]], [zip2,rot2]).
+lib([S,[[X,H],E]], put, [[X,S],[H,E]], [rot2,zip2]).
+%lib([S,[[X,[Y,H]],E]], juggle2, [S,[[Y,[X,H]],E]], 
+%    [rot2,swap,rot3,rot2,swap,rot2]).
+%lib([S,[[X,[Y,[Z,H]]],E]], juggle3, [S,[[Z,[X,[Y,H]]],E]],
+%    [rot2,swap,rot4,rot2,swap,rot2]).
+
 % some functions I'd prefer to avoid when building some functions
 % comment them back in if you want to try them.
-%lib([X,[[SL,[SC,SR]],H]],  insert  ,[[SL,[[X,SC],SR]],H],
-%    [rot2,swap,rot3,rot2,zip2,rot3,rot3,swap]).
-%lib([[SL,[[X,SC],SR]],H],  extract  ,[X,[[SL,[SC,SR]],H]],
-%    [swap,rot3,zip2,rot3,rot2,swap,rot2]).
-%lib([[SL,[[X,SC],SR]],[HL,HR]], take  ,[[SL,[SC,SR]],[HL,[X,HR]]],
-%    [extract,rot3,rot3]).
-%lib([[SL,[SC,SR]],[HL,[X,HR]]], put  ,[[SL,[[X,SC],SR]],[HL,HR]],
-%    [rot3,insert]).
-%lib([S,[HL,[X,[Y,HR]]]],  jugl2  ,[S,[HL, [Y,[X,HR]]]],
-%    [rot4, rot3, rot3]).
-%lib([S,[HL,[X,[Y,[Z,HR]]]]],  jugl3  ,[S,[HL, [Z,[X,[Y,HR]]]]],
-%    [assocl,rot4,rot2,assocr]).
-%lib([S,[HL,[A,[B,[C,[D,HR]]]]]], jugl4  , [S,[HL, [D,[A,[B,[C,HR]]]]]],
-%    [assocl,jugl3,assocr,jugl2]).
 %lib([[SL,[[X,[Y,SC]],SR]],H], roll2, [[SL,[[Y,[X,SC]],SR]],H],
 %    [swap,rot3,swap,rot3,rot2,swap,rot3,rot3,swap]).
 %lib([[SL,[[X,[Y,[Z,SC]]],SR]],H], roll3, [[SL,[[Z,[X,[Y,SC]]],SR]],H],
@@ -101,22 +119,6 @@ lib([A,[B,[C,[D,[E,F]]]]],  rot5,  [E,[A,[B,[C,[D,F]]]]],
 %lib([[SL,[[F,SC],SR]],H],  prep_appE  ,[F, [[[SL,[SC,SR]],H],unit]  ],
 %    [extract,intro1,swap,assocr]). % unit is there so we can apply 'first'
 
-urot3(N) :- path([c,[a,[b,d]]], [a,[b,[c,d]]], N).
-rot4(N) :- path([a,[b,[c,[d,e]]]], [d,[a,[b,[c,e]]]], N).
-rot5(N) :- path([a,[b,[c,[d,[e,f]]]]], [e,[a,[b,[c,[d,f]]]]], N).
-rot6(N) :- path([a,[b,[c,[d,[e,[f,g]]]]]], [f,[a,[b,[c,[d,[e,g]]]]]], N).
-
-
-intro1S(N) :- path([[sL,[sC,sR]],[hL,hR]], [[sL,[[unit,sC],sR]],[hL,hR]],N).
-elim1S(N) :- path([[sL,[[unit,sC],sR]],[hL,hR]],[[sL,[sC,sR]],[hL,hR]],N).
-
-
-foil(N) :- path([[a,b],[c,d]], [[a,d],[b,c]], N).
-
-insert(N) :- path( [x,[[sL,[sC,sR]],[hL,hR]]],
-                   [[sL,[[x,sC],sR]],[hL,hR]], N).
-extract(N) :- path([[sL,[[x,sC],sR]],[hL,hR]],  
-                   [x,[[sL,[sC,sR]],[hL,hR]]], N).
 take(N) :- path( [[sL,[[x,sC],sR]],[hL,hR]],
                  [[sL,[sC,sR]],[hL,[x,hR]]], N).
 put(N) :-  path( [[sL,[sC,sR]],[hL,[x,hR]]], 
@@ -218,11 +220,11 @@ testPath(P,X) :-  smallSteps(X,_,P).
 
 smallSteps(X,X,[]) :- writeln('DONE!').
 smallSteps(X,Z,[W|P]) :- 
-    prim(X,W,Y),!,
+    prim(X,W,Y),
     write(W), write('\t\t'),writeln(Y),
     smallSteps(Y,Z,P).
 smallSteps(X,Z,[W|P]) :-
-    lib(X,W,Y,DEF),!,
+    lib(X,W,Y,DEF),
     write('#'),write(W),writeln('{'),
     smallSteps(X,Y,DEF),!,
     write('}#'),writeln(W),

@@ -85,21 +85,15 @@ The advantage of the latter two options is that they provide more *static* knowl
 
 Potential state models include, but are not limited to:
 
-* demand monitors - report the set of current inputs; can be used statefully via cycles
-* rolling, windowed history - like demand monitors, but support looking back a few seconds or minutes
-* exponential decay of history - supports looking back indefinitely (in logarithmic space) but with loss of fidelity and precision
-* tuple spaces, albeit tweaked a bit since RDP cannot 'take' a tuple
-* tuple spaces augmented with expiration (this tuple will self-destruct in K seconds), potentially with earlier expiration triggered by someone reading the tuple
-* state machine: switch states when the input signal changes
-* reactive state transition: signals provide a set of time-varying directed edges between nodes; state change is opportunistic; not limited to a static state machine structure
-* reactive term rewriting: the state is a term, and signals provide time-varying rewrite rules (which hopefully converge)
-* animated reactive term rewriting: augments reactive term rewriting with special terms that automatically change after a certain amount of time (or perhaps more continuously); may enforce that rewrites take time to prevent divergence
+* state machines, which react to applied signals
+* windowed histories - report last N seconds of inputs
+* tuple spaces variants - write, read, erase, expire tuples
+* term rewrite variants - state is a term; signals provide rewrite rules
+* animated term rewrite - some terms change automatically over time
 
-Animated reactive term rewriting is even expressive enough to model ad-hoc imperative systems - and provides a decent approach to integrate RDP with imperative. If augmented further with static rewrite rules or metaprogramming (functions or procedures as terms), RDP developers can even have competitive performance and a more extensible approach to imperative programming.
+It is not difficult to create new state models suitable for RDP. And these state models can be very expressive, even Turing complete on their own: animated term rewriting, for example, is excellent for bridging RDP systems with imperative systems (especially if some terms represent procedures). However, state models in RDP systems should be isolated: influence of one state upon another should always be expressed through an RDP behavior. 
 
-(At the very least, animated reactive term rewriting is a proof that RDP developers never need to worry about expressiveness of declarative control.)
-
-State in RDP should always be persistent unless there is a good reason to be volatile. Some state models are naturally volatile - e.g. a rolling window of history that is only ten seconds deep, or a tuple space where tuples expire after at most three minutes. Similarly, if state is associated with a unique volatile identifier (e.g. a session that will expire or can be killed) then a volatile implementation may be acceptable. Persistence by default is a valuable property that all RDP systems should provide.
+State in RDP systems is persistent unless there is a natural excuse for it to be volatile. A short-lived rolling window of history, or a tuple space where tuples expire after a couple minutes, could easily be volatile. But persistence by default is a convenient property. (*Note:* Animated state should continue to be animated while persisted; well designed state must either go passive or enter a predictable loop in absence of influence.)
 
 #### Distributed Resources, Heterogeneous Computation
 
@@ -171,6 +165,55 @@ RDP and Awelon are very well suited for code distribution from the security pers
 ### The Void
 
 In RDP, duration coupling means our output signals must always match our input signals in duration. However, those signals don't always need to be accessible. Most RDP systems will support what is effectively a `/dev/null` partition called "void". Signals that enter void cannot escape; everything in the void can be eliminated as dead code. In most cases, of course, it would be a type error to throw linear types into the void.
+
+
+### Stateful Communication
+
+There is always a temptation to use an external resource as a bypass, a way to communicate outside the lines and primary structure of the language. In most cases, giving into this temptation is a bad thing.
+
+Awelon mitigates this temptation in two ways. First, Awelon supports ad-hoc data plumbing by use of hands or named stacks: when a signal is needed, a developer can get to it and take or copy the signal, often with less effort than it would take to set up shared state. Second, Awelon supports promises by use of fractional types: developers can "promise" a signal into existence then later fulfill it. 
+
+However, stateful communication can be useful. And RDP is good at it.
+
+Stateful communication is useful for:
+
+* occasionally offline systems and disruption tolerance (like e-mail) 
+* open systems where the audience is unknown (like a website) 
+* open systems where the contributors are unknown (like a bulletin board)
+* cases where we must time-share limited resources - e.g. we need task queues for printers
+* cases where we don't know how long work will take - e.g. for ray-tracing or searching a filesystem
+
+RDP is good at stateful communication because:
+
+* vigilantly observe for changes in state, react immediately
+* easily observe *multiple* states, react when all are appropriate
+* easily support multiple observers, without update ordering issues
+* support for speculative evaluation of states; anticipation of change
+* external state enables orthogonal persistence by default
+
+RDP was initially designed to support [publish-subscribe](http://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) systems in a resilient, consistent, scalable manner. RDP is effective for integrating collaborative state: [blackboard system](http://en.wikipedia.org/wiki/Blackboard_system), [tuple spaces](http://en.wikipedia.org/wiki/Tuple_space), or even modeling ad-hoc [workflow patterns](http://en.wikipedia.org/wiki/Workflow_patterns).
+
+Awelon further augments RDP by supporting exclusive state via the uniqueness source. Developers can enforce that certain state is one-to-one, one-to-many, or many-to-one. 
+
+### Modeling Events
+
+Events in RDP are awkward and discouraged. RDP does not directly express 'instantaneous' events. There are [many reasons](http://awelonblue.wordpress.com/2012/07/01/why-not-events/) for this, but those reasons don't make events any less awkward. Events might exist due to integrating with certain event-triggered sensors, or modeling event-based simulations or video-games. 
+
+In general, a sensor input event will be modeled as a short-lived signal, ideally based on actual timing properties. But if not, just choosing a fraction of a millisecond will often be sufficiently fine grained. RDP's dataflow is not lossy, so even a short-lived signal will be processed and integrated into state in a consistent manner. 
+
+To model events in a stateful system is easiest if you can lift the event into some sort of intermediate state for integration. E.g. create a tuple representing that a character was entered in a text area, and allow that tuple to be integrated with the text by some other agent.
+
+If that doesn't work, events can always be modeled with a state trick: 
+
+* if the event is not recorded as having been delivered, we deliver
+* while delivering, after small delay, we record event as delivered
+* old events are cleared from history after a few seconds
+
+If there is some sort of event acknowledgement, we should prefer that instead of a local "I sent it therefore it was delivered" short-circuit. The 'small delay' is very important for a consistent system. A similar technique can also be achieved using animated state, or possibly a clock.
+
+#### Demand Monitors
+
+
 
 
 ## Dynamic Behaviors and Live Update

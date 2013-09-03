@@ -2,11 +2,11 @@
 %  v0.01
 %  David Barbour, 2013 August
 
-import avmboot,stdenv
+import dp
 
 % The task of this module is to provide a description of Awelon's
 % primitive behaviors to the compiler or interpreter. This must
-% include the bootstrap primitives. 
+% include the bootstrap primitives.
 %
 % At the moment, there are two issues I need to address:
 % 
@@ -58,8 +58,8 @@ import avmboot,stdenv
 %   left     ((x~>x')*(x+y))~>(x'+y)
 %   assocl+  (x+(y+z))~>((x+y)+z)
 %   mirror   (x+y)~>(y+x)
-%   intro0   x~>((0*x)+x)
-%   elim0    ((0*y)+x)~>x
+%   intro0   x~>(0+x)
+%   elim0    (0+x)~>x
 %   rot3+    (a+(b+(c+d)))~>(c+(a+(b+d)))
 %
 % The left, mirror, etc. primitives are polymorphic for dynamic and 
@@ -108,23 +108,19 @@ import avmboot,stdenv
 %   (Todo: support a mechanism for unique sources to split on dynamic 
 %   collection-oriented operations, once I know what I'm doing there.)
 
-
-
 % Debugging Primitives
 %
 %   error :: (Text*x)~>x
 %   warn  :: (Text*x)~>x
-%   trace :: (Text*x)~>x
 %
-% Error will create a type-error at `x`, will automatically track
-% the expansion in which this error was introduced, and will taint
-% everything that uses `x` (except pure data plumbing). An error
-% is reduced to a warning if it occurs in a dead-code branch.
-%
-% Warn and trace do the same thing, but have different levels of
-% severity. Trace is potentially useful for IDEs and debugging, i.e.
-% to add color to a program or a rendered type representation.
+% A warning or error will apply if type 'x' is in a live branch of
+% the static computation. 
 
+
+
+% Static Introspections: lots of simple questions...
+%
+%   testCross :: x@(PartitionID * PartitionID) ~> (x | x)
 
 
 
@@ -172,13 +168,23 @@ import avmboot,stdenv
 %
 %   delay :: (Number * x) ~> x'
 %   synch :: x ~> x'
-%   usebefore :: (Number * block) ~> block
-%   useafter  :: (Number * block) ~> block
+%   useAfter   :: (Number * block) ~> block
+%   useBefore  :: (Number * block) ~> block
 %
 % Note: I'm not sure I want synch and delay as primitives. Not every
 % parititon should support them. However, 
 
 
+% Closures and Objects? Capture for dynamic signals?
+%
+% It might be useful to provide first-class support for closures?
+%
+%    capture :: ((x*y)~>z)*x ~> (y~>z)  (or maybe)
+%    capture :: ((x*y)~>z)*x ~> {x}(y~>z)
+%
+% Basically it would capture the `x` as it is, but not apply it.
+% This sort of closure wouldn't be too hard to use, and would
+% naturally inherit any affine or relevant types of its inputs.
 
 
 
@@ -203,7 +209,14 @@ import avmboot,stdenv
 % Product Primitives
 
 
-
+% Thoughts: Should I develop an Awelon Byte Code? 
+%   Might be worth doing. Assign different primitives
+%   (and maybe a few common library operations) to unique
+%   codepoints in UTF-8... use the environment to carry
+%   blocks and compress them.
+%
+%   But the only real benefit would be compression.
+%   Not enough for real consideration right now.
 
 
 

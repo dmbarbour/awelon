@@ -42,13 +42,20 @@ data WX
 data Prim = Prim
 data Type 
     = Unit -- from intro1
+    | Zero -- from intro0
+    | U UniqueSrc
     | ST Text -- static text
     | SN Rational -- static number
     | SB BType
     | Prod Type Type 
     | DSum Type Type -- dynamic sum
     | SSum Type Type -- static sum
-    | Zero -- from intro0
+
+
+data UniqueSrc = UniqueSrc 
+    { path = [Text]
+    , children = [Text]
+    }
 
 data BType = Block 
     { nocopy :: Maybe SrcLoc  -- affine type
@@ -56,6 +63,9 @@ data BType = Block
     , code   :: Code 
     , srcid  :: Text          -- fingerprint for construction of block
     }
+
+
+
 
 -- To help with source locators, first we'll treat blocks as words
 -- such that a block that is the 3rd item of word `foo` might be 
@@ -87,6 +97,12 @@ data SrcLoc = SrcLoc ModuleName Word [Int]
 -- might be `word#pos`. 
 
  
+-- Awelon uses its type-system for everything, i.e. static data,
+-- multi-stack environment, navigating the environment, and so on.
+
+typeToTypeDesc
+
+
 
 -- I'm going to start minimal here and build up types as
 -- I need them. I already know I might want:

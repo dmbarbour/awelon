@@ -1,0 +1,178 @@
+%
+% limiting to avmboot so I can use this in bootstrap
+import avmboot
+
+% this module: `dp` which stands for `data plumbing`.
+%
+%  This module provides a great deal of pure data plumbing. These
+%  functions are often re-exported into the common preludes. Many of
+%  these operations are based on Awelon's environment. Influences 
+%  include zippers, lenses, and FORTH-like stack manipulations.
+%
+%  Awelon's hard-wired environment is simply a pair: (s * e). 
+%
+%  Literals (text, numbers, and blocks) are pushed onto the stack s.
+%  The idea is that 'e' will carry environment extensions, and must
+%  not be affected by normal environment operations. Data plumbing 
+%  that manipulates the environment is often block-free.
+%
+%  Awelon has a standard environment: (s * (h * (sn * lns)))
+%    s - current stack; actions take place here
+%    h - hand (take, put, juggle)
+%    sn - text: name of the current stack
+%      Starting stack's name is "main" by default, though easy to
+%      override.
+%    lns - a list of (name*stack) pairs. 
+%      Some names may have de-facto common use and meaning.
+%
+%  The named stacks enable load/store, goto operations, and ad-hoc
+%  named extensions. Further, the top object on 's' may be an open
+%  zipper. A zipper is like having a cursor in a document, enabling
+%  navigation and deep manipulations.
+%
+%  Consequently, developers can 'navigate' in Awelon by moving to
+%  a different named stack, or moving a cursor within a zipper for
+%  an object on the stack.
+%
+%  Developers can also perform environment-layer manipulations,
+%  i.e. reifying the current environment or entering a reified
+%  environment. Subprograms modeled as blocks often operate in a
+%  much constrained environment.
+%
+
+
+% Primitives
+
+first  = avmboot:first     %  (x->x')*(x*y) -> (x'*y)
+swap   = avmboot:swap      %  (a*b) -> (b*a)
+assocl = avmboot:assocl    %  (a*(b*c)) -> ((a*b)*c)
+rot3   = avmboot:rot3      %  (a*(b*(c*d))) -> (c*(a*(b*d)))
+intro1 = avmboot:intro1    %  a -> 1*a
+elim1  = avmboot:elim1     %  1*a -> a
+
+% Basic data plumbing
+%  These operators are generic, with no knowledge of the environment.
+%  They are mostly obtained from a logic program, and are used to 
+%  support ad-hoc data plumbing of the environment. These aren't
+%  very intuitive in their construction, and mostly exist to help
+%  with automatic discovery of block-free solutions.
+
+assocr = swap assocl swap assocl swap          % ((a*b)*c) -> (a*(b*c))
+rot2   = intro1 rot3 intro1 rot3 elim1 elim1   % (a*(b*c)) -> (b*(a*c))
+rot4   = assocl rot3 rot2 assocr rot3          % (a*(b*(c*(d*e)))) -> (d*(a*(b*(c*e))))
+rot5   = assocl rot4 rot2 assocr rot3          % simple rotate of five elements
+rot6   = assocl rot5 rot2 assocr rot3          % simple rotate of six elements
+zip2   = assocr rot3 rot2 assocl               % ((a*b)*(c*d)) -> ((a*c)*(b*d))
+zip3   = zip2 rot3 rot3 zip2 rot3              % ((a*(b*e))*(c*(d*f)) -> ((a*c)*((b*d)*(e*f)))
+
+
+% Simple Stack Manipulations - ignorant of extended env
+%   rollK: will rotate the top K items on the stack
+%   expand: open a pair to a pair
+%   reifyStack: capture current stack as an object 
+%   restoreStack: expand stack-object into empty stack 
+%
+% todo: get support for 'copy' working then model dup,
+% over, pick. Also, drop would be useful. 
+%
+% Developers will often have a difficult time tracking
+% more than the top few items on a stack. However, each
+% word can remember its own top few items, so a large
+% stack is quite possible.
+roll2  = swap rot3 rot2 swap                   % ((a*(b*s))*e) -> ((b*(a*s))*e)          
+roll3  = swap rot4 rot2 swap                   % ((a*(b*(c*s)))*e) -> ((c*(a*(b*s)))*e)
+roll4  = swap rot5 rot2 swap                   % roll four items 
+roll5  = swap rot6 rot2 swap                   % roll five items
+reifyStack = intro1 rot2 assocl                % (s*e) -> ((s*1)*e)
+restoreStack = assocr rot2 elim1               % ((s*1)*e) -> (s*e)
+intro1S = intro1 assocl                        % (s*e) -> ((1*s)*e)
+elim1S  = assocr elim1                         % ((1*s)*e) -> (s*e)
+
+% Expand and Collapse for data on the stack:
+%
+%     xf - first element becomes top
+%     xs - second element becomes top
+%     cf - top element becomes first
+%     cs - top element becomes second
+%
+% Developers can use these to access internal objects, manipulate
+% them, rearrange them. For example, `xf cs` would flip an (a*b) 
+% pair to a (b*a) pair. Or `xf xs` will extract the 'g' value in
+% ((f*g)*h), leaving the stack (g*(f*(h*s))) 
+%
+%   Between these operations, developers can access
+%   deep inner structure. Unfortunately, they easily
+%   can lose track of where things were. Be careful.
+%
+xf = swap rot2 assocr rot3 swap        % (((a*b)*s)*e) -> ((a*(b*s))*e)
+xs = assocr zip2 rot2 assocl           % (((a*b)*s)*e) -> ((b*(a*s))*e)
+cf = swap rot3 rot3 assocl rot2 swap   % ((a*(b*s))*e) -> (((a*b)*s)*e)
+cs = assocr rot2 zip2 assocl           % ((b*(a*s))*e) -> (((a*b)*s)*e)
+
+% Zippers and Cursors
+%   
+
+
+
+% Using the Hand. The hand is considered a relatively
+% passive object, just take/put/juggle. Juggle is a
+% rotate within the hand.
+%
+% Programmers can also reify the current hand, or swap
+% the current stack with the current hand. It might be
+% convenient to have a fresh hand for some subprograms
+% even if they operate in the current environment.
+take  = zip2 rot2                             % ((x*s)*(h*e)) -> (s*((x*h)*e))
+put   = rot2 zip2                             % (s*((x*h)*e)) -> ((x*s)*(h*e))
+jugl2 = rot2 swap rot3 rot2 swap rot2         % (s*((x*(y*h))*e)) -> (s*((y*(x*h))*e))
+jugl3 = rot2 swap rot4 rot2 swap rot2         % (s*((x*(y*(z*h)))*e)) -> (s*((z*(x*(y*h)))*e))
+jugl4 = put jugl3 take jugl2
+jugl5 = put jugl4 take jugl2
+take2 = take take
+take3 = take take take
+take4 = take take take take
+take5 = take take take take take
+put2  = put put
+put3  = put put put
+put4  = put put put put  % i think i can i think i can
+put5  = put put put put put
+reifyHand = intro1 rot3 assocl rot2          % (s*(h*e)) -> (s*((h*1)*e))
+restoreHand = rot2 assocr rot3 rot3 elim1    % (s*((h*1)*e)) -> (s*(h*e))
+swapStackHand = rot2                         % (s*(h*e)) -> (h*(s*e))
+
+% Simple Applicators: these remove a block from the stack, and apply
+%   it to either the full environment or one object. 
+%
+%   appE: target whole (s*e) environment
+%   appX: target top item on stack
+%   appH: target first item in hand
+% 
+% Note that these do not wrap the input in a fresh environment, so
+% only `appE` is directly usable.
+%
+appE = assocr intro1 swap assocr first swap elim1
+appX = assocr rot2 assocr rot3 first assocl
+appH = put assocr put assocr first assocl take
+
+
+% Environment Manipulations
+%
+%  wrapE - wrap a value in a fresh environment; wrapped value becomes
+%    the only element in a fresh env's current stack. If `wrapE` is 
+%    called without a specific target, it captures the current 
+%    environment.
+%  wrapS - capture current stack as a value, which is afterwards the
+%    only value on the current stack. 
+%  unwrapE/unwrapS - reverse these manipulations.
+%
+% The normal block applicators will wrap a new environment around the
+% arguments before applying the block. This allows subprograms to use
+% the multi-stack and hands concept, but prevents accidental coupling
+% with the current environment. 
+%
+wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+wrapS = assocr intro1 rot3 zip2 assocl rot2 assocl
+unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
+
+

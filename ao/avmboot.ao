@@ -1,31 +1,29 @@
-% This module simply repeats the *subset* of Awelon words that the
-% interpreter for the AVM provides. Naturally, this subset is small 
-% as I can make it, which means it's a subset of primitives.
+%
+% This module: avmboot
+%
+% Specifies a small subset of primitive Awelon words that can be used
+% to bootstrap the AVM.
+%
+% See avm for full descriptions.
 %
 import avmprim
 
-
-% BASIC DATA PLUMBING  
-%   swap       :: (x * y) ~> (y * x)
-%   assocl     :: (x * (y * z)) ~> ((x * y) * z)
-%   intro1     :: x ~> (Unit * x)
-%   elim1      :: (Unit * x) ~> x
-%   rot3       :: (a * (b * (c * d))) ~> (c * (a * (b * d)))
-%
-%   first      :: (x ~> x') * (x * y) ~> (x' * y)
-%   compose    :: ((x ~> y) * (y ~> z)) ~> (x ~> z)
-%
-% Note that 'rot3' is a primitive. It was introduced as a primitive
-% just to support blockless data-plumbing which is useful for the
-% bootstrap and language minimalism.
-%
 swap        = avmprim:swap
 assocl      = avmprim:assocl
 rot3        = avmprim:rot3
 intro1      = avmprim:intro1
 elim1       = avmprim:elim1
-first       = avmprim:first        
+first       = avmprim:first
+
+mirror      = avmprim:mirror
+assocl+     = avmprim:assocl+
+rot3+       = avmprim:rot3+
+intro0      = avmprim:intro0
+elim0       = avmprim:elim0
+left        = avmprim:left
+
 %compose     = avmprim:staticBlockCompose
+
 
 % COPY PRIMITIVES
 %   copyBlock  :: Static Block ~> (Static Block * Static Block)
