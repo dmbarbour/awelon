@@ -101,9 +101,6 @@ Resources are not 'globally' available in an RDP system. Instead, they are coupl
 
 Different resources - sometimes even different collections-processing or numerical behaviors - can result in a very heterogeneous computation environment. To help with this challenge, Awelon provides rich metaprogramming, e.g. the type system can track which partitions are in use, and developers can automate some in-the-large computations to find appropriate implementations. 
 
-*NOTE:* Partitions are useful for security, e.g. some kinds of partitions might represent sandboxes with no [ambient authority](http://en.wikipedia.org/wiki/Ambient_authority), for which the only escape is explicit capabilities obtained from another partition.
-
-
 ### Behaviors 
 
 
@@ -147,16 +144,15 @@ Code distribution is common and useful, e.g. for flexible web applications, mult
 
 RDP addresses many of those concerns. Awelon addresses a few more.
 
-1. RDP supports [capability security](http://en.wikipedia.org/wiki/Capability-based_security) by use of first-class behaviors. Behaviors can grant limited authority over specific resources. In Awelon, these behaviors may be static or dynamic. 
-2. Awelon supports [ambient authority](http://en.wikipedia.org/wiki/Ambient_authority) in some partitions for convenience reasons. However, untrusted code can be applied within logical partitions that lack this ambient authority. The type system would then constrain the code to explicit capabilities.
-3. In RDP, the default state for a capability is revocation, and developers must *continuously* grant or authorize a capability by use of a signal. Thus, revocation is always possible.
-4. The continuous nature of RDP's signals make it relatively easy for tools to observe and audit grants of authority (when compared to fire-and-forget message passing). RDP is also designed to support live programming, so it is not difficult to update security code and modify policies on the fly. 
-5. The normal case is that disruption of the provider will also stop the code. In case of software agents that should survive disruption or perhaps even move on their own volition, developers are at least forced to use explicit state and model it carefully. 
-6. Capabilities can be granted to a client independently of the code that utilizes them. This enables robust composition, e.g. where clients can further grant these capabilities to services they trust to act on their behalf.
-7. Responsibilities can be enforced by use of linear types. Also, sealer/unsealer pairs can be modeled (using linear types) to enforce certain separations of responsibility. Linear types in Awelon are often static, i.e. to enforce certain proofs at compile-time.
-8. Capabilities can be very lightweight. *Static* capabilities can be free at runtime. Logical partitions that lack ambient authority can also be very lightweight, even eliminated after the typecheck.
-9. RDP's idempotence and commutativity properties make it relatively easy to eliminate redundant behaviors.
-10. RDP has neither ad-hoc loops nor synchronous waits that make it difficult to reason about performance. Thus, once the compile-time code is expanded, it is relatively easy to reason about performance (as a function of number of clients). 
+1. RDP supports [capability security](http://en.wikipedia.org/wiki/Capability-based_security) by use of first-class behaviors. Behaviors can grant limited authority over specific resources. In Awelon, capabilities are generally distributed through a static powerblock, which enables them to be efficiently compiled into a static or dynamic behavior. 
+2. In RDP, the default state for a capability is revocation, and developers must *continuously* grant or authorize a capability by use of a signal. Thus, revocation is always possible.
+3. The continuous nature of RDP's signals make it relatively easy for tools to observe and audit grants of authority (when compared to fire-and-forget message passing). RDP is also designed to support live programming, so it is not difficult to update security code and modify policies on the fly. 
+4. The normal case is that disruption of the provider will also stop the code. In case of software agents that should survive disruption or perhaps even move on their own volition, developers are at least forced to use explicit state and model it carefully. 
+5. Capabilities can be granted to a client independently of the code that utilizes them. This enables robust composition, e.g. where clients can further grant these capabilities to services they trust to act on their behalf.
+6. Responsibilities can be enforced by use of linear types. Also, sealer/unsealer pairs can be modeled (using linear types) to enforce certain separations of responsibility. Linear types in Awelon are often static, i.e. to enforce certain proofs at compile-time.
+7. Capabilities can be very lightweight. Static capabilities can even be free at runtime. 
+8. RDP's idempotence and commutativity properties make it relatively easy to eliminate redundant behaviors.
+9. RDP has neither ad-hoc loops nor synchronous waits that make it difficult to reason about performance. Thus, once the compile-time code is expanded, it is relatively easy to reason about performance (as a function of number of clients). 
 
 A remaining issue is that Awelon has Turing-complete compile-time metaprogramming. In practice, this can be addressed by use of simple expansion quotas, and controlling the amount of resources involved in those expansion efforts. The result is still much lighter weight than use of a virtual machine.
 

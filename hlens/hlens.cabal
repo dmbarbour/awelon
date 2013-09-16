@@ -1,0 +1,24 @@
+Name: hlens
+Version: 0.1
+Synopsis: Heterogeneous Lenses for Concatenative Haskell
+Category: Data, Lenses
+Description: operate on data structures formed of sums and products
+Author: David Barbour
+Maintainer: dmbarbour@gmail.com
+Homepage: 
+
+Package-Url: 
+Copyright: (c) 2013 by David Barbour
+License: BSD3
+license-file: LICENSE.txt
+Stability: experimental
+build-type: Simple
+cabal-version: >= 1.8
+
+Library
+  hs-Source-Dirs: ./
+  Build-Depends: base (>= 4.5 && < 5)
+  Exposed-Modules: HLens
+  ghc-options: -Wall -fno-warn-missing-signatures
+
+

@@ -24,44 +24,93 @@ data Module = Module
     { name        :: ModuleName
     , imports     :: [Import] 
     , definitions :: [Definition]
-    , other       :: [Text]
     }
 data App = App
-    { appStart :: Code -- words name modules
-    , modules :: [Module]
+    { appStart    :: ModuleName
+    , searchPath  :: [FilePath]
+    , modules     :: [Module]
     }
-data AppCX = AppCX
-    { prims :: [Prim]
-    }
-type Code = [ WX ]
-data WX 
-    = W  ModuleName Word -- words
-    | LN Rational        -- 
+data WX -- word expression
+    = W  ModuleName Word 
+    | LN Rational         
     | LT Text
     | LB Code
-data Prim = Prim
-data Type 
-    = Unit -- from intro1
-    | Zero -- from intro0
-    | U UniqueSrc
-    | ST Text -- static text
-    | SN Rational -- static number
-    | SB BType
-    | Prod Type Type 
-    | DSum Type Type -- dynamic sum
-    | SSum Type Type -- static sum
+type Code = [ WX ] -- raw code
 
+data Type               -- truly is just a compile-time value
+    = Sig P V           -- runtime signal, type V in partition P
+    | ST Text           -- static text
+    | SN Rational       -- static number
+    | SB BT Code        -- static code as a value
+    | Unit              -- from intro1, identity for (*)
+    | Zero              -- from intro0, identity for (+) or (|)
+    | Prod Type Type    -- basic product
+    | DSum Type Type    -- dynamic sum (x + y)
+    | SSum Type Type    -- static sum (x | y); choice may be unknown
+    | FSum Type Type    -- a 'merged' static sum
+    -- EXOTIC TYPES
+        -- capabilities, in general. How shall I describe these?
+        -- unique source: GUIDs, sealer/unsealer pairs, exclusive state?
+        -- sealed values
 
-data UniqueSrc = UniqueSrc 
-    { path = [Text]
-    , children = [Text]
-    }
 
 data BType = Block 
-    { nocopy :: Maybe SrcLoc  -- affine type
-    , nodrop :: Maybe SrcLoc  -- relevant type
-    , code   :: Code 
+    { nocopy :: Maybe ExpLoc  -- affine type
+    , nodrop :: Maybe ExpLoc  -- relevant type
+    , code   :: Code           
     , srcid  :: Text          -- fingerprint for construction of block
+    }
+
+
+data BType = B { code :: Code, 
+{ 
+
+noDrop :: M
+
+
+
+-- TODO: Deal with source locations for good debugging.
+-- a SrcLoc has a direct physical location in source code. Though it 
+-- is specified here by module, word, and index. In case of internal 
+-- blocks, the index may have levels.
+-- data SrcLoc = SrcLoc ModuleName Word [Int]
+
+-- an ExpLoc describes the current 'expansion' of code to
+-- reach a given word, from the initial behavior. The real
+-- challenge of ExpLoc is dealing with static composition 
+-- blocks. 
+-- data ExpLoc = [SrcLoc]
+
+
+
+
+
+
+
+data P = P { partition :: Text, latency :: Rational }
+data V = VUnit | VText VT | VNumber VN | VBlock VB
+data VT = VT { vt_const :: Maybe Text }
+data VN = VN 
+    { vn_min   :: Maybe Rational
+    , vn_max   :: Maybe Rational
+    , vn_const :: Maybe Rational
+    }
+data VB = VB 
+    
+
+
+    = VUnit 
+    | VText   VT
+    | VNumber VN
+    | VBlock  { vb_nodrop
+const_block :: Maybe Block }
+
+
+-- Note: need to analyze receive/return pairs. Might use source locations?
+
+data UniqueSrc = UniqueSrc 
+    { path = [Text]         -- used children
+    , children = [Text]     
     }
 
 
@@ -81,10 +130,7 @@ data BType = Block
 -- An expansion must address not only source location, but context.
 -- For a block, usage context would always be the 
 
--- A source location is an actual, physical location in a source
--- file. It is specified by module, word, and a list of numbers.
--- The list of numbers describes the deep 
-data SrcLoc = SrcLoc ModuleName Word [Int]
+
 
 
 -- Expanded location? In an "expansion" of the code, location 

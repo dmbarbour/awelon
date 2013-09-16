@@ -11,18 +11,15 @@ Description:
   applications and overlay networks. RDP is also suitable for multi
   agent systems and component based programming. 
 
-  Awelon is a tacit language in the style of FORTH; it has almost
-  no syntax and is easy to process. Constructing a dataflow graph in
-  Awelon has an imperative feel to it: developers pick up signals or
-  components, move them around, and wire them together. Essentially,
-  Awelon models an editing process; abstractions of this editing can
-  be ad-hoc, deep, and expressive. 
+  Awelon is a tacit concatenative language, arrow-based, though it
+  has a look and feel similar to FORTH or Factor. Unlike those stack
+  based programming languages, the runtime structure of Awelon is 
+  static (being an arrow). However, compile-time metaprogramming is
+  able to construct very ad-hoc behaviors. 
 
-  Awelon is richly typed and type-safe, including support for linear
-  types. Types are implicit in the code, computed at compile time. 
-  Polymorphism in Awelon is very ad-hoc: developers can introspect 
-  types and static values and decide how to procede. This supports a 
-  high level of metaprogramming, adaptation, and extension. 
+  Awelon is richly typed and type-safe. Programmers can model ad-hoc
+  types by use of sealer/unsealer pairs and linear structures. State
+  can be bound into the program by use of uniqueness types.
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
@@ -42,12 +39,13 @@ Library
   hs-Source-Dirs: src
   Build-Depends: base (>= 4.5 && < 5),
     text (>= 0.11.2),
-    parsec (>= 3.1),
+    system-fileio (>= 0.3.11),
+    system-filepath
 
   Exposed-Modules:
     Awelon
   Other-Modules:
 
-  ghc-options: -Wall -fno-warn-orphans -auto-all
+  ghc-options: -Wall -auto-all
 
 

@@ -22,6 +22,13 @@ import dp
 %     basic data plumbing (first, assocl, swap, rot3, intro1, elim1)
 %     types are represented as blocks operating on typerep
 %
+%   capabilities
+%     I am not entirely sure how to best model capabilities. They
+%     aren't really Awelon code, but must still be represented in a
+%     distributed system. Adding a 'capability' primitive that can
+%     process a set of static values seems useful, as does recording
+%     the expected type somehow.
+%
 %   partitions: perhaps support inheritance... or partitions like
 %     typeclasses, partition types can inherit properties or prims
 %     of another, just to avoid repetition.
@@ -73,11 +80,13 @@ import dp
 
 % Substructural Types 
 %
-%     affine (B ~> B') - may not be copied; use at most once
-%     relevant (B ~> B') - may not be dropped; use at least once
+%     noCopy (B ~> B') - may not be copied; use at most once
+%     noDrop (B ~> B') - may not be dropped; use at least once
 %
 % Linearity for a block is declared by marking a block both
-% affine and relevant.
+% affine and relevant. Note: when a `noDrop` block is copied,
+% the second copy is still `noDrop` but the first does not 
+% have this property. 
 %
 
 
@@ -108,14 +117,15 @@ import dp
 %   (Todo: support a mechanism for unique sources to split on dynamic 
 %   collection-oriented operations, once I know what I'm doing there.)
 
-% Debugging Primitives
+
+% Debugging...
 %
 %   error :: (Text*x)~>x
 %   warn  :: (Text*x)~>x
 %
-% A warning or error will apply if type 'x' is in a live branch of
-% the static computation. 
-
+% error and warn apply unless the evaluator can statically exclude
+% them. I'll probably also want variations that apply only if 
+% actually observed (maybe `fail` and `debug`).
 
 
 % Static Introspections: lots of simple questions...

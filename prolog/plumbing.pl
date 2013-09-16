@@ -12,20 +12,21 @@ prim([unit,X],elim1,X).
 prim([A,B],swap,[B,A]).
 prim([A,[B,[C,D]]],rot3,[C,[A,[B,D]]]).
 
+%prim((X,(Y,Z)), assocls, ((X,Y),Z)).
+%prim(X,intro0,(zero,X)).
+%prim((zero,X),elim0,X).
+%prim((A,B),mirror,(B,A)).
+%prim((A,(B,(C,D))),rot3s,(C,(A,(B,D)))).
+
+
 % derived functions (without using blocks)
 % these can be validated using testLib
-lib([[A,B],C],  assocr  ,[A,[B,C]],
-    [swap,assocl,swap,assocl,swap]).
-lib([A,[B,C]],  rot2  ,[B,[A,C]],
-    [intro1,rot3,intro1,rot3,elim1,elim1]).
-lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]],
-    [assocr,rot3,rot2,assocl]).
-lib([A,[B,[C,[D,E]]]],  rot4,  [D,[A,[B,[C,E]]]],
-    [assocl,rot3,rot2,assocr,rot3]).
-lib([A,[B,[C,[D,[E,F]]]]],  rot5,  [E,[A,[B,[C,[D,F]]]]],
-    [assocl,rot4,rot2,assocr,rot3]).
-lib([[A,[B,C]],[D,[E,F]]],  zip3  ,[[A,D],[[B,E],[C,F]]],
-    [zip2,rot3,rot3,zip2,rot3]).
+lib([[A,B],C],  assocr  ,[A,[B,C]], [swap,assocl,swap,assocl,swap]).
+lib([A,[B,C]],  rot2  ,[B,[A,C]],   [intro1,rot3,intro1,rot3,elim1,elim1]).
+lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]], [assocr,rot3,rot2,assocl]).
+lib([A,[B,[C,[D,E]]]],  rot4,  [D,[A,[B,[C,E]]]], [assocl,rot3,rot2,assocr,rot3]).
+lib([A,[B,[C,[D,[E,F]]]]],  rot5,  [E,[A,[B,[C,[D,F]]]]], [assocl,rot4,rot2,assocr,rot3]).
+% lib([[A,[B,C]],[D,[E,F]]],  zip3  ,[[A,D],[[B,E],[C,F]]], [zip2,rot3,rot3,zip2,rot3]).
 
 %lib([A,[B,[C,[D,[E,[F,G]]]]]],  rot6,  [F,[A,[B,[C,[D,[E,G]]]]]],
 %    [assocl,rot5,rot2,assocr,rot3]).
@@ -47,165 +48,68 @@ lib([[A,[B,C]],[D,[E,F]]],  zip3  ,[[A,D],[[B,E],[C,F]]],
 %    [assocl,uzip3,zip2,assocr,uzip3]).
 
 
-lib([[A,[B,S]],E],  roll2,  [[B,[A,S]],E],
-    [swap,rot3,rot2,swap]).
-lib([[A,[B,[C,S]]],E],  roll3,  [[C,[A,[B,S]]],E],
-    [swap,rot4,rot2,swap]).
+%lib([[A,[B,S]],E],  roll2,  [[B,[A,S]],E], [swap,rot3,rot2,swap]).
+%lib([[A,[B,[C,S]]],E],  roll3,  [[C,[A,[B,S]]],E], [swap,rot4,rot2,swap]).
 
-
-lib([[X,S],[H,E]], take, [S,[[X,H],E]], [zip2,rot2]).
-lib([S,[[X,H],E]], put, [[X,S],[H,E]], [rot2,zip2]).
+%lib([[X,S],[H,E]], take, [S,[[X,H],E]], [zip2,rot2]).
+%lib([S,[[X,H],E]], put, [[X,S],[H,E]], [rot2,zip2]).
 %lib([S,[[X,[Y,H]],E]], juggle2, [S,[[Y,[X,H]],E]], 
 %    [rot2,swap,rot3,rot2,swap,rot2]).
 %lib([S,[[X,[Y,[Z,H]]],E]], juggle3, [S,[[Z,[X,[Y,H]]],E]],
 %    [rot2,swap,rot4,rot2,swap,rot2]).
 
-% some functions I'd prefer to avoid when building some functions
-% comment them back in if you want to try them.
-%lib([[SL,[[X,[Y,SC]],SR]],H], roll2, [[SL,[[Y,[X,SC]],SR]],H],
-%    [swap,rot3,swap,rot3,rot2,swap,rot3,rot3,swap]).
-%lib([[SL,[[X,[Y,[Z,SC]]],SR]],H], roll3, [[SL,[[Z,[X,[Y,SC]]],SR]],H],
-%    [take,roll2,put,roll2]).
-%lib([[SL,[[A,[B,[C,[D,SC]]]],SR]],H], roll4, [[SL,[[D,[A,[B,[C,SC]]]],SR]],H],
-%    [take,roll3,put,roll2]).
-
-%lib([[SL,[[[X,Y],SC],SR]],H],  expand,  [[SL,[[X,[Y,SC]],SR]],H],
-%    [swap,rot3,swap,rot2,assocr,rot3,swap,rot3,rot3,swap]).
-%lib([[SL,[[X,[Y,SC]],SR]],H],  shrink,  [[SL,[[[X,Y],SC],SR]],H],
-%    [swap,rot3,swap,rot3,rot3,assocl,rot2,swap,rot3,rot3,swap]).
-%lib([S,[HL,[[X,Y],HR]]],  expandH,  [S, [HL, [X, [Y, HR]]]],  % spread in hand
-%    [assocl,rot2,assocr,rot3,assocr]).
+%lib([[[A,B],S],E],  xf  , [[A,[B,S]],E], [swap,rot2,assocr,rot3,swap]).
+%lib([[[A,B],S],E],  xs  , [[B,[A,S]],E], [assocr,zip2,rot2,assocl]).
+%lib([[A,[B,S]],E],  cf  , [[[A,B],S],E], [swap,rot3,rot3,assocl,rot2,swap]).
+%lib([[B,[A,S]],E],  cs  , [[[A,B],S],E], [assocr,rot2,zip2,assocl]).
 
 
-%lib([SC,[[SL,SR],H]],  insertStack  ,[[SL,[SC,SR]],H],
-%    [assocl,swap,rot3,rot2,swap]).
-%lib([[SL,[SC,SR]],H],  extractStack  ,[SC,[[SL,SR],H]],
-%    [swap,rot3,assocl,swap,rot2]).
-%lib([[SL,[SC,SR]],H],  newStack  ,[[SL, [SC, [unit,SR]]], H],
-%    [swap,assocl,intro1,rot3,rot3,assocr,swap]).
-%lib([[SL, [SC, [unit,SR]]], H],  remStack  ,[[SL,[SC,SR]],H],
-%    [swap,assocl,rot3,elim1,assocr,swap]).
-%lib([[[ST,SL],[SC,SR]],H],  stepLeft,  [[SL,[ST,[SC,SR]]],H],
-%    [assocr,zip2,rot2,assocl]).
-%lib([[SL,[SC,[ST,SR]]],H],  stepRight,  [[[SC,SL],[ST,SR]],H],
-%    [assocr,rot2,zip2,assocl]).
-%lib([[SL,[SC,SR]],[HL,HR]],  swapStack,  [[SL,[HR,SR]],[HL,SC]],
-%    [swap,zip2,rot3,rot2,zip2,swap]).
-%lib([[SL,[SC,SR]],H],  stackToElem  ,[[SL,[[SC,unit],SR]],H],
-%    [assocr,intro1,rot3,zip2,assocl,rot2,assocl]).
-%lib([[SL,[[SC,unit],SR]],H],  elemToStack  ,[[SL,[SC,SR]],H],
-%    [swap,rot3,assocr,rot2,elim1,rot3,rot3,swap]).
+% Zipper Operation...
+%     zwrap :: x <~> x*(1*1)  :: zunwrap_
+%     zf    :: (x*y)*(l*r) <~> x*(1*((y*l)*r)) :: zuf
+%     zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
+%     (representation subject to change) 
+%     zswap - switch target of zipper (2nd) with object on stack (1st)
 
-%lib(X,  wrapEnv,  WX, 
-%    [intro1,swap,intro1,swap,intro1,intro1,intro1,assocl,swap])
-%    :- wrapped(X,WX).
-%lib(WX, unwrapEnv, X,
-%    [swap,assocr,elim1,elim1,elim1,swap,elim1,swap,elim1])
-%    :- wrapped(X,WX).
+zwrap(N) :- 
+    onStack(S0,x),
+    onStack(SF,[x,[unit,unit]]),!,
+    path(S0,SF,N).
+zunwrap_(N) :- 
+    onStack(S0,x),
+    onStack(SF,[x,[unit,unit]]),!,
+    path(SF,S0,N).
+zf(N) :-
+    onStack(S0, [[x,y],[l,r]]),
+    onStack(SF, [x,[unit,[y,[l,r]]]]),!,
+    path(S0,SF,N).
+zuf(N) :-
+    onStack(S0, [[x,y],[l,r]]),
+    onStack(SF, [x,[unit,[y,[l,r]]]]),!,
+    path(SF,S0,N).
+zs(N) :-
+    onStack(S0, [[x,y],[l,r]]),
+    onStack(SF, [y,[[x,l],r]]),!,
+    path(S0,SF,N).
+zus(N) :-
+    onStack(S0, [[x,y],[l,r]]),
+    onStack(SF, [y,[[x,l],r]]),!,
+    path(SF,S0,N).
+zswap(N) :-
+    path([[x,[[z,w],s]],e],
+         [[z,[[x,w],s]],e], N).
+ 
 
+onStack([[P,s],e],P). % convenience function
 
-% hmmm. wrapVal is nice, but not exactly what I want. I need a 
-%  form of `appX` that wraps the target object first, then
-%  unwraps it afterwards.
-
-   
-% partial lib functions (i.e. prep for 'first')
-% commented out because I don't like them showing up in paths
-%lib([F,[X,Y]],  prep_second  ,[F,[Y,X]], [assocl,swap,rot2]).
-%lib([[SL,[[F,SC],SR]],H],  prep_appS  ,[F,[SC,[[SL,SR],H]]],
-%    [extractStack,assocr]).
-%lib([[SL,[[F,[X,SC]],SR]],H], prep_appX  ,[F,[X,[[SL,[SC,SR]],H]]],
-%    [extract,rot2,extract,rot3]).
-%lib([[SL,[[F,SC],SR]],H],  prep_appE  ,[F, [[[SL,[SC,SR]],H],unit]  ],
-%    [extract,intro1,swap,assocr]). % unit is there so we can apply 'first'
-
-take(N) :- path( [[sL,[[x,sC],sR]],[hL,hR]],
-                 [[sL,[sC,sR]],[hL,[x,hR]]], N).
-put(N) :-  path( [[sL,[sC,sR]],[hL,[x,hR]]], 
-                 [[sL,[[x,sC],sR]],[hL,hR]], N).
-
-
-takeL(N) :- path( [[sL,[[x,sC],sR]],[hL,hR]],
-                 [[sL,[sC,sR]],[[x,hL],hR]], N).
-putL(N) :-  path( [[sL,[sC,sR]],[[x,hL],hR]], 
-                 [[sL,[[x,sC],sR]],[hL,hR]], N).
-
-
-%extract(N) :- lib([[SL,[[X,SC],SR]],H],  extract  ,[X,[[SL,[SC,SR]],H]],
-%    [swap,rot3,zip2,rot3,rot2,swap,rot2]).
-
-newStack(N) :- path([[sL,[sC,sR]],h], 
-                    [[sL,[sC,[unit,sR]]],h], N).
-remStack(N) :- path([[sL,[sC,[unit,sR]]],h],
-                    [[sL,[sC,sR]],h], N).
-stepLeft(N) :- path([[[sT,sL],[sC,sR]],h],
-                    [[sL,[sT,[sC,sR]]],h], N).
-stepRight(N) :- path( [[sL,[sC,[sT,sR]]],h],
-                      [[[sC,sL],[sT,sR]],h], N).  
-swapStackHand(N) :- path( [[sL,[sC,sR]],[hL,hR]],
-                          [[sL,[hR,sR]],[hL,sC]], N).
-stackToElement(N) :- path( [[sL,[sC,sR]],h],
-                        [[sL,[[sC,unit],sR]],h], N).
-elementToStack(N) :- path( [[sL,[[sC,unit],sR]],h],
-                        [[sL,[sC,sR]],h], N). 
-
-% open top stack item onto stack
-expand(N) :- path( [[sL,[[[x,y],sC],sR]],h],
-                    [[sL,[[x,[y,sC]],sR]],h], 
-                    N).
-% recombine top elements on a stack into one element
-shrink(N) :- path( [[sL,[[x,[y,sC]],sR]],h], 
-                    [[sL,[[[x,y],sC],sR]],h],
-                    N).
-% expand element in hand.
-expandH(N) :- path( [s,[hL,[[x,y],hR]]], [s,[hL,[x,[y,hR]]]], N).
-shrinkH(N) :- path( [s,[hL,[x,[y,hR]]]], [s,[hL,[[x,y],hR]]], N).
-
-
-juggle2(N) :- path( [[sL,[sC,sR]], [hL,[x,[y,hR]]]],
-                    [[sL,[sC,sR]], [hL,[y,[x,hR]]]], N).
-juggle3(N) :- path( [[sL,[sC,sR]], [hL,[x,[y,[z,hR]]]]],
-                    [[sL,[sC,sR]], [hL,[z,[x,[y,hR]]]]], N).
-juggle4(N) :- path( [[sL,[sC,sR]], [hL,[a,[b,[c,[d,hR]]]]]],
-                    [[sL,[sC,sR]], [hL,[d,[a,[b,[c,hR]]]]]], N).
-
-
-roll2(N) :- path( [[sL,[ [x,[y,sC]]  ,sR]],[hL,hR]],
-                  [[sL,[ [y,[x,sC]]  ,sR]],[hL,hR]],N).
-% [swap,rot3,swap,rot3,rot2,swap,rot3,rot3,swap]9
-
-roll3(N) :- path( [[sL,[ [x,[y,[z,sC]]]  ,sR]],[hL,hR]],
-                  [[sL,[ [z,[x,[y,sC]]]  ,sR]],[hL,hR]],N).
-
-roll4(N) :- path( [[sL,[ [a,[b,[c,[d,sC]]]]  ,sR]],[hL,hR]],
-                  [[sL,[ [d,[a,[b,[c,sC]]]]  ,sR]],[hL,hR]],N).
-
-% wrap value as first element in environment
-wrapped(X,[[unit,[[X,unit],unit]],[unit,unit]]).  
-
-wrapEnv(N) :- wrapped(x,WX),!,path(x,WX,N).
-unwrapEnv(N) :- wrapped(x,WX),!,path(WX,x,N).
-
-wrapX(N) :-
-    wrapped(x,WX),!,
-    path([[sL,[[x,sC],sR]],[hL,hR]]
-        ,[[sL,[[WX,sC],sR]],[hL,hR]], N).
-unwrapX(N) :-
-    wrapped(x,WX),!,
-    path([[sL,[[WX,sC],sR]],[hL,hR]]
-        ,[[sL,[[x,sC],sR]],[hL,hR]], N).
 
 
 % test for a function of up to N elements.
-path(X,Y,N) :- uPath(X,Y,N,[X],P),length(P,NL)
-              ,write(P),write(NL).
+path(X,Y,N) :- uPath(X,Y,N,[X],P),length(P,NL),write(P),write(NL).
 % add primitive
-uPath(X,Y,N,H,[OP|P]) :- (N > 0),prim(X,OP,S),
-	not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
+uPath(X,Y,N,H,[OP|P]) :- (N > 0),prim(X,OP,S),not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
 % add library function
-uPath(X,Y,N,H,[W|P]) :-
-	(N > 0),lib(X,W,S,_),
-	not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
+uPath(X,Y,N,H,[W|P]) :- (N > 0),lib(X,W,S,_),not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
 % function found!
 uPath(X,X,N,_,[]) :- (N >= 0).
 
