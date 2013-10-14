@@ -44,9 +44,7 @@ Aliasing and cyclic data can be modeled indirectly, e.g. using association lists
 
 ## Staged Programming
 
-A special location value is 'static', which describes values that can be computed within the current code fragment, at compile time. (Static values still have latency.) Numbers, text, and blocks represented directly in code are always static. Static values can be used at any location we can communicate code.
-
-The notion of 'static' values and computations becomes an effective basis for implicit staged programming. Many computations within code can be performed before running the code. Further, statics are useful for modeling user-defined types. 
+ABC systems should track which values can be computed at compile time, within the current code fragment. These are 'static' values. Numbers, text, and blocks represented directly in code are always static. The notion of 'static' values and computations becomes an effective basis for implicit staged programming. Many computations within code can be performed before running the code. Further, statics are useful for modeling user-defined types. 
 
 ## Capabilities and Side Effects
 
@@ -62,29 +60,41 @@ Within an application, capabilities are generally encapsulated in blocks rather 
 
 ASIDE: Insecure text for capabilities can feasibly be used to extend ABC, i.e. as a form of foreign function interface (FFI). This is not recommended for side-effects, but could be convenient for pure extensions to ABC. For example, if a machine offers high performance matrix or vector operations. NOTE: Awelon project does not use this pattern, instead preferring to represent an FFI by publishing capabilities.
 
-## Uniqueness 
-
-Awelon project depends heavily on modeling unique values. Unique values include:
-
-* **sealer/unsealer pairs** - 
-* **exclusive bindings to state**
-* **unique IDs** - i.e. GUIDs or URLs
-
-ABC cannot model uniqueness directly, but rather does so using capabilities. 
-
-This is generally achieved by using a linear block as the uniqueness provider. This block can be split, by applying it
-
 ## Sealed Values and Encapsulation
 
-A useful set of capabilities is for sealing/unsealing values. A seale
-ABC supports sealed values, which models encryption, private encapsulation, and can enforce parametricity. For many programs, dependent types can be inferred.
+A useful application of capabilities is to model sealer/unsealer pairs. The idea is that we have a pair of capabilities, one of which can seal values such that only the other can unseal them. Sealed values are opaque. There is a good opportunity here for type-system integration: the identity of the sealer can become part of a sealed value's type.
 
-ABC does not have nominative types, because those are unsuitable for open distributed systems. But users can model new types with static values, and can model ADTs via sealed values.
+Sealer/unsealer pairs are useful for modeling identity, encapsulation, first class abstract data types, rights amplification, and a variety of other features. Awelon project makes heavy use of this pattern, even statically (i.e. some values can be sealed statically to model module systems, private data).
 
+New, unique sealers can be constructed given a uniqueness source.
+
+## Shared State Resources
+
+Capabilities can access external state resources. In some cases, those resources are also accessible by other agents and services. A powerblock will generally provide access to some collaborative spaces (perhaps with varying levels of security) to publish or discover values. 
+
+By providing a globally unique value, one can exclusively bind external state resource. This enables users to define or update their own state models, enforce many-to-one or one-to-many patterns, and better comprehend who has access to state. In Awelon project, this pattern is used extensively; while there are some external spaces not controlled by any particular agent, those are primarily for volatile communications, publishing services, discovering resources, and bootstrapping connections.
+
+## Stable Uniqueness Source
+
+Sealer/unsealer pairs, exclusive state, identity values, and other constructs require uniqueness. Further, these unique values should be stable across changes in source code, to be robust in presence of persistence or update. Awelon models a uniqueness source as a no-copy block that encapsulates a unique capability. 
+
+Functions are pure, and RDP behaviors are idempotent; in both cases the same output must be returned for the same input. Thus, to have a formally unique output requires a formally unique input. Uniqueness sources cannot be 'created', only used if they already exist. Uniqueness sources in Awelon project are provided as initial arguments, otherwise they would not exist at all. 
+
+A uniqueness source cannot be copied (or it would no longer be unique). However, it may be partitioned to arbitrary depth. For stability, it is necessary that the partitions be stable to rearranging, adding, or removing most code. In Awelon project, this is achieved using a parent/child metaphor, similar to directories in a filesystem. A parent must give each child a unique name, but the child has access to a fresh set of names.
+
+In Awelon project, uniqueness is distributed in two distinct stages. In the first stage, user actions are modeled as pure functional streaming ABC code that manipulate the environment. In the second stage, the environment's structure is interpreted as an RDP behavior, which may continuously influence and observe the real world. Unique values in first stage enable objects to be moved without losing their identity or unique external bindings. Unique values in second stage enables dynamic state. 
+
+Both stages use the same stability model. This consistency is valuable in case of history rewriting or programming by example.
+
+In the first stage, however, developers can only distribute uniqueness sources. Capabilities to utilize uniqueness don't become available until the second stage. (Thought: It may be necessary to model the transfer from first stage to second stage uniqueness.)
 
 ## Compilation, Parallelization, and Performance
 
+The intention is that ABC is compiled to native code, or to an intermediate code (e.g. LLVM) 
+
 For performance, ABC is typically compiled to native code.
+
+
 
 Of course, compilation could be difficult in a streaming bytecode scenario. ABC addresses this concern in a few ways. Streams are processed in atomic chunks (separated by `;`). Each chunk may be compiled. Pattern recognition and memoization can enable reuse of compiled code across chunks. Further, relatively large, commonly used subprograms may be named and accessed by secure hash (via capability). The last provides a unit for compilation and supports efficient serialization. 
 
@@ -98,6 +108,8 @@ Direct interpretation can also be efficient enough in some cases.
 
 , compilation can be based either on pattern recognition
 
+
+## Storage Models
 
 ## Memory Optimizations
 
