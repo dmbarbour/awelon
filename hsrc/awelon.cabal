@@ -26,7 +26,7 @@ Maintainer: dmbarbour@gmail.com
 Homepage: http://github.com/dmbarbour/awelon
 Copyright: (c) 2013 by David Barbour
 License: BSD3
-license-file: LICENSE.txt
+license-file: ../LICENSE.txt
 Stability: experimental
 build-type: Simple
 cabal-version: >= 1.8
@@ -36,7 +36,7 @@ Source-repository head
   location: http://github.com/dmbarbour/awelon.git
 
 Library
-  hs-Source-Dirs: src
+  hs-Source-Dirs: .
   Build-Depends: base (>= 4.5 && < 5),
     text (>= 0.11.2),
     system-fileio (>= 0.3.11),

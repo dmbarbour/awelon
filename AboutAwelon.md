@@ -1,9 +1,14 @@
 
 # Awelon
 
-Awelon is a richly typed language for reactive demand programming (RDP). RDP is a general purpose, reactive dataflow model that addresses challenges for developing in open, distributed, heterogeneous systems (see AboutRDP for more). Awelon is intended to be a usable programming language for humans, a feasible distribution language for RDP code and software components, and a viable target for RDP development environments (some of which might be more visual in nature).
+Awelon is a richly typed text-based language for reactive demand programming (RDP). 
+
+RDP is a general purpose, reactive dataflow model that addresses challenges for developing in open, distributed, heterogeneous systems (see AboutRDP for more). Awelon is intended to be a usable programming language for humans, a feasible distribution language for RDP code and software components, and a viable target for RDP development environments (some of which might be more visual in nature).
+
+Awelon is also a trivial expansion of Awelon Bytecode (ABC). 
 
 In Awelon, an application or component can describe code that executes integrates with distributed services, or executes in multiple OS level processes.
+
 
 ## Tacit Programming
 
@@ -39,14 +44,14 @@ To help illustrate what tacit code often looks like, I'll define a few more func
         %  elim1  :: (1 * x) -> x                        
         %  copy   :: x -> (x * x)                           
         
-        apply  = [intro1 swap] second first swap elim1      %  ((x -> x') * x) -> x'
-        second = swap [swap] first swap first swap          %  ((y -> y') * (x * y)) -> (x * y')
-        assocr = swap assocl swap assocl swap               %  ((x * y) * z) -> (x * (y * z))
-        roll2  = assocl [swap] first assocr                 %  (x * (y * z)) -> (y * (x * z))
-        roll3  = [roll2] second roll2                       %  (a * (b * (c * d)))) -> (c * (a * (b * d)))
+        apply  = [intro1 swap] second first swap elim1  %  ((x -> x') * x) -> x'
+        second = swap [swap] first swap first swap      %  ((y -> y') * (x * y)) -> (x * y')
+        assocr = swap assocl swap assocl swap           %  ((x * y) * z) -> (x * (y * z))
+        roll2  = assocl [swap] first assocr             %  (x * (y * z)) -> (y * (x * z))
+        roll3  = [roll2] second roll2                   %  (a * (b * (c * d)))) -> (c * (a * (b * d)))
         roll4  = [roll3] second roll2
-        dup    = [copy] first assocr                        %  (a * e) -> (a * (a * e))
-        pick1  = [dup] second roll2                         %  (a * (b * e)) -> (b * (a * (b * e)))
+        dup    = [copy] first assocr                    %  (a * e) -> (a * (a * e))
+        pick1  = [dup] second roll2                     %  (a * (b * e)) -> (b * (a * (b * e)))
         pick2  = [pick1] second roll2
         %  Note: the above definitions are for illustrations; those
         %  in use may be different (e.
@@ -90,11 +95,23 @@ In addition to basic data plumbing (intro0, elim0, mirror, assocl+, rot3+) and c
         conjoin :: ((x * y) + (x * z)) -> x * (y + z)
         merge   :: (x+x) -> x
 
-Here the `@p` on disjoin is to represent that disjoin requires knowledge that a value with evidence of the split will be in the same location as a value outside of it - i.e. we cannot make a choice in one location then apply it somewhere else without some evidence of that choice. 
+Here the `@p` on disjoin is to represent that disjoin requires knowledge that a value with evidence of the split will be in the same spatial-temporal location as a value outside of it - i.e. we cannot make a choice in one location then apply it somewhere else without some evidence of that choice. 
 
 The distrib primitive is mostly used as the final step for copying a sum type.
 
 Awelon doesn't strictly enforce equivalent types on merge. But the types must be compatible; all operations on a sum after a merge are applied on both branches. A physical merge will often be favored for performance. 
+
+#### Static Choice
+
+Awelon distinguishes the notion of a "static" choice `(x | y)`. A static choice is made based on literal numbers and text that were part of the code or powerbox. Static choices are very common for configuration and metaprogramming. 
+
+All operations on dynamic choices will work for static, and there is a variation of disjoin for static choice that is much less constrained. Words defined for dynamic choice will work for static choice, and static choice can be cast to dynamic choice. 
+
+The primary advantage of static choice is a variation of disjoin that has a more ideal signature:
+
+        disjoinStatic ::  (x*(y|z)) -> ((x*y)|(x*z))
+
+
 
 ## Awelon's Module System
 
@@ -106,7 +123,7 @@ Awelon has a very simple module system. Essentially, a module consists of one im
         _s = assocl swap rot2 first swap
         % TODO: replace this with a usable module...
 
-All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. Words may be defined in any order within a module. Imports may be cyclic. However, *definitions* may not be cyclic or recursive, nor may they even appear to be. If developers wish to re-export a word, they must use the prefixed form on the right hand side, e.g. `bar = p:bar`. Also, if there is any ambiguity in a word's definition (i.e. after expansion to primitives), the prefixed form must be used.
+All words defined in a module are exported from it, except those prefixed with the underscore character such as _s above. (Imported words are not re-exported.) All words are also available prefixed with 'module:' from which they come. Words may be defined in any order within a module. Imports may be cyclic. However, *definitions* may not be cyclic or recursive, nor may they even appear to be. If developers wish to re-export a word, they must use the prefixed form on the right hand side, e.g. `bar = p:bar`. Also, if there is any ambiguity in a word's definition (i.e. after naive expansion to Awelon bytecode), the prefixed form must be used.
 
 The word 'this' has special meaning. Within a module, 'this:' may be used as the prefix to disambiguate a module's own words (this is only necessary within a definition). When imported from another module, the word 'this' is mapped instead to the import name, e.g. 'foo' will mean 'foo:this'. Awelon is intended for component based software; I believe Awelon's use of 'this' has nice connotations to encourage treating modules as software components.
 
@@ -128,7 +145,7 @@ In general, there are a few 'stages' involved with the use of any capability. Fo
 
 A "well-written" Awelon program should be stable to most changes and adaptable to many more. It is the job of the application developer to perform a mix of: (a) modifying the powerblock to meet their expectations (e.g. remapping names, specifying preferences), (b) modifying their expectations to match the resources in the powerblock (e.g. performing conditional tests and making decisions, using fallbacks).
 
-(*NOTE:* When I say the powerblock is the only input, I mean that literally. In general, the first word of an application will wrap the powerblock into an environment - perhaps Awelon's standard environment, perhaps a rich application framework, perhaps a testing framework. This first word can help clarify the nature of the application to developers.)
+*NOTE:* When I say the powerblock is the only input, I mean that literally. In general, the first word of an application will wrap the powerblock into an environment - perhaps Awelon's standard environment, perhaps a rich application framework, perhaps a testing framework. This first word can help clarify the nature of the application to developers.
 
 ### Automatic Testing
 
@@ -223,16 +240,19 @@ When programmers don't trust a particular subprogram, they can grab a unique 'ex
 
 Conceptually, every Awelon application runs under control of an 'executive' within an even larger RDP system. Awelon applications can interact as if they were all subprograms of a larger application. 
 
-Awelon's basic types are:
-
+Awelon's basic value types are:
 * atomic types: numbers, text, blocks
 * structural types: products, sums
-* substructural types: affine, relevant, linear
-* barrier type: based on sealer/unsealer pairs
-* temporal type: latency, latency bounds 
-* spatial type: logical locations
 
-Also, since Awelon lacks ambient authority (all authority is through blocks) many problems can be addressed effectively by object capability security patterns and controlling distribution of authority. 
+Numbers in Awelon are rationals, and are precise. Capabilities may use additional types, but types that aren't in Awelon's basic set cannot implicitly be serialized.
+
+In addition, there is more type information:
+* substructural types: affine, relevant, linear
+* temporal type: latency for all, latency bounds for blocks 
+* spatial type: location for every value
+* (potentially types for staging / trusted path / stability)
+
+Also, Awelon lacks ambient authority (all authority is through blocks). In practice, a great deal of reasoning about program behavior is achievable based on controlling distribution of authority to subprograms, sealer/unsealer patterns, and limiting the observable input to untrusted blocks.
 
 ### Substructural Types
 
@@ -242,21 +262,17 @@ Only blocks can be so marked, but that's sufficient for any purpose. A block is 
 
 Substructural types are very useful for certain forms of reasoning - e.g. handshakes and multi-step protocols, uniqueness and exclusivity, limited resources and fan-in, and modeling responsibilities or requirements. 
 
-### Uniqueness Source
+### Uniqueness
 
-The uniqueness source is a static object that represents a source of "unique values". Unique values include GUIDs, exclusive state, sealer/unsealer pairs. In Awelon, the powerblock - one of the two initial arguments to every application - serves also as the uniqueness source. (This coupling is convenient.)
+In Awelon, the powerblock serves also as a source of 'unique' values. Unique values include exclusive bindings to external state, GUIDs, and sealer/unsealer pairs. Exclusive state and sealer/unsealer pairs are especially useful for certain forms of reasoning.
 
-A uniqueness source cannot be copied, because if it were copied it would no longer be unique. A uniqueness source can be split, such that we have two or more distinct uniqueness sources, which is functionally similar to a copy. 
-
-When providing exclusive state, it is very useful to have a stable identity for that state: it simplifies orthogonal persistence, live programming, runtime upgrade, dynamic behavior. An anonymous split (left/right) split will be very unstable to code changes that rearrange the order in which splits occurr or introduce extra splits upstream. 
-
-For stability, Awelon requires that each split action - for both the uniqueness source and the individual unique values - utilize a text identifier. The text becomes the source of stability, similar in nature to a directory structure in a filesystem. The split generates a 'child' object, and a 'parent'. The parent is (statically) unable to reuse the child identifier.
-
-Since the child has a fresh set of identifiers, it can be passed into an independently developed software component without risk of namespace clashes. Meanwhile, the parent is kept around for further divisions.
+A source of unique values cannot be copied, for if it were it would not be unique. However, one can be divided such that we have two distinct sources. In Awelon, the division has a parent/child metaphor, and requires explicitly naming the child; this design provides stable identity across source-code changes, which is essential for stable bindings to state. The parent cannot reuse the child name (it is an error to try).
 
 ### Sealer/Unsealer Pairs
 
-A sealer/unsealer pair can be created from the powerblock:
+A sealer/unsealer pair is a very expressive pattern for controlling access to information.
+
+
 
         newSealerUnsealerPair :: (Text * Power) -> ((Sealer Unique * Unsealer Unique) * Power')
         type Sealer u = x -> Sealed u x
@@ -269,6 +285,15 @@ Sealer/unsealer pairs can be used in a number of creative ways. They can enforce
 In most use cases, sealer/unsealer pairs can be completely eliminated before runtime. However, in a distributed system, sealed values can guide encryption decisions for specific signals (orthogonal to transport-layer encryption). In particular, if sending information to a host that the compiler doesn't statically know will possess the unsealer, it may be worth encrypting the value. 
 
 *Note:* Sealed values are implicitly linear. They must be unsealed before they can be dropped or copied.
+
+
+### Controlling Authority
+
+At the top level, an application needs coarse-grained authority because its 'role' is not well defined. But for precise, small subprograms, it is usually best (for both security and reusability) to grant precise, minimal authorities. Awelon provides a powerbox to serve at the higher layer, and developers should extract precise authorities in-the-small.
+
+In between, subprograms often are still relatively coarse-grained, but in many cases can operate with a subset of authorities. Developers are encouraged to 'split' the powerbox for each conceptually distinct subprogram - doing so both helps name the subprogram and provides control of the authorities to it.
+
+In Awelon, capabilities granted when splitting a child are controlled *before* performing the split. If done afterwards, it becomes much more difficult to deal with limited use (affine or linear) capabilities, and it becomes much more difficult to provide a declarative security policy.
 
 ### Abstract Data Types and Existentials
 
@@ -284,42 +309,14 @@ That's it. The sort of implementation hiding performed by most module systems is
 
 In Awelon, these ADTs would implicitly be reactive, but would have relatively static structure.
 
-### Dynamic Collections
-
-Any general purpose programming language should have effective support for collections - lists or arrays - of both static and dynamic sizes. This is especially true for a reactive model, where there is a big difference between "a signal of arrays" (where the array updates atomically) and "an array of signals" (where each element may update independently). In Awelon, arrays and matrices of static size can be modeled by clever use of products and introspection; I'll leave those to libraries. 
-
-However, primitive support is required for efficient, dynamic collections in Awelon.
-
-I am not entirely sure how I will approach this yet. The basic thoughts however are:
-
-* vectors and sets are very promising base collections
-* perhaps a 'unique-map', i.e. a set indexed by a unique value per signal
-
-The dynamic collection types will have homogeneous type.
-
-
-Awelon will provide two dynamic collection types: vectors and sets of homogeneous type (which also means all static values must be the same). These collections will be processed by collection-oriented primitives, e.g. foreach operations, or folds for vectors. Vectors are the more expressive, having set operations plus support for order-dependent operations. 
-
-*Desiderata:* supporting vectors with coupled dimensionality. Knowing two vectors have the same size, even if I don't know what is that size, would be very useful for some analyses. Also, I am hoping to avoid 'indexing' into vectors. 
-
-### Dynamic Behaviors
-
-Dynamic behaviors are, relatively, a second-class feature in Awelon and RDP. They operate under several constraints in order that they can be effectively implemented:
-
-* cannot output static choices (dynamic choice OK)
-* other static outputs must exactly match a template
-* inputs are synchronized and start in one partition
-* rigid structure for output types and latency
-* cannot input or output fractional or negative types
-
-Despite these limitations, dynamic behaviors are useful for a wide variety of applications. They can model runtime resource or service discovery, plugins and extensions, authorities and capabilities, staged programming or metaprogramming, code distribution, or live update. Awelon application models will generally fit the dynamic behavior constraints.
-
-I'm still deciding some aspects of this; dynamic behaviors might need some extra support to readily enforce static type safety. 
-
 
 ## Miscellaneous
 
 What follows are ideas and potential idioms for Awelon users.
+
+### Controlling Children
+
+Before the powerblock is split, developers can specify 
 
 ### Multi-Line Text
 
@@ -510,6 +507,18 @@ The private members could potentially be protected by a sealer/unsealer pair, bu
         objectSeal :: (block * data) -> object{block,data}
 
 Doing so might be more convenient for developers, and I could also have 'objectCompose' and 'objectFirst' patterns. My current thought, however, is that I should wait on this until I'm sure I've found a minimal but expressive approach. It isn't critical to have objects right away.
+
+A dedicated operator for tight coupling (a tight version of `*`) might be an interesting possibility, especially if I provide blind operations on sealed values. 
+
+### Mobility Types and Constraints
+
+It might be interesting to constrain code-distribution based on assertions/challenges of the form:
+
+* if you can prove you can acquire sealed value foo
+* if you can prove you can unseal this challenge
+
+The idea is that we don't want to accidentally distribute values. 
+
 
 
 ### Rewrite Rules, Equational Laws, or Macros?

@@ -62,11 +62,6 @@ data BType = Block
     }
 
 
-data BType = B { code :: Code, 
-{ 
-
-noDrop :: M
-
 
 
 -- TODO: Deal with source locations for good debugging.
@@ -95,15 +90,6 @@ data VN = VN
     , vn_max   :: Maybe Rational
     , vn_const :: Maybe Rational
     }
-data VB = VB 
-    
-
-
-    = VUnit 
-    | VText   VT
-    | VNumber VN
-    | VBlock  { vb_nodrop
-const_block :: Maybe Block }
 
 
 -- Note: need to analyze receive/return pairs. Might use source locations?
@@ -145,10 +131,6 @@ data UniqueSrc = UniqueSrc
  
 -- Awelon uses its type-system for everything, i.e. static data,
 -- multi-stack environment, navigating the environment, and so on.
-
-typeToTypeDesc
-
-
 
 -- I'm going to start minimal here and build up types as
 -- I need them. I already know I might want:
@@ -265,18 +247,6 @@ parseDefinition :: Text -> Definition
 
 
         
-
-
-tryWord where
-    tryWord tIn = 
-        case T.uncons tIn of
-            Nothing -> []
-            Just (c,tIn') ->
-                if 
-    pw tx = 
-    let tc = stripStart txt in
-     
-
 
 linesToModule :: ModuleName -> [Text] -> Module
 linesToModule n ls = mod where
