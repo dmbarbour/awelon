@@ -1,13 +1,15 @@
 
 # Reactive Demand Programming
 
-Reactive Demand Programming, or RDP, is a reactive dataflow programming model designed for orchestrating open systems. RDP is suitable for modeling overlay networks, multi-agent systems, shared services, and first-class frameworks. RDP differs from other reactive models - such as [synchronous reactive programming](http://en.wikipedia.org/wiki/Synchronous_reactive_programming) and [functional reactive programming](http://en.wikipedia.org/wiki/Functional_reactive_programming) - in how RDP addresses the concerns of **side-effects**, **state**, **resource management**, **distribution and scale**, **extension and open systems**, and **live update or upgrade**.
+Reactive Demand Programming, or RDP, is a reactive dataflow programming model designed for orchestrating open systems. RDP is suitable for modeling overlay networks, multi-agent systems, shared services, and first-class frameworks. 
 
-In practice, RDP should be augmented with [linear types](http://en.wikipedia.org/wiki/Substructural_type_system). Doing so addresses RDP's few weaknesses. 
+RDP differs from other reactive dataflow models - such as [synchronous reactive programming](http://en.wikipedia.org/wiki/Synchronous_reactive_programming) and [functional reactive programming](http://en.wikipedia.org/wiki/Functional_reactive_programming) - in how RDP addresses the concerns of side-effects, state, security, resource management, distribution and scale, extension and open systems, and live update or upgrade. 
 
-At runtime, RDP is push-based. Fine-grained signal updates are aggregated into batches that may be sent to a remote system (or even a different thread). RDP updates can be modeled over a number of protocols, including HTTP, long polling, WebSockets, etc.. Updates are generally speculative, reporting expected future values and correcting them as needed. Fine-grained (per signal) speculation and retroactive correction enable high levels optimistic parallelism and some very nice consistency properties (cf. [time warp protocol](https://www.google.com/search?q=time+warp+protocol)). 
+In practice, RDP is augmented with [linear types](http://en.wikipedia.org/wiki/Substructural_type_system) to address RDP's relatively few weaknesses. 
 
-RDP is designed for code distribution in mutually distrustful systems. I.e. some service interfaces should allow for signals containing code. *Awelon* is intended to be the primary distribution language. RDP and Awelon both address various security concerns that would otherwise hinder code distribution (see below).
+At runtime, RDP is push-based after establishing a relationship. Fine-grained signal updates are aggregated into batches that may be sent to another thread or remote system. Updates are often speculative and subject to change, reporting expected future values and correcting as needed. Fine-grained (per signal) speculation and retroactive correction enable high levels of optimistic parallelism and some very nice consistency properties (cf. [time warp protocol](https://www.google.com/search?q=time+warp+protocol)). 
+
+RDP is designed for code distribution in mutually distrustful systems. I.e. some service interfaces should allow for signals containing code. Awelon Bytecode (ABC) is intended to be the primary distribution language. RDP and ABC address many security concerns that would otherwise hinder code distribution (see below).
 
 ## Side Effects in RDP
 
@@ -65,35 +67,30 @@ Potential models for continuous signals include polynomials, trigonometric polyn
 
 ### Resources
 
-A **resource** is external to RDP yet open to programmatic observation or influence. Resources broadly include sensors, actuators, and state. Specific resources might be mouse, keyboard, video displays, speakers, robotic arms, motors, physical storage, and virtual resources such as files, canvases, or subwindows. An RDP system must provide some behaviors, as primitives or capabilities, to access external resources. The biggest challenge in making RDP useful is integrating a wide variety of resources. 
+A **resource** is external to RDP yet open to programmatic observation or influence. Resources broadly include sensors, actuators, and state. Specific resources might be mouse, keyboard, video displays, speakers, robotic arms, motors, physical storage, and virtual resources such as files, canvases, or subwindows. An RDP system must provide some behaviors, as primitives or capabilities, to access external resources. 
 
-Fortunately, RDP signals are a good fit for most sensors and actuators, and it is not difficult to invent RDP-compatible state models. Unfortunately, there are too many sensors and actuators to integrate directly, and adapting existing state resources can be awkward. The approach under consideration is to first support web application services for UI, then to integrate a pubsub model (likely [ROS](http://www.ros.org/wiki/) or [DDS](http://portals.omg.org/dds/)) to help integrate the broad variety of physical devices. After that, specific resources can be integrated with RDP to improve quality of service (temporal precision, latency, speculation, etc.).
+In RDP, a resource's state is determined from its previous state and the set of signals influencing it at the logical instant. By "set" I mean that ordering and duplication should not affect state. (When duplication is relevant, it must be modeled explicitly by adding a GUID or similar to the signal.) This constraint is how RDP achieves idempotence and commutativity.
+
+The biggest challenge in making RDP useful is integrating a wide variety of resources. Fortunately, RDP signals are a good fit for many sensors and actuators, and it is not difficult to invent RDP-compatible state models. Also, RDP is effective for integrating existing time-series publish-subscribe systems (albeit, with some cost to speculation). A viable approach to integrating useful resources quickly is to focus early on existing publish-subscribe systems - e.g. [ROS](http://www.ros.org/wiki/), [DDS](http://portals.omg.org/dds/), or [MQTT](http://en.wikipedia.org/wiki/MQ_Telemetry_Transport).
 
 #### State Resources
 
-An important part of an RDP system is a useful pool of state resources - i.e. resources whose entire purpose is to accumulate information from the past. These resources should be *abundant* - i.e. applications use a finite set, but that finite set is as large as they need. A distinct identifier is provided for each state resource, much like filenames in a filesystem. By use of substructural types to enforce uniqueness, these resources may also be *exclusive*, offering benefits (implementation hiding, local protection of invariants) comparable to encapsulated state.
+Many applications require long term stateful storage. In RDP, this is achieved through binding external 'state resources'. Despite being external, state can initially be exclusive if bound via linear types, thus offering the benefits of secure encapsulation. To further stabilize the binding of state resources against future source-code changes, developers are also required to uniquely identify resources using text in the code.
 
-RDP is carefully designed so that it cannot accumulate state internally. This property is critical for transparent switching between dynamic behaviors, valuable for security and extensibility, and convenient for orthogonal persistence or upgrade. Stateful resources cannot even be *modeled* entirely within RDP; to model a sensor or actuator requires a state resource to do the modeling. One valid concern is that: if all state resources are external to RDP, can developers define their own state resources that operate in problem-specific ways? Fortunately, this concern can be addressed in a number of ways, and developers can choose what is most convenient for themselves:
+Since state is formally external to RDP, and also structured hierarchically, state is naturally accessible for orthogonal persistence, auditing, debugging, freeze, rewind, rewrite, or restart.
 
-1. Some external state resources are very expressive, enabling developers to model one state resource within another. Similarly, multiple simple state resources can often be used together to model ad-hoc systems.
-
-2. It is possible to carry an ad-hoc state model in the "identifier" for non-exclusive state - e.g. looking for a state resource that models a particular state-machine expressed as a regular expression. This approach a weakness: it is not stable across code updates that would tweak the state machine. However, this is an acceptable weakness for some problem domains.
-
-3. For exclusive state (via substructural types), we can couple an ad-hoc state model to a unique identifier. We can also stabilize the unique identifier across source-code changes, e.g. by using the uniqueness type to uniquely allocate names in a filesystem-like directory. The state model may contain instructions on how to upgrade from a prior version.
-
-The advantage of the latter two options is that they provide more *static* knowledge about the behavior of the state. This is valuable for performance, and for reasoning about system behavior. 
-
-Potential state models include, but are not limited to:
+State resources suitable for RDP must be controlled by a signal or set of signals, which results in very different state models compared to imperative code. Potential state models include, but are not limited to:
 
 * state machines, which react to applied signals
-* windowed histories - report last N seconds of inputs
-* tuple spaces variants - write, read, erase, expire tuples
-* term rewrite variants - state is a term; signals provide rewrite rules
-* animated term rewrite - some terms change automatically over time
+* windowed histories; report last N seconds of inputs
+* exponential decay of history; full history with limited fidelity
+* tuple spaces variants; write, read, erase, expire tuples
+* term rewriting; state is a term, signals provide rewrite rules
+* integrals of inputs over time
 
-It is not difficult to create new state models suitable for RDP. And these state models can be very expressive, even Turing complete on their own: animated term rewriting, for example, is excellent for bridging RDP systems with imperative systems (especially if some terms represent procedures). However, state models in RDP systems should be isolated: influence of one state upon another should always be expressed through an RDP behavior. 
+It is not difficult to create new state models suitable for RDP, and programmers can define their own state models when using exclusive binding. (Awelon project uses exclusive binding for most state resources.)
 
-State in RDP systems is persistent unless there is a natural excuse for it to be volatile. A short-lived rolling window of history, or a tuple space where tuples expire after a couple minutes, could easily be volatile. But persistence by default is a convenient property. (*Note:* Animated state should continue to be animated while persisted; well designed state must either go passive or enter a predictable loop in absence of influence.)
+RDP is designed to eliminate common requirements for non-essential state. However, state is sometimes useful for communication, for example when the reader and writer are active at different times, or for integrating resources that can handle only a limited set of problems at a time (e.g. a printer queue). RDP is good at this. The ability to continuously observe and influence state is very convenient for expressing ad-hoc [workflow patterns](http://en.wikipedia.org/wiki/Workflow_patterns).
 
 #### Distributed Resources, Heterogeneous Computation
 
@@ -103,119 +100,45 @@ Different resources - sometimes even different collections-processing or numeric
 
 ### Behaviors 
 
+A behavior is the basic code unit of RDP. The input and output for a behavior is a signal. Many behaviors are pure functions on the input signal. Some special behaviors - capabilities - can also access resources, to continuosly observe or influence them. 
 
+A behavior is said to be 'active' when its input signal is active. RDP enforces an invariant called **duration coupling** - the active periods of the output signal must match the active periods of the input signal, modulo an increase in latency. Duration coupling is very useful for resource and process control, i.e. downstream resources can always be released by stopping the behavior upstream.
 
+Behaviors in RDP are naturally composable, i.e. the output of one behavior can be fed wholly or partially as the input to another. 
 
 ## Miscellaneous
 
 ### Speculation and Anticipation
 
-A resource's state is *formally* determined by its current state and the set of signal values influencing it at the logical instant. However, resources are not forbidden to predict future input signal values and adjust or prepare accordingly. Doing so is often good sense. For example, if we anticipate that a particular file resource might be needed, we can load it a little in advance. In the worst case, we wasted some CPU and time. If our predictions are accurate often, the system can be more efficient (making better use of what might otherwise be idle cycles) and more responsive.
+A resource's future state is determined by its current state and the set of signal values influencing it at the logical instant. Assuming we can speculate the future value of each signal, we can potentially speculate the future states of a resource. In RDP systems, wherever possible, this speculative future should be communicated and updated as needed. The goal is to achieve speculation as a compositional feature. 
 
-Naturally, this sort of anticipation would be greatly improved in precision, accuracy, and even safety if we could actually peek at our future input signals. RDP is designed to support this pattern pervasively: 
+This enables RDP systems to anticipate the future with a fair degree of accuracy, which can greatly improve a system's responsiveness - i.e. even when our predictions aren't precise, they might be 'good enough' that we need relatively few corrections to our plans. If we speculate some heavier computations in advance (during what might otherwise be idle cycles) we should have more CPU available for any minor last-millisecond updates. 
 
-* signal updates can carry information about speculated future values
-* conservative use of `delay` introduces natural time-buffers
-* resources can speculate their own future states to keep it compositional
-* signal updates very often apply to the future of the signal, keeping present stable
+The system as a whole becomes more robust to brief hiccups in network, scheduling, or burst communications. If the system falls behind a little, the speculated value will often be 'good enough' in the short term. RDP systems can 'gracefully degrade' by scheduling time-critical computations with greater priority than speculative computations. Also, multiple updates on the future can be batched together, to gain some extra batching efficiencies. 
 
-The result is a system where the future is in a state of constant flux, but the present and recent past are stable or are rapidly stabilizing. This time information is also useful for focusing computation resources on the updates that are lagging behind, and for protecting against runaway speculation (deep-future speculation can be very idle in nature).
+Anticipation can also result in smoother transitions. E.g. if we anticipate the motions of a robotic arm, we can implicitly rotate the joints into to the ideal locations for the next action. Or if we anticipate which textures we need, we might pre-load them onto the GPU. Speculation is extremely useful for open composition of on-the-fly planning loops and prediction models. 
 
-This form of speculation enables RDP systems to be very responsive, predictable, and fair. RDP systems will 'gracefully degrade' when overloaded by slowly shifting speculative computations towards more critical ones. To the degree that speculation is often accurate, it can mitigate hiccups in network connectivity or scheduler latencies, resulting in a more robust systems. There are also efficiency benefits of signals carrying future values: it supports 'temporal batching' where a single update package can carry multiple future values, and it supports 'batch composition' where multiple batches can be composed then processed together (by combining individual signal updates). 
-
-Speculation is very useful for open composition of on-the-fly planning loops and prediction models.
-
-I believe speculation and anticipation will be one of RDP's "killer features". 
+I believe speculation and anticipation will become one of RDP's "killer features". 
 
 ### Code Distribution in Mutually Distrustful Systems
 
-Code distribution is common and useful, e.g. for flexible web applications, multi-agent systems, disruption tolerance, latency control, or overlay networks. But trust is often asymmetric: e.g. clients must trust servers but not vice versa. To make code distribution practical, usable, and widely acceptable, many concerns must be addressed:
+RDP is designed for automatic code distribution. Code distribution is useful for reducing latency and bandwidth overheads, for making systems more disruption tolerant, for modeling overlay networks and distributed frameworks. Historically, we've accepted asymmetric code distribution from server-to-client, but we've been reluctant to accept the other direction due to security reasons. 
 
-1. we must precisely and explicitly control which authorities are granted
-2. there should be no implicit grant of authority just for running code locally; it should be a performance and safety concern only (bandwidth, latency, disruption tolerance, etc.).
-3. we must always be able to revoke granted authorities (no [grandfather clause](http://en.wikipedia.org/wiki/Grandfather_clause))
-4. we must continuously be able to observe, audit, and intercede with the current grants and how they are being used
-5. the provider of code should always be 'in control' of it, always able to stop or update the code
-6. for expressive composition, we should be able to separate the grant of authority from its application
-7. coupling of power and responsibility' we should be able to enforce requirements on untrusted code
-8. for efficiency, code distribution should ideally be very lightweight - no need for a heavy sandbox or virtual machine.
-9. a probable scenario is that thousands of clients each use identical libraries or framework code; ideally, such redundancies can be easily recognized and optimized away as if they were part of the server.
-10. to protect against denial-of-service attacks, it should be possible to control and comprehend the performance costs of running untrusted code. 
+RDP helps address these security concerns. First, RDP assumes [capability-based security](http://en.wikipedia.org/wiki/Capability-based_security). This enables developers to precisely control distribution of authority and reason about it compositionally. Second, capabilities in RDP are distributed in a continuous, reactive manner, and they are implicitly revoked once they aren't explicitly shared - this is a significant boon for keeping security properties visible and maintainable. Third, RDP has explicit latency properties that can help guide and control how much computation should be permitted for code, mitigating risk of denial-of-service when executing untrusted code.
 
-RDP addresses many of those concerns. Awelon addresses a few more.
+RDP is also designed to help with flash-crowds. In many cases, we can assume that hundreds of clients will use similar code, and often similar signals. RDP's idempotence properties enable significant optimizations in these cases, similar to content distribution networks. 
 
-1. RDP supports [capability security](http://en.wikipedia.org/wiki/Capability-based_security) by use of first-class behaviors. Behaviors can grant limited authority over specific resources. In Awelon, capabilities are generally distributed through a static powerblock, which enables them to be efficiently compiled into a static or dynamic behavior. 
-2. In RDP, the default state for a capability is revocation, and developers must *continuously* grant or authorize a capability by use of a signal. Thus, revocation is always possible.
-3. The continuous nature of RDP's signals make it relatively easy for tools to observe and audit grants of authority (when compared to fire-and-forget message passing). RDP is also designed to support live programming, so it is not difficult to update security code and modify policies on the fly. 
-4. The normal case is that disruption of the provider will also stop the code. In case of software agents that should survive disruption or perhaps even move on their own volition, developers are at least forced to use explicit state and model it carefully. 
-5. Capabilities can be granted to a client independently of the code that utilizes them. This enables robust composition, e.g. where clients can further grant these capabilities to services they trust to act on their behalf.
-6. Responsibilities can be enforced by use of linear types. Also, sealer/unsealer pairs can be modeled (using linear types) to enforce certain separations of responsibility. Linear types in Awelon are often static, i.e. to enforce certain proofs at compile-time.
-7. Capabilities can be very lightweight. Static capabilities can even be free at runtime. 
-8. RDP's idempotence and commutativity properties make it relatively easy to eliminate redundant behaviors.
-9. RDP has neither ad-hoc loops nor synchronous waits that make it difficult to reason about performance. Thus, once the compile-time code is expanded, it is relatively easy to reason about performance (as a function of number of clients). 
-
-A remaining issue is that Awelon has Turing-complete compile-time metaprogramming. In practice, this can be addressed by use of simple expansion quotas, and controlling the amount of resources involved in those expansion efforts. The result is still much lighter weight than use of a virtual machine.
-
-RDP and Awelon are very well suited for code distribution from the security perspective. Further, they are very expressive in these domains - able to easily express software agents, overlay networks, web applications that interact with cloud and client.
-
-### The Void
-
-In RDP, duration coupling means our output signals must always match our input signals in duration. However, those signals don't always need to be accessible. Most RDP systems will support what is effectively a `/dev/null` partition called "void". Signals that enter void cannot escape; everything in the void can be eliminated as dead code. In most cases, of course, it would be a type error to throw linear types into the void.
-
-
-### Stateful Communication
-
-There is always a temptation to use an external resource as a bypass, a way to communicate outside the lines and primary structure of the language. In most cases, giving into this temptation is a bad thing.
-
-Awelon mitigates this temptation in two ways. First, Awelon supports ad-hoc data plumbing by use of hands or named stacks: when a signal is needed, a developer can get to it and take or copy the signal, often with less effort than it would take to set up shared state. Second, Awelon supports promises by use of fractional types: developers can "promise" a signal into existence then later fulfill it. 
-
-However, stateful communication can be useful. And RDP is good at it.
-
-Stateful communication is useful for:
-
-* occasionally offline systems and disruption tolerance (like e-mail) 
-* open systems where the audience is unknown (like a website) 
-* open systems where the contributors are unknown (like a bulletin board)
-* cases where we must time-share limited resources - e.g. we need task queues for printers
-* cases where we don't know how long work will take - e.g. for ray-tracing or searching a filesystem
-
-RDP is good at stateful communication because:
-
-* vigilantly observe for changes in state, react immediately
-* easily observe *multiple* states, react when all are appropriate
-* easily support multiple observers, without update ordering issues
-* support for speculative evaluation of states; anticipation of change
-* external state enables orthogonal persistence by default
-
-RDP was initially designed to support [publish-subscribe](http://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) systems in a resilient, consistent, scalable manner. RDP is effective for integrating collaborative state: [blackboard system](http://en.wikipedia.org/wiki/Blackboard_system), [tuple spaces](http://en.wikipedia.org/wiki/Tuple_space), or even modeling ad-hoc [workflow patterns](http://en.wikipedia.org/wiki/Workflow_patterns).
-
-Awelon further augments RDP by supporting exclusive state via the uniqueness source. Developers can enforce that certain state is one-to-one, one-to-many, or many-to-one. 
+In Awelon project, capabilities in ABC code can often be compiled statically into the application. I.e. we can have the benefits of object capability model without the performance overheads of pointer indirection.
 
 ### Modeling Events
 
 Events in RDP are awkward and discouraged. RDP does not directly express 'instantaneous' events. There are [many reasons](http://awelonblue.wordpress.com/2012/07/01/why-not-events/) for this, but those reasons don't make events any less awkward. Events might exist due to integrating with certain event-triggered sensors, or modeling event-based simulations or video-games. 
 
-In general, a sensor input event will be modeled as a short-lived signal, ideally based on actual timing properties. But if not, just choosing a fraction of a millisecond will often be sufficiently fine grained. RDP's dataflow is not lossy, so even a short-lived signal will be processed and integrated into state in a consistent manner. 
+There are at least two reasonable approaches to modeling events:
 
-To model events in a stateful system is easiest if you can lift the event into some sort of intermediate state for integration. E.g. create a tuple representing that a character was entered in a text area, and allow that tuple to be integrated with the text by some other agent.
+* events as short-lived signals
+* stateful log of recent events
 
-If that doesn't work, events can always be modeled with a state trick: 
-
-* if the event is not recorded as having been delivered, we deliver
-* while delivering, after small delay, we record event as delivered
-* old events are cleared from history after a few seconds
-
-If there is some sort of event acknowledgement, we should prefer that instead of a local "I sent it therefore it was delivered" short-circuit. The 'small delay' is very important for a consistent system. A similar technique can also be achieved using animated state, or possibly a clock.
-
-#### Demand Monitors
-
-
-
-
-## Dynamic Behaviors and Live Update
-
-## Extension and Open Systems
-
-## Distribution, Heterogeneous Computation, and Scale
+The latter option could be implemented above the former, but might be more friendly to newcoming observers.
 
 

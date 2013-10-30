@@ -21,6 +21,7 @@ prim([A,[B,[C,D]]],rot3,[C,[A,[B,D]]]).
 
 % derived functions (without using blocks)
 % these can be validated using testLib
+
 lib([[A,B],C],  assocr  ,[A,[B,C]], [swap,assocl,swap,assocl,swap]).
 lib([A,[B,C]],  rot2  ,[B,[A,C]],   [intro1,rot3,intro1,rot3,elim1,elim1]).
 lib([[A,B],[C,D]],  zip2  ,[[A,C],[B,D]], [assocr,rot3,rot2,assocl]).
