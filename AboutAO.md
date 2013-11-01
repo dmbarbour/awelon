@@ -1,83 +1,239 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a thin layer above Awelon Bytecode (ABC) that introduces the concepts of words and definitions, and is much more human friendly. AO is tacit concatenative, securable, with a tree-based environment, because ABC has those properties. AO achieves a degree of modularity: words can in many cases be developed and maintained separately from the body of code that uses them. 
+Awelon Object language (AO) is a tacit concatenative language with two layers.
 
-An AO definition is a sequence of words, literals, and inlined ABC.
+1. The first is a thin layer above Awelon Bytecode (ABC) that introduces a concept of words with unambiguous definitions. The semantics of this layer is the static expansion of each word's definition until only ABC remains.
 
-Each word has a definition, which consists of AO code. The meaning of a word in a sequence is simply the static, inline expansion of its definition. The semantics of an AO program is simply its expansion into ABC. NOTE: It is an error for AO definitions to be cyclic. Loops in AO must be represented using fixpoint combinators, as they are in ABC. 
+2. The second is a grammar-based, tactical, logic programming layer. This introduces the concept of ambiguity and search. The semantics of this layer is a non-deterministic static search for a well-typed, high quality expansion.
 
-ASIDE: ABC's lack of modularity, dictionaries, and definitions is a deliberate design choice. Where we have definitions, we must also manage the scopes, versions, lookup. And we must concern ourselves with cyclic definitions. These features can interfere with low-level programming, decomposition of code across scopes, and streaming. 
+A word in AO is a unit of modularity, a functional software component. In a given programming environment, a word is also potentially an active service or application. Words in AO must be acyclic.
 
-## Literals: Numbers, Text, Blocks
+AO doesn't use the traditional concept of modules with imports and exports. AO has only words with definitions in a flat, global namespace. A definition is simply a sequence of words. The association between a word and its definition is implicit in the programming environment, i.e. there is no syntax to define a word locally.
 
-For numbers, AO supports a few representations:
+AO is envisioned for use in a live, wiki-based programming environment, where new words are easy to invent and define, and some words are active by declaration or naming convention.
+
+## Literals: Numbers, Text, and Blocks
+
+AO supports a few simple number representations. By example:
 
         42         (integral)
         -12.3      (decimal)
         2.1e-3     (scientific; eN means *10^N)
         34.5%      (percentile; same as e-2)
         1/3        (rational)
-        0xbad1dea  (hexadecimal)
+        0xca7f00d  (hexadecimal)
 
-All representations are interpreted as exact rational numbers. (Like ABC, AO can only access floating points via capabilities.) Note that spaces aren't allowed within a number,
+These representations are understood as exact rational numbers. 
 
-AO supports block text and inline text. In both cases, text is prefixed with a double-quote. But block text must start at the beginning of a new line, and inline text must start after a space.
+AO supports two formats for text:
 
-        "Block text starts at newline with double quote
-         then continues to the end of line unless
-         the next line has an indent space, in which case
-         the text continues, after inserting a newline.
-         The indent space is not part of the text.
+        "Block text starts with double quote, by convention
+         at a new line. Each continuing line must start with
+         a space. On continuing, LF is kept, space is dropped.
+         The final line is terminated with `~` at start of the
+         line, and LF is dropped. 
+        ~
+        :inlineLabelText
 
-        ... "inline text cannot begin a new line" ...
-        ... "inline text cannot contain double quotes or newlines" ...
+Essentially, block text in AO is exactly the same as block text in ABC. Inline, label text is much more restricted: it is a pseudo-word whose meaning is just whatever text is after the `:` - in the above case `"inlineLabelText"`. The intention of this secondary format is to simplify expression of labels in data. Empty text may also be expressed this way, using `:` by itself.
 
-The block of text can contain any character, and is similar to how ABC represents text. Inline text is restricted (cannot use `"` or newline), and is useful for short symbols like `"foo"` and similar. AO has no support for escaped characters, except for continuing a line in block text.
+Blocks in AO use square brackets, and contain arbitrary AO code:
 
-Blocks in AO are very similar to blocks in ABC. The only difference is that blocks contain AO code instead of ABC code:
+        [12.3 :foo dup bloop flip trip]
 
-        [swap assocl swap assocl swap]
+Blocks are free to cross multiple lines, be nested, and so on. Of course, large blocks are a good hint that you should consider refactoring your code. 
 
-Square brackets are never part of a word. 
+AO literals have a slightly different type than ABC literals. 
 
-## Inlined ABC Code
+        In ABC: e -> L * e
+        In AO: (s * e) -> ((L * s) * e)
 
-AO uses pseudo-words to inline ABC code. For example, `%vrwlc` is generally equivalent of `swap`. These pseudo-words start with the `%` character and are followed by ABC code.
+The translation is trivial, but quite beneficial. With this change, type `e` has a stable, relative location and is not "buried" when literals are introduced. This enables words to be developed that assume access to resources in environment `e`. Element `s` can be called "the current stack". 
 
-Inlined ABC is restricted:
+## Inline ABC
 
-* no whitespace
-* no literals (text, numbers, blocks)
-* no capabilities (with exceptions)
+ABC code is inlined using pseudo-words prefixed with `%`:
 
-The restrictions on whitespace and literals are no loss. By loss of literal numbers, I mean that operators `#0123456789` are not available. Whitespace means identity (i.e. it can always be removed), and AO has its own syntax to support literals. 
+        %vrwlc      (aka `swap`)
+        %lwcwrwc    (aka `rot4`)
+        %{&xyzzy}   (annotation)
 
-The restriction on capabilities is primarily that AO code should not embed any authority-bearing capabilities. AO code is permitted to embed ABC annotations, i.e. `%{&foo}`, which can impact performance or integrate with a debugger. In some programming environments, AO might be permitted to embed ABC code by hash references `%{#secureHashOfABCCode}`.
+Inlined ABC in AO may contain most of ABC. The exceptions are as follows: 
+
+* no whitespace (LF, SP)
+* no text or blocks
+* no numbers (`#0123456789`)
+* no semantic capabilities
+
+Except for semantic capabilities, these limitations are no loss of expressiveness. Whitespace in ABC just means identity. AO has its own support for text, numbers, and blocks. 
+
+AO requires a dedicated reader mode for `%{` that reads to the following `}`, ensuring AO can syntactically express the same set of capabilities as ABC, though most capabilities are rejected. At the moment, AO permits only two classes of capabilities:
+
+* ABC program annotations `%{&xyzzy}`
+* AO search attributes `%{:cost:10}`.
+
+Annotations may interact with debuggers, error messages, optimizers, and so on. Search attributes are to help select between ambiguous choices for AO's second layer. Tentatively, I may later support ABC references, i.e. `%{#secureHash}`, but I have mixed feelings about doing so.
+
+## Capability Security
+
+By design, AO forbids semantic capabilities. Thus, unlike ABC, AO is properly capability secure. ABC only includes capabilities because it must for streaming in distributed systems. In AO, capabilities must be provided as arguments to the program, and properly threaded through it. This makes it much easier to control and audit authority granted to a subprogram, or to model mockup environments for testing, and so on.
+
+Of course, threading capabilities through a *tacit, concatenative language* is trivial. If a powerblock is kept at a stable, relative location in the environment, AO would effectively have the syntactic convenience of ambient authority. 
+
+Unfortunately, that convenience is double-edged. It also means that authority is less explicit in the syntax, and that the path of least resistance tends to grant full authority. AO programmers must instead be explicit about where they restrict authority, using blocks and combinators like so:
+
+        [trustMeHehHeh] runInaJailCell
+
+With a little convention, security properties will at least be visible and obvious in code, which is sufficient to follow the principle of least authority whenever it matters.
+
+## Ambiguity and Sloppy Programming
+
+There is a role for ambiguity and sloppy programming: rapid prototyping, executable pseudocode, plug-and-pray integration efforts, auto-configuration against environmental features, and live programming environments where active developers can easily gain feedback and refine on-the-fly. Ambiguity enables programmers to wave their hands and expect the compiler to help them out. 
+
+Layer two of AO introduces features for expressing and controlling ambiguity.
+
+Of course, ambiguity and sloppiness have their own problems. Search can be expensive. Non-determinism can be semantically troubling. To address these concerns, AO uses a corrupting sigil: any word whose definition potentially uses layer two features must use `$` somewhere in its name. Conversely, any definition containing a word with `$` potentially uses layer two features. By this simple naming convention, ambiguity becomes obvious at a glance. Hopefully, it also discourages overuse of ambiguity. 
+
+Ambiguity in AO is expressed using `(`, `|`, and `)`. Example:
+
+        a (b | c d) e (f|g)
+
+The meaning of the above expression could be any one of:
+
+        a b e f
+        a b e g
+        a c d e f
+        a c d e g
+
+The choice is made at compile-time, and is sensitive to typeful context. If an expansion does not make sense in context (or simply doesn't make sense), it will not be selected. For an ambiguous word, a different expansion may be selected at each the word is used.
+
+If more than one expansion is sensible, the choice is non-deterministic. 
+
+But non-determinism is an unsatisfying foundation for sloppy programming. Sloppy programmers aren't seeking just any valid solution. They want the compiler to find an *optimal* solution, with a balance of useful features, good performance, and tight integration. Further, they wish to explore the solution space and tradeoffs. 
+
+To address these concerns, AO provides a flexible mechanism for tagging code with user-defined attributes. Any code may be tagged (even in layer one). The expression attributes builds upon ABC's capability model, using a `:` prefix. For example:
+
+        %{:cost:10}
+        %{:experimental}
+        %{:use-gtk}
+
+Each attribute instance is assigned a positive integer, one by default (`%{:xyzzy}` and `%{:xyzzy:1}` are equivalent). These numbers are typically pulled from thin air (assumption: sloppy programmer is sloppy). Precision isn't important. Rather, the ability to express a magnitude is useful as a tuning mechanism.
+
+A heuristic function that takes these labels and values, and generates scores for each expansion. By tuning the heuristic function, how different attributes are weighted, developers can explore the solution space. The exact mechanism of search is left to the compiler and programming environment (i.e. A-star, genetic programming, forward and backward chaining are all feasible). An optimal solution is *not* guaranteed, but a good environment with a good heuristic should get users close.
+
+Once developers are happy with a solution, the programming environment should make it easy to freeze a particular solution into an unambiguous layer one word.
+
+For simplicity, definitions in AO must currently be acyclic. This limits the number of possible expansions to a finite exponential.
+
+
+Note that ambiguity is *closed* in AO. That is, we cannot increase ambiguity by adding more definitions to an AO system. We can only increase ambiguity by explicitly modifying definitions.
+
+
+
+
+
+I.e. this is a simple, logical expansion of potential meanings. 
+
+Note that this expression of ambiguity is *closed* in AO. Each word has only one definition, even when that definition is ambiguous. 
+
+, in the sense that the words themselves may not have multiple definitions, instead a word has a single definition with ambiguous meanings. 
+
+Note that AO only supports *closed* ambiguous definitions. In this 
+
+ Every possibility must be explicit. If someone wants to add more ambiguity, they must explicitly twe
+
+
+
+
+
+To address both concerns, AO supports ambiguity but also enforces a principle: *potential for ambiguity, and potential search overheads, must be visible at a glance*. 
+
+
+two basic features: a means to express ambiguous definitions, and a means to constrain search and ambiguity. 
+
+
+* means to constrain 
+* means to add soft weights and preferences
+* means to constrain ambiguity, hard and soft
+
+
+
+
+Of course, non-determinism by itself is an unsatisfying foundation
+
+But non-determinism is an unsatisfying foundation for sloppy programming. We aren't seeking just any random solution. We want to find 'good' solutions - those with nicer features, greater performance, or tighter integration. Developers need some way of expressing what 'good' means such that it can help direct searches. 
+
+
+
+
+Resolving ambiguity involves search, which can be expensive. The result isn't always fully resolved, which results in non-deterministic semantics. 
+
+This actualizes in AO by use of a 'corruption' sigil, `$`. This sigil refers to $earch and $loppiness. By 'corruption' I mean that every word whose definition uses AO's layer-two features must include the character `$` (though not necessarily at the start). In this sense, *potential* ambiguity becomes obvious and visible.
+
+Layer two introduces three features: 
+
+* a means to express ambiguity
+* a means to constrain ambiguity
+* 
+
+
+
+
+An unambiguous word is also free to use $. But it is necessary for ambiguous words.
+
+
+
+a potentially ambiguous word is prefixed with `$`. 
+
+  
+
+
+
+
+But non-determinism is an unsatisfying foundation for sloppy programming. We aren't seeking just any random solution. We want to find 'good' solutions - those with nicer features, greater performance, or tighter integration. Developers need some way of expressing what 'good' means such that it can help direct searches. 
+
+
+$loppy Programming, Ambiguity and Expen$ive $earch  
+
+
+
+Potential ambiguity should be obvious at a glance. Towards this end, AO programming environments will enforce a convention: potentially ambiguous words must start with a capital letter, while unambiguous words may start with punctuation or a lower-case character. 
+
+potentially ambiguous words must start capitalized, capital letter, while unambiguous words may be lower case.
+
+
+
+Each word has a definition, which consists of AO code. The meaning of a word in a sequence is simply the static, inline expansion of its definition. The semantics of an AO program is simply its expansion into ABC. NOTE: It is an error for AO definitions to be cyclic. Loops in AO must be represented using fixpoint combinators, as they are in ABC. 
+
+
+
+
+## The Role of Sloppy, Ambiguous Programming
+
+Ambiguity is an interesting subject in PL. Ambiguity can be undesirable - because it leads to misunderstandings, to wrong behaviors. But ambiguity can also be desirable - because it leverages context, enables more abstract thinking, enables users to be hand-wavy where they don't really care about the details, and pushes some of the development burdens to the compiler.
+
+Note that the semantics of words in AO is based on static expansion and inlining. AO has no concept of recursion (though layer-two words may be cyclic, so long as the expansions terminate). The 
+
+, ultimately to ABC. AO has no concept of recursion, though ambiguous definitions may be cyclic so long as at least some uses of the word are not cyclic. The 
+
+Naturally, layer one words may not be cyclic. Layer two words may be cyclic, but not for every definition. 
+
+
+
+
+
+
 
 ## Syntax of a Word
 
 Words in AO are flexible. The main restrictions are to support simple parsing and printing:
 
-* words cannot contain whitespace, `"`, `[`, `]`
-* words cannot contain C0 or C1 control characters
-* words cannot start with `%` 
-* words cannot start with a digit or `-`digit.
+* words cannot contain whitespace, `"`, `[`, `]` (those are literals)
+* words cannot contain C0 or C1 control characters (those aren't printable)
+* words cannot start with `%` (those are pseudo-words)
+* words cannot start with a digit or `-`digit (those are numbers)
 
 AO might be extended in the future. Those extensions will be represented using pseudo-words starting with `%#` or similar. 
-
-## Proper Capabilities (are not syntactic)
-
-In AO, effects are achieved by invoking capabilities. By deliberate design, AO has no syntactic representation of authority-bearing capabilities. Capabilities must instead be provided as an argument to the AO program, and threaded through it. This is how capabilities are designed to be used. And this constraint is valuable for 
-
-ABC has streaming and serialization requirements.
-
-represents capabilities as special, opaque text in a stream. This is essential for streaming code, and serialization. AO does not 
-
-AO is not a primary language for streaming or serialization and thus has the luxury of requiring proper distribution of capabilities as part of the computation. 
-
-
-
-Of course, implicit threading of an argument is not syntactically challenging for a tacit concatenative language! Capabilities are simply be kept in a stable location in the environment, and offer convenience similar to ambient authority. 
 
 ## Standard Environment
 

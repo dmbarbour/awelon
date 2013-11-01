@@ -12,23 +12,27 @@ Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a str
 
 ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). However, the other models are supported depending on interpretation of capability invocations. 
 
+*Note:* ABC is not intended for direct use by humans. Programmers are expected to work in a higher layer language that compiles to ABC, such as AO.
+
 ## The ABC Stream
 
 ABC is represented in a stream of UTF-8 encoded characters. There are no sections, no headers or footers. There is just the stream, potentially unbounded in length. 
 
-ABC is designed to support casual inspection by a human reading a stream as text, thus all codes are visible and printable. ABC has special support for encoding text, capabilities, and blocks. Further, the encoding of natural numbers in bytecode is very readable. 
-        
-        [blocks[nestable]]
+ABC is designed to be visible, printable. Text, blocks, capability invocations, and the encoding of numbers are relatively legible:
+
+        [blocks[[are]nestable]]
         #42
         "text begins with a double-quote, and has a block-like format.
          text may extend multiple lines, each continued by LF SP (10 32)
          in which case the LF becomes part of the text. Otherwise, text 
-         can be terminated by LF-`~` (10 126), which adds no characters.
+         can be terminated by LF ~ (10 126), which adds no characters.
          ABC text has no need for escapes, other than for LF.
         ~
         {capabilityText}
+        vrwlc
 
-ABC also assigns the meaning 'identity' to characters LF (10) and SP (32) to support simple formatting, e.g. to fit ABC to a text display. And other ABC codes are in the Latin-1 set. ABC isn't intended for direct human use, but I believe the effort to keep ABC relatively readable will be valuable for anyone who wishes to peek under the hood - e.g. for learning or debugging.
+This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports whitespace (LF (10) and SP (32)) by assigning it the meaning 'identity', to simplify formatting of ABC. 
+
 
 ### ABC Paragraphs
 
@@ -79,10 +83,10 @@ However, ABC richly augments these types with attributes:
 * location and latency properties model where and when values can be accessed
 * sealed value types model information-hiding and rights amplification
 * substructural types for blocks model obligations and resource limitations
-* temporal constraints for blocks - use-before, use-no-earlier-than
+* latency constraints for blocks and sealed values - expires, ripens
 * track potential ranges for numbers, e.g. protect against divide-by-zero
-* (maybe) hints on blocks for lazy or parallel evaluation
-* (maybe) enforcable purity property for blocks
+* (tentative) indicate blocks for lazy or parallel evaluation
+* (tentative) assert a purity property for blocks
 
 Attributes can express and enforce some very useful properties. Note: moving values (between locations) and sealing values are both capability based. ABC type systems assume a conventional class of capabilities that enable these features.
 
@@ -127,6 +131,7 @@ A block in ABC is simply a container for a finite sequence of ABC code.
 
 ABC supports block literals by use of square brackets. In addition to literal construction, blocks may be composed with the `o` operator, and blocks can be formed from many values by use of the `'` (single quote) quotation operator. 
 
+        [] :: e -> [x->x]*e
         [vrwlc] :: e -> ([(x * y) -> (y * x)] * e)
         o :: [y->z] * ([x->y] * e) -> ([x->z] * e)
             [abc][def]o = [abcdef]
@@ -152,7 +157,7 @@ Higher order behaviors are modeled by separating the definition of the block fro
 
 ### Numbers
 
-ABC's built in number type is arbitrary precision rationals. ABC systems might support a vector or matrix of floating point numbers via capabilities, but floating point is not a standard part of ABC.
+ABC's primitive number type is arbitrary precision rationals. ABC systems might support a vector or matrix of floating point numbers via capabilities, but floating point is not a standard part of ABC. 
 
 ABC has no number literals. `#42` is technically a sequence of three ABC operators. The operator `#` introduces the number 0 into the environment, and each decimal digit (0-9) means "multiply by ten and add this digit's value". However, the end result is that natural numbers are expressed as if by literal, but without any special reader state. 
 
@@ -176,22 +181,85 @@ A few example numbers might be:
         #2#3/*-  (-2/3)
         #123/00/ (1.23)
 
-Languages built above ABC, such as AO, will generally provide a more traditional and compact syntax for numbers. 
+Expression of rational numbers, or very large or small numbers (that call for scientific notation), is not very compact in ABC. Languages built above ABC, such as AO, must generally provide a more traditional and compact syntax for numbers. 
 
-ABC is not rich in math. ABC has just enough to easily express rational numbers and latencies (albeit, not in a particularly compact manner), but ABC doesn't get much beyond elementary school mathematics. To model a square root or trigonometric function will likely require computing a series with tolerances, or modeling irrational numbers as codata. 
+ABC is not rich in math. ABC has just enough to easily express rational numbers and latencies (albeit, not in a particularly compact manner), but ABC doesn't get much beyond elementary school mathematics. To model a square root or trigonometric function will likely require computing a series with tolerances, or modeling irrational numbers as codata. I am tempted to introduce a divmod primitive (perhaps as `Q`) but I've not committed to it.
 
-Rather than relying on a smart compiler to recognize and optimize math, it seems wise to model rich mathematical expressions as DSLs - declarative sets of equations that can be simplified, analyzed, rewritten, interpreted in ABC if necessary, and more explicitly compiled to CUDA or another external language when simulation is necessary. 
-
-These programmatic representations of numbers are perhaps not optimal syntactically, but they do keep numbers visible for casual perusal of the ABC source, and they also keep the parser of ABC very simple. The AO language, which is a thin layer above ABC, provides more traditional syntax for numbers.
-
-
-Other comp
-
-ABC does
-
-        #42         :: e -> (Number * e)
+Anyhow, it may be wise to treat rich math or math for scientific computing as a DSL, i.e. keep it symbolic, develop simplifiers and optimizers and develop a few interpreters or compilers. Compile to OpenCL for high-performance computation, then offload it to a GPU via capability. 
 
 ### Text
+
+ABC has a built-in unicode text type. Literal text is expressed in a block format, encoded in UTF-8 as part of the normal ABC stream:
+        
+        "text in a block format
+         can continue on multiple lines
+         each ending with linefeed (10)
+         and each starting with a space
+         end the block with tilde (126)
+        ~
+
+This design is aimed to eliminate need for escapes and support deep nesting of code without getting complex or too ugly. Effectively, only LF is escaped by adding a space afterwards. The final `~` eliminates need for lookahead and provides a visual cue that the text is finished. The result has a nice aesthetic for multi-line text (especially with a convention of starting text on a new line), but does seem ugly for single-line text:
+
+        "label
+        ~
+
+Of course, ABC is intended to be simple to parse, and marginally readable for debugging purposes. Being 'pretty' when presented in a standard text editor isn't among ABC's requirements. Languages or environments built above ABC, such as AO or Awelon Environment, are free to provide a prettier presentations or representations of text.
+
+The formal meaning of literal text is to add the value to the environment:
+
+        "text...  :: e -> (T * e)
+
+Other than text literals, I've yet to decide on operators for manipulating text. Considerations:
+
+* I'd prefer primitive operators be reversible
+*    this excludes concatenation of text as a primitive
+*    but does allow push and peel operators for text
+*       which could operate on whole texts
+*       consider split-at operations?
+*          but what is result of split-at for text not in string? rhs empty...
+*          maybe need to guarantee for split-at that a value is in the string?
+* favor partial functions and dependent types to forced conditionals
+* favor approaches that simplify rich dependent typing
+* It's often necessary to read from front of string and write to end.
+*    either four put/get operators for reversibility... or put/get + reverse?
+*    
+
+A potential (and somewhat naive) approach is to operate on text at the representation layer, such that I must work with every character. This could work pretty well, I think, though it is somewhat opaque to analysis.
+
+Other than managing text literals, the main text operations of ABC are to add and remove characters (as numbers), or reverse the text:
+
+        p :: (N(a) * (T(t) * e)) -> T(a|t) * e
+        g :: T(a|t) * e -> N(a) * (T(t) * e)
+        m :: T * e -> T * e
+
+ABC requires a proof that numbers added to text are between 0 and 1114111 (inclusively). 
+        
+
+ABC doesn't assume many features for text. 
+
+        
+
+        
+
+
+
+After generating text, there isn't very much ABC users can do with it (without building a big library).  ABC has very few built-in text-processing facilities, other than comparisons. However, ABC does enable 
+
+A consequence of this design is that even simple text like a tag will result in newlines in the ABC code. 
+
+But ABC is a bytecode... it's intended to be visible, but 
+
+If text continues across lines, the linefeed is kept but the space is dropped. For the final line, the linefeed is dropped. Consequently, even if text is on a single line, it must be expressed in ABC with a linefeed:
+
+        "foo
+        ~
+
+This can be a bit awkward, but it avoids easy 
+
+ Newline is character 10 (linefeed), and space is character 32 (no substitutes).
+
+The 
+
 
         "text...    :: e -> (Text * e)
 
@@ -207,8 +275,8 @@ An equivalent set of data plumbing operators exists for the sum type, using the 
 
 ABC has first-class support for substructural typed blocks have special attributes in ABC to support sub-structural reasoning. A block can be marked affine (no copy) and relevant (no drop), or both - in which case the block is called linear.
 
+        k :: (Block * e) -> (Block' * e) (attrib relevant, no drop)
         f :: (Block * e) -> (Block' * e) (attrib affine, no copy)
-        v :: (Block * e) -> (Block' * e) (attrib relevant, no drop)
 
 
 When two blocks are composed, the composite inherits the substructural properties. Similarly, if a structure containing a block is quoted, the quotation inherits the substructural properties. 
@@ -221,13 +289,13 @@ Affine and relevant blocks are useful for modeling resources, obligations, uniqu
 
 ### Structure Sharing for Serialization and Storage
 
-For sequences of ABC that see a great deal of reuse, it can be worthwhile to name the sequence and access it by name. Doing so can optimize serialization and better support reuse of compilation efforts. ABC doesn't have any built-in support for naming, but capabilities and conventions can be combined to similar effect. 
+For sequences of ABC that see a great deal of reuse, whether in serialization or storage, it seems worthwhile to name the sequence and access it by name. Doing so can save bandwidth and space, and potentially improve use of cache, memoization, compilation. ABC has support for naming external resources by use of capabilities. I aim to establish a convention, a common approach for using secure hashes to serve as identifiers for a body of ABC code, like so:
 
-        {#secureHashOfCodeInBase64}
+        {#SecureHashOfBodyOfAwelonBytecodeInBase64}
 
-The meaning of this code is quite simple: inline expansion of the referenced code. The referenced code may contain more such references. This behavior falls within the normal semantics of capability invocations. It is suggested that most ABC environments provide support for this feature by default. 
+The meaning of this code is quite simple: inline expansion of the referenced body of code. Capability invocations always apply inline (access to the full tacit argument) so this falls within the normal semantics of capabilities. The referenced code may contain more such references. This behavior falls within the normal semantics of capability invocations. It is suggested that most ABC environments provide support for this feature by default. 
 
-Presumably, one could use URLs or some other model of names than a secure hash. However, URLs would introduce complications involving cyclic definitions, update and cache invalidation, duplication across services, and so on. Secure hashes provide globally unique names, prevent cycles, separate the update concern, and enable flexible replication, storage, and content-based lookup processes. Hashes also enable validation. *Use of a secure hash is simply better design.*
+Presumably, one could use URLs or some model of names other than a secure hash. However, URLs would introduce complications regarding cyclic definitions, update and versioning, reuse of names across services, and so on. Secure hashes provide globally unique names, prevent cycles, separate the update concern, and enable flexible replication, storage, and content-based lookup processes. Hashes also enable validation. Use of a secure hash is simply better design.
 
 This technique can be augmented further with cloud storage or p2p distribution. In these cases, we may wish to prevent peeping from the distribution service, which suggests use of encryption. To standardize this convention, the following format is suggested:
 
@@ -241,20 +309,24 @@ I expect this technique to be pervasively used in Awelon project:
 *   built into serialization code at least for reading
 *   disabled where necessary, which shouldn't be often
 * prefix `#` is assumed by convention to have this meaning
-* SHA2-256 for secure hash, with two tag/pad bits at front
+* SHA2-224 for secure hash, with two tag/pad bits at front
 *   00 - indicates use of SHA2-256 hash
 *   other tags reserved for potential upgrade to SHA3 or similar
-* infix `:` indicates encryption with given ke
+* infix `:` indicates encryption with given key
 * Again, have two tag bits:
-*   00 - indicates AES with 192-bit key (including the 00)
+*   00 - indicates AES with 190-bit key (plus two bits 00)
 *   other tags reserved for upgrade in case AES compromised
 * Encode is base64url (`A-Z`,`a-z`,`0-9`,`-_`) no space, no pad
 *   46 octets including curly braces and `#` 
 *   79 octets for cloud storage encrypted code
 
+This should be simple enough to implement, even within ABC if I'm not concerned about performance. 
+
 This technique can be used both for streaming code (a basis for caching, optimized serialization, useful boundary for compiled code) and for storage (as a basis for structure-sharing compression, interning, abstraction). In a stream, one can generally ask for a value whenever it is necessary, so we can use ad-hoc cleanup mechanisms when we're tight for space. For storage, tracking dependencies and proper garbage collection would be more essential.
 
 An interesting use of this feature is to gradually - and continuously - refactor and refine a large cross-project codebase to improve compression, reuse, performance, etc.. Services might provide features to automatically factor ABC code with a global perspective about which reuse is actually effective.
+
+*Thoughts:* In the extremely unlikely case of a hash collision, I think we could disambiguate most cases based on type safety or inability to decrypt to sensible code (i.e. context-sensitive). It only costs a little to be a lot more robust. If a few such collisions occur, of course, we should consider switching to a bigger hash.
 
 ### Convention: Annotations!
 
@@ -277,7 +349,7 @@ Example applications for annotations:
 
 Annotations can be very useful even though they don't have any formal meaning in the program. Obviously, a lot more convention and standardization would be valuable to fill out a common set of annotations. 
 
-ABC systems should support an extensible set of annotations by the simple means of ignoring those they do not recognize. Since annotations should not affect observable behavior, ignoring them is not an error.
+ABC systems should support an extensible set of annotations by the simple means of ignoring those they do not recognize, passing them forward if they're part of an ABC pipeline. Since annotations should not affect observable behavior, ignoring them is never an error.
 
 ### Pointers as Capabilities
 
