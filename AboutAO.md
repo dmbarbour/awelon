@@ -10,9 +10,9 @@ A word in AO is a unit of modularity and a functional software component.
 
 AO doesn't use the traditional concept of modules with imports and exports. AO has only words with definitions in a flat, global namespace. The association between a word and its definition is implicit in the programming environment: there is no syntax to define a word locally. The set of words associated with an AO environment is called the dictionary. AO forbids recursive definitions, so the dictionary must be acyclic. 
 
-A definition consists of AO code - a sequence of words, literals, and choice expressions. Juxtaposition is composition. The semantics of a word is simply the inline expansion of its definition.
+A definition consists of AO code - a sequence of words, literals, and choice expressions. Juxtaposition is composition. The semantics of a word is simply the inline expansion of its definition. 
 
-AO is envisioned for use in a live, wiki-based programming environment. New words are easy to use, document, and define. Automatic visualization should mitigate the normal challenges of tacit concatenative code so users can more easily see the environment. A single dictionary might host hundreds or thousands of projects, with rich cross-project refactoring and words that grow more refined and reusable. Programmers should learn words, not projects! 
+AO is envisioned for use in a live, wiki-based programming environment. New words are easy to use and define. Automatic visualization should mitigate the normal challenges of tacit concatenative code so users can more easily see the environment. A single dictionary might host hundreds or thousands of projects, with rich cross-project refactoring and words that grow more refined and reusable. Programmers should learn words, not projects! 
 
 ## Literals: Numbers, Text, and Blocks
 
@@ -27,7 +27,7 @@ AO supports a few simple number representations. By example:
 
 These representations are understood as exact rational numbers. 
 
-Additionally, literal numbers in AO are always given a unit structure, represented as data of the form `(number * units)`, where `units` is a static list (potentially empty) of `(label * integer)` pairs. Standard support for units provides better type safety. 
+Additionally, literal numbers in AO are always given a unit structure, represented as data of the form `(number * units)`, where `units` is a static list (potentially empty, terminated by numeric 1) of `(label * integer)` pairs. Standard support for units provides better type safety. 
 
         3`m/s
         1.4e2`kg*m^2
@@ -63,7 +63,7 @@ The translation is trivial, but quite beneficial. With this change, type `e` has
 
 ## Inline ABC
 
-ABC code is inlined using pseudo-words prefixed with `%`:
+ABC code is inlined using pseudo-words, reserving prefix `%`:
 
         %vrwlc      (aka `swap`)
         %lwcwrwc    (aka `rot4`)
@@ -78,7 +78,9 @@ Inlined ABC in AO may contain most of ABC. The exceptions are as follows:
 
 Except for capabilities, these limitations are no loss of expressiveness. Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. 
 
-AO requires a dedicated reader mode for capabilities. Upon reading `%{` it must read to the following `}`, including whitespace. This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. However, capabilities may be rejected by the compiler. At the moment, AO generally permits two classes of capabilities:
+AO requires a dedicated reader mode for capabilities. Upon reading `%{`, AO must read to the following `}`, including whitespace. ABC capabilities cannot be nested, so there is no 
+
+This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. However, capabilities may be rejected by the compiler. At the moment, AO generally permits two classes of capabilities:
 
 * ABC program annotations `%{&xyzzy}`
 * AO search attributes `%{:cost:10}`.
@@ -95,7 +97,7 @@ Fortunately, capabilities can often be distributed through a model by static, co
 
 AO does have a weakness with respect to Principle of Least Authority: granting authority is not explicit in the syntax. The path of least resistance tends to grant full authority. AO programmers must instead be explicit about where they restrict authority, using blocks and combinators like so:
 
-        [trustMeHehHeh] runInaJailCell
+        [trustMeHehHeh] runJailed
 
 With a little convention, security implications will at least be visible and obvious in code, which is sufficient to follow the principle of least authority whenever it matters. Even better, we a programming environment might help users visualize the environment and how authority is distributed.
 
@@ -128,9 +130,9 @@ Non-deterministic choice is an unsatisfying foundation for sloppy programming. S
 
 To address these concerns, AO provides a flexible mechanism for describing solutions with user-defined attributes, which can later be used for heuristic scoring. These attributes are expressed using the ABC capability model, with a `:` prefix. For example:
 
-        %{:cost:10}
-        %{:experimental}
-        %{:use-gtk}
+        {{:cost:10}}
+        {{:experimental}}
+        {{:use-gtk}}
 
 Each attribute is assigned a magnitude, a positive integer (default 1). The ability to express relative magnitudes is useful as a tuning feature, but doesn't have any significant semantics. A heuristic function will take these labels and generate scores for different expansions. By tuning the heuristic function, and adding attributes where needed, developers can explore tradeoffs in the solution space.
 
@@ -148,7 +150,7 @@ I'd like to find what works for users before standardizing, so for now this conc
 
 ## Syntax of AO
 
-Parsing code for AO is very simple. AO code is effectively a sequence of words and literals, with a little extra structure for ambiguity. Recognizing numbers is probably the most difficult problem for reading AO. AO currently needs special reader rules for:
+Parsing code for AO is very simple. AO code is effectively a sequence of words, literals, and inlined ABC, with a little extra structure for ambiguity. Recognizing numbers is probably the most difficult problem for reading AO. AO currently needs special reader rules for:
 
 * numbers and units
 * block text (starting with `"`)
@@ -165,6 +167,12 @@ Words in AO are very flexible in their structure, restricted only to enable easy
 * words cannot contain whitespace or control characters
 
 Other than that, a programming environment might add a few extra constraints (e.g. so words can be used in URLs), or might unify or normalize some words. But most words should be allowed.
+
+### Structural, Type-Directed Editing
+
+AO's syntax supports flat textual representation, but structured and type-driven editing is both feasible and should be pursued. Programs may be given 'holes' that the editor can help fill with short sequences of words and literals. For many use-cases, edit-time search and auto-completion is a better option than use of ambiguous definitions.
+
+Also, a useful feature would be some zoomability or progressive disclosure. Words that aren't very semantically relevant, such as pure data plumbing, can perhaps be shrunk or faded or replaced with an icon that can be expanded by anyone interested.
 
 ## Standard Environment
 
@@ -199,7 +207,7 @@ Programmers often reject concatenative languages without even attempting to lear
 
 If I am right, automatic visualization and animation of the environment should help with visualization, and the ability to do a little bit of drag and drop on the visualization should help with learning (or ignoring) arcane shuffles. 
 
-AO is intended for use in an environment that provides rich visualization of structure, through the type system and through testing. 
+AO is intended for use in an environment that provides rich visualization of structure, through the type system and through testing. It should be possible to augment visualization of challenging words by defining extra words (e.g `foo.imagine`) that provide animation rules or code. 
 
 ### Documents and Zippers
 
@@ -219,21 +227,15 @@ An interesting feature of document-like structures is that they can be navigated
 
 ## Documenting AO Code
 
-AO does not have a syntax for comments. The mechanism for AO's documentation is left to convention and the programming environment. I do have a suggested approach: 
+AO does not have a syntax for comments. 
 
-Each word `foo` also come with a set of words associated by naming conventions, such as `foo.doc` or `foo.talk` or `foo.test.xyzzy`. These words aren't special from AO's perspective; they simply contain more AO code. However, the behavior of `foo.doc` would involve constructing a document, which could then be rendered and presented to the user. 
+Instead, documentation for any given word in AO may be achieved by defining a 'documentation' word based on a simple naming convention. If we've developed word `foo`, we may document it with a word called `doc.foo`. Naturally, not every word is documented (e.g. we're unlikely to develop `doc.doc.word` for most words).
 
-Representing documentation as AO code offers many potential advantages:
+The behavior of a documentation word would be the construction of a document, which can be rendered and presented to a programmer. Usefully, the definition of documentation words would be subject to the normal reuse and refactoring techniques for all AO code. Frameworks, templates, figures, graphs, rich formatting, and even interactive documentation are quite feasible.
 
-* trivial parsing, like all AO code
-* standared mechanisms for reuse and refactoring
-* rich formatting, use of figures and graphs
-* flexible templates and frameworks
-* potential for interactive documentation
+In a well designed programming environment, documentation shouldn't always be essential. Most words should have short definitions, that become readable to programmers once they know the component words. Visualization, animation, live code or REPLs, and tests, should help programmers learn many words without explanation in natural language.
 
-Similarly, tests would have some conventional meanings. 
-
-Documentation directly in code is not recommended for AO systems.
+Documentation "in code" is not recommended for AO systems, since it can hinder refactoring, optimization, and alternative views for projectional editing.
 
 ## Automatic Refactoring and Discovery
 
