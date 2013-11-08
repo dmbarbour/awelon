@@ -13,8 +13,8 @@ See AboutABC for full description and design. This file just records each code, 
         $ :: [x->x'] * (x * e) -> (x' * e)
         o :: [y->z] * [x->y] -> [x->z]
         ' :: (Quotable x) => (x * e) -> ([1->x] * e)
-        k :: ([x->y] * e) -> ([x->y]' * e) (attrib relevant, no drop)
-        f :: ([x->y] * e) -> ([x->y]' * e) (attrib affine, no copy)        
+        k :: ([x->y] * e) -> ([x->y]' * e) (keep, relevant, no drop)
+        f :: ([x->y] * e) -> ([x->y]' * e) (affine, no copy)        
 
         # :: e -> (N(0) * e)
         0 :: N(x) * e -> N(10x+0) * e
@@ -33,8 +33,14 @@ See AboutABC for full description and design. This file just records each code, 
         / :: N(non-zero a) * e -> N(1/a) * e
         - :: N(a) * e -> N(0-a) * e
 
+        
+
         "~ :: (special - text reader mode)
         [] :: (special - block reader mode)
+
+        (tentative, not committed) 
+        Q :: N(non-zero b) * (N(a) * e) -> N(r) * (N(q) * e)
+            where qb+r = a, q integral, r in [0,b) or (b,0]
     
 Here `*` as a type means product (pair), `[x->y]` is a block type, `T` means text, `N` means number. 
 

@@ -4,7 +4,7 @@ Awelon Object language (AO) is a tacit concatenative language that operates on a
 
 1. The first is a thin layer above Awelon Bytecode (ABC) that introduces a concept of words with unambiguous definitions. The semantics of this layer is the static expansion of each word's definition until only ABC remains.
 
-2. The second layer introduces search-based metaprogramming. A word can express a large set of tactics and meanings with different attributes. The semantics of this layer is a non-deterministic static search for a well-typed, high quality expansion.
+2. The second layer introduces ambiguity and search for meaning. A word can express a large set of tactics and meanings with different attributes. The semantics of this layer is a non-deterministic static search for a well-typed, high quality expansion.
 
 A word in AO is a unit of modularity and a functional software component. 
 
@@ -46,7 +46,7 @@ AO supports two formats for text:
         ~
         :inlineLabelText
 
-Essentially, block text in AO is exactly the same as block text in ABC. Inline, label text is much more restricted: it is a pseudo-word whose meaning is just whatever text is after the `:` - in the above case `"inlineLabelText"`. The intention of this secondary format is to simplify expression of labels in data. Empty text may also be expressed this way, using `:` by itself.
+Block text in AO is exactly the same as block text in ABC. Inline, label text is much more restricted: it is a pseudo-word whose meaning is just whatever text is after the `:` and before the word break. In the above case `"inlineLabelText"`. The intention of this secondary format is to simplify expression of labels in data. Empty text may also be expressed this way, using `:` by itself.
 
 Blocks in AO use square brackets, and contain arbitrary AO code:
 
@@ -74,26 +74,25 @@ Inlined ABC in AO may contain most of ABC. The exceptions are as follows:
 * no whitespace (LF, SP)
 * no text or blocks
 * no numbers (`#0123456789`)
-* limitations on capabilities
+* no semantic capabilities
 
 Except for capabilities, these limitations are no loss of expressiveness. Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. 
 
-AO requires a dedicated reader mode for capabilities. Upon reading `%{`, AO must read to the following `}`, including whitespace. ABC capabilities cannot be nested, so there is no 
+AO uses a dedicated reader mode for capabilities. Upon reading `%{`, AO should be read to the following `}`, including whitespace. This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. 
 
-This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. However, capabilities may be rejected by the compiler. At the moment, AO generally permits two classes of capabilities:
+However, most capabilities will be rejected by the AO compiler. 
 
-* ABC program annotations `%{&xyzzy}`
-* AO search attributes `%{:cost:10}`.
+At the moment, AO permits only annotations and attributes, neither of which have any formal semantics. Annotations can interact with optimizers and debuggers and so on, e.g. `%{&par}` marking a block for parallelism, or `%{&lazy}` for laziness, or `%{&bp}` for a breakpoint. Attributes guide heuristic in case of ambiguity (e.g. `%{:cost:10}`). 
 
-Annotations may interact with debuggers, error messages, optimizers, and so on. Search attributes are to help select between ambiguous choices for AO's second layer. Other extensions to AO may later be expressed this way. Tentatively, I might eventually choose to support ABC references, i.e. `%{#secureHash}` (I have mixed feelings about doing so).
+*NOTE:* The word `%` by itself is not allowed. There must be at least one character following `%`. 
 
-## Capability Security
+## Proper Capability Security
 
-AO prohibits syntactic representation of semantic capabilities, authority bearing or otherwise.
+AO prohibits syntactic representation of semantic capabilities. This is a good thing. For reasoning about effects, security, portability, configuration, extension, it is preferable that capabilities be distributed through a program as part of the computation. 
 
-For reasoning about effects, security, portability, configuration, extension, it is preferable that capabilities be distributed through a program as part of the computation. Even for purely functional extensions to AO, such as support for matrices and OpenCL/GPU computations, treating this as capabilities enables substituting an interpreter for porting code to environments that lack these features. 
+Even for purely functional extensions to AO, perhaps support for matrices, vectors, floating point numbers, and GPU computations, treating this as capabilities enables substituting an interpreter when porting code to environments that lack similar features. 
 
-Fortunately, capabilities can often be distributed through a model by static, compile-time computations. There doesn't need to be a runtime performance penalty for using capabilities. Also, the syntactic effort for threading capabilities is trivial due to AO's nature as a tacit, concatenative language. If capabilities or a powerblock are kept at a stable, relative location, then capabilities have the same syntactic convenience as ambient authority.
+Fortunately, capabilities can often be distributed through an AO model by static, compile-time partial evaluation. There doesn't need to be a runtime performance penalty for using capabilities. Also, the syntactic effort for threading capabilities is trivial due to AO's nature as a tacit, concatenative language. If capabilities or a powerblock are kept at a stable, relative location, then capabilities have the same syntactic convenience as ambient authority.
 
 AO does have a weakness with respect to Principle of Least Authority: granting authority is not explicit in the syntax. The path of least resistance tends to grant full authority. AO programmers must instead be explicit about where they restrict authority, using blocks and combinators like so:
 
@@ -105,9 +104,11 @@ With a little convention, security implications will at least be visible and obv
 
 Words in natural language are often ambiguous. Words may have multiple distinct meanings in different contexts, for example "draw the picture" vs. "draw the curtains" vs. "draw the gun". And words may have very wide meaning that covers many examples, such as "animal" potentially referring to a cat, a dog, a penguin, or a goldfish. Ambiguity is in part resolved by context, and in part left to the imagination of the audience. 
 
-There is a role for sloppy language in programming: rapid prototyping, exploring design spaces, live coding, program or proof search, adaptive code. In many potential use cases, the programmer remains available to clarify problematic ambiguities. Ambiguous language can be terse, and leaving some details to the compiler can alleviate (or delay) burdens on the developer. 
+There is a role for sloppy language in programming: rapid prototyping, exploring design spaces, live coding, program or proof search, adaptive or self-optimizing code. In many potential use cases, the programmer remains available to clarify problematic ambiguities. Ambiguous language can be terse. Leaving some details to the compiler can change the burdens on the developer. 
 
-AO's layer two introduces features for expressing and guiding ambiguity. Ambiguity is expressed using `(`, `|`, and `)`. For example:
+*NOTE:* Edit-time suggestions and type-driven auto-complete can support similar roles. Where sufficient, those techniques should be favored.
+
+AO's layer two introduces features for expressing and guiding ambiguity. Ambiguity is expressed using `(`, `|`, `)`. 
 
         a (b | c d) e (f|g)
 
@@ -120,33 +121,44 @@ The meaning of the above expression may be any one of:
 
 The choice, made at compile-time, is non-deterministic. However, some expansions can be eliminated if they do not make sense typefully. The compiler's job is to find a sensible expansion, using as much compile-time information as it can.
 
-*NOTE:* Empty expansions are allowed. `(a|)` would effectively express an optional `a`.
+*NOTE:* Empty options are allowed: `(a|)` would effectively express an optional `a`, `(a)` is the same as `a`, and `()` is an identity behavior. More than two choices may be expressed, `(a|b|c)`. Ambiguous choice is fully associative, commutative, and idempotent; organization, ordering, and redundancy for expression of choices has no meaning. 
 
-*NOTE:* Because AO definitions are acyclic, the set of expansions is finite.
+*NOTE:* Because AO definitions are acyclic, the set of expansions is finite. Of course, the search space is combinatorial and potentially intractable. 
 
 ### Guiding Non-Deterministic Choice
 
-Non-deterministic choice is an unsatisfying foundation for sloppy programming. Sloppy programmers aren't seeking just any valid solution. They want the compiler to find a *good* solution, with a balance of useful features, good performance, and tight integration. Further, they desire to explore the solution space and tradeoffs, to observe many sensible programs that fit their sloppy descriptions and choose between them.
+Non-deterministic choice is an unsatisfying foundation for sloppy programming.
 
-To address these concerns, AO provides a flexible mechanism for describing solutions with user-defined attributes, which can later be used for heuristic scoring. These attributes are expressed using the ABC capability model, with a `:` prefix. For example:
+Sloppy programmers aren't seeking just any valid solution. They want the compiler to find a *good* solution, with a balance of useful features, good performance, and tight integration. Further, they often want to explore the solution space and tradeoffs, to observe many sensible programs that fit their sloppy descriptions and choose between them.
 
-        {{:cost:10}}
-        {{:experimental}}
-        {{:use-gtk}}
+To address these concerns, AO provides a flexible mechanism for describing code with user-defined attributes, which are used for heuristic scoring of search. These attributes are expressed using the ABC capability model, with a `:` prefix. For example:
 
-Each attribute is assigned a magnitude, a positive integer (default 1). The ability to express relative magnitudes is useful as a tuning feature, but doesn't have any significant semantics. A heuristic function will take these labels and generate scores for different expansions. By tuning the heuristic function, and adding attributes where needed, developers can explore tradeoffs in the solution space.
+        %{:cost:10}
+        %{:experimental}
+        %{:use-gtk}
 
-The mechanism of search is left to the compiler and programming environment. A-star search, forwards and backwards chaining, genetic programming, machine learning of successful search paths, search visualization and human guidance... a great many techniques are feasible. An optimal solution is never guaranteed, and there may still be sone non-determinism. But users should be able to find effective solutions relatively quickly, assuming one exists.
+Each attribute is assigned a magnitude, a positive integer (default 1). The ability to express relative magnitudes is useful as a tuning feature. In addition to user-defined attributes, a compiler can infer some attributes (e.g. program size, estimated efficiency, historical stability). 
 
-When developers are happy with a solution, the programming environment should make it easy to extract and refactor into an unambiguous vocabulary.
+A heuristic function will take these attributes to generate scores for different expansions. By tuning the heuristic function, and adding attributes where needed, developers can explore tradeoffs in the solution space. 
+
+The mechanism of search is left to the compiler and programming environment. A-star search, forwards and backwards chaining, genetic programming, machine learning of successful search paths, search visualization and human guidance... a great many techniques are feasible. An optimal solution is never guaranteed, and there may be no obvious winner in the end. But users should be able to find reasonably effective solutions relatively quickly, assuming one exists.
+
+When developers are happy with a solution, the programming environment should make it trivial to extract a specific meaning into an unambiguous word, then refactor it.
 
 ### Controlling Ambiguity
 
-Search can be expensive. Context-dependent and non-deterministic meanings may be semantically troubling (e.g. with respect to equational reasoning). Ambiguity 'features' often aren't. Programmers must easily see and control where these features are used - i.e. keep them in a distinct programming layer. 
+Search can be expensive. Context-dependent and non-deterministic meanings can be semantically troubling (e.g. with respect to equational reasoning). Ambiguity features often aren't. 
 
-To address this, developers may use a corruption model to tag words with ambiguity. For example, a sigil: a word whose definition potentially uses ambiguity has prefix `$`, and a definition using words with prefix `$` potentially uses ambiguity. Such a convention would spread virally through the codebase. It also could be enforced by the AO environment, by issuing a warning or error when it is not followed. Alternatively, we could capitalize ambiguous words, or keep as extra metadata per word. We could use colors or superscripts to visualize ambiguity and other properties. 
+Programmers must easily recognize and control where ambiguity is used. Search shouldn't be deeply integrated into most AO programs; rather, it should be a distinct programming layer. Ambiguous definitions can use unambiguous words, but not vice versa. 
 
-I'd like to find what works for users before standardizing, so for now this concern will be left to the programming environment and de-facto standardization.
+We can model corruption in the structure of words:
+
+* if a word has a potentially ambiguous definition, it should be capitalized
+* if a definition uses a capitalized word, it is potentially ambiguous
+
+The programming environment might emit a warning when a lower-case word is ambiguous. The discipline would spread virally through the AO dictionary. Alternatively, we could use a sigil such as `$`, or keep metadata per word indicating whether ambiguity should raise an error or warning. Colors or superscripts when rendering words could also highlight ambiguity.
+
+I would like to find what works for users in practice, i.e. nice aesthetic, encouraging but not confining. For now, this concern will be left to the programming environment and de-facto standardization. I'll most likely start with capitalization for ambiguity.
 
 ## Syntax of AO
 
@@ -158,7 +170,7 @@ Parsing code for AO is very simple. AO code is effectively a sequence of words, 
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-Pseudo-words including label text (`:foo`) and inline ABC (`%vrwlx`) don't need any special reading rules, but must be recognized based on their prefix. 
+Pseudo-words including label text (`:foo`) and inline ABC (`%vrwlx`) don't need special reading rules, but must be recognized based on their prefix. 
 
 Words in AO are very flexible in their structure, restricted only to enable easy parsing and printing:
 
@@ -166,7 +178,7 @@ Words in AO are very flexible in their structure, restricted only to enable easy
 * words cannot contain `"`, `[`, `]`, `(`, `|`, `)`
 * words cannot contain whitespace or control characters
 
-Other than that, a programming environment might add a few extra constraints (e.g. so words can be used in URLs), or might unify or normalize some words. But most words should be allowed.
+Other than that, words are generally allowed. A programming environment might encourage a few extra constraints (e.g. so words can be used in URLs), or might unify or normalize some words. But most words should be allowed.
 
 ### Structural, Type-Directed Editing
 
@@ -174,9 +186,21 @@ AO's syntax supports flat textual representation, but structured and type-driven
 
 Also, a useful feature would be some zoomability or progressive disclosure. Words that aren't very semantically relevant, such as pure data plumbing, can perhaps be shrunk or faded or replaced with an icon that can be expanded by anyone interested.
 
+### Words for Documentation and Metamodels
+
+AO does not have a syntax for comments.
+
+Documentation for an AO word is expressed by defining another AO word. For example, if we have a word `foo`, we might document it by defining `foo.doc`. The definition of `foo.doc` would construct a document. The programming environment will understand the naming convention, and may present or link the documentation together with the word. 
+
+Modeling documentation in this manner enables reuse, templates and frameworks, rich formatting with figures and graphs, development of interactive or hypertext documentation. It also avoids the challenge of maintaining documentation when refactoring or optimizing code or when using a projectional editor.
+
+A similar philosophy - that the programming environment should understand a few simple naming conventions, but the definitions are all in AO - also applies for automatic testing, IDE extensions, and live services. 
+
+*NOTE:* Words can also be learned by a good REPL, automatic visualization, tests and examples of use, discovery of words through refactoring. Potentially, we can construct a 'thesaurus' through analysis of structure and sentiment. Documentation should be understood to augment these other approaches, not replace them, and a good programming environment will present these features together with documentation. Many words won't require much documentation. *The primary didactic mechanism in AO should be showing, not telling.*
+
 ## Standard Environment
 
-AO doesn't enforce any particular environment, except the basic `(s * e)` pair to use literals. However, modifying the environment can require widespread edits to the dictionary. Presented below is an environment that should be effective, efficient, and extensible assuming text-based programming with simple automatic visualization.
+AO doesn't enforce any particular environment, except the basic `(s * e)` pair to use literals. However, modifying the environment can require widespread edits to the dictionary. The environment presented here should be effective and extensible, and well suited to text-based programming environments.
 
         (stack * (hand * (power * ((stackName * namedStacks) * ext))))
 
@@ -223,32 +247,31 @@ My Hypotheses:
 
 An interesting feature of document-like structures is that they can be navigated and manipulated incrementally, using a purely functional cursor called a [zipper](http://en.wikibooks.org/wiki/Haskell/Zippers), a data structured developed by Huet in 1997. Thus, navigating and manipulating the environment extends to navigating and manipulating the individual documents. *Effectively, AO's programming environment is analogous to a desktop user environment, with different stacks representing different windows.* 
 
-*TRIVIA:* The navigable environment design for AO was the precursor for developing Awelon environment as a full UI model.
+### Integrating Alternative Environments
 
-## Documenting AO Code
+The standard environment was developed assuming text-based editing, and relatively simple visualizations. But non-standard environments are certainly feasible, e.g. for frameworks, or for streamable programs as the basis for UI and augmented reality (a goal of the Awelon project). 
 
-AO does not have a syntax for comments. 
+The integration point between environments will generally be "software components" that have a relatively narrow interface for inputs and outputs. When the interface is narrow, writing adapter code is trivial.
 
-Instead, documentation for any given word in AO may be achieved by defining a 'documentation' word based on a simple naming convention. If we've developed word `foo`, we may document it with a word called `doc.foo`. Naturally, not every word is documented (e.g. we're unlikely to develop `doc.doc.word` for most words).
 
-The behavior of a documentation word would be the construction of a document, which can be rendered and presented to a programmer. Usefully, the definition of documentation words would be subject to the normal reuse and refactoring techniques for all AO code. Frameworks, templates, figures, graphs, rich formatting, and even interactive documentation are quite feasible.
+## Refactoring and Discovery
 
-In a well designed programming environment, documentation shouldn't always be essential. Most words should have short definitions, that become readable to programmers once they know the component words. Visualization, animation, live code or REPLs, and tests, should help programmers learn many words without explanation in natural language.
+An often underestimated advantage of tacit concatenative is how *easy* refactoring is at the syntactic or structural layers. When refactoring is easy, it happens often and fluidly, and software can more readily help. Essentially, the [activation energy](http://en.wikipedia.org/wiki/Activation_energy) is lower. 
 
-Documentation "in code" is not recommended for AO systems, since it can hinder refactoring, optimization, and alternative views for projectional editing.
+In AO, users can learn words. A word is often defined by a sequence of five to twelve more words. When a sequence is encountered a few times in a codebase, the programming environment might highlight it for refactoring.
 
-## Automatic Refactoring and Discovery
+We can also explore spatial aliasing - how we choose to factor the borders between words. Conceptually, we can expand definitions in place and decide whether different borders and boundaries would lead to greater reuse or more comprehensible code. 
 
-A significant and often underestimated advantage of tacit concatenative is how easy it is to refactor programs based on simple pattern discovery at the syntactic layer. If five to seven words are observed in a sequence many times, it may be worth refactoring into a new word. Similarly, we can easily seek "alternative" factorings, by searching for patterns in the expanded definitions. 
+A good AO programming environment should greatly aide with refactoring, highlighting opportunities without being obtrusive about it.
 
-In addition to finding new factorings, we should expect to find much code that could be factored better based on existing words. These discoveries are useful for didactic purposes, a programmer can begin to learn about existing projects that use similar patterns. 
+And refactoring doesn't need to find new words; if an AO dictionary is used for hundreds or thousands of projects, it is quite possible that another project has already discovered the useful and reusable words that you desire. The greater history a dictionary has, the more such words will be discovered.
 
-A good programming environment for AO should be continuously seeking and highlighting opportunities for refactoring, reuse, rewrites. It shouldn't be obtrusive about it, but the opportunities should exist. Similarly, it should support cross-project refactoring and transforms on existing code, based on simple pattern recognition.
+Discovery becomes a didactic experience, an opportunity to learn a new word, study how it is used, possibly learn about a project related to your own.
 
 ## Dissassembly and Translation
 
-An interesting property of AO code is that the dictionary is effectively a grammar. Thus, disassembly of ABC code back into an AO dictionary is quite feasible, based on simple recognition of words or word sequences - effectively, the dictionary parses the program.
+An interesting property of AO code is that disassembly of a large ABC constructs is quite feasible in terms of matching code to a dictionary. Disassembly can be modeled as a parsing or refactoring problem.
 
-This feature could be used both for understanding code and for translating between highly divergent dictionaries.
+This approach could be used both for understanding ABC code, and for translating code between highly divergent dictionaries.
 
 
