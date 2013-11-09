@@ -20,6 +20,23 @@ Hypothesis: source stable uniqueness is important even for the history of the us
 
 Uniqueness, however, might be available. 
 
+..................
+
+Another interesting possibility just struck me: when modeling the 'stream' of actions influencing the environment, perhaps I should model it as follows:
+
+        type Process a b = a -> (b, Process a b)
+        type AwelonProjectStep = Process (input * env) (renderable * env')
+
+Effectively, the operation on the environment is an evolving process that is not an observable part of the environment, yet also can be statefully evolved. The main issue with this design is that it makes the process itself inaccessible, a violation of the 'no hidden long-running behavior' principle.
+
+But if I use an ABC environment where the Process at each step is definitely part of the environment, and subject to update or change... that might work well, but it also might be too frozen. OTOH, perhaps that would be acceptable, so long as the process has a 'private space' for its own manipulations.
+
+I need to think about this further, exactly how I want to build the stream of actions based on user inputs. It seems useful to encode this within Awelon project itself, but in a safer way. 
+
+Perhaps some kind of automatic rewriting? Certain structures in the user's environment can interact with the process, or certain built-in gestures or button actions, basically adding and removing objects from the environment on a larger scale.
+
+
+
 
 
 

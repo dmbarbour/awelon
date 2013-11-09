@@ -1,5 +1,5 @@
 
-See AboutABC for full description and design. This file just records each code, and a pseudocode representation of its type.
+See AboutABC for full explanations and design. This file just records each code, and a pseudocode representation of its type.
 
         l :: (a * (b * c)) -> ((a * b) * c)
         r :: ((a * b) * c) -> (a * (b * c))
@@ -32,21 +32,17 @@ See AboutABC for full description and design. This file just records each code, 
         * :: N(a) * (N(b) * e) -> N(a*b) * e
         / :: N(non-zero a) * e -> N(1/a) * e
         - :: N(a) * e -> N(0-a) * e
+        Q :: N(non-zero b) * (N(a) * e) -> N(r) * (N(q) * e)
+            where qb+r = a, q integral, r in [0,b) or (b,0]
 
-        
+        ? :: (Droppable b) :: b@[a->a'] * ((a+b)*e) -> (a'+b)*e
 
         "~ :: (special - text reader mode)
         [] :: (special - block reader mode)
-
-        (tentative, not committed) 
-        Q :: N(non-zero b) * (N(a) * e) -> N(r) * (N(q) * e)
-            where qb+r = a, q integral, r in [0,b) or (b,0]
     
 Here `*` as a type means product (pair), `[x->y]` is a block type, `T` means text, `N` means number. 
 
-Notes: I'd like to avoid use of `IiO` to keep the code more readable. I'd like to avoid use of most vowels, or relegate them to relatively rare operators, to reduce risk that naughty words are spelled into the ABC. I'd like to avoid reusing `~` for anything since it already terminates a text. 
-
-At the moment, I'm avoiding use of vowels (mostly to avoid spelling naughty things). If necessary, I'll use them for fringe features that aren't used much together.
+I'm avoiding most vowels. I'd like to minimize risk of naughty words being spelled out in typesafe ABC code. So far I've used `o`.
 
 
 

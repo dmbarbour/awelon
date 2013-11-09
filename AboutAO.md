@@ -194,7 +194,7 @@ Documentation for an AO word is expressed by defining another AO word. For examp
 
 Modeling documentation in this manner enables reuse, templates and frameworks, rich formatting with figures and graphs, development of interactive or hypertext documentation. It also avoids the challenge of maintaining documentation when refactoring or optimizing code or when using a projectional editor.
 
-A similar philosophy - that the programming environment should understand a few simple naming conventions, but the definitions are all in AO - also applies for automatic testing, IDE extensions, and live services. 
+A similar philosophy also applies for automatic testing (`test.xyzzy`), asserting equational laws, optimizer suggestions in form of rewrite, IDE plugins or extensions, and live services (`service.foo`). In general, a few naming conventions with AO definitions can go a very long way while staying with a simple dictionary concept.
 
 *NOTE:* Words can also be learned by a good REPL, automatic visualization, tests and examples of use, discovery of words through refactoring. Potentially, we can construct a 'thesaurus' through analysis of structure and sentiment. Documentation should be understood to augment these other approaches, not replace them, and a good programming environment will present these features together with documentation. Many words won't require much documentation. *The primary didactic mechanism in AO should be showing, not telling.*
 

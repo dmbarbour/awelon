@@ -1,12 +1,13 @@
 # Awelon Bytecode
 
-Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a streamable, securable, type-safe, tacit concatenative, causally commutative, spatially idempotent, weakly legible, functional bytecode. Breaking this down:
+Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a streamable, securable, type-safe, tacit concatenative, non-strict, causally commutative, spatially idempotent, weakly legible, functional bytecode. Breaking this down:
 
 * **streamable** supports well-behaved incremental processing
 * **securable** effects via invocation of unforgeable capability text
 * **typesafe** types can enforce many safety properties, and can be inferred
 * **tacit** no local variable or parameter names; ops appy to environment
 * **concatenative** juxtaposition is composition; to addend is to edit
+* **non-strict** no commitment to common evaluation orders; temporal control
 * **causally commutative** effect ordering is expressed by argument threading
 * **spatially idempotent** duplicate expression doesn't duplicate effect
 * **weakly legible** visible, formattable code; readable text and numbers
@@ -76,11 +77,11 @@ These invocations can also be used for annotations, or for referencing external 
 
 ### Capabilities
 
-In `{foo}`, the text 'foo' is called *capability text*. In practice, this text should be cryptographically secure. Secure random GUIDs, encrypted text, or signed text (HMAC, PKI) are all possibilities. In general, this text is also specific to the runtime instance. Capability text is unforgeable from within ABC: there are no primitives that may invoke text as capability text.
+In expression `{foo}`, the text 'foo' is called *capability text*. In practice, this text should be cryptographically secure. Secure random GUIDs, encrypted text, or signed text (HMAC, PKI) are all possibilities. 
 
-ABC is designed for [capability-based security](http://en.wikipedia.org/wiki/Capability-based_security). Capability-based security conflates controlling access with controlling distribution of unforgeable values called "capabilities". A capability can be modeled as a block containing a capability invocation, i.e. `[{foo}]`. Blocks are opaque in ABC: there are no primitives that can compare blocks or convert a block to text.
+ABC is designed for [capability-based security](http://en.wikipedia.org/wiki/Capability-based_security). Capability-based security conflates controlling access with controlling distribution of unforgeable values called "capabilities". A capability can be modeled as a block containing a capability invocation, i.e. `[{foo}]`. 
 
-An environment may, of course, provide introspective and reflective capabilities that can peek inside blocks or translate text to capability text, but such capabilities should be secure and granted only to trusted subprograms.
+Capability text is unforgeable from within ABC: there are no primitives that may invoke text as capability text. Blocks are opaque in ABC: there are no primitives that can compare blocks or convert a block to text. An environment may provide introspective and reflective capabilities that can violate these assumptions, but there is no good reason to grant such capabilities to untrusted code.
 
 ### Modeling Objects
 
@@ -113,35 +114,39 @@ Spatial idempotence means that, if the same action is performed twice with the s
                     second :: [b->b'] * (a*(b*c)) -> (a*(b'*c))
                     dup    :: (x * e) -> (x * (x * e))
 
-ABC is designed primarily for reactive demand programming (RDP), which has both of these features uniformly and pervasively. ABC enables optimizers to assume these properties even when ABC is not targeting an RDP system. Together, these properties enable (even for effectful code) optimizations and refactorings typically associated with pure functional programming.
+ABC is designed primarily for reactive demand programming (RDP), which has both spatial idempotence and causal commutativity universally. ABC optimizers and refactoring tools may assume these properties even when ABC is not targeting an RDP behavior. 
 
-Fortunately, these assumptions do not hinder simple expression of safe procedural code. Capabilities can be marked linear, and enforce explicit threading and mutual exclusion. Interestingly, programmers can be much more precise about threading requirements in ABC than they can be in most imperative languages, so a great deal of implicit parallelism, reordering, and synchronization is possible. 
+Fortunately, it is not difficult to thread a linear value through imperative code, and thereby model threads. Between substructural types and capability security, ABC can typefully enforce a procedural paradigm and many others. Interestingly, programmers can be much more precise about threading and synchronization within ABC than they can be in most imperative languages. 
 
 ### Fast and Loose Reasoning
 
-ABC favors a philosophy of 'fast and loose reasoning' about termination properties. (cf. [Fast and Loose Reasoning is Morally Correct](http://www.cse.chalmers.se/~nad/publications/danielsson-et-al-popl2006.html), Danielsson, Hughes, et al. POPL 2006.) The idea is that we should reason about programs as if every subprogram terminates. The "assume it terminates" rule applies for loop fusion, parallelization, partial evaluation, equational laws, rewrite optimizations, laziness, and similar. 
+ABC favors a philosophy of 'fast and loose reasoning' about termination properties. (cf. [Fast and Loose Reasoning is Morally Correct](http://www.cse.chalmers.se/~nad/publications/danielsson-et-al-popl2006.html), Danielsson, Hughes, et al. POPL 2006.) The idea is that we should reason about programs as if every subprogram terminates or is intended to do so. This assumption simplifies loop fusion, parallelization, partial evaluation, equational laws and rewriting, non-strict evaluation, and similar. 
 
-Obviously, fast and loose isn't always correct for ABC. ABC is certainly capable of expressing non-terminating programs. The ABC equivalent of lambda-calculus `(λx.(x x) λx.(x x))` is `[^$]^$`. To help encourage fast and loose reasoning, ABC compilers should always perform termination analysis, albeit accepting the possibility that the analysis fails after burning a few cycles:
+To help encourage fast and loose reasoning, ABC compilers should perform termination analysis, albeit accepting the possibility that the analysis fails after a limited effort:
 
 * if termination proven, compiler is silent
 * if non-termination proven, compiler raises error
 * if no proof achieved, compiler issues warning
 
-A good compiler would catch obvious non-terminating expressions such as `[^$]^$`. Annotations in code may help a compiler choose appropriate proof strategies, or help isolate warnings.
+A guarantee of termination is primarily a mechanism to catch errors in reasoning. A termination analysis should catch many obviously non-terminating expressions, such as `[^$]^$`, especially focusing on common errors in reasoning. A warning may serve as a reminder that every loop should come with a guarantee of termination. 
 
-Between causal commutativity and fast and loose reasoning, ABC should not be considered 'eager' or 'lazy'. The optimizer is given a great deal of flexibility. Programmers may suggest laziness, strictness, or parallelism via annotations, but any such advise is discretionary. Programmers must never *depend* on lazy semantics - e.g. don't use infinite lists, use an explicit stream instead.
+Even with such a guarantee, it is easy to express algorithms that take more time and resources than anyone is willing to grant. In practice, developers should be seeking even stricter properties than termination, such as understanding how many resources a program requires.
 
-Even code with side-effects may be lazy, within the limits of invoking them in a timely manner. However, 'timely manner' means something formal for ABC.
+### Non-Strict Evaluation
 
-### Well-Timed Behavior
+Between causal commutativity and fast and loose reasoning, ABC should not be considered strict or eagerly evaluated. An optimizer has a great deal of freedom regarding the order of evaluation. Even code with side-effects is non-strict in ABC, though it must be evaluated in a well-timed manner.
+
+Programmers may suggest laziness, strictness, or parallelism via annotations. But such advise is discretionary. Programmers must never *depend* on lazy semantics. I.e. instead of infinite lists, use a block to model an incremental stream generator.
+
+### Logically Timed
 
 ABC tracks logical latency properties for atomic values (numbers, blocks). Logical latency is a rational number, indicating a time in seconds. Blocks may also have latency constraints on when they can be invoked. Logical latency is only increased by a logical delay operator. Logical delay simply increments logical latency. 
 
-The relationship between logical latency and real-time is maintained by a scheduler. E.g. when an effect is invoked with a future message, it may actually be *scheduled* for the future without invoking it immediately. If a calculation uses distant future values, the scheduler may prioritize more immediate calculations. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms. ABC is generally designed for 'soft' real-time systems, but a hard real-time compilation may be feasible for carefully designed applications.
+The relationship between logical latency and real-time is maintained by a scheduler. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms. If an effect is invoked on the future, it may be scheduled without invoking it immediately while computation continues elsewhere. Or if a computation is running ahead of where it needs to be, the scheduler may devote more resources to other computations.
 
-Related: [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009, and [ChucK](http://en.wikipedia.org/wiki/ChucK) - a 'Strongly Timed' language.
+The logical model of time, especially on a real timeline (seconds, not arbitrary units), is valuable for understanding and controlling feedback behaviors, for achieving consistent behavior for reactive networks overlays, for comprehending interaction of concurrent effects. However, developers don't always need to think about time. In many cases, the role of assigning temporal properties can be pushed into other layers - networking, effects, frameworks.
 
-*NOTE:* In many use cases, developers may ignore latency properties. It is often convenient to pretend that certain subprograms are instantaneous. The job of injecting latencies can then be left to higher layers in the program, such as frameworks, networking, or capability distribution.
+Related: [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009.
 
 ### Data is Code
 
@@ -168,12 +173,12 @@ ABC provides a minimal set of primitive operators for block-free structure manip
         v :: a -> (a * 1)
         c :: (a * 1) -> a
 
-There are many potential "minimal sets" of data plumbing primitives. ABC's particular set is aiming for some simple symmetries and optimizations. Here, `lzrw` are sufficient to encode any linear manipulations of a structure where the rightmost element remains in place. `v` and `c` are non-linear manipulations (they add and remove structure) and enable motion of the rightmost element.
+There are many potential "minimal sets" of data plumbing primitives. ABC's particular set is aiming for some simple symmetries and optimizations. Here, `lzrw` is sufficient to encode any linear manipulations of a structure where the rightmost element remains in place. `v` and `c` are non-linear manipulations (they add and remove structure) and enable motion of the rightmost element.
 
 Example encodings:
         
         lzrw :: (a * (b * (c * d))) -> (c * (a * (b * d))) -- rot3
-        vrwlc :: (a * b) -> (b * a) -- swap
+        vrwlc :: (a * b) -> (b * a) -- primSwap
 
 Data plumbing code is often the bulk of the ABC stream, and can be built on metaphors like stack manipulators, navigation, and search. A good compiler should greatly optimize much data plumbing code from the runtime.
 
@@ -200,19 +205,19 @@ ABC supports block literals by use of square brackets. In addition to literal co
 
 Not every value type is quotable. Blocks, numbers, and text are quotable. Products and sums are sometimes quotable, but only when both elements are quotable and have the same location and latency attributes. 
 
-After construction, a block can be applied by the `$` operator.
+After construction, a block can be applied by the `$` operator:
 
         $ :: [x->x'] * (x * e) -> (x' * e)
 
-Blocks in ABC form a basis for secure reasoning, loop behaviors, and higher order programming. 
+Blocks in ABC form a basis for secure reasoning, loop behaviors, and higher order programming. Loops are modeled by fixpoint combinators that repeatedly copy and apply a block, e.g. `[^$]^$` is the equivalent to the lambda calculus `(λx.(x x) λx.(x x))`. Higher order programming is achieved simply by separating construction of the block from the point of application.
 
-Blocks offer two security properties. First, note how `$` applies a block to only `x` in `(x * e)`. Use of blocks makes it easy to control how much of the environment a distrusted subprogram can observe or influence. Second, blocks encapsulate information, behavior, and authority. There are no primitive operators that can introspect a block, nor any to forge capability text that might exist within a block.
+For security, blocks offer three significant properties:
 
-Of course, developers may express inline application of a block by `v$c`. And there may be capabilities to support introspection of a block.
+* `$` hides part of the tacit environment from the block.
+* blocks are opaque; they may encapsulate information and authority.
+* blocks have substructure; they can typefully enforce contracts.
 
-Loops are modeled by behaviors that repeatedly copy and apply a block. The trivial "forever loop" of Lambda calculus `(\x.(x x) \x.(x x))` might be expressed in ABC as `[^$]^$`. Of course, useful loops should have escape condition (see conditional behavior, below). Note that ABC does not use any form of recursion.
-
-Higher order behaviors are modeled by separating the definition of the block from its site of application. Capability secure programming is often modeled this way: effects are achieved through blocks provided as arguments. 
+Thus, blocks enable information hiding on behalf of both the user and the provider. A block can be said to 'encapsulate authority' if it contains capability text, since ABC provides no operators to forge capability text. Substructural types are discussed later.
 
 ### Numbers
 
@@ -229,13 +234,14 @@ ABC has no number literals. `#42` is technically a sequence of three ABC operato
 
 Thus natural numbers are expressed as if by literal, albeit without any special reader state. 
 
-Rationals and negative numbers must be represented as a computation that generates them. ABC provides only a few elementary, scalar mathematical operators: add, multiply, and additive or multiplicative inverses.
+Rationals and negative numbers must be represented as a computation that generates them. ABC provides only a few elementary, scalar mathematical operators: add, multiply, and additive or multiplicative inverses. It also provides a divmod operator:
 
         + :: (N(a) * (N(b) * e)) -> (N(a+b) * e)
         * :: (N(a) * (N(b) * e)) -> (N(a*b) * e)
         - :: (N(a) * e) -> (N(0-a) * e)
         / :: (N(non-zero a) * e) -> (N(1/a) * e)
-            type error if a is possibly zero
+        Q :: (N(non-zero b) * (N(a) * e)) -> (N(r) * (N(q) * e))
+            such that q integral, r in (b,0] or [0,b), and qb+r = a
 
 A few example numbers might be:
 
@@ -244,11 +250,9 @@ A few example numbers might be:
 
 Expression of rational numbers, or very large or small numbers (that call for scientific notation), is not very compact in ABC. A language built above ABC, such as AO, can provide a more traditional and compact syntax for numbers. 
 
-ABC is not rich in math. ABC has just enough to easily express rational numbers for modeling latency types. To model a square root or trigonometric function would likely require iterative computation with tolerances, or modeling irrational numbers as a stream of digits (a block that generates a digit and the next stream).
+ABC is not rich in math. ABC has just enough to easily express rational numbers for latency types. The divmod operator, `Q`, is motivated to simplify inference of precision and modulus for optimization purposes. To model a square root or trigonometric function would likely require iterative computation with tolerances. Irrational numbers might be modeled as an incremental stream that generates digits.
 
-Anyhow, it seems wise to treat math as a symbolic DSL, especially for rich computations, simplifications. For high performance computing, compiling expressions to OpenCL or an intermediate language could be very effective. Otherwise, the computation could be interpreted.
-
-*BACKGROUND:* Floating point numbers were rejected due to how difficult it is to ensure deterministic semantics and equational reasoning. However, high performance computing environments for ABC should provide, via capabilities, vectors and matrices of floats, and access to GPU computing.
+*BACKGROUND:* Floating point numbers were rejected due to how difficult it is to ensure deterministic semantics for floating point across implementations, comparisons, equational reasoning. However, high performance graphical or scientific computing environments should provide, via capabilities, vectors and matrices of floats, and access to GPGPU computing.
 
 ### Text Literals
 
@@ -262,12 +266,14 @@ ABC has a built-in support for representing unicode text as a literal. Literal t
          terminate with tilde (126)
         ~
 
-By convention, text also starts after a new line, to ensure pretty formatting.
+This block structure eliminates need for escapes, except for LF which is escaped by the space. The LF preceding `~` is dropped. If anything other than space or `~` follows LF, the ABC stream is in error. ABC text is capable of quoting ABC code without being too ugly. By convention, text typically starts a new line. 
 
-This block structure eliminates need for escapes, except for LF which is escaped by the space. The LF preceding `~` is dropped. If anything other than space or `~` follows LF, the ABC stream is in error. ABC text is capable of quoting ABC code without being too ugly. Sadly, text isn't very aesthetically pleasing for a single word or line:
+Sadly, text isn't very aesthetically pleasing for a single word or line:
 
         "Text
         ~
+
+Of course, being pretty is not a primary goal of ABC. Keeping text and numbers visible helps with debugging, but to really read ABC one should disassemble the ABC stream against an AO dictionary and present it in a dedicated UI.
 
 Text is not a distinct type for ABC. Rather, text is a compact representation for introducing a list of small integers corresponding to the Unicode codepoints. The above code, consisting of six characters, has the same meaning as `#3#116l#120l#101l#84l`, which would have the type: 
 
@@ -275,29 +281,61 @@ Text is not a distinct type for ABC. Rather, text is a compact representation fo
 
 The terminal `3` is arbitrary, though has some historical significance as the ETX (end of text) character in ASCII. It also serves as a weak indicator that the list was intended to be interpreted as text. 
 
-*BACKGROUND:* Text was initially envisioned as a distinct type for ABC. However, that design traded a fair amount of simplicity (extra structure manipulation and analysis codes, extra types to track and comprehend, new kinds of code to optimize) for rather dubious performance benefits.
+*BACKGROUND:* Text was initially envisioned as a distinct type for ABC. However, that design traded a fair amount of simplicity (extra structure manipulation and analysis codes, extra types to track and comprehend, new kinds of code to optimize) for rather dubious performance benefits. In practice, a streaming ABC interpreter can store text in a compact form, even recognize text when forming tuples. Further, common list-processing operations, such as reverse or addend could be recognized by simple pattern-matching and swapped for a highly optimized variant. (A compiler, having more time to crunc code, should do even better.)
 
-In practice, a streaming ABC interpreter can store text in a compact form, even recognize text when forming tuples. Further, common list-processing operations, such as reverse or addend, could be recognized by simple pattern-matching and swapped for a highly optimized variant. (A compiler, having more time to crunc code, should do even better.)
+
+### Substructural Reasoning
+
+[Substructural types](http://en.wikipedia.org/wiki/Substructural_type_system) are interesting because they allow expression of structured behavior (dataflow and control flow) without relying on a structured syntax. For example, one can require a handshake complete, or that a promise be resolved, or that a callback be performed.
+
+In ABC, only blocks can have substructural types. This is represented by marking an existing block as relevant, affine, or both (called linear):
+
+        k :: ([x->y] * e) -> ([x->y]' * e) (relevant, no drop)
+        f :: ([x->y] * e) -> ([x->y]' * e) (affine, no copy)
+
+An affine block is no longer subject to the copy `^` operator. A relevant block is no longer subject to the drop `%` or conditional apply `?` operators. A relevant or linear block may still be applied with `$`, which removes the block. Adding substructural attributes to a block is idempotent and commutative.
+
+When two blocks are composed, the substructural attributes are inherited:
+
+        [code]f [more]  o = [codemore]f
+        [code]k [more]f o = [codemore]kf
+
+A quotation inherits the substructural attributes of every blocks it quotes:
+
+        [code]f' = [[code]fc]f
+        [code]k[more]fl' = [[code]k[more]flc]kf
+
+Awelon project leans heavily on substructural types, e.g. for exclusive bindings to state resources, unique identity, sealer/unsealer pairs, or enforcing threaded behaviors for imperative processes. Potentially, relevant types could model obligations, and affine types could model limited resources. Idiomatically, a linear block will often return a new (possibly updated) linear block upon application.
+
+*NOTE:* If a relevant block is copied, both copies are relevant. I've contemplated an alternative, that one of the two copies is not relevant. But I decided against it because it is difficult to explain for deep structure.
 
 ### Conditional Behavior
 
-TODO
+ABC uses sum types `(a + b)` for conditional behavior. A sum type represents that we're either in the left condition with type `a` or in the right condition with type `b`. A boolean could be modeled as type `(1 + 1)`.
 
-An equivalent set of data plumbing operators exists for the sum type, using the same set of characters but capitalized (`LRWZVX`). Sum types are discussed later, regarding conditional expressions.
+Sum types have several nice qualities. Sums separate observing a condition from acting upon it. They remain open for extension and composition. There is no ambiguity in the labeling of conditions. Further, in a partitioned environment (CPU vs. GPU values, client vs. server), ABC can typefully control dataflows based on whether a sum is observable in a particular partition. 
 
-I need some comparators: are two objects equal? is one greater than another? etc.. I wonder if there is a good way to model this in a way to maximize useful type information and the utility of the sum type.
+Conditional behavior is modeled with the `?` operator:
 
-        equal (true: a equal b, false: a lesser or greater than b)
-        a less-than b (true: a less than b, false: a greater or equal to b)
-        b less-than a (true: b less than a, false: b greater or equal to a)
+        ? :: (Droppable b) => b@[x->x'] * ((x + y) * e) -> (x' + y) * e
 
-It seems to me that I only need two basic comparisons for numbers, and I might be able to generalize to other values, such as comparing text.
+To apply different behaviors for the other conditions, one must shift them to the top. Sum types come with their own set of plumbing operations:
 
-There is no comparison for unit. (Unit does not have comparison properties.)
+        L :: (a + (b + c)) * e -> ((a + b) + c) * e
+        R :: ((a + b) + c) * e -> (a + (b + c)) * e
+        W :: (a + (b + c)) * e -> (b + (a + c)) * e
+        Z :: ((a + b) + (c + d)) * e -> ((a + c) + (b + d)) * e
+        V :: a * e -> (a + 0) * e
+        C :: (a + 0) * e -> a * e
 
+*TODO:* Implement two versions of these conditional operators, one variation that makes them part of a larger environment, e.g. `L :: (a + (b + c)) * e -> ((a + b) + c) * e`, and one that does not, e.g. `L :: (a + (b + c)) -> ((a + b) + c)`. Learn which option leads to more consistent code and easier optimizations. Do for a large body of code. (Relevantly, avoiding a bunch of quotation and composition is desirable.)
 
+*HYPOTHESIS:* The `* e` variation will lead to simpler code. Its signature seems more complex, but it means we don't need to quote a block before applying it, and we don't need to quote blocks for data plumbing of choices. When we do apply a block, it will almost always be upon a non-sum option.
 
+TODO: distribution, conjoin, disjoin, perhaps static vs. dynamic.
+TODO: conditional (e.g. less, equal) operations that produce sum in first place.
 
+There is no comparison for unit. (Unit does not have comparison properties.) Might still want static conditions vs. dynamic ones. (Static has advantages for distrib, etc.)
 
 ### Unit and Void
 
@@ -311,34 +349,10 @@ Unit values may not be introspected. If you ask whether `(1 * 1)` is a pair, you
 
 Void is a logical false, a dead branch. Unless the operations on a void are internally inconsistent, it will typecheck. While we can presumably introspect void, we effectively cannot achieve anything actionable from doing so. Void is potentially useful to enforce that certain conditions *would* be handled by code, even if they are not currently necessary.
 
+### Assertions
 
+* track potential ranges for numbers, e.g. protect against divide-by-zero
 
-
-
-
-### Substructural Reasoning
-
-
-
- These substructural properties are useful for enforcing structured behavior in the absence of structured syntax - e.g. completion of a protocol or handshake. 
-
-ABC has first-class support for substructural typed blocks have special attributes in ABC to support sub-structural reasoning. A block can be marked affine (no copy) and relevant (no drop), or both - in which case the block is called linear.
-
-        k :: (Block * e) -> (Block' * e) (attrib relevant, no drop)
-        f :: (Block * e) -> (Block' * e) (attrib affine, no copy)
-
-
-When two blocks are composed, the composite inherits the substructural properties. Similarly, if a structure containing a block is quoted, the quotation inherits the substructural properties. 
-
-Introducing an attribute is idempotent. When two blocks are composed, the composite has the affine and relevant attributes from both components. For example, if we compose an affine block with a relevant block, the result is a linear block.
-
-Affine and relevant blocks are useful for modeling resources, obligations, uniqueness, exclusivity, and generally for achieving structural programming guarantees without the structure.
-
-* substructural types for blocks model obligations and resource limitations
-
-
-### Sealed Values
-* sealed value types model information-hiding and rights amplification
 
 ### Temporal Reasoning
 * location and latency properties model where and when values can be accessed
@@ -349,11 +363,28 @@ Absolute latency should never be observable. But maybe can compute difference of
  Should 'synch' be primitive? Not so sure... maybe? I want latencies to be easy to reason about, including equality of latencies. 
 
 ### Spatial Reasoning
+
+
+        + :: (N(a) * (N(b) * e)) -> (N(a+b) * e)
+        * :: (N(a) * (N(b) * e)) -> (N(a*b) * e)
+        Q :: (N(non-zero b) * (N(a) * e)) -> (N(r) * (N(q) * e))
+            such that q integral, r in (b,0] or [0,b), and qb+r = a
+
+
 * location and latency properties model where and when values can be accessed
 
-### Static Assertions
+Location values are not observable, except by capability.
 
-* track potential ranges for numbers, e.g. protect against divide-by-zero
+### Sealed Values
+
+Sealed values are a rather odd concept in ABC, as they cannot actually be constructed. Rather
+
+
+* sealed value types model information-hiding and rights amplification
+
+
+
+
 
 
 
@@ -383,7 +414,7 @@ I expect this technique to be pervasively used in Awelon project:
 *   43 characters will encode 258 bits
 *   pad two bits with `00`
 *     doubles as version tag in case SHA2 or AES compromised
-* Thus total encode is:
+* Thus total encode (including capability wrapping) is:
 *   46 characters without encryption
 *   90 characters with encryption
 
@@ -404,7 +435,7 @@ Example applications for annotations:
 * suggest sequencing of potentially lazy value
 * suggest use of memoization or caching
 * suggest specialization or JIT at points in code
-* provide hints for proving termination
+* provide hints for proving safety or termination
 * improve blame, error, warning messages
 * tracing annotations, track to original code
 * compile-time traces, run-time debug logs
@@ -476,17 +507,4 @@ The motivation for this would be to tighten up latency and well-timing propertie
 
 Interestingly, we could also use lattice based promises, such that we can observe an 'incremental' (but not necessarily 'final') value. This technique could result in an imperative system that is very robust even when timing falls slightly behind. (cf. Lindsey Kuper's [LVars](http://lambda-the-ultimate.org/node/4823))
 
-
-## Tentative ABC 
-
-### Divmod
-
-ABC might include a divmod operator, `Q`, which divides two numbers then returns integral quotient and a positive or zero remainder.
-
-        Q :: N(non-zero b) * (N(a) * e) -> N(r) * (N(q) * e)
-            such that q*b + r = a, q integral, 0 <= r < b
-
-The motivation for `Q` would be to simplify inference of precision and modulo information, e.g. when `b` is static and we only use one of `r` or `q` downstream.
-
-Without `Q` I can still express divmod, but it takes an iterative approach and it may be difficult to infer precision information from it. 
 
