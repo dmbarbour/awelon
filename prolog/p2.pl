@@ -65,8 +65,8 @@ lib(A,id,A,[]).
 
 % Zipper Operation...
 %     zwrap :: x <~> x*(1*1)  :: zunwrap_
-%     zf    :: (x*y)*(l*r) <~> x*(1*((y*l)*r)) :: zuf
-%     zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
+%     zf    :: (x*y)*(l*r) <~> x*(1*(y*(l*r))) :: zuf
+%     zs    :: (x*y)*(l*r) <~> y*((x*(l*r))     :: zus
 %     (representation subject to change) 
 %     zswap - switch target of zipper (2nd) with object on stack (1st)
 

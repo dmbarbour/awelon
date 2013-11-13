@@ -67,6 +67,17 @@ The basic types are augmented with a rich set of attributes and dependent types:
 
 Attributes can express and enforce some very useful properties. Note: moving values (between locations) and sealing values are both capability based. ABC type systems assume a conventional class of capabilities that enable these features.
 
+*NOTE:* ABC doesn't assume any particular type inference algorithm. AO environments are free to try multiple algorithms or strategies to analyze code. ABC does assume some features for a good analysis:
+
+* partial evaluation of static structure, as much as feasible
+* relatively precise analysis similar to dependent types
+* recognize common data structures - text, tables, trees, zippers
+* recognize common iterative algorithms - folds, traversals, searches
+
+There is no syntax in ABC for declaring types, but it is possible to assert conditions on the code. In essense, ABC is designed to support static type safety without ever defining 'type'. 
+
+Pattern recognition features aren't essential, but could result in much greater efficiency for analyzing real bodies of code, and lead to more effective error messages and optimizations for runtime behaviors. For example, we might recognize operations over lists subject to loop fusion, or that a particular association list is never used in an order-dependent manner.
+
 ### Effects
 
 Primitive ABC operators are purely functional transforms. However, ABC supports effects by invoking environment-defined operators. This invocation is expressed as `{foo}`. This calls into the environment with the text 'foo' and the full tacit value. The environment may cause some effect and return an updated value.
@@ -142,7 +153,7 @@ Programmers may suggest laziness, strictness, or parallelism via annotations. Bu
 
 ABC tracks logical latency properties for atomic values (numbers, blocks). Logical latency is a rational number, indicating a time in seconds. Blocks may also have latency constraints on when they can be invoked. Logical latency is only increased by a logical delay operator. Logical delay simply increments logical latency. 
 
-The relationship between logical latency and real-time is maintained by a scheduler. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms. If an effect is invoked on the future, it may be scheduled without invoking it immediately while computation continues elsewhere. Or if a computation is running ahead of where it needs to be, the scheduler may devote more resources to other computations.
+The relationship between logical latency and real-time is maintained by a scheduler. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms, and some scheduling may occur at compile time. If an effect is invoked on the future, it may be scheduled without invoking it immediately while computation continues elsewhere. Or if a computation is running ahead of where it needs to be, the scheduler may devote more resources to other computations.
 
 The logical model of time, especially on a real timeline (seconds, not arbitrary units), is valuable for understanding and controlling feedback behaviors, for achieving consistent behavior for reactive networks overlays, for comprehending interaction of concurrent effects. However, developers don't always need to think about time. In many cases, the role of assigning temporal properties can be pushed into other layers - networking, effects, frameworks.
 
@@ -164,7 +175,7 @@ Note that most ABC operators have a `* e` term on the right, indicating that the
 
 ### Data Plumbing
 
-ABC provides a minimal set of primitive operators for block-free structure manipulation. Below, `(a * b)` denotes a product (pair), and `1` denotes the unit type, discussed later.
+ABC provides a minimal set of primitive operators for block-free structure manipulation. Below, `(a * b)` denotes a product (pair), and `1` denotes unit, identity for products, which discussed later.
 
         l :: (a * (b * c)) -> ((a * b) * c)
         r :: ((a * b) * c) -> (a * (b * c))
@@ -221,9 +232,7 @@ Thus, blocks enable information hiding on behalf of both the user and the provid
 
 ### Numbers
 
-ABC's built-in number type is arbitrary precision rationals. 
-
-ABC has no number literals. `#42` is technically a sequence of three ABC operators. The operator `#` introduces the number 0 into the environment, and each decimal digit (0-9) means "multiply by ten and add this digit's value".
+ABC's built-in number type is arbitrary precision rationals. (In some cases - when the required range and precision are known - a compiler may substitute use of integers, fixpoint, or floating point numbers.) ABC has no number literals. `#42` is technically a sequence of three ABC operators. The operator `#` introduces the number 0 into the environment, and each decimal digit (0-9) means "multiply by ten and add this digit's value".
 
         # :: e -> N(0) * e
         0 :: N(x) * e -> N(10x+0) * e
@@ -232,9 +241,7 @@ ABC has no number literals. `#42` is technically a sequence of three ABC operato
         ...
         9 :: N(x) * e -> N(10x+9) * e
 
-Thus natural numbers are expressed as if by literal, albeit without any special reader state. 
-
-Rationals and negative numbers must be represented as a computation that generates them. ABC provides only a few elementary, scalar mathematical operators: add, multiply, and additive or multiplicative inverses. It also provides a divmod operator:
+Thus natural numbers are thus expressed as if by literal. But rational or negative numbers must be represented as a computation that generates them. ABC provides only a few elementary, scalar mathematical operators: add, multiply, and additive or multiplicative inverses. It also provides a divmod operator to help infer precision and modulus information:
 
         + :: (N(a) * (N(b) * e)) -> (N(a+b) * e)
         * :: (N(a) * (N(b) * e)) -> (N(a*b) * e)
@@ -248,9 +255,9 @@ A few example numbers might be:
         #2#3/*-  (-2/3)
         #123/00/ (1.23)
 
-Expression of rational numbers, or very large or small numbers (that call for scientific notation), is not very compact in ABC. A language built above ABC, such as AO, can provide a more traditional and compact syntax for numbers. 
+Direct expression of rational numbers, or very large or small numbers isn't very compact in ABC. Developers should consider use exponential representations of such numbers to start with (such that adding is multiplication, like decibels). A language built above ABC, such as AO, can provide a more traditional and compact syntax for numbers. 
 
-ABC is not rich in math. ABC has just enough to easily express rational numbers for latency types. The divmod operator, `Q`, is motivated to simplify inference of precision and modulus for optimization purposes. To model a square root or trigonometric function would likely require iterative computation with tolerances. Irrational numbers might be modeled as an incremental stream that generates digits.
+ABC is not rich in math. To model a square root or trigonometric function would likely require iterative computation with tolerances. Irrational numbers might be modeled as an incremental stream that generates digits.
 
 *BACKGROUND:* Floating point numbers were rejected due to how difficult it is to ensure deterministic semantics for floating point across implementations, comparisons, equational reasoning. However, high performance graphical or scientific computing environments should provide, via capabilities, vectors and matrices of floats, and access to GPGPU computing.
 
@@ -286,7 +293,7 @@ The terminal `3` is arbitrary, though has some historical significance as the ET
 
 ### Substructural Reasoning
 
-[Substructural types](http://en.wikipedia.org/wiki/Substructural_type_system) are interesting because they allow expression of structured behavior (dataflow and control flow) without relying on a structured syntax. For example, one can require a handshake complete, or that a promise be resolved, or that a callback be performed.
+[Substructural types](http://en.wikipedia.org/wiki/Substructural_type_system) are interesting because they allow expression of structured behavior (dataflow and control flow) without relying on a structured syntax. For example, one can require a handshake complete, or that a promise be resolved, or that a callback be performed. 
 
 In ABC, only blocks can have substructural types. This is represented by marking an existing block as relevant, affine, or both (called linear):
 
@@ -297,13 +304,13 @@ An affine block is no longer subject to the copy `^` operator. A relevant block 
 
 When two blocks are composed, the substructural attributes are inherited:
 
-        [code]f [more]  o = [codemore]f
         [code]k [more]f o = [codemore]kf
+        [code]f [more]  o = [codemore]f
 
 A quotation inherits the substructural attributes of every blocks it quotes:
 
-        [code]f' = [[code]fc]f
         [code]k[more]fl' = [[code]k[more]flc]kf
+        [code]f' = [[code]fc]f
 
 Awelon project leans heavily on substructural types, e.g. for exclusive bindings to state resources, unique identity, sealer/unsealer pairs, or enforcing threaded behaviors for imperative processes. Potentially, relevant types could model obligations, and affine types could model limited resources. Idiomatically, a linear block will often return a new (possibly updated) linear block upon application.
 
@@ -311,15 +318,13 @@ Awelon project leans heavily on substructural types, e.g. for exclusive bindings
 
 ### Conditional Behavior
 
-ABC uses sum types `(a + b)` for conditional behavior. A sum type represents that we're either in the left condition with type `a` or in the right condition with type `b`. A boolean could be modeled as type `(1 + 1)`.
-
-Sum types have several nice qualities. Sums separate observing a condition from acting upon it. They remain open for extension and composition. There is no ambiguity in the labeling of conditions. Further, in a partitioned environment (CPU vs. GPU values, client vs. server), ABC can typefully control dataflows based on whether a sum is observable in a particular partition. 
+ABC uses sum types `(a + b)` as the foundation for conditional behavior. A sum type represents that we're either in the left condition with type `a` or in the right condition with type `b`. A boolean can be modeled as type `(1 + 1)`, and an optional with type `(a + 1)`. Type `0` describes void, identity for sums, discussed later.
 
 Conditional behavior is modeled with the `?` operator:
 
         ? :: (Droppable b) => b@[x->x'] * ((x + y) * e) -> (x' + y) * e
 
-To apply different behaviors for the other conditions, one must shift them to the top. Sum types come with their own set of plumbing operations:
+To apply behaviors for other conditions, one must use data plumbing to shift the desired condition to the top. Sum types use their own set of data plumbing operators:
 
         L :: (a + (b + c)) * e -> ((a + b) + c) * e
         R :: ((a + b) + c) * e -> (a + (b + c)) * e
@@ -328,9 +333,19 @@ To apply different behaviors for the other conditions, one must shift them to th
         V :: a * e -> (a + 0) * e
         C :: (a + 0) * e -> a * e
 
-*TODO:* Implement two versions of these conditional operators, one variation that makes them part of a larger environment, e.g. `L :: (a + (b + c)) * e -> ((a + b) + c) * e`, and one that does not, e.g. `L :: (a + (b + c)) -> ((a + b) + c)`. Learn which option leads to more consistent code and easier optimizations. Do for a large body of code. (Relevantly, avoiding a bunch of quotation and composition is desirable.)
+*ASIDE:* Sums are processed as one element of a larger product, rather than directly mirroring the product operations with `L :: (a + (b + c)) -> ((a + b) + c)` and so on. The motivation is to diminish need for block composition and quotation in the common case. 
 
-*HYPOTHESIS:* The `* e` variation will lead to simpler code. Its signature seems more complex, but it means we don't need to quote a block before applying it, and we don't need to quote blocks for data plumbing of choices. When we do apply a block, it will almost always be upon a non-sum option.
+Sum types have several nice qualities. They separate the observation of a condition from action upon it. They remain open for extension and composition. Like products, sums have a simple and uniform structure that admits refactoring of data plumbing. There is no ambiguity for labeling of conditions. In a partitioned environment (CPU vs. GPU values, client vs. server), ABC can typefully control dataflows across a sum. 
+
+To construct sums, developers can compare or introspect values. 
+
+
+
+
+
+
+
+
 
 TODO: distribution, conjoin, disjoin, perhaps static vs. dynamic.
 TODO: conditional (e.g. less, equal) operations that produce sum in first place.
@@ -341,15 +356,19 @@ There is no comparison for unit. (Unit does not have comparison properties.) Mig
 
 Unit and void are special types in ABC. Unit (type `1`) is identity for the product type, and Void (type `0`) is identity for the sum type. The principle idea of unit and void is that they introduce structure *without adding information*. I.e. `(a * 1)` has just as much information as `a`, but now it's wrapped in a structure. 
 
-If we aren't careful, we'll have a problem: structure itself can carry information. I.e. `1`, `(1 * 1)`, `(1 * (1 * 1))`, and `((1 * 1) * 1)` are four obviously distinct structures, and distinction can carry information. Fortunately, it's fine that this distinction exists in a meta-layer, so long as it is not observable from *within* the ABC code. 
+If we aren't careful, we'll have a problem: structure itself can carry information. I.e. `1`, `(1 * 1)`, `(1 * (1 * 1))`, and `((1 * 1) * 1)` are four obviously distinct structures, and distinction can carry information. Fortunately, it's fine that this distinction exists in a meta-layer, so long as it is not observable from *within* the ABC program.
 
 This feature is achieved in a simple way.
 
-Unit values may not be introspected. If you ask whether `(1 * 1)` is a pair, you'll get an affirmative. However, if you ask whether `1` is a pair, you'll get a type error. Effectively, the condition is observed *outside* ABC, at compile time, and is not observable from within ABC. Interestingly, unit can model vectors, stacks, matrices, etc. where the static size must be known for safe usage.
+For unit, we forbid introspection. If you query whether `(1 * 1)` is a pair, you get an affirmative. However, if you ask whether `1` is a pair, you get a type error. Thus, the conditional information is observable only in the static or compile-time layer. This property is quite useful: unit now serves as a simple barrier against dynamic introspection and reflection, and enables developers to express data structures where sizes must be known statically (e.g. matrices, program stacks). 
 
-Void is a logical false, a dead branch. Unless the operations on a void are internally inconsistent, it will typecheck. While we can presumably introspect void, we effectively cannot achieve anything actionable from doing so. Void is potentially useful to enforce that certain conditions *would* be handled by code, even if they are not currently necessary.
+For void, there is no actionable query. Void is a vacuous, dead branch. Operations on void will always typecheck unless they're internally inconsistent. (It is recommended that an ABC typechecker validate actions on void for consistency.) Since `0` can represent any type, we cannot gain information from introspecting `0`. It might represent a sum, a product, a number, or a block. Of course, if we introspect `0`, we are implicitly asserting that it does not represent unit (with respect to consistency checks). Regardless of what void represents, it's still a dead branch so we cannot act on it.
+
+Thus, unit and void provide structure without information. Unit is useful for providing static structure and a barrier against introspection. Void is useful for manipulating proofs, consistency checks, and typechecks for code we never plan to run.
 
 ### Assertions
+
+Assert we *aren't* in a branch (never that we *are* in one)
 
 * track potential ranges for numbers, e.g. protect against divide-by-zero
 
@@ -364,11 +383,7 @@ Absolute latency should never be observable. But maybe can compute difference of
 
 ### Spatial Reasoning
 
-
-        + :: (N(a) * (N(b) * e)) -> (N(a+b) * e)
-        * :: (N(a) * (N(b) * e)) -> (N(a*b) * e)
-        Q :: (N(non-zero b) * (N(a) * e)) -> (N(r) * (N(q) * e))
-            such that q integral, r in (b,0] or [0,b), and qb+r = a
+        $, ', +, *, Q... multi-parameter ops
 
 
 * location and latency properties model where and when values can be accessed

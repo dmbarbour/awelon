@@ -6,17 +6,13 @@ Awelon Object language (AO) is a tacit concatenative language that operates on a
 
 2. The second layer introduces ambiguity and search for meaning. A word can express a large set of tactics and meanings with different attributes. The semantics of this layer is a non-deterministic static search for a well-typed, high quality expansion.
 
-A word in AO is a unit of modularity and a functional software component. 
-
-AO doesn't use the traditional concept of modules with imports and exports. AO has only words with definitions in a flat, global namespace. The association between a word and its definition is implicit in the programming environment: there is no syntax to define a word locally. The set of words associated with an AO environment is called the dictionary. AO forbids recursive definitions, so the dictionary must be acyclic. 
-
-A definition consists of AO code - a sequence of words, literals, and choice expressions. Juxtaposition is composition. The semantics of a word is simply the inline expansion of its definition. 
+A word in AO is a unit of modularity and a functional software component. Each word has a definition. A definition consists of AO code - a sequence of words, literals, and ambiguous choice expressions. Juxtaposition is composition. The semantics of a word is simply the inline expansion of its definition. 
 
 AO is envisioned for use in a live, wiki-based programming environment. New words are easy to use and define. Automatic visualization should mitigate the normal challenges of tacit concatenative code so users can more easily see the environment. A single dictionary might host hundreds or thousands of projects, with rich cross-project refactoring and words that grow more refined and reusable. Programmers should learn words, not projects! 
 
-## Literals: Numbers, Text, and Blocks
+## Literals: Numbers, Text, Blocks
 
-AO supports a few simple number representations. By example:
+AO supports a range of useful number representations. By example:
 
         42         (integral)
         -12.3      (decimal)
@@ -25,32 +21,30 @@ AO supports a few simple number representations. By example:
         1/3        (rational)
         0xca7f00d  (hexadecimal)
 
-These representations are understood as exact rational numbers. 
+In all cases, these are understood as exact rational numbers. Additionally, AO tags numbers with units, represented as a sorted list of `(label * number)` pairs. 
 
-Additionally, literal numbers in AO are always given a unit structure, represented as data of the form `(number * units)`, where `units` is a static list (potentially empty, terminated by numeric 1) of `(label * integer)` pairs. Standard support for units provides better type safety. 
-
-        3`m/s
-        1.4e2`kg*m^2
+        1.4e2`kg*m/s^2
         1/3`apple
         -12.3`C
 
-AO will read simple units as part of a number literal, of the form `x*y/a*b` (which puts b in the denominator), or `1/a`, or `m^N`. Only one `/` character is allowed, and exponents must be between 2 and 9. The semantics for these units, and any unit conversions, is left to user code.
+Unit checking for numbers provides an effective alternative to typechecking in many cases. Beyond providing a little structure, AO leaves interpretation or normalization of units to user code. The unit expression is assumed to be of the form `x*y/a*b`, allowing for `1/a`, or `m^N`. One `/` character is allowed, placing everything to its right in the denominator. Exponents, if used, must be between 2 and 9.
 
-AO supports two formats for text:
+AO supports two formats for text, both starting with `"`.
 
-        "Block text starts with double quote, by convention
-         at a new line. Each continuing line must start with
-         a space. On continuing, LF is kept, space is dropped.
-         The final line is terminated with `~` at start of the
-         line, and LF is dropped. 
+        "Block text starts with double quote at a new line. 
+         Each continuing line must start with a space. On 
+         continuing, LF is kept, space is dropped. The final
+         line is terminated with `~` at start, LF dropped. 
         ~
-        :inlineLabelText
+            "inline text"
 
-Block text in AO is exactly the same as block text in ABC. Inline, label text is much more restricted: it is a pseudo-word whose meaning is just whatever text is after the `:` and before the word break. In the above case `"inlineLabelText"`. The intention of this secondary format is to simplify expression of labels in data. Empty text may also be expressed this way, using `:` by itself.
+Block text in AO is similar to block text in ABC. Inline text is much less flexible: it may contain spaces or tabs, but not newlines or quotes, and it must not start immediately after a newline (LF). There is no concept of escaping text built into AO, though developers are certainly free to create text then statically post-process it. There are many use cases for inline text: labels, short captions, micro DSLs (e.g. for regular expressions), and so on. Inline text may not start immediately after a newline.
 
 Blocks in AO use square brackets, and contain arbitrary AO code:
 
         [12.3 :foo dup bloop flip trip]
+
+Blocks may freely cross multiple lines, be nested, and so on. However, a large block is a strong hint that refactoring should be consisd
 
 Blocks are free to cross multiple lines, be nested, and so on. Of course, large blocks are a good hint that you should consider refactoring your code. 
 
@@ -78,7 +72,7 @@ Inlined ABC in AO may contain most of ABC. The exceptions are as follows:
 
 Except for capabilities, these limitations are no loss of expressiveness. Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. 
 
-AO uses a dedicated reader mode for capabilities. Upon reading `%{`, AO should be read to the following `}`, including whitespace. This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. 
+AO uses a dedicated reader state for capabilities. Upon reading `%{`, AO should be read to the following `}`, including whitespace. This rule ensures AO can syntactically represent the same set of capabilities that ABC can represent. Capabilities may not be in the same word as other inline ABC.
 
 However, most capabilities will be rejected by the AO compiler. 
 
@@ -147,26 +141,25 @@ When developers are happy with a solution, the programming environment should ma
 
 ### Controlling Ambiguity
 
-Search can be expensive. Context-dependent and non-deterministic meanings can be semantically troubling (e.g. with respect to equational reasoning). Ambiguity features often aren't. 
+Search can be expensive. Context-dependent and non-deterministic meanings can be semantically troubling (e.g. with respect to equational reasoning). Ambiguity features often aren't. In practice, ambiguity should be a distinct programming layer - a soft search layer above more rigid software components. *Programmers must easily recognize and control where ambiguity is used.*
 
-Programmers must easily recognize and control where ambiguity is used. Search shouldn't be deeply integrated into most AO programs; rather, it should be a distinct programming layer. Ambiguous definitions can use unambiguous words, but not vice versa. 
+To this end, I suggest two techniques be used together:
 
-We can model corruption in the structure of words:
+1. automatic stylization: ambiguous words are colored or styled differently from regular words when rendered in the programming environment.
 
-* if a word has a potentially ambiguous definition, it should be capitalized
-* if a definition uses a capitalized word, it is potentially ambiguous
+2. introspective tests: a testing environment may ask whether a specific word in dictionary is ambiguous, and pass/fail accordingly. 
 
-The programming environment might emit a warning when a lower-case word is ambiguous. The discipline would spread virally through the AO dictionary. Alternatively, we could use a sigil such as `$`, or keep metadata per word indicating whether ambiguity should raise an error or warning. Colors or superscripts when rendering words could also highlight ambiguity.
+This design is simple, flexible, extensible for managing many more properties. It is feasible to perform a precise, context-sensitive analysis of ambiguity, e.g. `foo` might be colored distinctly if the environment determines it is not ambiguous in context. Control over ambiguity is achieved through the programming environment.
 
-I would like to find what works for users in practice, i.e. nice aesthetic, encouraging but not confining. For now, this concern will be left to the programming environment and de-facto standardization. I'll most likely start with capitalization for ambiguity.
+*ASIDE:* I earlier contemplated use of sigils or capitalization, e.g. `$foo` or `Foo` for ambiguous words. But this is aesthetically rigid and unpleasing, does not extend easily to multiple orthogonal properties, is very imprecise, and hinders smooth transition between soft and hard programming. I do not recommend this approach.
 
 ## Syntax of AO
 
-Parsing code for AO is very simple. AO code is effectively a sequence of words, literals, and inlined ABC, with a little extra structure for ambiguity. Recognizing numbers is probably the most difficult problem for reading AO. AO currently needs special reader rules for:
+Parsing AO code is relatively simple. AO code is effectively a sequence of words, literals, and inlined ABC, with a little extra structure for ambiguity. Recognizing numbers is probably the most difficult problem for reading AO. AO currently needs special reader states for:
 
 * numbers and units
-* block text (starting with `"`)
-* annotations and capabilities (`%{` to following `}`)
+* inline or block text
+* capabilities, annotations (`%{` to following `}`)
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
@@ -174,29 +167,49 @@ Pseudo-words including label text (`:foo`) and inline ABC (`%vrwlx`) don't need 
 
 Words in AO are very flexible in their structure, restricted only to enable easy parsing and printing:
 
-* words cannot start with `:`, `%`, `-`, or a digit
+* words cannot start with `%`, `-`, or a digit
 * words cannot contain `"`, `[`, `]`, `(`, `|`, `)`
-* words cannot contain whitespace or control characters
+* words cannot contain C0 or C1 control characters, SP, or DEL.
 
-Other than that, words are generally allowed. A programming environment might encourage a few extra constraints (e.g. so words can be used in URLs), or might unify or normalize some words. But most words should be allowed.
+Other than that, words are generally allowed. A specific programming environment might encourage a few extra constraints (e.g. so words can be used in URLs), or might unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed. Developers are permitted to use unicode whitespace outside the Latin-1 and control ranges, though it may lead to printing issues.
+
+### Flat Namespace
+
+AO doesn't use the traditional concept of modules with imports and exports. AO has only words with definitions in a flat, global namespace. The association between a word and its definition is implicit in the programming environment: *there is no syntax to define a word*. The set of words associated with an AO environment is called the dictionary. 
+
+AO forbids recursive definitions. The dictionary must be acyclic.
+
+A flat namespace has many advantages, including:
+
+* no boiler-plate import/export management
+* users learn words not projects, uniform meaning
+* easier integration and communication across projects
+* collisions useful for discovery, reuse, knowledge sharing
+* conflicts resolved, not avoided: dense namespace, terse code
+
+However, a flat namespace be annoying in cases where we desire to use the same word with different meaning for different frameworks or DSLs. 
+
+My suggestion is to shift the jargons problem to the programming environment: words related to a framework might be given a common prefix or suffix, but an editor could substitute use of color, icons, or similar when rendering. Similarly, auto-complete could present words using the rendered form. The word `doc.foo` might be presented as a brown-colored `foo` prefixed by a book icon. 
+
+But I don't want to undermine the benefits of a flat namespace. Developers should be seeking to create reusable software components; even toplevel projects might be reusable microservices or widgets. Long term, I want a rich dictionary with hundreds of thousands of words (perhaps fifty thousand common words) that people can use to quickly build small but useful programs. 
+
+### Documentation and Environment Extension
+
+AO does not have a syntax for comments.
+
+Documentation for an AO word is expressed by defining another AO word. For example, if we have a word `foo`, we might document it by defining `doc.foo`. The programming environment will understand the naming convention, and may present or link the documentation together with the word. 
+
+The documentation is not plain text. It is AO code, a small program that constructs a document. Modeling documentation in this manner simplifies reuse, templates and frameworks, rich formatting with figures and graphs, development of interactive or hypertext documentation. It also avoids the challenge of maintaining documentation when refactoring or optimizing code or when using a projectional editor.
+
+A similar philosophy also applies for automatic testing (`test.xyzzy`), asserting equational laws, optimizer suggestions in form of rewrite, IDE plugins or extensions, and live services (`service.foo`). In general, a few naming conventions with AO definitions can go a very long way while staying with a simple dictionary concept.
+
+*NOTE:* Words can also be learned by a good REPL, automatic visualization, tests and examples of use, discovery of words through refactoring. Potentially, we can construct a 'thesaurus' through analysis of structure and sentiment. Documentation should be understood to augment these other approaches, not replace them, and a good programming environment will present these features together with documentation. Many words won't require much documentation. *The primary didactic mechanism in AO should be showing, not telling.*
 
 ### Structural, Type-Directed Editing
 
 AO's syntax supports flat textual representation, but structured and type-driven editing is both feasible and should be pursued. Programs may be given 'holes' that the editor can help fill with short sequences of words and literals. For many use-cases, edit-time search and auto-completion is a better option than use of ambiguous definitions.
 
 Also, a useful feature would be some zoomability or progressive disclosure. Words that aren't very semantically relevant, such as pure data plumbing, can perhaps be shrunk or faded or replaced with an icon that can be expanded by anyone interested.
-
-### Words for Documentation and Metamodels
-
-AO does not have a syntax for comments.
-
-Documentation for an AO word is expressed by defining another AO word. For example, if we have a word `foo`, we might document it by defining `foo.doc`. The definition of `foo.doc` would construct a document. The programming environment will understand the naming convention, and may present or link the documentation together with the word. 
-
-Modeling documentation in this manner enables reuse, templates and frameworks, rich formatting with figures and graphs, development of interactive or hypertext documentation. It also avoids the challenge of maintaining documentation when refactoring or optimizing code or when using a projectional editor.
-
-A similar philosophy also applies for automatic testing (`test.xyzzy`), asserting equational laws, optimizer suggestions in form of rewrite, IDE plugins or extensions, and live services (`service.foo`). In general, a few naming conventions with AO definitions can go a very long way while staying with a simple dictionary concept.
-
-*NOTE:* Words can also be learned by a good REPL, automatic visualization, tests and examples of use, discovery of words through refactoring. Potentially, we can construct a 'thesaurus' through analysis of structure and sentiment. Documentation should be understood to augment these other approaches, not replace them, and a good programming environment will present these features together with documentation. Many words won't require much documentation. *The primary didactic mechanism in AO should be showing, not telling.*
 
 ## Standard Environment
 
@@ -229,17 +242,17 @@ A single stack is good for a single task. Navigation between stacks is useful wh
 
 Programmers often reject concatenative languages without even attempting to learn them. My hypothesis is that the learning curve has been too steep: there is a burden to visualize the environment in the head, and a burden to learn a bunch of arcane shuffle words. 
 
-If I am right, automatic visualization and animation of the environment should help with visualization, and the ability to do a little bit of drag and drop on the visualization should help with learning (or ignoring) arcane shuffles. 
+If so, automatic visualization of environment structure, and animation of how it changes across AO code, should relieve much of this burden. 
 
-AO is intended for use in an environment that provides rich visualization of structure, through the type system and through testing. It should be possible to augment visualization of challenging words by defining extra words (e.g `foo.imagine`) that provide animation rules or code. 
+Conversely, ability to use a little drag and drop or copy-paste through the environment visualization could help specify data shuffling in the tricky cases and when first getting used to the concept. It would be a weak form of programming by example.
 
 ### Documents and Zippers
 
-When developing abstractions, it is best to favor those that are compositional, extensible, scalable, reusable across projects and problems, and for which rich domain-generic vocabularies and analyses can be developed. Documents and document-like abstractions (diagrams, geometries, tables, matrices, grammars, constraint models, rulebooks, lenses, etc.) tend to be much better options than, for example, records and state machines. (If you need a state machine, use a grammar!)
+When developing abstractions, it is best to favor those that are compositional, extensible, scalable, reusable across projects and problems, and for which rich domain-generic vocabularies and analyses can be developed. Document-like abstractions - diagrams, geometries, tables, matrices, grammars, constraint models, rulebooks, lenses, scene-graphs, etc. - tend to be much more composable, extensible, and scalable than, for example, records and state machines. (In some cases, they are also more general. E.g. grammars can model state machines, and tables can model records.)
 
 A convention I wish to push for AO is to strongly favor these document-like extensible, compositional, reusable abstractions as the foundation for communicating rich structures between higher level components, even when it means rejecting problem-specific or domain-specific structure that might initially seem more convenient. 
 
-My Hypotheses:
+Hypotheses:
 
 1. reusable, composable abstractions will pay for themselves in the large, even if they initially seem slightly inconvenient in the small
 
@@ -270,8 +283,6 @@ Discovery becomes a didactic experience, an opportunity to learn a new word, stu
 
 ## Dissassembly and Translation
 
-An interesting property of AO code is that disassembly of a large ABC constructs is quite feasible in terms of matching code to a dictionary. Disassembly can be modeled as a parsing or refactoring problem.
-
-This approach could be used both for understanding ABC code, and for translating code between highly divergent dictionaries.
+An interesting property of AO code is that disassembly of a large ABC constructs is quite feasible in terms of matching code to a dictionary. Disassembly can be modeled as a parsing or refactoring problem. This feature could be used both for understanding ABC code, and for translating project code between highly divergent dictionaries.
 
 
