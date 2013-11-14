@@ -1,6 +1,9 @@
 
 See AboutABC for full explanations and design. This file just records each code, and a pseudocode representation of its type.
 
+        [] :: (special - block reader mode)
+        "~ :: (special - text reader mode)
+
         l :: (a * (b * c)) -> ((a * b) * c)
         r :: ((a * b) * c) -> (a * (b * c))
         w :: (a * (b * c)) -> (b * (a * c))
@@ -36,13 +39,25 @@ See AboutABC for full explanations and design. This file just records each code,
             where qb+r = a, q integral, r in [0,b) or (b,0]
 
         ? :: (Droppable b) :: b@[a->a'] * ((a+b)*e) -> (a'+b)*e
+        L :: (a + (b + c)) * e -> ((a + b) + c) * e
+        R :: ((a + b) + c) * e -> (a + (b + c)) * e
+        W :: (a + (b + c)) * e -> (b + (a + c)) * e
+        Z :: ((a + b) + (c + d)) * e -> ((a + c) + (b + d)) * e
+        V :: a * e -> (a + 0) * e
+        C :: (a + 0) * e -> a * e
 
-        "~ :: (special - text reader mode)
-        [] :: (special - block reader mode)
-    
-Here `*` as a type means product (pair), `[x->y]` is a block type, `T` means text, `N` means number. 
+        D :: a * ((b+c) * e) -> ((a*b) + (a*c)) * e -- distrib
+        F :: ((a*b) + (c*d)) * e -> (a+c) * ((b+d) * e) -- partial factor
+        M :: (a+a') * e -> a * e -- merge
 
-I'm avoiding most vowels. I'd like to minimize risk of naughty words being spelled out in typesafe ABC code. So far I've used `o`.
+
+        E :: (a + b) * e -> b * e
+
+Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x->y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
+
+Text is modeled is a list of small natural numbers (in range 0 to 1114111). The list is terminated by number 3. (
+
+Here `*` as a type means product (pair), `[x->y]` is a block type, type `N(x)` means number with value x. I'm avoiding most vowels. I'd like to minimize risk of naughty words being spelled out in typesafe ABC code. So far I've used `o`.
 
 
 

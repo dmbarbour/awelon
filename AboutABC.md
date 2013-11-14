@@ -169,9 +169,9 @@ For connectivity between Awelon project systems, data will uniformly be serializ
 
 ## ABC Behavior Details
 
-This section has a more detailed description of the ABC behaviors.
+This section has a more detailed description of the ABC behaviors. The operators are ascribed with type descriptors in a Haskell-like language (ABC itself has no language for type ascription). 
 
-Note that most ABC operators have a `* e` term on the right, indicating that the operation ignores a certain amount of structure. The goal here is to avoid using blocks for every little thing.
+Note that most ABC operators have a `* e` term on the right, indicating that the operation ignores a certain amount of structure. An implicit goal of ABC's design is to minimize use of blocks and quotations for common operations. 
 
 ### Data Plumbing
 
@@ -179,7 +179,7 @@ ABC provides a minimal set of primitive operators for block-free structure manip
 
         l :: (a * (b * c)) -> ((a * b) * c)
         r :: ((a * b) * c) -> (a * (b * c))
-        w :: (a * (b * c)) -> (b * (a * c))
+        w :: (a * (b * c)) -> (b * (a * c)) 
         z :: ((a * b) * (c * d)) -> ((a * c) * (b * d))
         v :: a -> (a * 1)
         c :: (a * 1) -> a
@@ -189,7 +189,7 @@ There are many potential "minimal sets" of data plumbing primitives. ABC's parti
 Example encodings:
         
         lzrw :: (a * (b * (c * d))) -> (c * (a * (b * d))) -- rot3
-        vrwlc :: (a * b) -> (b * a) -- primSwap
+        vrwlc :: (a * b) -> (b * a) -- full swap
 
 Data plumbing code is often the bulk of the ABC stream, and can be built on metaphors like stack manipulators, navigation, and search. A good compiler should greatly optimize much data plumbing code from the runtime.
 
@@ -212,7 +212,7 @@ ABC supports block literals by use of square brackets. In addition to literal co
             [abc][def]o = [abcdef]
         ' :: (Quotable x) => x * e -> [1->x] * e
             #42' = [#42c]
-            [abc]' = [[abc]c]
+            [vrwlc]' = [[vrwlc]c]
 
 Not every value type is quotable. Blocks, numbers, and text are quotable. Products and sums are sometimes quotable, but only when both elements are quotable and have the same location and latency attributes. 
 
@@ -318,9 +318,9 @@ Awelon project leans heavily on substructural types, e.g. for exclusive bindings
 
 ### Conditional Behavior
 
-ABC uses sum types `(a + b)` as the foundation for conditional behavior. A sum type represents that we're either in the left condition with type `a` or in the right condition with type `b`. A boolean can be modeled as type `(1 + 1)`, and an optional with type `(a + 1)`. Type `0` describes void, identity for sums, discussed later.
+ABC uses sum types `(a + b)` as the foundation for conditional behavior. A sum type represents that we've observed a condition, and that we're either in the left condition (with type `a`) or the right condition (with type `b`). A boolean can be modeled as type `(1 + 1)`, and an optional with type `(a + 1)`. Type `0` describes void, identity for sums, discussed later.
 
-Conditional behavior is modeled with the `?` operator:
+Conditional behavior is modeled with the `?` operator, which applies an operation only to one condition:
 
         ? :: (Droppable b) => b@[x->x'] * ((x + y) * e) -> (x' + y) * e
 
@@ -333,9 +333,141 @@ To apply behaviors for other conditions, one must use data plumbing to shift the
         V :: a * e -> (a + 0) * e
         C :: (a + 0) * e -> a * e
 
-*ASIDE:* Sums are processed as one element of a larger product, rather than directly mirroring the product operations with `L :: (a + (b + c)) -> ((a + b) + c)` and so on. The motivation is to diminish need for block composition and quotation in the common case. 
+*ASIDE:* Sums are processed as one element of a larger product, rather than directly mirroring the product operations with `L :: (a + (b + c)) -> ((a + b) + c)` and so on. The motivation is to diminish need for block composition and quotation in the common case.
 
-Sum types have several nice qualities. They separate the observation of a condition from action upon it. They remain open for extension and composition. Like products, sums have a simple and uniform structure that admits refactoring of data plumbing. There is no ambiguity for labeling of conditions. In a partitioned environment (CPU vs. GPU values, client vs. server), ABC can typefully control dataflows across a sum. 
+We also can distribute, factor, and merge sums:
+
+        D :: a * ((b+c) * e) -> ((a*b) + (a*c)) * e -- distrib
+        F :: ((a*b) + (c*d)) * e -> (a+c) * ((b+d) * e) -- partial factor
+        M :: (a+a') * e -> a * e -- merge
+
+On merge, the types `a` and `a'` must be compatible for all future operations, but they don't need to be precisely the same. What compatibility requires may be judged in context. Both partial factor and merge lose information. They must be used together to achieve a full factoring:
+
+        FM :: ((a*b)+(a'*c))*e -> a*((b+c)*e) -- full factor; inverse of D
+
+Sums may also be copied or dropped (with `^` and `%`) assuming that both elements may be copied and dropped. 
+
+Sums are constructed by observing a condition, e.g. by comparing texts or observing a type. ABC enables a few simple observations and comparisons. By convention, ABC returns `(true + false)` for conditions.
+
+        P :: (Observable x) => x * e -> ((a*b)+x) * e -- x is pair?
+        N :: (Observable x) => x * e -> (N(a)+x) * e -- x is number?
+        H :: (Observable x) => x * e -> (N(a)+x) * e -- x is a natural number?
+        B :: (Observable x) => x * e -> ([a->b]+x) * e -- x is block?
+        S :: (Observable x) => x * e -> ((a+b)+x) * e -- x is sum?
+        < :: (Comparable x y) => x * (y * e) -> ((y*x)+(x*y)) * e -- x < y ?
+        = :: (Comparable x y) => x * (y * e) -> ((x*1)+(x*y)) * e -- x = y ?
+
+Most types - pairs, sums, blocks, numbers - are observable. The primary exception is unit, type `1`, which serves as a barrier against this kind of introspection. Most properties of blocks - e.g. substructural properties, which types of arguments they accept - are not observable (without introspective capabilities). Operator `H` is provided as a convenient shorthand.
+
+
+
+ABC's comparison operators are pseudo-recursive - they can directly compare texts, lists of words, etc.. in the normal lexicographic fashion. Numbers compare in the obvious, traditional way. 
+
+are limited to numbers and products of comparables, as follows:
+
+* numbers compare in the obvious, traditional way
+* a pair is greater than any number
+* pairs compare on the first element, then the second
+
+Eff
+
+It isn't necessarily a type error to compare
+
+ABC allows pairs and numbers to be compared: 
+
+* a pair is greater than a number
+* pairs compare 
+
+
+
+* 
+
+ABC uses a global and rather ad-hoc model for comparison:
+
+* a pair is greater than any number
+
+
+
+Determining that a block is a block is about the limit of primitive introspection on blocks. (Unless the environment provides special capabilities, there is no way to introspect a block for substructural properties or input/output type.)
+
+
+Note that asking whether a block is a block is about the limit for introspection. Developers cannot directly observe substructural properties or the type a block might accept or return. 
+
+(Though, there may be special capabilities that offer some greater power for introspection.)
+
+
+
+
+
+ This introspection is very coarse grained, e.g. there is no ability to poke at a block and get type information. 
+
+Comparison is slightly more restricted: 
+
+Substructural types are not observable. 
+
+Note that introspection is limited to generic classes, there is no way to inspect whether a block has substructural properties. 
+
+Typeable: pairs, sums, blocks, numbers.
+
+Comparable: pairs, sums, numbers.
+* A sum is less than any number.
+* A pair is greater than any number.
+* Two numbers compare in the obvious way.
+* 
+
+
+Pairs, sums, blocks, and numbers are typeable. Only numbers and pairs are comparable. Attempting to introspect or compare the unit type `1` is simply a type error.
+
+, treating a condition as a single value from then on. In implementation, 
+
+, it means that all further operations are distributed to both options.
+
+In implementation, merge may  be delayed to a more convenient location - by simply applying further operations to both conditions.
+
+*NOTE:* Sums may be copied by `^` or dropped by `%` so long as both element types may be copied or dropped. (We cannot drop a sum type if one element contains a relevant block.)
+
+
+### Static Choice
+
+
+
+
+
+
+ ABC also has a notion of 'static' merge, for cases where the choice should be known statically:
+
+        K :: (a
+
+        
+
+ don't need to be exact, but they must be compatible for all future operations. F
+
+
+Here `D` is distribute, `F` is factor, and `M` is merge. To copy or drop a sum uses the prior `^` and `%` operators like normal, and requires that all elements be copyable. In addition, there are two special operations:
+
+        K :: (a + b) * e -> a * e OR (a + b) * e -> b * e
+
+The operation `X` exists for completeness: it's a safe operation that cannot be modeled by 
+
+ to ensure that copy of a sum can be modeled explicitly as a copy of each element. voa`[^]?
+
+ sufficient to enable copy of a sum based on copy of the underlying elements. 
+
+Here `F` (factor) and `M` (merge) enable extracting parts of a sum with common type `a`. The types don't need to be exactly the same, they just need to be compatible for all future operations.
+
+
+
+Note: sums may be copied or dropped if their elements can be copied or dropped.
+
+
+
+        M :: ((a*b) + (a'*c)) * e -> a * ((b+c) * e)
+
+        M :: ((a*b)+(a*c)
+        D :: (a+b)*(c*e) -> ((a*c)+(b*c))*e
+        M :: ((a*c)+(b*c))*e -> (a+b)*(c*e)
+        
+
 
 To construct sums, developers can compare or introspect values. 
 
@@ -468,7 +600,7 @@ Capability text can be generated lazily, when it is actually observed via serial
 
 ABC can potentially distribute many capabilities by partial evaluation at compile-time. The indirection through a block can potentially be removed, the capability code inlined. 
 
-### Pitfall: Conditional Capabilities (Don't Do It!)
+#### Pitfall: Conditional Capabilities (Don't Do It!)
 
 When brainstorming, one of my ideas was a convention of the form `{?foo}`, whose output was a sum type depending on whether the environment recognizes `{foo}` as a valid capability. This seems neat because it results in code adaptable to the environment. 
 
@@ -484,7 +616,7 @@ There are many cases where we can easily inline code, e.g. if a block is applied
 
 An ABC implementation is not required to optimize tail calls, but it is encouraged. 
 
-### Linear Implementations vs. Garbage Collection
+### Linear Implementation or Garbage Collection
 
 In ABC, use of drop and copy operations (`%` and `^`) is explicit. We effectively have explicit memory management, but with pure, immutable values. This opens many choices for the implementation:
 
@@ -492,9 +624,24 @@ In ABC, use of drop and copy operations (`%` and `^`) is explicit. We effectivel
 * alias on copy, track refcounts, copy on non-linear write
 * immutable values in memory, implement ABC as pure functions
 
-Some designs will be more or less efficient than others, or more or less amenable to various optimizations (laziness, interning, memoization, etc.). ABC doesn't specify any particular implementation, and it might be worthwhile for a compiler to experiment empirically and use different techniques for different volumes of code. 
+Some designs will be more or less efficient than others, or more or less amenable to various optimizations (laziness, interning, memoization, etc.). ABC doesn't specify any particular implementation, and it might be worthwhile for a compiler to experiment empirically and use different techniques in different regions of code. 
 
-For copying or dropping capabilities, it seems wise to give the environment a decision on how to implement the copy or drop operation. 
+### List Terminals as Type Tags
+
+Lists in ABC are generally modeled as ending with a number. However, rather than uniformly ending lists with number 0, I suggest ending lists with a number that hints at their type. Current conventions:
+
+* number 0 for generic lists
+* number 1 for numerical unit lists
+* number 2 for for Huet zippers
+* number 3 for text (built into ABC)
+* number 4 for sets (order, duplication shouldn't matter)
+* number 5 for association lists (list of key->value pairs)
+
+Such little conventions are easy to track statically and can simplify optimization, visualization, model verification, and type analysis. 
+
+A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
+
+
 
 ### Incremental Processes
 
