@@ -50,8 +50,12 @@ See AboutABC for full explanations and design. This file just records each code,
         F :: ((a*b) + (c*d)) * e -> (a+c) * ((b+d) * e) -- partial factor
         M :: (a+a') * e -> a * e -- merge
 
+        P :: (Observable x) => x * e -> (x+(a*b)) * e -- x is pair?
+        N :: (Observable x) => x * e -> (x+N(a)) * e -- x is number?
+        B :: (Observable x) => x * e -> (x+[a->b]) * e -- x is block?
+        S :: (Observable x) => x * e -> (x+(a+b)) * e -- x is sum?
+        < :: (Comparable x y) => x * (y * e) -> ((y*x)+(x*y)) * e -- x < y ?
 
-        E :: (a + b) * e -> b * e
 
 Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x->y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
 
