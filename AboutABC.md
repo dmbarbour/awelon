@@ -136,13 +136,15 @@ Even with a termination guarantee, it is easy to express algorithms that take mo
 
 ABC doesn't assume any particular type inference algorithm. AO environments are free to try multiple algorithms or strategies to analyze code. ABC does assume several features are part of any good static safety analysis:
 
+* types inferred primarily from partial functions, error conditions
 * partial evaluation of static structure, as much as feasible
-* relatively precise analysis similar to dependent types
+* relatively precise analysis, similar to dependent types
 * termination analysis - semidecision: error, warn, or pass
-* recognize common data structures - text, tables, trees, zippers
-* recognize common iterative algorithms - folds, traversals, searches
+* recognitize structures and algorithms (text, tables, folds, traversals)
 
-There is no syntax in ABC for declaring types, but it is possible to assert conditions on the code. In essense, ABC is designed to support static type safety without ever defining 'type'. 
+There is no syntax in ABC for declaring types. However, use of assertion operator `K` and observations `PNSB` can help express types or contracts. Similarly, 
+
+, but it is possible to assert conditions on the code. In essense, ABC is designed to support static type safety without ever defining 'type'. 
 
 Pattern recognition features aren't essential, but could result in much greater efficiency for analyzing real bodies of code, and lead to more effective error messages and optimizations for runtime behaviors. For example, we might recognize operations over lists subject to loop fusion, or that a particular association list is never used in an order-dependent manner.
 
@@ -217,12 +219,12 @@ ABC does not assume all values may be dropped or copied. Numbers, text, and unit
 
 A block in ABC is simply a container for a finite sequence of ABC code. 
 
-ABC supports block literals by use of square brackets. In addition to literal construction, blocks may be composed with the `o` operator, and blocks can be formed from many values by use of the `'` (single quote) quotation operator. 
+ABC supports block literals by use of square brackets. In addition to literal construction, blocks may be composed with the `m` operator, and blocks can be formed from many values by use of the `'` (single quote) quotation operator. 
 
         [] :: e -> [x->x]*e
         [vrwlc] :: e -> ([(x * y) -> (y * x)] * e)
-        o :: [y->z] * ([x->y] * e) -> ([x->z] * e)
-            [abc][def]o = [abcdef]
+        m :: [y->z] * ([x->y] * e) -> ([x->z] * e)
+            [abc][def]m = [abcdef]
         ' :: (Quotable x) => x * e -> [1->x] * e
             #42' = [#42c]
             [vrwlc]' = [[vrwlc]c]
@@ -312,8 +314,8 @@ An affine block is no longer subject to the copy `^` operator. A relevant block 
 
 When two blocks are composed, the substructural attributes are inherited:
 
-        [code]k [more]f o = [codemore]kf
-        [code]f [more]  o = [codemore]f
+        [code]k [more]f m = [codemore]kf
+        [code]f [more]  m = [codemore]f
 
 A quotation inherits the substructural attributes of every blocks it quotes:
 
@@ -398,17 +400,83 @@ An interesting property of static conditions is that, since a programmer is arou
 
 We can also *assert* that specific conditions hold:
 
-        X :: (a + b) * e -> b * e
+        K :: (a + b) * e -> b * e
 
-Operator `X` says that we mustn't be in the left branch. If we are in the left branch, something has gone wrong, and it should be understood as an error. Preferably, we can statically prove we're in the right branch. If not, we might raise a warning. If we enter the left branch at runtime, the program will halt as cleanly as possible.
+Operator `K` says that we mustn't be in the left branch. If we are in the left branch, something has gone wrong, kill it. K should be understood similar to a type error. Preferably, we can statically prove we're in the right branch. If we prove we're in the left branch, that's certainly an error. If we can't prove either condition, 
 
-As a simple convention, we might also record a message in the environment such that, if an error is detected, a text message is visible in the environment:
+If not, we should issue a warning, or error. If we're in the left branch at runtime, we'll halt the program (cleanly, if possible).
 
-        wXw% :: Text * ((a + b) * e) -> b * e
+As a simple convention, we might also record a message in the environment such that, when an error is detected, a text message is visible in the environment:
+
+        wKw% :: Text * ((a + b) * e) -> b * e
 
 Naturally, the message would be eliminated at compile time if we can ensure a safe static condition. A compiler could also recognize this convention and optimize it.
 
-### Temporal Reasoning
+### Spatial-Temporal Features
+
+ABC models spatial properties in terms of logical partitions, and temporal properties in terms of relative latencies. Leveraging spatial-temporal attributes, ABC programs can model real-time orchestration, workflows, and network overlays for heterogeneous or distributed systems. 
+
+Effects and their capability texts are specific to a partition. To be reusable across partitions, subprograms are written in a pure or capability-secure manner that does not hard-code any capability text (modulo annotations or references to ABC resources, neither of which are effectful). Of course, partial evaluation can specialize generic programs, distributing capabilities at compile-time. 
+
+Communication between partitions is considered an effect and requires a capability specific to source and destination. The notion of logical partitions is very versatile:
+
+* Heterogeneous systems can be modeled as partitions with different resources and effects. 
+* Distributed systems are modeled by having some communication capabilities admit disruption.
+* Staged programming can be modeled by modeling asymmetric communication between some partitions (i.e. different stages become different spatial partitions). 
+* Purity or confinement of ABC blocks is conceptualized in terms of applying a block in an unknown partition, which cannot be generalized if it has effectful bindings.
+
+(Thought: shall I just provide a `p` operator to assert purity of blocks? I can model purity using partitions. And I can't think of any use cases to restrict authority to enforce purity on a distrusted subprogram.)
+
+ Naturally, ABC code containing embedded capabilities is almost never polymorphic; reusable ABC code is either pure or explicitly models distribution of capabilities. Distributed systems are modeled in terms of communication capabilities that admit disruption or failure. 
+
+There are no primitives to communicate between partitions.
+
+Spatial-temporal information is considered privileged. That is, without a dedicated capability, an ABC subprogram cannot ask *where* or *when* it is running. 
+
+
+As a general rule, access to spatial-temporal information is considered privileged. That is, an ABC subprogram cannot vary its behavior based on *where* or *when* it is running, unless it is explicitly granted that information or has a special capability to acquire it. 
+
+
+
+*ASIDE:* For RDP, the convention for modeling disruption is to first model acquisition of a connection, which may fail, then to treat the connection as reliable. This separates failure handling from the acquisition code.
+
+In a 
+
+ The separation is useful. 
+
+ This works well in a reactive model, since the acquisition may reactively fail or recover over time.
+
+ Heterogeneous systems can be modeled as partitions with different resources and effects. Distributed systems can be modeled by having some communication capabilities model disruption.
+
+ allow disruption. RDP can leverage reactivity by separating acquisition of a st
+
+        getConnection :: something -> (fail + connection)
+        connection is 
+
+
+
+
+
+There are no primitives for communication between partitions. 
+
+ABC has no primitives for communication between partitions. That is, communication between partitions requires an explicit capability. Distributed systems are generally modeled in terms of communication capabilities that allow disruption.
+
+every point-to-point communication requires a capability.
+
+
+*NOTE:* Even pure ABC can be incompatible with physical constraints of some partitions. For example, if a partition represents a GPU shader, not every ABC program can be compiled to a valid shader. In these cases, we might accept partiality, that a compiler may reject some well-typed programs because it doesn't know how to translate them. Alternatively, we might model a DSL within ABC.
+
+that we can prove is safe.
+
+
+This is essential for RDP: a single RDP behavior can model reactive overlay and orchestration networks that interact across heterogeneous servers, clients, CPUs and GPUs. However, spatial-temporal features are useful even for imperative code as a basis for precisely reasoning about concurrent behavior, mobile code, consistency, progress, and scheduling. 
+
+A compiler for ABC might break a holistic program into shards that maintain behavior in each partition.
+
+I'll consider this in two parts: temporal attributes, and spatial attributes.
+
+
+
 
 * location and latency properties model where and when values can be accessed
 * latency constraints for blocks and sealed values - expires, ripens
@@ -417,39 +485,25 @@ Absolute latency should never be observable. But maybe can compute difference of
 
 Should 'synch' be primitive? Not so sure... maybe? I want latencies to be easy to reason about, including equality of latencies. 
 
-### Spatial Reasoning
-
-* location and latency properties model where and when values can be accessed
-
 multi-parameter operations
 spatial properties of sums and products
 
 Location values are not observable, except by capability.
 
-### Sealed Values
+### Sealed Values (preliminary)
 
-Sealed values are a rather odd concept in ABC, as they cannot actually be constructed. Rather
+The notion of sealers, unsealers, and sealed values is very useful for modeling rights amplification, security patterns, identity, and first-class ADTs. ABC systems are expected to make effective use of the sealer/unsealer concept.
 
-* sealed value types model information-hiding and rights amplification
+A new sealer/unsealer pair can only be constructed through a capability that takes a unique value as an argument. (Uniqueness can be enforced by substructural types.) Anyhow, there is no primitive to create a sealer/unsealer pair, nor is there any primitive source of uniqueness. The sealer/unsealer concept requires support from the environment. 
 
-## Future of ABC
+* sealer: a capability that takes a value and returns a sealed value
+* unsealer: a capability that takes a sealed value from the corresponding sealer, and returns the underlying value (no longer sealed).
 
-ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify analysis, greatly improve optimizability, or eliminate much repetition of code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* It will take a large body of useful code for this to work. 
+From these, it is easy to also construct a capability that will unseal a value, apply a block to it, then seal the result up again. 
 
-I do have some hypotheses regarding where future change might be appreciated:
+Anyhow, sealed values greatly benefit from recognition by type systems and optimizers. Especially of interest is what it might mean to seal a value that is distributed across space or time. It isn't clear, at the moment, whether any ABC primitives would help out, or whether some convention (in the naming of sealers and unsealers) would be sufficient. A variation on sealers/unsealers is to create a 'sealed space' - a new 'partition' for values which has a new set of capabilities for entry and exit. This could be useful for enforcing that a subprogram is typed to operate in any space.
 
-* extra conditions; easily test for natural numbers or text
-* fixpoint or fold variants to simplify termination analysis
-* possibly extend math to collection-level operations
-* equality testing
-
-But I'd like to know, rather than guess.
-
-Meanwhile, user extensions to ABC should be modeled and distributed as capabilities. The process of distributing capabilities naturally supports portability, configuration management, mockups for testing, and controlling use of extensions in a heterogeneous environment. 
-
-Extensions are also acceptable at various serialization layers. For example, we can take common substrings of ABC and assign them to a previously unused UTF-8 character. This is essentially a form of compression.
-
-*CAUTION:* Do not define symbols at the ABC layer. I've many times been tempted to model a capability that can define new ABC operators or capability texts. However, doing so is fraught with peril with regards to scoping, security, modularity, and semantic fidelity. Keep definitions in a separate semantic layer, such as AO or serialization.
+I plan to return to the issue of systematically modeling sealed values at a later time.
 
 ## Considerations and Conventions for Implementations
 
@@ -516,14 +570,6 @@ Capability text can be generated lazily, when it is actually observed via serial
 
 ABC can potentially distribute many capabilities by partial evaluation at compile-time. The indirection through a block can potentially be removed, the capability code inlined. 
 
-#### Pitfall: Conditional Capabilities (Don't Do It!)
-
-When brainstorming, one of my ideas was a convention of the form `{?foo}`, whose output was a sum type depending on whether the environment recognizes `{foo}` as a valid capability. This seems neat because it results in code adaptable to the environment. 
-
-However, the adaptation properties are simply *wrong*, lacking access to a big-picture view. The determination of whether a capability is available should be modeled at the point where it is acquired, where some logic can be introduced based on the set of available features. And pushing this upstream is better for testing, mockup environments, and configurations management. 
-
-Also, the technique would be a bad choice for security reasons. We should never be guessing capability text. In retrospect, this idea was bad all around.
-
 ### Tail Call Elimination and Inlining
 
 ABC can be implemented using a stack machine. Each frame on the stack would correspond to a block application, with `$` or `?`, which hides away part or the value and operates on the rest. 
@@ -556,4 +602,41 @@ Lists in ABC are generally modeled as ending with a number. However, rather than
 Such little conventions are easy to track statically and can simplify optimization, visualization, model verification, and type analysis. 
 
 A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
+
+## Pitfalls to Avoid
+
+### Conditional Capabilities (Do not!)
+
+When brainstorming, one of my ideas was a convention of the form `{?foo}`, whose output was a sum type depending on whether the environment recognizes `{foo}` as a valid capability. This initially seems neat because it results in code adaptable to the environment. However, the properties are simply *wrong* for adaptive code. 
+
+The question of whether a capability is available should be resolved at the point the capability is acquired, upstream of where it is applied. This enables a bigger picture view of what resources are available for developing adaptive code. This separation of concerns also improves portability, extensibility, configuration management, testing with mockup environments, and security.
+
+### Conventions for Defining Symbols in ABC (Do not!)
+
+Several times, I've been tempted to support user-defined extensions to ABC from within ABC. Each time, I determine this is a bad idea. It seems too easy to forget why. 
+
+An example mechanism might expressed as:
+
+        d :: N(c) * ([x->y] * e) -> e  -- DO NOT
+          where `c` is a UTF-8 character
+          and the block is the new meaning of that codepoint
+
+This is a bad idea because abstraction becomes implicit, detecting cycles is difficult, scoping is unclear, there are security concerns regarding the guessability of user-defined symbols. Easy answers, such as scoping based on blocks, often hinder equational reasoning and valuable semantic properties. We must also address new problems, such as symbol maintenance and update, or what it means to compose two subprograms that define the same symbol.
+
+The issues don't depend on the mechanism. Using a capability to define capability texts is just as bad. However, these problems arise due to the interaction of definitions with blocks, streaming code, and mutually distrustful software components. Definitions are a problem when they are embedded in the same semantic layer as ABC.
+
+We can safely use definitions in *separate* semantic layers. For example, AO (above ABC) defines words. An ABC stream serializer (below ABC) could also use a dictionary of definitions as a form of shorthand or compression. We can regain most benefits of definitions.
+
+## Future of ABC
+
+ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify static analysis, improve optimizability, or eliminate much repetitive code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* 
+
+I do have some hypotheses regarding where future change might be appreciated:
+
+* extra conditions; quick test for natural number, text
+* dedicated encoding for folds to simplify termination analysis
+* extend math operators for vectors and matrices?
+* easy equality testing
+
+But I'd like to know, rather than guess. It will take a large body of useful code to learn where the greatest benefits are obtained. Fortunately, so long as ABC retains its nature as a secure, tacit concatenative bytecode, it should not be difficult to systematically rewrite ABC from one version to another. 
 

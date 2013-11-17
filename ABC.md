@@ -14,7 +14,7 @@ See AboutABC for full explanations and design. This file just records each code,
         ^ :: (Copyable x) => (x * e) -> (x * (x * e))
 
         $ :: [x->x'] * (x * e) -> (x' * e)
-        o :: [y->z] * [x->y] -> [x->z]
+        m :: [y->z] * [x->y] -> [x->z]
         ' :: (Quotable x) => (x * e) -> ([1->x] * e)
         k :: ([x->y] * e) -> ([x->y]' * e) (keep, relevant, no drop)
         f :: ([x->y] * e) -> ([x->y]' * e) (affine, no copy)        
@@ -49,6 +49,7 @@ See AboutABC for full explanations and design. This file just records each code,
         D :: a * ((b+c) * e) -> ((a*b) + (a*c)) * e -- distrib
         F :: ((a*b) + (c*d)) * e -> (a+c) * ((b+d) * e) -- partial factor
         M :: (a+a') * e -> a * e -- merge
+        K :: (a + b) * e -> b * e -- assert
 
         P :: (Observable x) => x * e -> (x+(a*b)) * e -- x is pair?
         N :: (Observable x) => x * e -> (x+N(a)) * e -- x is number?
@@ -56,12 +57,11 @@ See AboutABC for full explanations and design. This file just records each code,
         S :: (Observable x) => x * e -> (x+(a+b)) * e -- x is sum?
         < :: (Comparable x y) => x * (y * e) -> ((y*x)+(x*y)) * e -- x < y ?
 
+Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x->y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible).
 
-Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x->y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
+Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
-Text is modeled is a list of small natural numbers (in range 0 to 1114111). The list is terminated by number 3. (
-
-Here `*` as a type means product (pair), `[x->y]` is a block type, type `N(x)` means number with value x. I'm avoiding most vowels. I'd like to minimize risk of naughty words being spelled out in typesafe ABC code. So far I've used `o`.
+The design of ABC is avoiding most vowels, to avoid spelling naughty or foul words. It isn't a strong design constraint, but it seems worthwhile. 
 
 
 
