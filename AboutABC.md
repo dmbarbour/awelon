@@ -376,12 +376,6 @@ ABC's comparison model is very general, enabling comparisons across structure:
 
 The separation of units is interesting. It enables developers to express and enforce rigid structure, such that unit values must statically align in the type system. This could be useful for vectors, matrices. However, structure is otherwise flexible and may be dynamic: texts and lists may have dynamic size, and will compare lexicographically.
 
-### Static Conditions
-
-        K :: (a + b) * e -> a * e
-          or (a + b) * e -> b * e
-          (requires: choice be known statically)
-
 ### Unit and Void
 
 Unit and void are special types in ABC. Unit (type `1`) is identity for the product type, and Void (type `0`) is identity for the sum type. The principle idea of unit and void is that they introduce structure *without adding information*. I.e. `(a * 1)` has just as much information as `a`, but now it's wrapped in a structure. 
@@ -396,10 +390,23 @@ Void doesn't require any special effort.
 
 Observations on void aren't actionable. Void represents a dead branch, and operations on void are effectively vacuous. It is recommended that analysis of ABC validate operations on void for internal consistency, infer the types `0` might represent. But, since observations on void are never passed to any capabilities, the system as a whole gains no information from void.
 
-### Assertions
+### Metaprogramming: Static Conditions and Assertions
 
-Assert we *aren't* in a branch (never that we *are* in one)
-* track potential ranges for numbers, e.g. protect against divide-by-zero
+Partial evaluation is a simple but effective approach to compile-time metaprogramming. Further, it works very well with ABC's assumptions of causal commutativity and fast and loose reasoning. A great deal of a program's behavior can often be computed in advance. Even capabilities might partake if they have some compile-time aspects.
+
+An interesting property of static conditions is that, since a programmer is around to validate a choice, we can relax compatibility requirements for merge. When merging static conditions with `M` we may reduce compatibility concerns to warnings. Or suppress them entirely, depending on context and severity.
+
+We can also *assert* that specific conditions hold:
+
+        X :: (a + b) * e -> b * e
+
+Operator `X` says that we mustn't be in the left branch. If we are in the left branch, something has gone wrong, and it should be understood as an error. Preferably, we can statically prove we're in the right branch. If not, we might raise a warning. If we enter the left branch at runtime, the program will halt as cleanly as possible.
+
+As a simple convention, we might also record a message in the environment such that, if an error is detected, a text message is visible in the environment:
+
+        wXw% :: Text * ((a + b) * e) -> b * e
+
+Naturally, the message would be eliminated at compile time if we can ensure a safe static condition. A compiler could also recognize this convention and optimize it.
 
 ### Temporal Reasoning
 
@@ -427,31 +434,22 @@ Sealed values are a rather odd concept in ABC, as they cannot actually be constr
 
 ## Future of ABC
 
-ABC isn't frozen. As we develop many projects and applications, I have no doubt it will become clear that a few more operators might eliminate a lot of repetition in code or greatly simplify analysis and optimization, or perhaps that existing operators were poorly chosen.
+ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify analysis, greatly improve optimizability, or eliminate much repetition of code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* It will take a large body of useful code for this to work. 
 
-I strongly discourage extending ABC in ad-hoc ways. If extensions are used, they should be modeled as capabilities. 
+I do have some hypotheses regarding where future change might be appreciated:
 
-*CAUTION:* I've been tempted more than once to *define* new operators or capability text from within the ABC stream, similar to how FORTH can define new words. This is a very bad idea! Scope for operators defined within blocks is unclear.  First, it's difficult to com.
+* extra conditions; easily test for natural numbers or text
+* fixpoint or fold variants to simplify termination analysis
+* possibly extend math to collection-level operations
+* equality testing
 
-scoping works poorly for ABC code used within blocks. Second, it doesn't 
+But I'd like to know, rather than guess.
 
-, unless perhaps modeled at the serializer layer. 
+Meanwhile, user extensions to ABC should be modeled and distributed as capabilities. The process of distributing capabilities naturally supports portability, configuration management, mockups for testing, and controlling use of extensions in a heterogeneous environment. 
 
-  new words or capabilities from within the ABC stream.
+Extensions are also acceptable at various serialization layers. For example, we can take common substrings of ABC and assign them to a previously unused UTF-8 character. This is essentially a form of compression.
 
-For compatibility, I discourage extending ABC in ad-hoc ways. It's important that code means the same thing everywhere it is interpreted. Even use of capabilities should be carefully considered. 
-
-*NOTE:* it is likely that a few more observations and comparisons will be introduced to simplify analysis and performance, e.g. make sums comparable, perhaps introduce `=` for equality testing, `H` for positive integers, `T` for text. 
-
-
-It is feasible to extend ABC using capabilities. Participating ABC environments should support an operator of the following form: 
-
-        {abc} :: N(c) * ([x->y] * e) -> e
-
-Where `c` is a UTF-8 codepoint, and the block (which must be copyable and droppable) is the code that will be inlined (`v$c`) whenever that codepoint is used. This operation is idempotent, but will also raise an error if a codepoint is ever assigned two different meanings.
-
-
-
+*CAUTION:* Do not define symbols at the ABC layer. I've many times been tempted to model a capability that can define new ABC operators or capability texts. However, doing so is fraught with peril with regards to scoping, security, modularity, and semantic fidelity. Keep definitions in a separate semantic layer, such as AO or serialization.
 
 ## Considerations and Conventions for Implementations
 
@@ -558,24 +556,4 @@ Lists in ABC are generally modeled as ending with a number. However, rather than
 Such little conventions are easy to track statically and can simplify optimization, visualization, model verification, and type analysis. 
 
 A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
-
-### Incremental Processes
-
-Every loop expressed in ABC should terminate. A compiler is allowed to reject a program if it proves non-termination, and may complain if it cannot prove termination. The traditional `while(true)` process loops of imperative programming are not allowed. This is a good thing! Those `while(true)` loops have *awful* properties for composition, extension, and reuse.
-
-ABC systems instead model long-running behaviors more explicitly:
-
-* RDP behaviors
-* streaming ABC
-* incremental processes
-
-ABC is designed primarily for RDP, and Awelon project makes heavy use of unbounded streaming ABC for serialization and environment manipulation. But if ABC used for imperative processes, an incremental process model should be favored. In that case, each process might have a structure similar to:
-
-        type Process a b = a -> (b, Process a b)
-
-At each step, a process will perform a finite (usually small) incremental amount of work. These processes can be composed sequentially or in parallel, or model ad-hoc workflows. These processes can model environments, encapsulating more processes and modeling connectivity or dispatch. The process graph can be dynamic, changing from step to step, represented by returning the process for the next step. Large, specialized processes are constructed from smaller, reusable ones. Process control is implicit with simple behavior: we can pause between steps. 
-
-In ABC, this model of incremental processes can generally be parallelized, fused, and optimized to a very high degree (based on causal commutativity, fast and loose reasoning). 
-
-
 
