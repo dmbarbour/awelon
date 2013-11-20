@@ -101,8 +101,8 @@ Causal commutativity means that there is no ordering relationship unless there i
             foo bar = bar foo
         causal commutativity: (ABC assumes / requires)
             [foo] first [bar] second = [bar] second [foo] first
-              where first  :: [a->a'] * (a*b) -> (a'*b)
-                    second :: [b->b'] * (a*(b*c)) -> (a*(b'*c))
+              where first  :: [a→a'] * (a*b) → (a'*b)
+                    second :: [b→b'] * (a*(b*c)) → (a*(b'*c))
 
 Spatial idempotence means that, if the same action is performed twice with the same inputs, there is no additional observable impact. This property is also extremely valuable for optimizations, e.g. in content distribution networks. 
 
@@ -110,13 +110,13 @@ Spatial idempotence means that, if the same action is performed twice with the s
             foo foo = foo
         spatial idempotence: (ABC assumes / requires)
             [foo] first dup = dup [foo] first [foo] second
-              where first  :: [a->a'] * (a*b) -> (a'*b)
-                    second :: [b->b'] * (a*(b*c)) -> (a*(b'*c))
-                    dup    :: (x * e) -> (x * (x * e))
+              where first  :: [a→a'] * (a*b) → (a'*b)
+                    second :: [b→b'] * (a*(b*c)) → (a*(b'*c))
+                    dup    :: (x * e) → (x * (x * e))
 
-ABC is designed primarily for reactive demand programming (RDP), which has both spatial idempotence and causal commutativity universally. ABC optimizers and refactoring tools may assume these properties even when ABC is not targeting an RDP behavior. 
+ABC is designed primarily for reactive demand programming (RDP), which has both spatial idempotence and causal commutativity universally. ABC optimizers and refactoring tools will assume these properties even when ABC is not targeting an RDP behavior. Fortunately, it is not difficult to leverage linear values to thread effects in imperative code, such that it becomes compatible with spatial idempotence and causal commutativity. Interestingly, this approach is a great deal more precise regarding concurrency and synchronization than traditional models of imperative. 
 
-Fortunately, it is not difficult to thread a linear value through imperative code, and thereby model threads. Between substructural types and capability security, ABC can typefully enforce a procedural paradigm and many others. Interestingly, programmers can be much more precise about threading and synchronization within ABC than they can be in most imperative languages. 
+Spatial idempotence and causal commutativity are valuable because they enable a high level of equational reasoning even in the presence of side-effects. Effectively, developers have most of the reasoning benefits of purity without any of the overheads. 
 
 ### Fast and Loose Reasoning for Termination
 
@@ -192,26 +192,26 @@ Performance and parsimony are not strong motivators in ABC's initial design. It'
 
 ABC provides a minimal set of primitive operators for block-free structure manipulation. Below, `(a * b)` denotes a product (pair), and `1` denotes unit, identity for products, which discussed later.
 
-        l :: (a * (b * c)) -> ((a * b) * c)
-        r :: ((a * b) * c) -> (a * (b * c))
-        w :: (a * (b * c)) -> (b * (a * c)) 
-        z :: ((a * b) * (c * d)) -> ((a * c) * (b * d))
-        v :: a -> (a * 1)
-        c :: (a * 1) -> a
+        l :: (a * (b * c)) → ((a * b) * c)
+        r :: ((a * b) * c) → (a * (b * c))
+        w :: (a * (b * c)) → (b * (a * c)) 
+        z :: ((a * b) * (c * d)) → ((a * c) * (b * d))
+        v :: a → (a * 1)
+        c :: (a * 1) → a
 
 There are many potential "minimal sets" of data plumbing primitives. ABC's particular set is aiming for some simple symmetries and optimizations. Here, `lzrw` is sufficient to encode any linear manipulations of a structure where the rightmost element remains in place. `v` and `c` are non-linear manipulations (they add and remove structure) and enable motion of the rightmost element.
 
 Example encodings:
         
-        lzrw :: (a * (b * (c * d))) -> (c * (a * (b * d))) -- rot3
-        vrwlc :: (a * b) -> (b * a) -- full swap
+        lzrw :: (a * (b * (c * d))) → (c * (a * (b * d))) -- rot3
+        vrwlc :: (a * b) → (b * a) -- full swap
 
 Data plumbing code is often the bulk of the ABC stream, and can be built on metaphors like stack manipulators, navigation, and search. A good compiler should greatly optimize much data plumbing code from the runtime.
 
 In addition to moving objects around, we can potentially drop or copy values:
 
-        % :: (Droppable x) => (x * e) -> e
-        ^ :: (Copyable x) => (x * e) -> x * (x * e)
+        % :: (Droppable x) ⇒ (x * e) → e
+        ^ :: (Copyable x) ⇒ (x * e) → x * (x * e)
 
 ABC does not assume all values may be dropped or copied. Numbers, text, and unit values may be dropped or copied. A product or sum may be copied if both elements are copyable. A product or sum may be dropped if both element types may be dropped. Literal blocks can initially be dropped or copied, but may be tagged with substructural properties that forbid drop or copy.
 
@@ -219,13 +219,13 @@ ABC does not assume all values may be dropped or copied. Numbers, text, and unit
 
 A block in ABC is simply a container for a finite sequence of ABC code. 
 
-ABC supports block literals by use of square brackets. In addition to literal construction, blocks may be composed with the `m` operator, and blocks can be formed from many values by use of the `'` (single quote) quotation operator. 
+ABC supports block literals by use of square brackets. In addition to literal construction, blocks may be composed with the `o` operator, and blocks can be formed from many values by use of the `'` (single quote) quotation operator. 
 
-        [] :: e -> [x->x]*e
-        [vrwlc] :: e -> ([(x * y) -> (y * x)] * e)
-        m :: [y->z] * ([x->y] * e) -> ([x->z] * e)
-            [abc][def]m = [abcdef]
-        ' :: (Quotable x) => x * e -> [1->x] * e
+        [] :: e → [x→x]*e
+        [vrwlc] :: e → ([(x * y) → (y * x)] * e)
+        o :: [y→z] * ([x→y] * e) → ([x→z] * e)
+            [abc][def]o = [abcdef]
+        ' :: (Quotable x) ⇒ x * e → [1→x] * e
             #42' = [#42c]
             [vrwlc]' = [[vrwlc]c]
 
@@ -233,7 +233,7 @@ Not every value type is quotable. Blocks, numbers, and text are quotable. Produc
 
 After construction, a block can be applied by the `$` operator:
 
-        $ :: [x->x'] * (x * e) -> (x' * e)
+        $ :: [x→x'] * (x * e) → (x' * e)
 
 Blocks in ABC form a basis for secure reasoning, loop behaviors, and higher order programming. Loops are modeled by fixpoint combinators that repeatedly copy and apply a block, e.g. `[^$]^$` is the equivalent to the lambda calculus `(λx.(x x) λx.(x x))`. Higher order programming is achieved simply by separating construction of the block from the point of application.
 
@@ -249,20 +249,20 @@ Thus, blocks enable information hiding on behalf of both the user and the provid
 
 ABC's built-in number type is arbitrary precision rationals. (In some cases - when the required range and precision are known - a compiler may substitute use of integers, fixpoint, or floating point numbers.) ABC has no number literals. `#42` is technically a sequence of three ABC operators. The operator `#` introduces the number 0 into the environment, and each decimal digit (0-9) means "multiply by ten and add this digit's value".
 
-        # :: e -> N(0) * e
-        0 :: N(x) * e -> N(10x+0) * e
-        1 :: N(x) * e -> N(10x+1) * e
-        2 :: N(x) * e -> N(10x+2) * e
+        # :: e → N(0) * e
+        0 :: N(x) * e → N(10x+0) * e
+        1 :: N(x) * e → N(10x+1) * e
+        2 :: N(x) * e → N(10x+2) * e
         ...
-        9 :: N(x) * e -> N(10x+9) * e
+        9 :: N(x) * e → N(10x+9) * e
 
 Thus natural numbers are thus expressed as if by literal. But rational or negative numbers must be represented as a computation that generates them. ABC provides only a few elementary, scalar mathematical operators: add, multiply, and additive or multiplicative inverses. A divmod operator is also kept to help infer precision and modulus information.
 
-        + :: (N(a) * (N(b) * e)) -> (N(a+b) * e)
-        * :: (N(a) * (N(b) * e)) -> (N(a*b) * e)
-        - :: (N(a) * e) -> (N(0-a) * e)
-        / :: (N(non-zero a) * e) -> (N(1/a) * e)
-        Q :: (N(non-zero b) * (N(a) * e)) -> (N(r) * (N(q) * e))
+        + :: (N(a) * (N(b) * e)) → (N(a+b) * e)
+        * :: (N(a) * (N(b) * e)) → (N(a*b) * e)
+        - :: (N(a) * e) → (N(0-a) * e)
+        / :: (N(non-zero a) * e) → (N(1/a) * e)
+        Q :: (N(non-zero b) * (N(a) * e)) → (N(r) * (N(q) * e))
             such that q integral, r in (b,0] or [0,b), and qb+r = a
 
 A few example numbers might be:
@@ -295,7 +295,7 @@ This block structure eliminates need for escapes, except for LF which is escaped
 
 Text is not a distinct type for ABC. Rather, text is a compact representation for introducing a list of small integers corresponding to the Unicode codepoints. The above code, consisting of six characters, has the same meaning as `#3#116l#120l#101l#84l`, which would have the type: 
 
-        e -> (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
+        e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
 
 The terminal `3` is arbitrary, though has some historical significance as the ETX (end of text) character in ASCII. It also serves as a weak indicator that the list was intended to be interpreted as text. (See conventions, later.)
 
@@ -307,15 +307,15 @@ The terminal `3` is arbitrary, though has some historical significance as the ET
 
 In ABC, only blocks can have substructural types. This is represented by marking an existing block as relevant, affine, or both (called linear):
 
-        k :: ([x->y] * e) -> ([x->y]' * e) (relevant, no drop)
-        f :: ([x->y] * e) -> ([x->y]' * e) (affine, no copy)
+        k :: ([x→y] * e) → ([x→y]' * e) -- relevant, no drop
+        f :: ([x→y] * e) → ([x→y]' * e) -- affine, no copy
 
 An affine block is no longer subject to the copy `^` operator. A relevant block is no longer subject to the drop `%` or conditional apply `?` operators. A relevant or linear block may still be applied with `$`, which removes the block. Adding substructural attributes to a block is idempotent and commutative.
 
 When two blocks are composed, the substructural attributes are inherited:
 
-        [code]k [more]f m = [codemore]kf
-        [code]f [more]  m = [codemore]f
+        [code]k [more]f o = [codemore]kf
+        [code]f [more]  o = [codemore]f
 
 A quotation inherits the substructural attributes of every blocks it quotes:
 
@@ -328,42 +328,41 @@ Awelon project leans heavily on substructural types, e.g. for exclusive bindings
 
 ### Conditional Behavior
 
-ABC uses sum types `(a + b)` as the foundation for conditional behavior. A sum type represents that we've observed a condition, and that we're either in the left condition (with type `a`) or the right condition (with type `b`). A boolean can be modeled as type `(1 + 1)`, and an optional with type `(a + 1)`. Type `0` describes void, identity for sums, discussed later.
+ABC uses sum types `(a + b)` as the foundation for conditional behavior. A sum type represents that we've observed a condition, and we've either observed the left condition `a` or the right condition `b`. Type `0` describes void, identity for sums, discussed later. Conditional behavior is modeled with the `?` operator, which applies an operation only to the left condition:
 
-Conditional behavior is modeled with the `?` operator, which applies an operation only to one condition:
+        ? :: (Droppable b) ⇒ b@[x→x'] * ((x + y) * e) → (x' + y) * e
 
-        ? :: (Droppable b) => b@[x->x'] * ((x + y) * e) -> (x' + y) * e
+To apply behaviors for other conditions, we must use data plumbing to shift the desired condition to the left. Sum types use their own set of data plumbing operators:
 
-To apply behaviors for other conditions, one must use data plumbing to shift the desired condition to the top. Sum types use their own set of data plumbing operators:
+        L :: (a + (b + c)) * e → ((a + b) + c) * e
+        R :: ((a + b) + c) * e → (a + (b + c)) * e
+        W :: (a + (b + c)) * e → (b + (a + c)) * e
+        Z :: ((a + b) + (c + d)) * e → ((a + c) + (b + d)) * e
+        V :: a * e → (a + 0) * e
+        C :: (a + 0) * e → a * e
 
-        L :: (a + (b + c)) * e -> ((a + b) + c) * e
-        R :: ((a + b) + c) * e -> (a + (b + c)) * e
-        W :: (a + (b + c)) * e -> (b + (a + c)) * e
-        Z :: ((a + b) + (c + d)) * e -> ((a + c) + (b + d)) * e
-        V :: a * e -> (a + 0) * e
-        C :: (a + 0) * e -> a * e
-
-*ASIDE:* Sums are processed as an element of a larger product, as opposed to directly mirroring the product operations with `L :: (a + (b + c)) -> ((a + b) + c)` and so on. The motivation is to diminish need for block composition and quotation in the common case.
+*ASIDE:* Sums are processed as an element of a larger product, as opposed to directly mirroring the product operations with `L :: (a + (b + c)) → ((a + b) + c)` and so on. The motivation is to diminish need for block composition and quotation in the common case.
 
 We also can distribute, factor, and merge sums:
 
-        D :: a * ((b+c) * e) -> ((a*b) + (a*c)) * e -- distrib
-        F :: ((a*b) + (c*d)) * e -> (a+c) * ((b+d) * e) -- partial factor
-        M :: (a+a') * e -> a * e -- merge
+        D :: a * ((b+c) * e) → ((a*b) + (a*c)) * e -- distrib
+        F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
+        M :: (a+a') * e → a * e -- merge
 
 On merge, the types `a` and `a'` must be compatible for all future operations, but they don't need to be precisely the same. What compatibility requires may be judged in context. Both partial factor and merge lose information. They must be used together to achieve a full factoring:
 
-        FM :: ((a*b)+(a'*c))*e -> a*((b+c)*e) -- full factor; inverse of D
+        FM :: ((a*b)+(a'*c))*e → a*((b+c)*e) -- full factor; inverse of D
 
 Sums may also be copied or dropped (with `^` and `%`) assuming that both elements may be copied and dropped. 
 
-Sums are constructed either by `V` or by a small set of simple observations and comparisons. By convention, ABC returns `(false + true)` for conditions and comparisons. 
+Sums are constructed either by `V` or by a small set of simple observations and comparisons. By convention, ABC returns `(false + true)` for conditions and comparisons (punning 'true' with 'right'): 
 
-        P :: (Observable x) => x * e -> (x+(a*b)) * e -- x is pair?
-        N :: (Observable x) => x * e -> (x+N(a)) * e -- x is number?
-        B :: (Observable x) => x * e -> (x+[a->b]) * e -- x is block?
-        S :: (Observable x) => x * e -> (x+(a+b)) * e -- x is sum?
-        < :: (Comparable x y) => x * (y * e) -> ((y*x)+(x*y)) * e -- x < y ?
+        P :: (Observable x) ⇒ x * e → (x+(a*b)) * e -- x is pair
+        N :: (Observable x) ⇒ x * e → (x+N(a)) * e -- x is number
+        B :: (Observable x) ⇒ x * e → (x+[a→b]) * e -- x is block
+        S :: (Observable x) ⇒ x * e → (x+(a+b)) * e -- x is sum
+        > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
+            #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
 Most types - pairs, sums, blocks, numbers - are observable. The primary exception is unit, type `1`, which serves as a typeful barrier against this kind of introspection. Deeper properties of blocks - e.g. substructural type, domain, range, authority - are not observable. 
 
@@ -376,7 +375,9 @@ ABC's comparison model is very general, enabling comparisons across structure:
 * sums treat active left as less than active right
 * unit is comparable only with unit (and equal)
 
-The separation of units is interesting. It enables developers to express and enforce rigid structure, such that unit values must statically align in the type system. This could be useful for vectors, matrices. However, structure is otherwise flexible and may be dynamic: texts and lists may have dynamic size, and will compare lexicographically.
+The separation of unit type from other comparables is interesting. It enables developers to express and enforce rigid structure, such that unit values must align for any comparison. This can be useful for static analysis, to express vectors, matrices. However, structure is otherwise flexible and may be dynamic: texts and lists may have dynamic size, and will compare lexicographically.
+
+Also, ABC's comparison operator `>` is non-traditional because it returns the operands, sorted in min-max order: `(y*x)+(x*y)` with `y > x` on the RHS, and `y ≤ x` on the left. The sorting is hopefully convenient for terse code, e.g. for `>Mr` as a quick 2-sort, and `>Mr>` as a quick and lossy inequality test. Returning the operands means that `#3 #2 >` ≠ `#4 #3 >` even though they're both 'right' or 'true'. This design addresses some concerns of [boolean blindness](http://existentialtype.wordpress.com/2011/03/15/boolean-blindness/).
 
 ### Unit and Void
 
@@ -400,32 +401,37 @@ An interesting property of static conditions is that, since a programmer is arou
 
 We can also *assert* that specific conditions hold:
 
-        K :: (a + b) * e -> b * e
+        K :: (a + b) * e → b * e
 
-Operator `K` says that we mustn't be in the left branch. If we are in the left branch, something has gone wrong, kill it. K should be understood similar to a type error. Preferably, we can statically prove we're in the right branch. If we prove we're in the left branch, that's certainly an error. If we can't prove either condition, 
-
-If not, we should issue a warning, or error. If we're in the left branch at runtime, we'll halt the program (cleanly, if possible).
+Operator `K` essentially says "prove me right". If we're in the left branch, there's an error in the program, similar to a type error. Expressing partial functions with `K` enables ABC to support rich concepts of dependent typing, i.e. a program is proven safe by proving we're always in the right branch at each `K`. If we are in the left branch at runtime (due to incomplete safety analysis in an open system) then we'll halt the program (cleanly, if possible, preferably *before* the error occurs by leveraging a transactional or rollback mechanism). 
 
 As a simple convention, we might also record a message in the environment such that, when an error is detected, a text message is visible in the environment:
 
-        wKw% :: Text * ((a + b) * e) -> b * e
+        wKw% :: Text * ((a + b) * e) → b * e
 
-Naturally, the message would be eliminated at compile time if we can ensure a safe static condition. A compiler could also recognize this convention and optimize it.
+Naturally, the message would be eliminated at compile time if we can ensure a safe static condition. And if there is an error or warning at compile-time, the text would be accessible to the developer.
 
 ### Spatial-Temporal Features
 
-ABC models spatial properties in terms of logical partitions, and temporal properties in terms of relative latencies. Leveraging spatial-temporal attributes, ABC programs can model real-time orchestration, workflows, and network overlays for heterogeneous or distributed systems. 
+ABC models spatial properties in terms of logical partitions, and temporal properties in terms of relative latencies. Leveraging spatial-temporal features is a simple, powerful basis for concurrency, distribution, and staging. 
 
-Effects and their capability texts are specific to a partition. To be reusable across partitions, subprograms are written in a pure or capability-secure manner that does not hard-code any capability text (modulo annotations or references to ABC resources, neither of which are effectful). Of course, partial evaluation can specialize generic programs, distributing capabilities at compile-time. 
+The spatial properties are not directly accessible from ABC. Communicating between partitions is considered an effect, and is thus controlled by use of capabilities. 
 
-Communication between partitions is considered an effect and requires a capability specific to source and destination. The notion of logical partitions is very versatile:
+
+Question: how is ABC involved with spatial properties? Is there some conventional model of capabilities I need for typechecking?
+
+Effects and their capability texts are specific to a partition. To be reusable across partitions, subprograms are written in a pure or capability-secure manner that does not hard-code any capability text (modulo annotations or references to ABC resources, neither of which are effectful). Of course, partial evaluation can specialize reusable programs, distributing capabilities at compile-time. 
+
+The notion of logical partitions is very versatile:
 
 * Heterogeneous systems can be modeled as partitions with different resources and effects. 
 * Distributed systems are modeled by having some communication capabilities admit disruption.
 * Staged programming can be modeled by modeling asymmetric communication between some partitions (i.e. different stages become different spatial partitions). 
-* Purity or confinement of ABC blocks is conceptualized in terms of applying a block in an unknown partition, which cannot be generalized if it has effectful bindings.
+* Confinement or purity can be enforced by computing a block in a fresh logical partition.
 
-(Thought: shall I just provide a `p` operator to assert purity of blocks? I can model purity using partitions. And I can't think of any use cases to restrict authority to enforce purity on a distrusted subprogram.)
+
+To perform conditional operations on a sum type requires projecting information *into* the condition, rather than the converse. This has important implications with respect to spatial properties, e.g. ABC can typefully enforce that a condition computed on the GPU is not accessible for decisions on the CPU. 
+
 
  Naturally, ABC code containing embedded capabilities is almost never polymorphic; reusable ABC code is either pure or explicitly models distribution of capabilities. Distributed systems are modeled in terms of communication capabilities that admit disruption or failure. 
 
@@ -450,7 +456,7 @@ In a
 
  allow disruption. RDP can leverage reactivity by separating acquisition of a st
 
-        getConnection :: something -> (fail + connection)
+        getConnection :: something → (fail + connection)
         connection is 
 
 
@@ -492,18 +498,34 @@ Location values are not observable, except by capability.
 
 ### Sealed Values (preliminary)
 
-The notion of sealers, unsealers, and sealed values is very useful for modeling rights amplification, security patterns, identity, and first-class ADTs. ABC systems are expected to make effective use of the sealer/unsealer concept.
+The notion of sealers, unsealers, and sealed values is very useful for modeling ADTs, encapsulation, identity, security patterns, and rights amplification. ABC is designed with the expectation that developers will leverage this pattern to address many challenges traditionally handled through module systems.
+
+In pseduo-types:
+
+        type Sealer U = Value → Sealed U Value
+        type Unsealer U = Sealed U Value → Value
+        type NewSealerUnsealer = U! → (Sealer U, Unsealer U)
+            where U! describes an affine uniqueness source
+
+ value and return a sealed value, specific to the sealer
+* an unsealer will process a sealed value from the corresponding sealer
+
+a capability that takes a value and returns a sealed value
+* unsealer: a capability that takes a sealed value from the corresponding sealer, and returns the underlying value (no longer sealed).
+
+
 
 A new sealer/unsealer pair can only be constructed through a capability that takes a unique value as an argument. (Uniqueness can be enforced by substructural types.) Anyhow, there is no primitive to create a sealer/unsealer pair, nor is there any primitive source of uniqueness. The sealer/unsealer concept requires support from the environment. 
-
-* sealer: a capability that takes a value and returns a sealed value
-* unsealer: a capability that takes a sealed value from the corresponding sealer, and returns the underlying value (no longer sealed).
 
 From these, it is easy to also construct a capability that will unseal a value, apply a block to it, then seal the result up again. 
 
 Anyhow, sealed values greatly benefit from recognition by type systems and optimizers. Especially of interest is what it might mean to seal a value that is distributed across space or time. It isn't clear, at the moment, whether any ABC primitives would help out, or whether some convention (in the naming of sealers and unsealers) would be sufficient. A variation on sealers/unsealers is to create a 'sealed space' - a new 'partition' for values which has a new set of capabilities for entry and exit. This could be useful for enforcing that a subprogram is typed to operate in any space.
 
 I plan to return to the issue of systematically modeling sealed values at a later time.
+
+
+
+
 
 ## Considerations and Conventions for Implementations
 
@@ -547,14 +569,15 @@ Through capabilities, ABC supports a notion of "annotations". Annotations provid
 
 Example applications for annotations:
 
-* suggest block attribute: lazy or parallel
-* suggest block attribute: compute on GPU or FPGA
+* suggest blocks be lazy or parallel
+* suggest blocks be computed on GPU or FPGA
 * suggest sequencing of potentially lazy value
 * suggest use of memoization or caching
 * suggest specialization or JIT at points in code
 * provide hints for proving safety or termination
 * improve blame, error, warning messages
 * tracing annotations, track to original code
+* assert confinement or purity of blocks
 * compile-time traces, run-time debug logs
 * debugger integration - breakpoints, visualization 
 * report features when streaming, e.g. support for secure hashes
@@ -597,11 +620,20 @@ Lists in ABC are generally modeled as ending with a number. However, rather than
 * number 2 for for Huet zippers
 * number 3 for text (built into ABC)
 * number 4 for sets (order, duplication shouldn't matter)
-* number 5 for association lists (list of key->value pairs)
+* number 5 for association lists (list of key→value pairs)
 
 Such little conventions are easy to track statically and can simplify optimization, visualization, model verification, and type analysis. 
 
 A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
+
+### Ambiguous ABC, AMBC
+
+Ambiguous ABC, or AMBC, is a simple extension to ABC with AO's ambiguity features. The `(|)` characters are used this way, e.g. `vr(wl|>M)c` has two meanings - the left always swaps two values, the right conditionally swaps them. The choice of meanings is not deterministic.
+
+AMBC is important as intermediate code for AO. It seems wise that compilers and optimizers in Awelon project should support AMBC. AMBC is also interesting for its ability to express a great deal of meaning in a compact space, and as a formal basis for genetic programming and other search techniques.
+
+AMBC is considered distinct from ABC because it lacks the streamability properties. However, the characters `(`, `|`, and `)` are reserved for AMBC. And in general, code accessed by `{#secureHash}` might be AMBC (though it would be an error to use AMBC where ABC is expected).
+
 
 ## Pitfalls to Avoid
 
@@ -617,7 +649,7 @@ Several times, I've been tempted to support user-defined extensions to ABC from 
 
 An example mechanism might expressed as:
 
-        d :: N(c) * ([x->y] * e) -> e  -- DO NOT
+        d :: N(c) * ([x→y] * e) → e  -- DO NOT
           where `c` is a UTF-8 character
           and the block is the new meaning of that codepoint
 
@@ -635,8 +667,10 @@ I do have some hypotheses regarding where future change might be appreciated:
 
 * extra conditions; quick test for natural number, text
 * dedicated encoding for folds to simplify termination analysis
-* extend math operators for vectors and matrices?
-* easy equality testing
+* extend math operators for vectors and matrices
+* convenient assertions for confinment or purity of blocks
+* maybe separate `?` into smaller components (partial distrib, left apply)
+* maybe full-ordering operator instead of multiple `<` comparisons
 
 But I'd like to know, rather than guess. It will take a large body of useful code to learn where the greatest benefits are obtained. Fortunately, so long as ABC retains its nature as a secure, tacit concatenative bytecode, it should not be difficult to systematically rewrite ABC from one version to another. 
 
