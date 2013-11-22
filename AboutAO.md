@@ -102,7 +102,7 @@ With a little convention, security implications should at least be visible and o
 
 ## Ambiguity and Search
 
-Ambiguous choice in AO is expressed by wrapping the ambiguous section in parentheses, and separating one or more options with a vertical bar. For example:
+Ambiguous choice in AO is syntactically expressed by wrapping an ambiguous section in parentheses, and separating one or more options with a vertical bar. For example:
 
         a (b | c d) e (f|g|h)
 
