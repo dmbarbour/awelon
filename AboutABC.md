@@ -173,7 +173,7 @@ If anything other than space or `~` follows LF, the ABC stream is in error. Ther
         "Text
         ~
 
-Text is not a distinct type for ABC. Rather, text is essentially a compact representation for introducing a list of small integers. The above text essentially means `#3#116l#120l#101l#84l`, which would have the type: 
+Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a list of small integers (range 0..1114111). The above text essentially means `#3#116l#120l#101l#84l`, which would have the type: 
 
         e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
 
@@ -670,7 +670,7 @@ ABC can potentially distribute many capabilities by partial evaluation at compil
 
 ABC can be implemented using a stack machine. Each frame on the stack would correspond to a block application, with `$` or `?`, which hides away part or the value and operates on the rest. 
 
-There are many cases where we can easily inline code, e.g. if a block is applied by the pattern `v$c`. Inlining code can be a powerful technique for performance optimizations. Similarly, there are many cases were we might be able to reduce the stack size, e.g. if a block ends with `$]` or `$c]`, effectively achieving [tail call elimination](http://en.wikipedia.org/wiki/Tail_call).
+There are many cases where we can easily inline code, e.g. if a block is applied by the pattern `vr$c`. Inlining code can be a powerful technique for performance optimizations. Similarly, there are many cases were we might be able to reduce the stack size, e.g. if a block ends with `$]` or `$c]`, effectively achieving [tail call elimination](http://en.wikipedia.org/wiki/Tail_call).
 
 An ABC implementation is not required to optimize tail calls, but it is encouraged. 
 
@@ -699,13 +699,19 @@ Such little conventions are easy to track statically and can simplify optimizati
 
 A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
 
-### Ambiguous ABC, AMBC
+### Sequence Interpretation
 
-Ambiguous ABC, or AMBC, is a simple extension to ABC with AO's ambiguity features. The `(|)` characters are used this way, e.g. `vr(wl|>M)c` has two meanings - the left always swaps two values, the right conditionally swaps them. The choice of meanings is not deterministic, but is constrained by typeful context and guided by heuristic search.
+In addition to being streamable, a nice feature of a tacit concatenative bytecode is that pattern recognition is trivial. An ABC stream interpreter might achieve great performance by simply recognizing common sequences of code and substituting a function compiled for that sequence. For example, we might recognize `vrwlc` and execute an optimized full-swap operation, rather than perform each ABC command in sequence. 
 
-AMBC is important as intermediate code between AO and ABC. It seems wise that compilers and optimizers in Awelon project should support AMBC. AMBC is also interesting for its ability to express a great deal of meaning in a compact space, and as a formal basis for genetic programming and other search techniques.
+More generally, sequence interpretation might be applied to optimize:
 
-AMBC is separated from ABC because ambiguity is not a feature that works well with streaming and effects. However, the characters `(`, `|`, and `)` are reserved for AMBC. In general, code accessed by `{#secureHash}` might be AMBC, though it would be an error to reference AMBC where ABC is expected.
+* common list operations (map, fold, addend, reverse)
+* common association list operations (extract, modify)
+* common number operations (exponentiation, matrix multiplication)
+
+The runtime overhead for sequence interpretation isn't very high; it can feasibly be modeled using a finite state machine or trie. An interpreter could have such a machine built-in for known common sequences. An interesting possibility is to dynamically modify this machine based on history for a given instance of the interpreter, leveraging JIT. 
+
+Sequence interpretation is related to ABCD, which will extend ABC with a dictionary of common sequences based on analysis of many projects. However, sequence interpretation is local to the interpreter, and potentially specialized to a problem domain or installation.
 
 ## Pitfalls to Avoid
 
@@ -717,33 +723,56 @@ The question of whether a capability is available should be resolved at the poin
 
 ### Conventions for Defining Symbols in ABC (Do not!)
 
-Several times, I've been tempted to support user-defined extensions to ABC from within ABC. Each time, I determine this is a bad idea. It seems too easy to forget why. 
+Several times, I've been tempted to support a user-defined symbol extension from within ABC. Each time, I determine this is a very bad idea. However, it seems easy to forget why. An example mechanism considered was:
 
-An example mechanism might expressed as:
-
-        d :: N(c) * ([x→y] * e) → e  -- DO NOT
+        : :: N(c) * ([x→y] * e) → e  -- DO NOT
           where `c` is a UTF-8 character
-          and the block is the new meaning of that codepoint
+          and the block contains meaning of that codepoint
 
-This is a bad idea because abstraction becomes implicit, detecting cycles is difficult, scoping is unclear, there are security concerns regarding the guessability of user-defined symbols. Easy answers, such as scoping based on blocks, often hinder equational reasoning and valuable semantic properties. We must also address new problems, such as symbol maintenance and update, or what it means to compose two subprograms that define the same symbol.
+Using a capability to define capability texts is similarly awful. This feature is a bad idea because:
 
-The issues don't depend on the mechanism. Using a capability to define capability texts is just as bad. However, these problems arise due to the interaction of definitions with blocks, streaming code, and mutually distrustful software components. Definitions are a problem when they are embedded in the same semantic layer as ABC.
+* preventing or detecting cycles is difficult
+* scoping properties are unclear, esp. with blocks and composition
+* becomes implicit form of abstraction, more than one way to do it
+* tracking dictionary context hinders reuse and equational reasoning
+* issues regarding symbol maintenance and update
+* concerns for security: distrusted software can guess common symbols
 
-We can safely use definitions in *separate* semantic layers. For example, AO (above ABC) defines words. An ABC stream serializer (below ABC) could also use a dictionary of definitions as a form of shorthand or compression. We can regain most benefits of definitions.
+I believe these problems arise due to the interaction of definitions with blocks, streaming code, and mutually distrustful software components. However, if we pushed definitions into a lower semantic layer than ABC - e.g. a form of shorthand or compression - I think it will be okay. This possibility is discussed below.
 
-## Future of ABC
+## Future Development: Awelon Bytecode Deflated (ABCD)
 
-ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify static analysis, improve optimizability, or eliminate much repetitive code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* 
+ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify static analysis, improve optimizability, or eliminate some repetitive code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* 
 
-I do have some hypotheses regarding where future change might be appreciated:
+To help address performance, analysis, and code repetition concerns - assuming code that can be expressed in ABC normally - I'm contemplating a language ABCD (Awelon Bytecode Deflated) that extends ABC with a dictionary mapping unused characters to common sequences of ABC.
 
-* extra conditions; quick test for natural number, text
-* dedicated encoding for folds to simplify termination analysis
-* extend math operators for vectors and matrices
-* convenient assertions for confinment or purity of blocks
-* maybe separate `?` into smaller components (partial distrib, left apply)
-* potentially remove `* e` from `LZRWVC` operators.
-* maybe full-ordering operator instead of multiple `<` comparisons
+I will take a very large corpus of ABC paragraphs, covering thousands of projects, to systematically discover common subprogram sequences that would be excellent targets for compression. This is more challenging than traditional compression: the possibility exists to rearrange code a little to factor out common structure.
 
-But I'd like to know, rather than guess. It will take a large body of useful code to learn where the greatest benefits are obtained. Fortunately, so long as ABC retains its nature as a secure, tacit concatenative bytecode, it should not be difficult to systematically rewrite ABC from one version to another. 
+Of the strongest candidates for compression, I would seek sequences with relatively simple types that can be comprehended and documented by humans, and that seem promising to simplify static analysis or performance if treated as primitives. For example, we might optimize encodings for maps and folds over a list, addending lists, testing whether a value is a natural number or positive integer, extracting a record from an association list, addition and multiplication of matrices. 
+
+If this works as well as I hope, then ABCD will become a very effective language for streaming, interpreters, and compilers, while retaining ABC's simple semantics, security, and tacit concatenative structure. ABC would remain the small, trusted kernel targeted for constructive proofs. ABC can be translated to ABCD easily enough by simple parsing or rewrite techniques, and the converse is even easier.
+
+The extension of ABCD would be an incremental effort, with attention to newly popular data structures and design patterns. This will be a slow process, guided by consideration for overheads of language updates and larger dictionaries. Those overheads include costs for upgrading existing systems, plus the costs associated with keeping a larger dictionary for operations that are progressively more rare and specialized. I.e. UTF-8 supports over a million characters, but I doubt we'll ever want million element lookup tables. However, in two octets, UTF-8 supports two thousand characters. I expect we could do a great deal of good for a wide variety of problem domains with a library of two thousand common functions!
+
+I currently favoring the following constraints for future development:
+
+* single octet codes reserved for very rare core ABC extensions
+* higher codes will be utilized by ABCD, initially within two octets
+* esoteric C0 and C1 to be avoided, or leveraged for out-of-band comms
+* ABCD supports extensions for inference, performance, compression 
+* ABC only extended for new core features that can't otherwise be modeled
+
+ABCD can be leveraged together with external `{#secureHash}` lookups plus streaming compression algorithms below UTF-8. Secure hash lookups are great for project specific libraries or templates, and they support cached compilation. Streaming compression is excellent great for communicating large amounts of text for human perusal or embedded DSLs, or for compressing capabilities and annotations that appear repeatedly. 
+
+Between these techniques and sequence interpretation, I believe ABC can be very performance competitive for streaming data and control, while retaining nice syntactic and semantic properties.
+
+## Ambiguous Awelon Bytecode (AMBC)
+
+Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. Essentially, ABC is extended with `(|)`, which are used exactly as they are in AO. E.g. `vr(wl|>M)c` has two potential meanings - the left always swaps two values, the right conditionally swaps them. In AO, this ambiguity becomes an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. 
+
+The choice of meanings is not deterministic, but is constrained by typeful context and guided by heuristics. The set of meanings is always finite, but potentially intractable - e.g. it is trivial to construct short AMBC programs that represent spaces of 2^100 ABC programs. There are useful techniques for searching large spaces: hill climbing, repeated local search, genetic programming, etc..
+
+My intuition is that AMBC is not very suitable for streaming code. The typeful context to disambiguate earlier options are often unavailable until later in the stream. This might be an area worth exploring, but in general AMBC should not be accepted outside of special programming environments.
+
+AMBC may be used with the ABCD dictionary or `{#secureHash}` resources. 
 

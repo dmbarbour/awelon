@@ -86,6 +86,8 @@ The canonical expansion of inlined ABC is simply each ABC operator alone. For ex
 
 Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. AO uses a dedicated reader state for capabilities. So the first three points don't hinder AO. The limitation on capabilities is discussed below.
 
+*Note:* AO does not allow inlining of ABCD. ABCD essentially extends ABC with a fixed dictionary, which is redundant with AO's own dictionary feature. ABC will instead compiled to ABCD as a postprocess, independently of how AO modularizes code.
+
 ## Proper Capability Security
 
 AO prohibits syntactic representation of semantic capabilities, i.e. you cannot hard-wire authorities (e.g. to read or write files), nor even pure extensions (e.g. for floating point matrix manipulations), into AO code. This is a good thing! By distributing authorities and extensions through code as a formal part of the computation, AO is far easier to port, configure, maintain (with tests and mockups), and secure.
@@ -115,30 +117,30 @@ The meaning of the above subprogram may be any one of:
         a c d e g
         a c d e h
 
-Many expansions can be eliminated if they are not *meaningful*, that is if they are not type safe, accounting for context of use. Of the remaining, valid expansions, one will be chosen heuristically. That is, rather than making a random choice, we search for a program that has nice characteristics and qualities according to a developer or configuration. 
+Many expansions can be eliminated if they are not *meaningful*, that is if they are not type safe (including context). Of the remaining, valid expansions, one will be chosen heuristically. That is, rather than making a random choice, we search for a valid program that has nice characteristics and qualities according to a developer or configuration. 
 
 To support heuristics, programmers can annotate their code with *attributes*:
 
         %{&attrib} :: (Attribute x) => (x * e) -> (x * e)
 
-Attributes are local, statically computable, introspectable values, passed to the `%{&attrib}` annotation. (An invalid attribute will result in a minor warning and be ignored.) In addition to user-defined attributes, an AO programming environment may compute attributes regarding stability, size, expected performance. The whole mess of attributes is then passed to user-provided heuristic functions, and subject to a variety search techniques.
+Attributes are statically computable, introspectable values, passed to the `%{&attrib}` annotation - usually a `(label*number)` pair. An invalid attribute will result in a minor warning and be ignored. In addition to user-defined attributes, an AO programming environment may compute attributes regarding stability, size, expected performance. The whole list of attributes is generally passed to user-provided heuristic functions, and subject to a variety of search techniques.
 
-Roles for ambiguous code and program search: rapid prototyping, live coding, exploring design spaces, adaptive or self-optimizing code, proofs. Of course, search isn't the only approach: edit-time suggestions and auto-complete can support similar roles. Due to the overhead of search, edit-time techniques should be favored where feasible.
+Roles for ambiguous code and program search: rapid prototyping, live coding, exploring design spaces, adaptive code, optimization, tactical theorem proving. Of course, search isn't the only approach: edit-time suggestions and auto-complete can support similar roles. Due to the overhead of search, edit-time techniques should be favored where feasible.
 
 An interesting application of AO's ambiguity is genetic programming. A common class of ambiguous programs has structure amenable to treating choices as genes - i.e. most of the choices are shallow and near the toplevel. We can create populations of viable solutions modeled by vectors, test them, and search for stable, high quality solutions within the specified space of programs.
 
 *NOTES:* `()` is identity, `(a)` is just `a`, and `(a|)` is an optional `a`. Ambiguous choice is fully associative, commutative, and idempotent. The order that choices are expressed has no impact on heuristics. 
 
-## Controlling Ambiguity
+### Constraining Ambiguity
 
 Search is expensive. Also, context-dependent meaning can be semantically troubling, e.g. it hinders equational reasoning. Ambiguity is a feature that must be used carefully, and removed from the codebase when it is no longer necessary.
 
 One job of the programming environment is to help developers easily recognize and control where ambiguity is used. Towards this end, I suggest two techniques:
 
 1. ambiguous words are colored or styled differently when rendered
-2. automatic tests can introspect and fail if certain words are ambiguous
+2. automatic tests may introspect dictionary and fail if a word is ambiguous
 
-If a word is ambiguous generally, but unambiguous in context, it might have a third style. This design is simple, flexible, and easily extended to more attributes and properties. 
+When a word is ambiguous generally, but unambiguous in context, it might be rendered differently than if ambiguous in context. Overall, this design is simple, flexible, and easily extended for more attributes and properties. 
 
 ## Syntax of AO
 
@@ -160,22 +162,28 @@ A specific programming environment might have a few extra constraints, e.g. so w
 
 ### Flat Namespace
 
-AO's namespace has no imports and exports, nor even a syntax to define words. All words are provided through an environment provided dictionary. And all words in the dictionary are available. There are no context-dependent words. This has many advantages, including:
+AO has no syntax for imports and exports, nor even a syntax to define words. Instead, AO developers maintain a dictionary through their programming environment. A word, in this dictionary, is both the unit of modularity and a functional software component. (Some words, by naming convention, may also represent environment extensions, automated tests, or live services.) All words in the dictionary in the dictionary are uniformly available: no hierarchy, no context-dependent bindings. 
 
-* words become the unit of modularity
+AO's design has many advantages, including:
+
 * no boiler-plate import/export management
 * common language and refactoring across projects
+* unifies module, function, and software component
 * easy fit for a wiki-based programming environment
 * more opportunity for discovery, reuse, knowledge sharing
 * conflicts resolved, not avoided: dense namespace, terse code
 
-Of course, a flat namespace can be irritating in cases where we really want words to have unambiguous, operational meaning in a particular context, such as DSLs. 
+However, a flat namespace also has a weakness. In some use-cases, we want words to have unambiguous *operational definitions* in a particular context, such as a DSLs or a specific project. Historically, developers in languages with flat namespaces address this concern by use of naming convention, typically a prefix identifying a library. But this solution comes with a terrible price: increased verbosity, decreased readability.
 
-To help address this concern, developers can use words with with prefixes or suffixes in a conventional manner. Then a good programming environment should be configurable to render words differently based on these conventions - leveraging style, color, icons, and hiding the repetitive bits. Similarly, when typing the word, the editor can help a developer select the intended meaning, leveraging awareness of typeful context. 
+Fortunately, we can address this weakness in a modern programming environment. 
 
-In general, edit-time resolution in this manner should be favored to use of AO's ambiguity feature. It will result in a more colorful, meaningful programming environment.
+AO has almost no syntax, and minimal need for syntax highlighting. AO programming environments are thus free to use color and style to improve readability and developer awareness in more ad-hoc ways, such as identifying ambiguity properties and types... or as an alternative to rendering full words.
 
-Long term, I imagine we'll discover common features across many domains, and we might want to factor common subprograms into the more common vernacular. However, having project specific words based on a prefix isn't a bad way to start a new project, and the programming environment can eliminate most of the pain of doing so.
+We can configure our programming environments to recognize common prefixes or suffixes, and instead render distinct colors, styles, or icons. This way, we can disambiguate the origin of a word at a glance, without reading disambiguation text. It also becomes easy to see more of the program at once, and to recognize patterns in how words from different DSLs and projects are mixed. To help write these longer words, we can leverage auto-complete. Color also helps for auto-complete, to more quickly identify the desired word. 
+
+AO should have a single dictionary for many thousands of projects. 
+
+Cross-project refactoring then becomes an effective basis for discovering or creating common words that need no prefix, or perhaps be part of a common DSL. Developers are free to use project specific words to start, then slowly shift reusable content into shared spaces.
 
 ### Documentation and Learning AO
 
@@ -222,9 +230,11 @@ A powerblock is a linear block that contains authority and security policy. It p
 
 Named stacks can easily be used for most future environment extensions. The `ext` space is reserved for anything that becomes popular enough that a performance boost is desired.
 
-### Data Shuffling
+### High Level Data Shuffling
 
 Many common words involve moving values and structures around on the current stack or within the environment. For example, `take` and `put` move objects between stack and hand. `juggleK` and `rollK` rotate objects within the hand or current stack respectively. `:label load` and `:label store` will treat named stacks as a form of global memory. `:label goto` will swap the current stack with the named stack.
+
+Similarly, I expect AO will heavily leverage Huet zipper-based abstractions, which are essentially a form of data shuffling.
 
 Shuffling operations are very first order. However, procedures can be built above them, and they often fade into the background. When coupled with iteration and search, shuffling can offer powerful transformations on the environment.
 
