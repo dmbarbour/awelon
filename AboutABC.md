@@ -14,7 +14,7 @@ Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a str
 * **functional** higher order expressions, immutable values, pure by default
 * **bytecode** UTF-8 for text, but ABC codes within Latin-1 character set
 
-ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended as an intermediate language to be compiled to native code (or LLVM, etc.) for execution. 
+ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended as an intermediate language to be compiled to native code (or LLVM, etc.) for execution.
 
 Programmers generally work in a higher level language that compiles to ABC, such as AO. An interesting property of AO is that, with a good dictionary, both assembly and disassembly of ABC is quite feasible.
 
@@ -35,13 +35,13 @@ ABC is represented in a stream of UTF-8 encoded characters. There are no section
         {capabilityText}
         vrwlc
 
-This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports whitespace (LF (10) and SP (32)) by assigning it the meaning 'identity', to simplify formatting of ABC. 
+This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports two whitespace characters (LF (10) and SP (32)) assigning them the meaning 'identity', to simplify formatting of ABC.
 
 ### ABC Paragraphs
 
 ABC encourages an informal notion of "paragraphs". A paragraph separates a batch of code, serving as a soft, discretionary indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should process a whole number of paragraphs in each step.
 
-A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the stream. Much like a paragraph in a text file.
+A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the stream. This corresponds well to a paragraph in any English text file.
 
 Paragraphs may be enforced in serialization layers - simply disconnect from a client that doesn't provide timely paragraphs of a reasonable size (perhaps with soft, probabilistic tolerance). Paragraphs are convenient as an implicit boundary for batching, typechecking, compilation, and atomic update, while still enabling flexibility to process multiple batches together for performance reasons.
 
@@ -75,11 +75,11 @@ Text is shorthand for producing a list of small numbers between 0 and 1114111, t
 
 Effects in ABC are achieved by invoking environment-provided operators: `{foo}` would invoke the environment with token "foo" and the tacit argument. This token is unforgeable from within ABC: there are no operators to invoke computed text as a capability. Access to effects is typically granted through a block, of a form like `[{foo}]`. 
 
-For open or distributed systems, the token should be cryptographically secure and specific to an environment - e.g. encrypted text, signed text, or secure random GUID - such that access to effects is [securable](http://en.wikipedia.org/wiki/Capability-based_security). 
+For open or distributed systems, the token should be cryptographically secure and specific to an environment - e.g. encrypted text, signed text, or secure random GUID - such that access to effects is [securable](http://en.wikipedia.org/wiki/Capability-based_security) in presence of ad-hoc code distribution.
 
 Environment-provided operators may be first-class. For example, `[{obj:SecureRandomGUID}]` might serve as a reference to a specific object in the environment. Applying this block would essentially result in passing a message to the object.
 
-(*Note:* no nesting! tokens may not contain `{` or `}` characters.)
+(*Note:* no nesting! These tokens may not contain `{` or `}` characters.)
 
 ## ABC Behavior Details
 
@@ -90,15 +90,17 @@ ABC provides a minimal set of primitive operators for block-free structure manip
         l :: (a * (b * c)) → ((a * b) * c)
         r :: ((a * b) * c) → (a * (b * c))
         w :: (a * (b * c)) → (b * (a * c)) 
-        z :: ((a * b) * (c * d)) → ((a * c) * (b * d))
+        z :: (a * (b * (c * d))) → (a * (c * (b * d)))
         v :: a → (a * 1)
         c :: (a * 1) → a
+
+Type `1` is identity for product, called 'unit', and provides static structure.
 
 There are other minimal sets with fewer operators, but this set has some nice symmetry properties. The operators `lzrw` are sufficient for all data shuffling where the rightmost element is sticky, and `v` can displace the rightmost element.
 
 Example encodings:
         
-        lzrw :: (a * (b * (c * d))) → (c * (a * (b * d))) -- rot3
+        zw    :: (a * (b * (c * d))) → (c * (a * (b * d))) -- rot3
         vrwlc :: (a * b) → (b * a) -- full swap
 
 In addition to shifting objects around, we can drop or copy values:
@@ -181,9 +183,9 @@ The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX 
 
 ### Identity
 
-ABC has two identity operators: SP (32) and LF (10) have type `x → x`. Effectively, whitespace in the ABC stream may be ignored. Additionally, the empty program performs no operations and is thus equivalent to identity.
+ABC treats two whitespaces - SP (32) and LF (10) - as identity operators with type `x → x`. Effectively, whitespace in the ABC stream may be ignored. Also, the empty program is equivalent to identity, since it performs no operations on the tacit input.
 
-Tabs or carriage returns are not valid ABC operators. If encountered in an ABC system, an error should be raised as for any other invalid operation.
+(Tabs or carriage returns are not valid ABC operators. If encountered in an ABC system, an error must be raised, as for any other invalid operator.)
 
 ### Substructure
 
@@ -209,7 +211,7 @@ When a relevant block is copied, both copies are relevant. (*Note:* Technically,
 
 ### Conditional Behavior
 
-A sum type, `(a + b)`, represents that we're either right with `b` or left with `a`. A sum type is constructed by observing a condition. In ABC, primitive operators enable observing coarse structure and comparing values:
+A sum type, `(a + b)`, represents that we're either right with `b` or left with `a`. A sum type is constructed by observing a condition. In ABC, primitive operators enable observing a few basic conditions, by convention punning 'right' with 'true', i.e. `(false + true)`. Observation primitives include:
 
         P :: (Observable x) ⇒ x * e → (x+x(a*b)) * e -- x is pair
         S :: (Observable x) ⇒ x * e → (x+x(a+b)) * e -- x is sum
@@ -218,32 +220,26 @@ A sum type, `(a + b)`, represents that we're either right with `b` or left with 
         > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-By convention, these pun 'right' with 'true'. 
+Most types are observable and comparable. Pairs are greater than numbers, and numbers are greater than sums. Pairs compare first before second, i.e. such that text or lists will compare in lexicographic order. Sums treat left as before right, and only compare inner elements if the branching is equal. 
 
-Most types are observable and comparable. The exceptions are:
-
-* blocks are not comparable
-* unit is not observable
-* unit may be compared only with unit (and is equal)
-
-The limitations on unit are discussed later, regarding *semi-static structure*. 
-
-Anyhow, pairs are greater than numbers, and numbers are greater than sums. If two `(x*y)` pairs are compared, the `x` elements are compared first, and the `y` elements only if `x` is equal. If two `(x+y)` sums are compared, the inner elements are compared only if branches match; otherwise, right is greater than left. The operands to a comparison are returned, sorted in `(min*max)` order.
+However, blocks are not comparable, unit is not observable, and unit may be compared only with unit (and is equal). Unit provides a foundation for static structure: in general, developers must know statically where to find unit values. This is discussed later.
 
 After a condition is observed, we can conditionally apply a block:
 
         ? :: (Droppable b) ⇒ b@[x→x'] * ((x + y) * e) → (x' + y) * e
 
-Note that conditional application counts as dropping a block. A relevant block may not be applied in this manner. To apply a block to other conditions requires a set of data shuffling operators for sums:
+A block with the 'relevant' substructural property cannot be applied in this manner. Any such block must be applied under all conditions.
+
+Sums have their own set of data shuffling operators:
 
         L :: (a + (b + c)) * e → ((a + b) + c) * e
         R :: ((a + b) + c) * e → (a + (b + c)) * e
         W :: (a + (b + c)) * e → (b + (a + c)) * e
-        Z :: ((a + b) + (c + d)) * e → ((a + c) + (b + d)) * e
+        Z :: (a + (b + (c + d))) * e → (a + (c + (b + d))) * e
         V :: a * e → (a + 0) * e
         C :: (a + 0) * e → a * e
 
-Type `0` is also called void, and corresponds to a vacuous argument. All operations on void return void, though a static analysis should infer a type for the void to detect inconsistencies in dead code.
+Type `0` is identity for sum, called 'void', and corresponds to vacuous argument. Analysis may infer a type for void to detect inconsistencies in dead code. 
 
 We also can distribute, factor, and merge sums:
 
@@ -251,31 +247,28 @@ We also can distribute, factor, and merge sums:
         F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
         M :: (a+a') * e → a * e -- merge
 
-On merge, the types `a` and `a'` must be compatible for future operations, but they don't need to be precisely the same. What compatibility requires may be judged in context. Partial factor and merge must be used together to fully factor:
+Full factor is modeled by combining partial factor and merge:
 
         FM :: ((a*b)+(a'*c))*e → a*((b+c)*e) -- full factor; inverse of D
 
+On merge, the types `a` and `a'` must be compatible for future operations, but they don't need to be exactly the same. What 'compatibility' requires may be judged in context. However, conservatively, any unit values in `a` and `a'` must be structurally aligned. 
+
 Sums may also be copied or dropped (with `^` and `%`) assuming both element types may be copied and dropped.
 
-### Metaprogramming: Static Conditions and Assertions
+*ASIDE:* ABC avoids a form of [boolean](http://existentialtype.wordpress.com/2011/03/15/boolean-blindness/) [blindness](http://www.hxa.name/notes/note-hxa7241-20131124T0927Z.html) where subprograms lose information about whatever was compared or observed. Developers can explicitly scrub results if they wish to reduce a comparison to a boolean `(1 + 1)`.
 
-Partial evaluation is a simple but effective approach to compile-time metaprogramming. Further, it works very well with ABC's assumptions of causal commutativity and fast and loose reasoning. A great deal of a program's behavior can often be computed in advance. Even capabilities might partake if they have some compile-time aspects.
+### Partial Functions and Contracts
 
-An interesting property of static conditions is that, since a programmer is around to validate a choice, we can relax compatibility requirements for merge. When merging static conditions with `M` we may reduce compatibility concerns to warnings. Or suppress them entirely, depending on context and severity.
-
-We can also *assert* that specific conditions hold:
+ABC provides a simple operator for partiality, assertions, and contracts:
 
         K :: (a + b) * e → b * e
 
-Operator `K` essentially says "prove me right". If we're in the left branch, there's an error in the program, similar to a type error. Expressing partial functions with `K` enables ABC to support rich concepts of dependent typing, i.e. a program is proven safe by proving we're always in the right branch at each `K`. If we are in the left branch at runtime (due to incomplete safety analysis in an open system) then we'll halt the program (cleanly, if possible, preferably *before* the error occurs by leveraging a transactional or rollback mechanism). 
-
-As a simple convention, we might also record a message in the environment such that, when an error is detected, a text message is visible in the environment:
-
-        wKw% :: Text * ((a + b) * e) → b * e
-
-Naturally, the message would be eliminated at compile time if we can ensure a safe static condition. And if there is an error or warning at compile-time, the text would be accessible to the developer.
+This operator represents a form of divergence: if we're in the left, that's equivalent to a type error and we'll stop the program as quickly and cleanly as possible. Otherwise we're okay. However, ABC is not restricted to runtime detection of this error. Expressing partial functions with `K` enables ABC to infer dependent types and contracts. If `K` cannot be statically proven safe, the programming environment may issue a warning or raise an error.
 
 ### Spatial-Temporal Features
+
+Question: beyond capabilities, how is ABC involved with spatial properties? Is there some conventional model of capabilities I need for typechecking?
+
 
 ABC models spatial properties in terms of logical partitions, and temporal properties in terms of relative latencies. Within a product or sum, the different elements may have different spatial-temporal attributes - for example, we can have types of the form `(Number@CPU * Number@GPU)`. In addition, the product or sum as a whole may have a location, with regards to where it can be introspected.
 
@@ -287,17 +280,9 @@ modulo special capabilities, ABC code may not introspect when or where a value i
 
 Additionally, the product or sum itself has a concept of spatial-temporal 'evidence' - i.e. regarding when and where knowledge that the product is a product becomes available. This is important, for example, when loading text on a remote machine.
 
-In general, information 
-
-For the most part, spatial properties are not directly accessible from ABC. 
-
- However, ABC does require some conventions to assert properties about location, to support 
-
-
 The spatial properties are not directly accessible from ABC. Communicating between partitions is considered an effect, and is thus controlled by use of capabilities. 
 
 
-Question: how is ABC involved with spatial properties? Is there some conventional model of capabilities I need for typechecking?
 
 Effects and their capability texts are specific to a partition. To be reusable across partitions, subprograms are written in a pure or capability-secure manner that does not hard-code any capability text (modulo annotations or references to ABC resources, neither of which are effectful). Of course, partial evaluation can specialize reusable programs, distributing capabilities at compile-time. 
 
@@ -375,6 +360,18 @@ spatial properties of sums and products
 
 Location values are not observable, except by capability.
 
+
+Logical latency properties aren't just for type safety. They guide the scheduler, and support logically synchronous actions on distributed objects, which may result in synchronized behavior on hardware if the hardware supports precise buffering and timing.
+
+ for atomic values (numbers, blocks). Logical latency is a rational number, indicating a time in seconds. Blocks may also have latency constraints on when they can be invoked. Logical latency is only increased by a logical delay operator. Logical delay simply increments logical latency. 
+
+The relationship between logical latency and real-time is maintained by a scheduler. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms, and some scheduling may occur at compile time. If an effect is invoked on the future, it may be scheduled without invoking it immediately while computation continues elsewhere. Or if a computation is running ahead of where it needs to be, the scheduler may devote more resources to other computations.
+
+The logical model of time, especially on a real timeline (seconds, not arbitrary units), is valuable for understanding and controlling feedback behaviors, for achieving consistent behavior for reactive networks overlays, for comprehending interaction of concurrent effects. However, developers don't always need to think about time. In many cases, the role of assigning temporal properties can be pushed into other layers - networking, effects, frameworks.
+
+Related: [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009.
+
+
 ### Sealed Values (preliminary)
 
 The notion of sealers, unsealers, and sealed values is very useful for modeling ADTs, encapsulation, identity, security patterns, and rights amplification. ABC is designed with the expectation that developers will leverage this pattern to address many challenges traditionally handled through module systems.
@@ -405,200 +402,71 @@ I plan to return to the issue of systematically modeling sealed values at a late
 
 
 
-## ABC Qualities
+## ABC Assumptions
 
-This section discusses a few high level properties of ABC's design.
-
-### Semi-Static Structure
-
-Operator `P` in ABC corresponds to `pair?` in Scheme. Like Scheme, ABC can leverage pairs for rich dynamic structure - lists and trees of arbitrary size and structure. Unlike Scheme, ABC can easily control dynamic structure by use of unit type.
-
-The fundamental concept of unit is *structure without information*. I.e. `(a*1)` or `(1*(a*1))` should carry just as much *information* as `a`, but certainly isn't equivalent to `a`. In a system with introspection on structure, this seems to be a problem: the structure itself carries information! We can presumably use `P` to distinguish `1` vs. `(1*1)`.
-
-In ABC, this dilemma is resolved by making unit non-observable. If we apply `P` to `(1*1)`, we get an affirmative. If we apply `P` to `1`, we get a type error. Similarly, unit may only be compared with unit, and is always equal. Our inability to observe unit effectively shifts implicit structural information from the runtime to the compile-time, where it is no problem. 
-
-Leveraging unit, developers can express which data structures are recursively observable, vs. where static knowledge of structure is required. Hypothetically, optimizers can take advantage of structural constraints and common patterns (e.g. static sized vector and matrix operations).
-
-### Monotonic Observations
-
-Many programming languages reduce observations to boolean types, i.e. type `(1 + 1)`, then select conditional behavior based on this structure. Squeezing behavior through the boolean is problematic in many ways: a great deal of information is lost and must be explicitly recovered, and becomes difficult to track after a few more booleans are in scope. Robert Harper has, appropriately, called this phenomenon [boolean blindness](http://existentialtype.wordpress.com/2011/03/15/boolean-blindness/).
-
-In general, ABC avoids this problem. The basic structural observations, `PSBN`, return the element observed - i.e. `P :: x * e → (x+x) * e` - except that we've gained a little information: on the right, `x` is certainly a pair; on the left, `x` is certainly not a pair. Comparison of values also returns the elements observed, as `((y*x)+(x*y))`.
-
-Observations in ABC are not lossy; they strictly increase the amount of information. A consequence, however, is that ABC doesn't much use booleans. I.e. `#4 #3 >` ≠ `#3 #2 >` because, even though they are both 'right', they are right for different reasons. 
-
-If developers desire to treat comparisons as booleans, they must explicitly scrub the information down to `(1 + 1)`.
+This section discusses a few high level properties of ABC's design that cannot readily be inferred from the operators or tacit concatenative streamable structure.
 
 ### Causal Commutativity and Spatial Idempotence
 
-ABC universally assumes causal commutativity and spatial idempotence.
+ABC requires causal commutativity and spatial idempotence for effects models.
 
-Causal commutativity means that there is no ordering relationship unless there is a visible dependency where the output of one behavior is the input of the next. This property is extremely valuable for optimizations (cf. [Causal Commutative Arrows and their Optimization](http://haskell.cs.yale.edu/?post_type=publication&p=72) by Hai Liu, Eric Chang, Paul Hudak). 
+Causal commutativity means that there is no ordering relationship unless there is a visible dependency where an output of one behavior is observed or manipulated by the next. This property is valuable for optimizations (cf. [Causal Commutative Arrows and their Optimization](http://haskell.cs.yale.edu/?post_type=publication&p=72) by Hai Liu, Eric Chang, Paul Hudak). 
 
-        conventional commutativity: (ABC does not have)
+        conventional commutativity: (ABC does not generally have)
             foo bar = bar foo
-        causal commutativity: (ABC assumes / requires)
+        causal commutativity: (ABC requires and assumes)
             [foo] first [bar] second = [bar] second [foo] first
               where first  :: [a→a'] * (a*b) → (a'*b)
                     second :: [b→b'] * (a*(b*c)) → (a*(b'*c))
 
 Spatial idempotence means that, if the same action is performed twice with the same inputs, there is no additional observable impact. This property is also extremely valuable for optimizations, e.g. in content distribution networks. 
 
-        conventional idempotence: (ABC does not have)
+        conventional idempotence: (ABC does not generally have)
             foo foo = foo
-        spatial idempotence: (ABC assumes / requires)
+        spatial idempotence: (ABC requires and assumes)
             [foo] first dup = dup [foo] first [foo] second
               where first  :: [a→a'] * (a*b) → (a'*b)
                     second :: [b→b'] * (a*(b*c)) → (a*(b'*c))
                     dup    :: (x * e) → (x * (x * e))
 
-ABC is designed primarily for reactive demand programming (RDP), which has both spatial idempotence and causal commutativity universally. ABC optimizers and refactoring tools will assume these properties even when ABC is not targeting an RDP behavior. Fortunately, it is not difficult to leverage linear values to thread effects in imperative code, such that it becomes compatible with spatial idempotence and causal commutativity. Interestingly, this approach is a great deal more precise regarding concurrency and synchronization than traditional models of imperative. 
+ABC is designed primarily for reactive demand programming (RDP), which naturally has both spatial idempotence and causal commutativity. By requiring these properties, ABC code can be uniformly optimized without tracking usage context. 
 
-Spatial idempotence and causal commutativity are valuable because they enable a high level of equational reasoning even in the presence of side-effects. Effectively, developers have most of the reasoning benefits of purity without any of the overheads. 
+Fortunately, it is possible to achieve spatial idempotence and causal commutativity even for imperative programming. These properties can be enforced via the effects model, by careful design of capabilities. Affine or linear capabilities - representing threads or objects - renders spatial idempotence irrelevant (since you can't duplicate the expression). Causal commutativity results in minimal, promise-like synchronization with a natural DAG. If necessary, race condition indeterminism can be modeled by [oracle machine](http://en.wikipedia.org/wiki/Oracle_machine) capabilities.
+
+Spatial idempotence and causal commutativity offer valuable properties for equational reasoning and optimizations. ABC programs can be manipulated in many ways similar to pure functions.
 
 ### Fast and Loose Reasoning for Termination
 
-ABC favors a philosophy of 'fast and loose reasoning' about termination properties. (cf. [Fast and Loose Reasoning is Morally Correct](http://www.cse.chalmers.se/~nad/publications/danielsson-et-al-popl2006.html), Danielsson, Hughes, et al. POPL 2006.) The idea is that - with respect to optimizations, equational laws, rewriting, loop fusion, parallelization, laziness - we should assume every subprogram terminates (or is intended to). This assumption simplifies reasoning. 
+ABC favors a philosophy of 'fast and loose reasoning' about termination properties. (cf. [Fast and Loose Reasoning is Morally Correct](http://www.cse.chalmers.se/~nad/publications/danielsson-et-al-popl2006.html), Danielsson, Hughes, et al. POPL 2006.) The idea is that - with respect to optimizations, equational laws, rewriting, loop fusion, parallelization, laziness - we should assume every subprogram terminates (or is intended to). 
 
-To enforce this assumption, ABC compilers should perform termination analysis. 
+To help enforce and remind developers of this philosophy, ABC compilers should perform termination analysis, and long-running programs should be modeled as RDP behaviors or incremental processes (see conventions, later).
 
-ABC is Turing complete, so we can't expect a decision to be reached for every program. However, termination analysis is really about avoiding errors in reasoning. And *most errors aren't subtle*. Many silly errors can be detected. A warning, issued when termination could neither be proven nor disproven (within a limited computational effort), can help developers realize where more attention is required.
+ABC is Turing complete, so we can't expect a decision to be reached for every program. However, termination analysis is really about avoiding errors in reasoning. And *most errors aren't subtle*. Accidental non-terminations often can be detected, and many developers will write reusable software such that analysis passes without a 'could not prove' warning.
 
-For ABC, long-running imperative processes shall generally be modeled either as short-running incremental processes (see conventions, below). This is very useful for reasoning about progress, termination, and process control.
+Termination is a weak property. In practice, we often wish to reason about performance characteristics: latency, memory requirements, resource usage. Ackermann function terminates, but not within reasonable bounds. However, termination is a great start.
 
-Termination is a weak property. In practice, we often wish to reason about performance characteristics: latency, memory requirements, resource usage. Ackermann function terminates, but not within reasonable bounds. However, termination is a good start.
+### Flexible Safety Analysis
 
-### Implicit Concurrency
+ABC has an implicit type system with six structural types (pair, sum, unit, void, number, block), substructural types (relevant, affine, expires), and modal types for spatial-temporal attributes (latency, location, sealed values). Termination analysis is recommended to validate fast-and-loose reasoning. ABC further supports inference of dependent types or contracts by use of operator `K`.
 
-Between causal commutativity and fast and loose reasoning, ABC supports a high level of implicit concurrency and non-strict semantics. This is formalized further with spatial-temporal attributes, which can model operations occurring simultaneously at different locations. 
+However, ABC does not specify any inference algorithms.
 
-The usual difficulty with implicit concurrency is that we also have implicit synchronization, and if synchronization is fine-grained then we often lose more than we gain by attempting concurrency. Consequently, implicit concurrency is often better leveraged by modeling a concurrent system. By explicitly modeling concurrency - e.g. with workflows, pipelines, incremental processes, RDP behaviors, or forkable thread objects - we can minimize implicit synchronization, and we can provide systematic annotations regarding where parallelism is best introduced.
+The idea, by not specifying algorithms, is to not tie ABC to any particular analysis model, and thus enable independent analysis.
 
-Thus, in practice, abstractions above ABC systems will generally be explicit about concurrency. But there's a nice qualitative benefit: developers of concurrency abstractions don't need to deal with any painful APIs for synchronization.
+By not specifying an algorithm, I hope to enable independent evolution of analysis, a growing array of recognizers and strategies to prove safe structures, algorithms, and architectures. 
 
-### Tacit Concatenative Structure
-
-### Capability-Based Security
-
-### Flexible Type Analysis
-
-ABC has an implicit type system consisting of structural types (pair, sum, unit, void, number, block), substructural types, and a few modal types for spatial-temporal attributes. ABC is subject to termination analysis to validate fast and loose reasoning. Further, ABC's assertion model, operator `K`, enables expression of ad-hoc contracts. 
-
-ABC can be executed as dynamically typed code.
-
-To be streamable, every error must be observable at a specific location in the stream. If we try to observe a unit value, or compare blocks, or apply `K` when we aren't right, then we know we are wrong. If a type failure occurs at runtime, the full ABC program will be halted as quickly and cleanly as possible. (System and architecture layers may use 'executive' capabilities to provide a boundary for partial failure.)
-
-However, ABC is designed for static typing. There are several errors that cannot be avoided by dynamic introspection. In a streaming scenario, we might spend a few cycles analyzing each paragraph for any obvious errors.
-
-ABC does not specify a type inference algorithm.
-
-Programs for validating ABC streams will evolve, often together with optimizers for ABC. Types can be inferred from partial functions and folds. Typechecking can be augmented with pattern recognizers that detect common structures, algorithms, and architectures. I hope, eventually, that analysis systems can reason much like humans do, using multi-level reasoning to argue that systems are correct or incorrect. 
-
-This leads to a philosophy: 
+The philosophy for static analysis of ABC is:
 
 * prove it right, pass it silently
 * prove it wrong, raise an error
-* indecision, issue a warning
-* incrementally improve strategies to decide more programs
+* indecision, pass with a warning and check at runtime
+* incrementally improve strategies to efficiently decide more programs
 
+By allowing indecision, analysis of ABC can freely move between heavyweight and lightweight depending on context, whether the code is streamed or a more traditional application, and so on. 
 
+Most static languages reject programs unless they're provably correct according to the type system. ABC's more relaxed philosophy accepts (with warning) code that is not proven wrong. I think this may give ABC a more dynamic feel, especially if combined with dependently typed structures. However, ABC is not a dynamic language. There are no ad-hoc coercions. There are no operators to avoid or recover from errors. 
 
-
-
- finite set of strategies, or consuming a quota of compute resources. 
-
-
-
-ABC systems shouldn't second-guess developers unless they can *prove* them wrong. On the other hand, ABC systems shouldn't lie to developers, either, by pretending everything is okay without *proof*. 
-
-ABC programs aren't wrong unless you can prove them wrong... but they also aren't right unless you can
-
-
-In addition to low level, precise types, we might recognize known safe patterns of behavior at a much higher level. We can potentially achieve very organic transitions between high level architectures and low level structures, and much deeper optimizations.
-
-
-The ability to recognize and leverage common structures, folds, algorithms, and design patterns can potentially greatly improve analysis 
-
-This is left to the environment, and it is free to evolve and improve along with any optimizations.
-
-* infer types primarily from partial functions and folds
-* recognize or hypothesize common structures, algorithms, patterns
-* precise, forgiving; prove safety in context or by partial evaluation
-* termination analysis semidecision - pass, warn, error
-
- And, indeed, multiple algorithms may be applied. Such algorithms are free to develop separately from updates to ABC.
-
-In case of indecision, ABC will generally be forgiving by default. I.e. if we prove there is a problem, we raise an error; if we prove there isn't a problem, we pass silently; if we fail to prove either condition, we may issue a warning. Developers are free to shift warnings to errors through their programming environment or annotations.
-
-The 
-
-
- ABC is directed to be relatively forgiving: 
-
- is designed to support static typing and analysis, but doesn't dictate any particular algorithms. Of course, not just any analysis will do; some moderately advanced features are required to adequately type an ABC system.
-
-
-ABC
-
-There is no syntax in ABC for declaring types. However, use of assertion operator `K` and observations `PNSB` can help express types or contracts. Similarly, 
-
-, but it is possible to assert conditions on the code. In essense, ABC is designed to support static type safety without ever defining 'type'. 
-
-Pattern recognition features aren't essential, but could result in much greater efficiency for analyzing real bodies of code, and lead to more effective error messages and optimizations for runtime behaviors. For example, we might recognize operations over lists subject to loop fusion, or that a particular association list is never used in an order-dependent manner.
-
-
-### Type Attributes
-
-The basic types are augmented with a rich set of attributes and dependent types:
-
-* location and latency properties model where and when values can be accessed
-* sealed value types model information-hiding and rights amplification
-* substructural types for blocks model obligations and resource limitations
-* latency constraints for blocks and sealed values - expires, ripens
-* track potential ranges for numbers, e.g. protect against divide-by-zero
-
-Attributes can express and enforce some very useful properties. Note: moving values (between locations) and sealing values are both capability based. ABC type systems assume a conventional class of capabilities that enable these features.
-
-
-
-### Logically Timed
-
-ABC tracks logical latency properties for atomic values (numbers, blocks). Logical latency is a rational number, indicating a time in seconds. Blocks may also have latency constraints on when they can be invoked. Logical latency is only increased by a logical delay operator. Logical delay simply increments logical latency. 
-
-The relationship between logical latency and real-time is maintained by a scheduler. A good scheduler will keep logical and real time tightly aligned with predictable failure modes, using both soft and hard mechanisms, and some scheduling may occur at compile time. If an effect is invoked on the future, it may be scheduled without invoking it immediately while computation continues elsewhere. Or if a computation is running ahead of where it needs to be, the scheduler may devote more resources to other computations.
-
-The logical model of time, especially on a real timeline (seconds, not arbitrary units), is valuable for understanding and controlling feedback behaviors, for achieving consistent behavior for reactive networks overlays, for comprehending interaction of concurrent effects. However, developers don't always need to think about time. In many cases, the role of assigning temporal properties can be pushed into other layers - networking, effects, frameworks.
-
-Related: [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009.
-
-### Data is represented with Code
-
-Structured data in ABC systems is modeled as a stream of ABC code that constructs it. For example, rather than a pair using a structured syntax `(42,108)` we might send code that builds a pair from a unit value: `#108#42lc`. The quotation operator in ABC, `'`, will automatically compute such a constructor for any value.
-
-This approach offers powerful advantages for simplicity, self-validation, compression, and procedural generation. Further, it is much more extensible. To compose code is equivalent to editing the value. The code can be used as history, and formally refactored and optimized for time or space performance. Lenses and views are readily applied. 
-
-For connectivity between Awelon project systems, data will uniformly be serialized in this manner. Additionally, a communication context - a value that belongs to the connection - will be maintained at each endpoint, enabling more optimal communication by storing some reusable macros or templates. 
-
-## ABC Behavior Details
-
-This section has a more detailed description of the ABC behaviors. 
-
-Operators are ascribed with type descriptors in a Haskell-like language. ABC itself has no language for type ascription, but developers can imply structure through partial functions.
-
-ABC's choice of operators is guided by the following desiderata:
-
-* avoid block composition and quotation
-* simplify static analysis and type safety
-* simplicity, minimality, symmetry, invertibility
-* text treated like a first-class type
-* similar treatment for products and sums
-
-Performance and parsimony are not strong motivators in ABC's initial design. It's far too difficult to judge such benefits without real metrics for real applications. I also wish to learn how far we can go with typecheckers, optimizers, and compilers that recognize conventional patterns. Parsimony is partially addressed by a conventional use of capabilities to reference ABC resources by secure hash (discussed later). 
-
-
-
-
-
+I believe that ABC's philosophy is close in nature to [gradual typing](http://en.wikipedia.org/wiki/Gradual_typing), albeit with more inference and less annotation.
 
 ## Considerations and Conventions for Implementations
 
@@ -660,19 +528,29 @@ Annotations can be very useful despite their lack of formal meaning within the p
 
 If an ABC system doesn't understand an annotation, it should ignore it rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage.
 
+### Data is represented by Code
+
+Data serialization in Awelon systems is modeled by a stream of ABC code that reconstructs the data. E.g. a pair `(42,108)` might be serialized to `#108#42lc`. In general, this is similar to the quotation operator. 
+
+Representing data as code has nice advantages for simplicity, self-validation, optimization, reuse, and laziness or procedural generation. Addending such code is equivalent to editing or transforming the value. Lenses and views are readily applied. 
+
+For connectivity between Awelon project systems, data will uniformly be serialized in this manner. Additionally, a communication context - a value that belongs to the connection - will be maintained at each endpoint, enabling more optimal communication by storing some reusable macros or templates. 
+
 ### Capabilities Under-the-Hood
 
-Capability text can be generated lazily, when it is actually observed via serialization or reflective capability. In practice, many capabilities will never be observed, and thus the capability text never needs be generated. Capability invocations can essentially be replaced by object pointers. 
+Capability text can be generated lazily, when the capability is serialized to the network. In practice, most capabilities will never be serialized, and thus the capability text never needs be generated. Under the hood, capabilities can be opaque object pointers. 
 
-ABC can potentially distribute many capabilities by partial evaluation at compile-time. The indirection through a block can potentially be removed, the capability code inlined. 
+### Executive Capabilities for Partial Failure
 
-### Tail Call Elimination and Inlining
+ABC does not have any operators to catch runtime errors. This must is fulfilled by use of 'executive' capabilities, which operate similar to `$` but also admit the possibility of runtime failure - similar to like:
 
-ABC can be implemented using a stack machine. Each frame on the stack would correspond to a block application, with `$` or `?`, which hides away part or the value and operates on the rest. 
+        {exec} :: [x→x']*(x*e) → (x+x')*e
 
-There are many cases where we can easily inline code, e.g. if a block is applied by the pattern `vr$c`. Inlining code can be a powerful technique for performance optimizations. Similarly, there are many cases were we might be able to reduce the stack size, e.g. if a block ends with `$]` or `$c]`, effectively achieving [tail call elimination](http://en.wikipedia.org/wiki/Tail_call).
+Executives are secured to resist 'defensive programming' strategies in-the-small which should be left to higher architectural layers. Developers can control which subprograms might operate in degraded form. 
 
-An ABC implementation is not required to optimize tail calls, but it is encouraged. 
+### Tail Call Elimination
+
+ABC might be implemented on a stack machine to handle blocks. In that case, [tail call elimination](http://en.wikipedia.org/wiki/Tail_call) is recommended unless stack size is statically bounded. If an applied block ends in `$]` or `$c]`, this is a likely candidate for tail-call elimination. Similarly, ABC has something like an inlining operation: `vr$c`.
 
 ### Linear Implementation or Garbage Collection
 
@@ -686,7 +564,7 @@ Some designs will be more or less efficient than others, or more or less amenabl
 
 ### List Terminals as Type Tags
 
-Lists in ABC are generally modeled as ending with a number. However, rather than uniformly ending lists with number 0, I suggest ending lists with a number that hints at their type. Current conventions:
+Lists in ABC are generally modeled as ending with a number. However, rather than uniformly ending lists with number 0, I suggest ending lists with a number that hints at their type. Suggested conventions:
 
 * number 0 for generic lists
 * number 1 for numerical unit lists
@@ -694,14 +572,15 @@ Lists in ABC are generally modeled as ending with a number. However, rather than
 * number 3 for text (built into ABC)
 * number 4 for sets (order, duplication shouldn't matter)
 * number 5 for association lists (list of key→value pairs)
+* number 8 for binary (integers in range 0-255)
 
-Such little conventions are easy to track statically and can simplify optimization, visualization, model verification, and type analysis. 
+This convention is easy to track statically and may simplify optimization, visualization, model detection, and type analysis. 
 
 A special case is list-like structures that are intended to have statically known size (tuples, vectors, stacks). These might be terminated using unit, which prevents recursive introspection.
 
 ### Sequence Interpretation
 
-In addition to being streamable, a nice feature of a tacit concatenative bytecode is that pattern recognition is trivial. An ABC stream interpreter might achieve great performance by simply recognizing common sequences of code and substituting a function compiled for that sequence. For example, we might recognize `vrwlc` and execute an optimized full-swap operation, rather than perform each ABC command in sequence. 
+In addition to being streamable, a nice feature of a tacit concatenative bytecode is that pattern recognition (at low levels) is often trivial. An ABC stream interpreter might achieve great performance by simply recognizing common sequences of code and substituting a function compiled for that sequence. For example, we might recognize `vrwlc` and execute an optimized full-swap operation, rather than perform each ABC command in sequence. 
 
 More generally, sequence interpretation might be applied to optimize:
 
@@ -713,66 +592,35 @@ The runtime overhead for sequence interpretation isn't very high; it can feasibl
 
 Sequence interpretation is related to ABCD, which will extend ABC with a dictionary of common sequences based on analysis of many projects. However, sequence interpretation is local to the interpreter, and potentially specialized to a problem domain or installation.
 
-## Pitfalls to Avoid
-
-### Conditional Capabilities (Do not!)
-
-When brainstorming, one of my ideas was a convention of the form `{?foo}`, whose output was a sum type depending on whether the environment recognizes `{foo}` as a valid capability. This initially seems neat because it results in code adaptable to the environment. However, the properties are simply *wrong* for adaptive code. 
-
-The question of whether a capability is available should be resolved at the point the capability is acquired, upstream of where it is applied. This enables a bigger picture view of what resources are available for developing adaptive code. This separation of concerns also improves portability, extensibility, configuration management, testing with mockup environments, and security.
-
-### Conventions for Defining Symbols in ABC (Do not!)
-
-Several times, I've been tempted to support a user-defined symbol extension from within ABC. Each time, I determine this is a very bad idea. However, it seems easy to forget why. An example mechanism considered was:
-
-        : :: N(c) * ([x→y] * e) → e  -- DO NOT
-          where `c` is a UTF-8 character
-          and the block contains meaning of that codepoint
-
-Using a capability to define capability texts is similarly awful. This feature is a bad idea because:
-
-* preventing or detecting cycles is difficult
-* scoping properties are unclear, esp. with blocks and composition
-* becomes implicit form of abstraction, more than one way to do it
-* tracking dictionary context hinders reuse and equational reasoning
-* issues regarding symbol maintenance and update
-* concerns for security: distrusted software can guess common symbols
-
-I believe these problems arise due to the interaction of definitions with blocks, streaming code, and mutually distrustful software components. However, if we pushed definitions into a lower semantic layer than ABC - e.g. a form of shorthand or compression - I think it will be okay. This possibility is discussed below.
-
 ## Future Development: Awelon Bytecode Deflated (ABCD)
 
-ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify static analysis, improve optimizability, or eliminate some repetitive code. Such scenarios will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* 
+ABC isn't frozen. As projects, applications, and frameworks are developed, I expect to learn that a few changes might simplify static analysis, improve optimizability, or reduce repetitive code. What is learned will eventually lead to careful evolution of ABC. *The future of ABC is data-driven design.* 
 
-To help address performance, analysis, and code repetition concerns - assuming code that can be expressed in ABC normally - I'm contemplating a language ABCD (Awelon Bytecode Deflated) that extends ABC with a dictionary mapping unused characters to common sequences of ABC.
+However, ABC should be kept minimal.
 
-I will take a very large corpus of ABC paragraphs, covering thousands of projects, to systematically discover common subprogram sequences that would be excellent targets for compression. This is more challenging than traditional compression: the possibility exists to rearrange code a little to factor out common structure.
+I plan to develop a larger bytecode above ABC: ABCD, or ABC Deflated.
 
-Of the strongest candidates for compression, I would seek sequences with relatively simple types that can be comprehended and documented by humans, and that seem promising to simplify static analysis or performance if treated as primitives. For example, we might optimize encodings for maps and folds over a list, addending lists, testing whether a value is a natural number or positive integer, extracting a record from an association list, addition and multiplication of matrices. 
+ABCD extends ABC with a dictionary that maps UTF-8 characters (in the 2+ octet range) to large, commonly used sequences of ABC. ABCD enables streaming compression of a raw ABC stream against this dictionary. In addition to compression benefits, a carefully designed ABCD dictionary can simplify static analysis and rewrite optimizations by capturing known-safe patterns with high level equational laws. For example, we may introduce operators to map or fold over lists, or manipulate association lists as row-polymorphic records. 
 
-If this works as well as I hope, then ABCD will become a very effective language for streaming, interpreters, and compilers, while retaining ABC's simple semantics, security, and tacit concatenative structure. ABC would remain the small, trusted kernel targeted for constructive proofs. ABC can be translated to ABCD easily enough by simple parsing or rewrite techniques, and the converse is even easier.
+In presence of ABCD, updates to ABC are only necessary for new primitive concepts that could not otherwise be expressed. ABCD addresses bytecode layer performance and parsimony.
 
-The extension of ABCD would be an incremental effort, with attention to newly popular data structures and design patterns. This will be a slow process, guided by consideration for overheads of language updates and larger dictionaries. Those overheads include costs for upgrading existing systems, plus the costs associated with keeping a larger dictionary for operations that are progressively more rare and specialized. I.e. UTF-8 supports over a million characters, but I doubt we'll ever want million element lookup tables. However, in two octets, UTF-8 supports two thousand characters. I expect we could do a great deal of good for a wide variety of problem domains with a library of two thousand common functions!
+Development of ABCD shall be an incremental and empirical effort, based on actual data, and with attention to newly popular data structures and patterns, and constrained by concerns about growing a dictionary too large. There is a point of diminishing returns for larger dictionaries. But I suspect we could do a great deal of good with the UTF-8 two octet range (almost two thousand elements). 
 
-I currently favoring the following constraints for future development:
+ABCD, external `{#secureHash}` resources, and streaming compression below UTF-8 (e.g. [DEFLATE](http://en.wikipedia.org/wiki/DEFLATE)) seem to fulfill largely orthogonal roles for compression and performance:
 
-* single octet codes reserved for very rare core ABC extensions
-* higher codes will be utilized by ABCD, initially within two octets
-* esoteric C0 and C1 to be avoided, or leveraged for out-of-band comms
-* ABCD supports extensions for inference, performance, compression 
-* ABC only extended for new core features that can't otherwise be modeled
+* Secure hash resources for large templates, libraries, frameworks
+* ABCD covers shorter sequences encountered frequently across projects
+* UTF-8 compression covers embedded text, capabilities, local patterns
 
-ABCD can be leveraged together with external `{#secureHash}` lookups plus streaming compression algorithms below UTF-8. Secure hash lookups are great for project specific libraries or templates, and they support cached compilation. Streaming compression is excellent great for communicating large amounts of text for human perusal or embedded DSLs, or for compressing capabilities and annotations that appear repeatedly. 
-
-Between these techniques and sequence interpretation, I believe ABC can be very performance competitive for streaming data and control, while retaining nice syntactic and semantic properties.
+In addition, compression can be explicitly modeled within an ABCD stream, though it won't be profitable until dictionary lookups are cheap to express in ABCD. Anyhow, between these compression layers, I believe streaming Awelon projects can be very performance competitive for streaming control and data.
 
 ## Ambiguous Awelon Bytecode (AMBC)
 
-Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. Essentially, ABC is extended with `(|)`, which are used exactly as they are in AO. E.g. `vr(wl|>M)c` has two potential meanings - the left always swaps two values, the right conditionally swaps them. In AO, this ambiguity becomes an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. 
+Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. Essentially, ABC is extended with `(|)`, which operate exactly as they do in AO. E.g. `vr(wl|>M)c` has two potential meanings - the left always swaps two values, the right conditionally swaps them. Ambiguity must properly nest with blocks. In some contexts, ambiguity becomes an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. (But caveat emptor: ambiguity hinders performance and reasoning.)
 
-The choice of meanings is not deterministic, but is constrained by typeful context and guided by heuristics. The set of meanings is always finite, but potentially intractable - e.g. it is trivial to construct short AMBC programs that represent spaces of 2^100 ABC programs. There are useful techniques for searching large spaces: hill climbing, repeated local search, genetic programming, etc..
+The choice of meanings is not deterministic, but is constrained by typeful context and guided by heuristics. The set of meanings is always finite, but potentially intractable - e.g. it is trivial to construct short AMBC programs that represent spaces of 2^100 ABC programs. There are useful techniques for searching large spaces: hill climbing, repeated local search, genetic programming, etc.. AMBC never guarantees an 'optimal' choice of program, but will often choose well enough.
 
 My intuition is that AMBC is not very suitable for streaming code. The typeful context to disambiguate earlier options are often unavailable until later in the stream. This might be an area worth exploring, but in general AMBC should not be accepted outside of special programming environments.
 
-AMBC may be used with the ABCD dictionary or `{#secureHash}` resources. 
+AMBC can be used with `{#secureHash}` resources, which may themselves be ambiguous (though, naturally, it would be an error to reference ambiguous resources outside of AMBC systems). It may also be used with ABCD dictionaries, though said dictionaries will never be ambiguous. 
 

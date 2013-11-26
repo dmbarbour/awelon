@@ -27,9 +27,9 @@ If an object has a unique identity, it might be useful to treat this as an abili
 
 However, I also wish to control authority granted to 'children' along the unique identity path. Perhaps this technique will work: Instead of having a 'centralized' switchboard for power, the 'identified' powerblock is free to restrict powerblocks for ALL children, including BOTH those identities that have already been distributed AND those identities that have yet to be created. 
 
-Basically, remove the ordering constraint.
+Basically, **remove the ordering constraint.**
 
-Hmm. Restricting the child is ALWAYS an operation in the parent, and the order doesn't matter much. It might be useful to tweak the naming so that pre-distributed names are distinct from runtime names. But this could be left to convention, with the default being a smooth transition between compile-time and runtime objects.
+Hmm. Restricting the child is ALWAYS an operation in the parent, and the order (whether child is forked before or after restriction is specified) doesn't matter much. It might be useful to tweak the naming so that pre-distributed names are distinct from runtime names. But this could be left to convention, with the default being a smooth transition between compile-time and runtime objects.
 
 I like! So let's go with this for now:
 
@@ -50,34 +50,19 @@ When a parent splits into children, it must name each of them. A possibility is 
 
 Even better might be an option: users can ask for a multi-bob or just a plain bob, each time they fork. There may be extra constraints on authorities granted to a reusable path?
 
-## Adoption or Ascendance?
-
-An interesting case: a user wants to separate a particular object so it is no longer subject to the restrictions of its parent. A possibility here is 'adoption' - a capability that might move an object (and all embedded state, as-is) from downlevel to uplevel. Or perhaps 'adoption' is not the best word for it. Perhaps 'ascend'. This might need to be performed by the uplevel static capability (it's effectively a procedure), and apply only to a static cap.
 
 ## Runtime Capabilities are Distributed at Runtime
 
-If runtime powers were distributed at compile-time, it would be difficult modify that distribution later. Instead, runtime powers are distributed at runtime.
-
+If runtime powers were distributed statically in the user's environment, it would be difficult modify that distribution later. Therefore, runtime powers should be distributed at runtime.
 
 If power is distributed via the static environment, the distribution process is lost to history - i.e. it is not visible, not accessible for editing or update. OTOH, if power of a mobile object depends on where it is installed, then it cannot readily be used as a capability, and perhaps depends too much on context. 
 
-I could accept that users cannot easily manipulate powers accessible to mobile objects. (Don't like.)
+I could accept that users cannot easily manipulate powers accessible to mobile objects. But I would prefer the ability to manage such authorities. 
 
-Potentially, a location in the environment describes constraints for powerblocks distributed at compile-time, like a switchboard. This seems very divorced, but it might work well enough due to hierarchy.
+An interesting possibility: caps can be delivered statically, but the constraints on these caps are specified at runtime. I.e. a parent powerblock can constrain a child powerblock (or grandchild, etc.) before OR after creating the child, while retaining the decentralized nature of security policy. Thus, there are some useful commutativity properties here.
 
+## Adoption or Ascendance?
 
-
-
-
-
-
-
-
-Distribution of power to a mobile structure must still be accessible for editing. 
-
-
-
-
-
+An interesting case: a user wants to separate a particular object so it is no longer subject to the restrictions of its parent. A possibility here is 'adoption' - a capability that might move an object (and all embedded state, as-is) from downlevel to uplevel. Or perhaps 'adoption' is not the best word for it. Perhaps 'ascend'. This might need to be performed by the uplevel static capability (it's effectively a procedure), and apply only to a static cap.
 
 

@@ -10,7 +10,7 @@ See AboutABC for full explanations and design. This file just records each code,
         l :: (a * (b * c)) → ((a * b) * c)
         r :: ((a * b) * c) → (a * (b * c))
         w :: (a * (b * c)) → (b * (a * c))
-        z :: ((a * b) * (c * d)) → ((a * c) * (b * d))
+        z :: (a * (b * (c * d))) → (a * (c * (b * d)))
         v :: a → (a * 1)
         c :: (a * 1) → a
         % :: (Droppable x) ⇒ (x * e) → e
@@ -45,7 +45,7 @@ See AboutABC for full explanations and design. This file just records each code,
         L :: (a + (b + c)) * e → ((a + b) + c) * e
         R :: ((a + b) + c) * e → (a + (b + c)) * e
         W :: (a + (b + c)) * e → (b + (a + c)) * e
-        Z :: ((a + b) + (c + d)) * e → ((a + c) + (b + d)) * e
+        Z :: (a + (b + (c + d))) * e → (a + (c + (b + d))) * e
         V :: a * e → (a + 0) * e
         C :: (a + 0) * e → a * e
 
@@ -65,9 +65,6 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 
 Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
-
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. 
-
-
 
 

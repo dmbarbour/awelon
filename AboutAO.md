@@ -213,22 +213,22 @@ Also, a useful feature would be some zoomability or progressive disclosure. Word
 
 ## Standard Environment
 
-AO doesn't enforce any particular environment, except the basic `(s * e)` pair to use literals. However, modifying the environment can require widespread edits to the dictionary. The environment presented here should be effective and extensible, and well suited to text-based programming environments.
+AO doesn't enforce any particular environment, except the basic `(s * e)` pair to use literals. However, significant structural modifications of an environment require widespread edits to the dictionary. To help avoid this, I've developed (after several iterations) an environment that seems effective, extensible, and usable for text based programming:
 
         (stack * (hand * (power * ((stackName * namedStacks) * ext))))
 
 * stack - the current stack where operations occur
 * hand - a second stack, used as a semantic clipboard
-* power - powerblock, source of capabilities and identity
+* power - powerblock; source of authority, state, identity
 * namedStacks - list of `(name * stack)` pairs
 * stackName - name of current stack
 * ext - unused, potential for future extensions
 
-By a stack, I mean a structure of the form `(a * (b * (c * ...)))`. List has the same meaning structurally, but lists are typically processed differently than stacks (iteration, fold, search). Names should be static text, usually labels such as `:foo`.
+By a stack, I mean a structure of the form `(a * (b * (... * 1)))`. List has similar structure, but terminate with a number instead of unit (and thus may be recursively manipulated). Names should be static text, easy to remember, e.g. labels such as `"foo"`.
 
-A powerblock is a linear block that contains authority and security policy. It provides features for state resources, to observe or influence the outside world. Access to a powerblock at a stable location provides the syntactic convenience of an ambient authority programming, but also enables precise control, override, and auditing of effects used by distrusted subprograms.
+The powerblock is the generic entry point to observe or influence the real world. Utilizing power is (generally) a multi-step process that involves acquiring a specific capability then applying it. For abstraction and security purposes, functions are often granted specific capabilities on the stack. A powerblock also can be forked so a distrusted subprogram receives a child powerblock, which may be constrained in general terms before forking. Access to a powerblock at a stable location provides syntactic convenience similar to ambient authority.
 
-Named stacks can easily be used for most future environment extensions. The `ext` space is reserved for anything that becomes popular enough that a performance boost is desired.
+Named stacks can easily be used for most future environment extensions. The `ext` space is reserved for structures that becomes popular enough that a fixed relative location is desired.
 
 ### High Level Data Shuffling
 
@@ -265,26 +265,20 @@ An interesting feature of document-like structures is that they can be navigated
 An interesting convention to help specify datatypes is to model folds: 
 
 
-### Integrating Alternative Environments
+## Refactoring
 
-The standard environment was developed assuming text-based editing, and relatively simple visualizations. But non-standard environments are certainly feasible, e.g. for frameworks, or for streamable programs as the basis for UI and augmented reality (a goal of the Awelon project). 
+There is significant utility of being able to refactor at the syntactic layer, i.e. by copy-and-paste or search-and-replace of common code segments. When refactoring is easy, it happens often and fluidly and is more readily aided by software. AO simplifies this further by favoring a flat namespace - there is no need to parse context to comprehend bindings.
 
-The integration point between environments will generally be "software components" that have a relatively narrow interface for inputs and outputs. When the interface is narrow, writing adapter code is trivial.
+An AO programming environment should help developers refactor, e.g. highlight sequences of five to twelve words that are seen many times in a codebase, or sequences that already have dedicated names. In the latter case, the AO programming environment would implicitly help developers discover and learn existing words. 
 
+Beyond simple pattern matching, we must also concern ourselves with the boundaries, how definitions are aligned and coupled with words. For example:
 
-## Refactoring and Discovery
+        word1  word2            word3  word4  e
+        a b c  d e      (vs)    a b    c d 
 
-An often underestimated advantage of tacit concatenative is how *easy* refactoring is at the syntactic or structural layers. When refactoring is easy, it happens often and fluidly, and software can more readily help. Essentially, the [activation energy](http://en.wikipedia.org/wiki/Activation_energy) is lower. 
+Well chosen boundaries results in more comprehensible, reusable code. AO words are at once functions, modules, and software components. Thus the boundaries correspond to interface and coupling decisions. Unfortunately, whether boundaries are well chosen is often unclear before there is a great deal of reuse in a broad variety of contexts. 
 
-In AO, users can learn words. A word is often defined by a sequence of five to twelve more words. When a sequence is encountered a few times in a codebase, the programming environment might highlight it for refactoring.
-
-We can also explore spatial aliasing - how we choose to factor the borders between words. Conceptually, we can expand definitions in place and decide whether different borders and boundaries would lead to greater reuse or more comprehensible code. 
-
-A good AO programming environment should greatly aide with refactoring, highlighting opportunities without being obtrusive about it.
-
-And refactoring doesn't need to find new words; if an AO dictionary is used for hundreds or thousands of projects, it is quite possible that another project has already discovered the useful and reusable words that you desire. The greater history a dictionary has, the more such words will be discovered.
-
-Discovery becomes a didactic experience, an opportunity to learn a new word, study how it is used, possibly learn about a project related to your own.
+An AO programming environment should also support developers in exploring different arrangements of boundaries, in addition to other equivalent expressions of the same behavior based on blocks or causal commutativity.
 
 ## Dissassembly and Translation
 
