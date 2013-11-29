@@ -267,6 +267,8 @@ This operator represents a form of divergence: if we're in the left, that's equi
 
 (under development!)
 
+Likely Ops: delay, expiration of blocks
+
 Related: 
 
 * [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009. 
@@ -357,11 +359,13 @@ An alternative to repeating code is to name it. Then we can reuse large code by 
 
 ABC leverages its effects model to access these `{#secureHash}` sources. 
 
-Here, 'secureHash' will be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; typesafe), then essentially inline the subprogram in place of the `{#secureHash}` text (albeit, dropping paragraph breaks). The text itself may contain more `{#secureHash}` sources.
+Here, 'secureHash' will be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; typesafe), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
 
-To obtain resources, we search local cache or query proxy services. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To improve latency for layers of references, a proxy is free to send a few extra sources that it anticipates will soon be required.
+To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required.
 
-Frequently used sources can be cached in precompiled form for performance. Thus, `{#secureHash}` sources serve as a foundation for separate compilation and linking in ABC. Long term, I envsion that global libraries of highly reusable sources will be developed and refined by automatic factoring, such that there is much benefit of developing in terms of these higher level components.
+Frequently used sources can be cached in precompiled form for performance. Thus, `{#secureHash}` sources serve as a foundation for separate compilation and linking in ABC. 
+
+Long term, I envsion that global libraries of highly widely used sources will be developed and highly refined, such that there is much benefit to developing in terms of these higher level components, or using them for automatic factoring and compression of independent ABC code.
 
 ## Awelon Bytecode Deflated (ABCD)
 
@@ -383,5 +387,5 @@ In most use-cases, ambiguity should be resolved statically. Relevantly, if a blo
 
 The resolution of ambiguity is not deterministic, but is constrained by typeful context and guided by heuristics. The space of possible meanings is finite but potentially intractable. There are useful techniques for searching large spaces: hill climbing, repeated local search, genetic programming, etc.. AMBC never guarantees an 'optimal' choice of program, but should choose well enough if the heuristics are good and valid solutions are easy to find. In a live coding scenario, we might heuristically value 'stable' solutions that are similar to prior solutions.
 
-AMBC is unsuitable for streaming, but can be used with ABCD or `{#secureHash}` sources. 
+AMBC is unsuitable for streaming, but can be used with ABCD or `{#secureHash}` sources.
 

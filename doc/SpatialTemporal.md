@@ -9,9 +9,35 @@ I want ABC to have spatial-temporal concepts 'built in', but at the moment I don
 Ultimately, I'm left with only a couple operators that make sense as general ambient authorities: 'delay' and 'expires'.
 
         d :: N(dt non-negative) * (x * e) → x' * e  -- x delayed by dt
-        x :: N(dt non-negative) * ([a→b]*e) → [a→b]' * e -- add expiration
+        x :: N(dt non-negative) * ([a→b]*e) → [a→b]' * e -- introduce expiration
 
 Delay makes a good ambient authority because computing takes time. Here, expiration is a substructural type limits how much further a block can be delayed. It is an error delay a relevant block beyond its expiration, or to use an irrelevant block.
+
+However, there doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to go to 'distinct' spaces.
+
+        s :: (Droppable u, Comparable u) ⇒ u * e → ([x@p → x@{u|p}] * ([x@{u|p} → x@p] * e))
+
+Perhaps I could separate these two operations:
+
+        g :: (Ident u) ⇒ u * (x@p * e) → (x@{u|p} * e)
+        h :: (Ident u) ⇒ u * (x@{u|p} * e) → x@p * e
+        H :: (Ident u) ⇒ u * (x@{p exclude u} * e) → x@p * e
+
+Or maybe keep `u` such that `gx` or `xg` is somewhat useful. 
+
+        g :: (Ident u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
+        b :: (Ident u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
+
+Should there be an operator `h :: x@p * e → p * (x@p * e)`? Perhaps not. However, it may be worthwhile to have an operator that asserts: we must NOT be at a specified location (non-informative, just assertion). 
+
+And perhaps this would be a good idea. But there is an unfortunate issue here, with regards to spatial idempotence 
+
+I might also need a uniqueness-source concept to be built more deeply into ABC. OTOH, perhaps I could use:
+
+        s ::  ⇒ u * e → [x@p → x@{u|p}] * ([x@{u|p}→x@p]) * e)
+
+I love this design. It gives me 'pure' spaces without sealers, also effectively enables sealed spaces through 'unique' values. It also abstracts working with effectful spaces.
+
 
 ### Spatial-Temporal Features
 
@@ -19,15 +45,9 @@ ABC models spatial properties in terms of logical partitions, and temporal prope
 
 In general, information about spatial-temporal attributes is *privileged*. There are no ABC operators to query when or where a value is computed.
 
- capabilities, ABC behavior cannot depend on when or where it executes. There is no way to ask a number when or where it is computed.
-
-modulo special capabilities, ABC code may not introspect when or where a value is computed. 
-
-Additionally, the product or sum itself has a concept of spatial-temporal 'evidence' - i.e. regarding when and where knowledge that the product is a product becomes available. This is important, for example, when loading text on a remote machine.
+Additionally, a product or sum itself has a concept of spatial-temporal 'evidence' - i.e. regarding when and where knowledge that the product is a product becomes available. This is important, for example, when loading text on a remote machine.
 
 The spatial properties are not directly accessible from ABC. Communicating between partitions is considered an effect, and is thus controlled by use of capabilities. 
-
-
 
 Effects and their capability texts are specific to a partition. To be reusable across partitions, subprograms are written in a pure or capability-secure manner that does not hard-code any capability text (modulo annotations or references to ABC resources, neither of which are effectful). Of course, partial evaluation can specialize reusable programs, distributing capabilities at compile-time. 
 

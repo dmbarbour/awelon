@@ -51,8 +51,8 @@ See AboutABC for full explanations and design. This file just records each code,
 
         D :: a * ((b+c) * e) → ((a*b) + (a*c)) * e -- distrib
         F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
-        M :: (a+a') * e → a * e -- merge
-        K :: (a + b) * e → b * e -- assert
+        M :: (a + a') * e → a * e -- merge; a and a' compatible
+        K :: (a + b ) * e → b * e -- assert; must be in b
 
         P :: (Observable x) ⇒ x * e → (x+(a*b)) * e -- x is pair?
         N :: (Observable x) ⇒ x * e → (x+N(a)) * e -- x is number?
