@@ -158,6 +158,8 @@ Rational numbers must be computed through such manipulation. For example:
 
 ABC is not rich in math, nor especially efficient at it. High performance graphical or scientific computing will often be handled indirectly, with support of external resources. Rich math is better modeled symbolically than directly evaluated.
 
+*NOTE:* Awelon project systems shall generally track dimensionality properties for numbers. Doing so offers pretty good semantic content and safety, and nicely fit structural types. There are no primitives for this; just convention. See AboutAO for more.
+
 ### Text
 
 The ABC stream can contain arbitrary blocks of unicode text:
@@ -180,6 +182,8 @@ Text is not a distinct type for ABC. Rather, text is understood as a compact rep
         e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
 
 The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX (end text) in C0. By convention, ABC systems use list terminators as type indicators to support visualization and dependent typing.
+
+*NOTE:* Text manipulation functions are often non-trivial. Unicode has a number of modifier characters and similar that need special treatment when, for example, reversing texts or counting lengths. The effort involved in text manipulation will be left to higher level languages.
 
 ### Identity
 
@@ -263,11 +267,14 @@ ABC provides a simple operator for partiality, assertions, and contracts:
 
 This operator represents a form of divergence: if we're in the left, that's equivalent to a type error and we'll stop the program as quickly and cleanly as possible. Otherwise we're okay. However, ABC is not restricted to runtime detection of this error. Expressing partial functions with `K` enables ABC to infer dependent types and contracts. If `K` cannot be statically proven safe, the programming environment may issue a warning or raise an error.
 
-### Spatial Temporal Features
+### Spatial-Temporal Features
 
 (under development!)
 
-Likely Ops: delay, expiration of blocks
+Awelon project tracks spatial-temporal attributes - location and latency - for values. But it isn't clear how this should be expressed in the ABC code. The difficulty is that much access and manipulations of these properties mustn't be ambient authority.
+
+Likely: logical delay, expiration of blocks
+Possible: logical/pure space manipulators (concrete location modeled in terms of)
 
 Related: 
 
@@ -371,11 +378,13 @@ Long term, I envsion that global libraries of highly widely used sources will be
 
 I plan to develop a larger bytecode above ABC: ABCD, or ABC Deflated.
 
-ABCD extends ABC with a dictionary that maps UTF-8 characters (in the 2+ octet range) to common, widely used sequences. ABC streams can then be compressed against this dictionary. But frequency isn't the only desired characteristic for symbols in this dictionary: a carefully chosen ABCD dictionary will capture known-safe patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, or operators for linear algebras and matrix manipulation.
+ABCD extends ABC with a dictionary that maps UTF-8 characters (U+0100 and above) to common, widely used sequences. ABC streams can then be compressed against this dictionary. But frequency isn't the only desired characteristic for symbols in this dictionary: a carefully chosen ABCD dictionary will capture known-safe patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, smart text processing, or operators for linear algebras and matrix manipulation.
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I imagine ABCD will never grow much beyond 1600 functions. Initial ABCD operators will be in the two octet range, which has almost 2000 elements. 
 
-ABCD is intended to be used together with `{#secureHash}` sources. ABCD is suitable for relatively short, frequent, widely used operations. Sources are suitable for large, project-specific components or configurations. Between these features, ABC can be minimal without concern for performance or parsimony.
+ABCD is intended to be used together with `{#secureHash}` sources. ABCD is suitable for relatively short, frequent, widely used, obviously 'correct' operations. Sources are suitable for large, project-specific components or configurations. Between these features, ABC can be minimal without concern for performance or parsimony.
+
+Core ABC may (very rarely) be updated to express new concepts. 
 
 ## Ambiguous Awelon Bytecode (AMBC)
 

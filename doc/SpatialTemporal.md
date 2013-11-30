@@ -6,38 +6,54 @@ I want ABC to have spatial-temporal concepts 'built in', but at the moment I don
 
 * logical synchronization for operator seems relatively awkward to understand as a concrete behavior (within ABC's philosophy), especially for merge ( `M :: (a + a') * e → a * e`). 
 
-Ultimately, I'm left with only a couple operators that make sense as general ambient authorities: 'delay' and 'expires'.
+Ultimately, I'm left with only a couple temporal operators that make sense as ambient authorities: 'delay' and 'expire'.
 
         d :: N(dt non-negative) * (x * e) → x' * e  -- x delayed by dt
         x :: N(dt non-negative) * ([a→b]*e) → [a→b]' * e -- introduce expiration
 
 Delay makes a good ambient authority because computing takes time. Here, expiration is a substructural type limits how much further a block can be delayed. It is an error delay a relevant block beyond its expiration, or to use an irrelevant block.
 
-However, there doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to go to 'distinct' spaces.
+However, there doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space or logical-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to enter 'distinct' logical spaces. One option is to use two operations:
 
-        s :: (Droppable u, Comparable u) ⇒ u * e → ([x@p → x@{u|p}] * ([x@{u|p} → x@p] * e))
+        h :: (Location u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
+        g :: (Location u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
 
-Perhaps I could separate these two operations:
+Alternatively, I could construct block based sealer/unsealer pairs:
 
-        g :: (Ident u) ⇒ u * (x@p * e) → (x@{u|p} * e)
-        h :: (Ident u) ⇒ u * (x@{u|p} * e) → x@p * e
-        H :: (Ident u) ⇒ u * (x@{p exclude u} * e) → x@p * e
+        s :: (Location u) ⇒ u * e → [x@p → x@{u|p}] * ([x@{u|p} → x@p] * e)
 
-Or maybe keep `u` such that `gx` or `xg` is somewhat useful. 
+This would closer match how capabilities are used, perhaps, but it isn't clear how I'd represent a single block of this form in ABC (except to reconstruct both and delete one, yuck). The `h` and `g` model seems better fit for ABC.
 
-        g :: (Ident u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
-        b :: (Ident u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
+I need a good notion of what logical location actually means, some useful properties.
 
-Should there be an operator `h :: x@p * e → p * (x@p * e)`? Perhaps not. However, it may be worthwhile to have an operator that asserts: we must NOT be at a specified location (non-informative, just assertion). 
+* Concrete spaces (CPU, GPU, etc.) should be expressible as a disciplined/constrained application of this model, with some extra effects. I.e. this model should express a simplified representation of concrete space locations.
 
-And perhaps this would be a good idea. But there is an unfortunate issue here, with regards to spatial idempotence 
+* It should also be feasible to maintain a separation of logical spaces across physical partitions.
 
-I might also need a uniqueness-source concept to be built more deeply into ABC. OTOH, perhaps I could use:
+* There must be clear circumstances in the spatial model for which combining two values (e.g. adding two integers) is clearly a type error. It must be possible to engineer these circumstances to occur, and possible to control them. 
 
-        s ::  ⇒ u * e → [x@p → x@{u|p}] * ([x@{u|p}→x@p]) * e)
+* It should be feasible to model 'sealed values' - i.e. such that they cannot be significantly manipulated without use of an unsealer. 
 
-I love this design. It gives me 'pure' spaces without sealers, also effectively enables sealed spaces through 'unique' values. It also abstracts working with effectful spaces.
+Let's see if we can find a set of constraints towards a singular design!
 
+Point: `hg` and `gh` should always be identity if typesafe. This means:
+
+* entry of a space cannot be idempotent or `hg` might be equivalent to `g` (if we're already there)
+* exit of a space cannot be idempotent or `gh` might be equivalent to `h` (if we're not already there)
+
+So this leaves option of counting entries like dimensions ('foo'*3) e.g. so we can seal a value more than once. If we understand these as 'dimensions' then we can also consider use of negatives to be somewhat interesting and meaningful. But it may also be useful to use only positive dimensions (negatives as a type error), or even binary dimensions (so `hh` is a type error).
+
+The 'dimension without origin' model (w/ both positives and negatives) is actually quite tempting. Places computation in an infinite-dimensional grid instead of a tree. It would also eliminate assertions of location.
+
+Thought: should this cover dimensionality of all things? (That would be somewhat cool, but I'm not sure it is practical.)
+
+* Multiplying two numbers will add their dimensions.
+* Adding two numbers requires they sit in the same dimension.
+* Applying a block requires...? Nothing, except the sanity of the types involved.
+
+Of course, this use of 'dimensionality' is not what I really want for 'locality'. So, I think this thought will go nowhere, unless I also wish to formalize dimensionality for numbers (which is tempting, really, but another thing I don't know how to do well right off). 
+
+Re: commutativity of motion (is foo/bar/baz the same as baz/foo/bar?). 
 
 ### Spatial-Temporal Features
 

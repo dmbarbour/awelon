@@ -35,13 +35,13 @@ AO supports a range of useful number representations. By example:
         1/3        (rational)
         0xca7f00d  (hexadecimal)
 
-In all cases, these are understood as exact rational numbers. Additionally, AO tags numbers with units, represented as a sorted list of `(label * number)` pairs. 
+In all cases, these are understood as exact rational numbers. Additionally, AO tags numbers with units, represented as a sorted list of `(dtext * number)` pairs, terminated by number 1.
 
         1.4e2`kg*m/s^2
         1/3`apple
         -12.3`C
 
-Unit checking for numbers provides an effective alternative to typechecking in many cases. Beyond providing a little structure, AO leaves interpretation or normalization of units to user code. The unit expression is assumed to be of the form `x*y/a*b`, allowing for `1/a`, or `m^N`. One `/` character is allowed, placing everything to its right in the denominator. Exponents, if used, must be between 2 and 9.
+Unit checking for numbers provides an effective alternative to typechecking in many cases. Beyond providing a little structure, AO leaves interpretation or normalization of units to user code. The unit expression is assumed to be of the form `x*y/a*b`, allowing for `1/a`, or `m^N`. One `/` character is allowed, placing everything to its right in the denominator. 
 
 AO supports two formats for text, both starting with `"`.
 
