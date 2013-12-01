@@ -1,4 +1,6 @@
 
+
+
 ### Data is represented by Code
 
 Data serialization in Awelon systems is modeled by a stream of ABC code that reconstructs the data. E.g. a pair `(42,108)` might be serialized to `#108#42lc`. In general, this is similar to the quotation operator. 
@@ -62,4 +64,62 @@ More generally, sequence interpretation might be applied to optimize:
 The runtime overhead for sequence interpretation isn't very high; it can feasibly be modeled using a finite state machine or trie. An interpreter could have such a machine built-in for known common sequences. An interesting possibility is to dynamically modify this machine based on history for a given instance of the interpreter, leveraging JIT. 
 
 Sequence interpretation is related to ABCD, which will extend ABC with a dictionary of common sequences based on analysis of many projects. However, sequence interpretation is local to the interpreter, and potentially specialized to a problem domain or installation.
+
+
+
+
+### High Level Data Shuffling
+
+Many common words involve moving values and structures around on the current stack or within the environment. For example, `take` and `put` move objects between stack and hand. `juggleK` and `rollK` rotate objects within the hand or current stack respectively. `:label load` and `:label store` will treat named stacks as a form of global memory. `:label goto` will swap the current stack with the named stack.
+
+Similarly, I expect AO will heavily leverage Huet zipper-based abstractions, which are essentially a form of data shuffling.
+
+Shuffling operations are very first order. However, procedures can be built above them, and they often fade into the background. When coupled with iteration and search, shuffling can offer powerful transformations on the environment.
+
+A single stack is good for a single task. Navigation between stacks is useful when modeling multiple tasks, concurrent workflows that are loosely coupled but must occasionally interact.
+
+### Automatic Visualization
+
+Programmers often reject concatenative languages without even attempting to learn them. My hypothesis is that the learning curve has been too steep: there is a burden to visualize the environment in the head, and a burden to learn a bunch of arcane shuffle words. 
+
+If so, automatic visualization of environment structure, and animation of how it changes across AO code, should relieve much of this burden. 
+
+Conversely, ability to use a little drag and drop or copy-paste through the environment visualization could help specify data shuffling in the tricky cases and when first getting used to the concept. It would be a weak form of programming by example.
+
+### Document-like Structures, Zippers and Folds
+
+When developing abstractions, it is best to favor those that are compositional, extensible, scalable, reusable across projects and problems, and for which rich domain-generic vocabularies and analyses can be developed. Document-like abstractions -  - tend to be much more composable, extensible, and scalable than, for example, records and state machines. (In some cases, they are also more general. E.g. grammars can model state machines, and tables can model records.)
+
+A convention I wish to push for AO is to strongly favor these document-like extensible, compositional, reusable abstractions as the foundation for communicating rich structures between higher level components, even when it means rejecting problem-specific or domain-specific structure that might initially seem more convenient. 
+
+Hypotheses:
+
+1. reusable, composable abstractions will pay for themselves in the large, even if they initially seem slightly inconvenient in the small
+
+2. manipulating document-like structures on the stacks will work well with standard visualizations, animations, and support effective intuitions and programming-by-example
+
+An interesting feature of document-like structures is that they can be navigated and manipulated incrementally, using a purely functional cursor called a , a data structured developed by Huet in 1997. Thus, navigating and manipulating the environment extends to navigating and manipulating the individual documents. *Effectively, AO's programming environment is analogous to a desktop user environment, with different stacks representing different windows.* 
+
+An interesting convention to help specify datatypes is to model folds: 
+
+
+## Refactoring
+
+There is significant utility of being able to refactor at the syntactic layer, i.e. by copy-and-paste or search-and-replace of common code segments. When refactoring is easy, it happens often and fluidly and is more readily aided by software. AO simplifies this further by favoring a flat namespace - there is no need to parse context to comprehend bindings.
+
+An AO programming environment should help developers refactor, e.g. highlight sequences of five to twelve words that are seen many times in a codebase, or sequences that already have dedicated names. In the latter case, the AO programming environment would implicitly help developers discover and learn existing words. 
+
+Beyond simple pattern matching, we must also concern ourselves with the boundaries, how definitions are aligned and coupled with words. For example:
+
+        word1  word2            word3  word4  e
+        a b c  d e      (vs)    a b    c d 
+
+Well chosen boundaries results in more comprehensible, reusable code. AO words are at once functions, modules, and software components. Thus the boundaries correspond to interface and coupling decisions. Unfortunately, whether boundaries are well chosen is often unclear before there is a great deal of reuse in a broad variety of contexts. 
+
+An AO programming environment should also support developers in exploring different arrangements of boundaries, in addition to other equivalent expressions of the same behavior based on blocks or causal commutativity.
+
+## Dissassembly and Translation
+
+An interesting property of AO code is that disassembly of a large ABC constructs is quite feasible in terms of matching code to a dictionary. Disassembly can be modeled as a parsing or refactoring problem. This feature could be used both for understanding ABC code, and for translating project code between highly divergent dictionaries.
+
 

@@ -1,10 +1,12 @@
 I want ABC to have spatial-temporal concepts 'built in', but at the moment I don't have a good way to express this in a bytecode. The issue seems to be:
 
-* time and space coordinates shouldn't be directly exposed to ABC code. This must be privileged information (capabilities only) since code that behaves dependent upon where or when it runs raises many security concerns. 
+* time and space coordinates shouldn't be directly exposed to ABC code. Any information about 'absolute' locations must be privileged information (accessible via capabilities only). Code whose behavior depends upon where or when it runs raises many security concerns. 
 
 * movement between spaces should always be an explicit effect. In some cases, it is subject to failure. In other cases, it should be controlled so we can model isolation or confinement (e.g. by creating a 'new sealed space' with relevant goto and return-from operators, and compute a block within this space).
 
-* logical synchronization for operator seems relatively awkward to understand as a concrete behavior (within ABC's philosophy), especially for merge ( `M :: (a + a') * e → a * e`). 
+* logical synchronization for operator seems relatively awkward to understand as a concrete behavior (within ABC's philosophy), especially for merge ( `M :: (a + a') * e → a * e`).
+
+Implicit synchronization seems problematic for block expiration, but it might not be; it would be worthwhile to determine this.
 
 Ultimately, I'm left with only a couple temporal operators that make sense as ambient authorities: 'delay' and 'expire'.
 
@@ -13,10 +15,18 @@ Ultimately, I'm left with only a couple temporal operators that make sense as am
 
 Delay makes a good ambient authority because computing takes time. Here, expiration is a substructural type limits how much further a block can be delayed. It is an error delay a relevant block beyond its expiration, or to use an irrelevant block.
 
-However, there doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space or logical-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to enter 'distinct' logical spaces. One option is to use two operations:
+There may also be a synchronization operator of some sort. It seems feasible to leverage implicit synchronization, but implicit synchronization seems 
+
+There doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space or logical-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to enter 'distinct' logical spaces. One option is to use two operations:
 
         h :: (Location u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
         g :: (Location u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
+
+Another option is to treat 'Location' as a vector that can be negated, though this seems problematic for analysis and symmetry. 
+
+        g :: (LVec lv) ⇒ lv * (x@p * e) → lv * (x@(p+lv) * e) 
+
+I think it might be better to stick with primitive moves and model vector operations as a loop.
 
 Alternatively, I could construct block based sealer/unsealer pairs:
 
@@ -28,9 +38,9 @@ I need a good notion of what logical location actually means, some useful proper
 
 * Concrete spaces (CPU, GPU, etc.) should be expressible as a disciplined/constrained application of this model, with some extra effects. I.e. this model should express a simplified representation of concrete space locations.
 
-* It should also be feasible to maintain a separation of logical spaces across physical partitions.
+* It should also be feasible to maintain a separation of logical spaces across physical partitions. I.e. computing 'in parallel' relative to another location.
 
-* There must be clear circumstances in the spatial model for which combining two values (e.g. adding two integers) is clearly a type error. It must be possible to engineer these circumstances to occur, and possible to control them. 
+* There must be clear circumstances in the spatial model for which combining two values (e.g. adding two integers) is clearly a type error. It must be possible to engineer these circumstances to occur, and possible to control interaction between spaces.
 
 * It should be feasible to model 'sealed values' - i.e. such that they cannot be significantly manipulated without use of an unsealer. 
 

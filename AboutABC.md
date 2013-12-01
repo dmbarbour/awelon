@@ -183,7 +183,7 @@ Text is not a distinct type for ABC. Rather, text is understood as a compact rep
 
 The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX (end text) in C0. By convention, ABC systems use list terminators as type indicators to support visualization and dependent typing.
 
-*NOTE:* Text manipulation functions are often non-trivial. Unicode has a number of modifier characters and similar that need special treatment when, for example, reversing texts or counting lengths. The effort involved in text manipulation will be left to higher level languages.
+*NOTE:* ABC's representation of text is simplistic. Text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
 
 ### Identity
 
@@ -378,7 +378,7 @@ Long term, I envsion that global libraries of highly widely used sources will be
 
 I plan to develop a larger bytecode above ABC: ABCD, or ABC Deflated.
 
-ABCD extends ABC with a dictionary that maps UTF-8 characters (U+0100 and above) to common, widely used sequences. ABC streams can then be compressed against this dictionary. But frequency isn't the only desired characteristic for symbols in this dictionary: a carefully chosen ABCD dictionary will capture known-safe patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, smart text processing, or operators for linear algebras and matrix manipulation.
+ABCD extends ABC with a dictionary that maps UTF-8 characters (U+0100 and above) to common, widely used sequences. ABC streams can then be compressed against this dictionary. But frequency isn't the only desired characteristic for symbols in this dictionary: a carefully developed ABCD dictionary will capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, or operators for linear algebras and matrix manipulation.
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I imagine ABCD will never grow much beyond 1600 functions. Initial ABCD operators will be in the two octet range, which has almost 2000 elements. 
 
