@@ -9,16 +9,16 @@ Awelon Object language (AO) is a programming language built above Awelon Bytecod
 * AO is structurally and substructurally typed; type model is compositional.
 * AO exhibits *causal commutativity*, which enables implicit parallelism.
 * AO exhibits *spatial idempotence*, which simplifies equational reasoning.
-* AO leverages *fast and loose reasoning*, assumes every program terminates.
 * AO can represent adaptive or declarative search-spaces of programs. 
 
 In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The basic semantic for any word is to expand into its definition. Valid definitions are acyclic. At the limit, code expands into literals and inlined ABC. The relationship between words their definitions is maintained by a **dictionary**. 
 
 AO is intended for use in a wiki-based programming environment, where each page is a word in the dictionary. An AO programming environment will make use of naming conventions: documentation, automatic tests, environment extensions, and active services may be identified based on prefix. A single dictionary can support thousands of projects with rich cross-project refactoring, flexible integration testing, and an ever more refined and reusable dictionary.
 
-For bootstrapping, command line AO tools support a **.ao** dictionary format. 
-
 Most AO features come from ABC. See AboutABC for more information.
+
+For bootstrapping, filesystem or command-line tools for AO will support a **.ao** dictionary format. This format has a simple patching-based import and dictionary model.
+
 
 ## Literals: Numbers, Text, Blocks
 
@@ -86,7 +86,7 @@ Whitespace in ABC means identity. AO has its own support for text, numbers, and 
 
 ## Proper Capability Security
 
-AO prohibits syntactic representation of semantic capabilities, i.e. you cannot hard-wire authorities (e.g. to read or write files), nor even pure extensions (e.g. for floating point matrix manipulations), into AO code. This is a good thing! Extensions become more explicit in the type. AO becomes easier to port, configure, maintain (with tests and mockups), and secure. 
+AO prohibits syntactic representation of semantic capabilities, i.e. you cannot hardwire authorities (e.g. to read or write files), nor even pure extensions to ABC (e.g. for floating point matrix manipulations), into AO code. Under this constraint, AO becomes easier to port, configure, maintain (with tests and mockups), and secure. 
 
 AO does allow annotations to be expressed using capability text. Annotations express hints for a compiler, optimizer, debugger, e.g. to support parallelism, laziness, breakpoints, deprecation, typechecking. For example, `%{&par}` might apply to a block, and indicate the block should be evaluated in parallel.
 
@@ -197,6 +197,8 @@ AO does not have syntax for comments. Documentation is primarily achieved by def
 Testing in AO will include unit tests, but should also include [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-like property testing and some level of symbolic analysis and introspection. Tests also use mockup environments, which is easy to represent due to effects occurring through capabilities. Testing helps augment AO's gradual typing.
 
 *Aside:* The centralized 'main' function of many languages seems to result in complications downstream - make systems, linkers, separate testing and document generation. My intuition is that AO's design is both simpler and more extensible. 
+
+*Note:* An interesting possibility is to disassemble an ABC stream relative to a dictionary, i.e. treating a dictionary as an implicit grammar. AO dictionaries can often be understood as large grammars for extracting structure from a stream.
 
 ### Flat Namespace
 

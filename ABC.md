@@ -39,9 +39,8 @@ See AboutABC for full explanations and design. This file just records each code,
         / :: N(non-zero a) * e → N(1/a) * e
         - :: N(a) * e → N(0-a) * e
         Q :: N(non-zero b) * (N(a) * e) → N(r) * (N(q) * e)
-            where qb+r = a, q integral, r in [0,b) or (b,0]
+            where qb+r = a, q integral, r between 0 and b (excluding b)
 
-        ? :: (Droppable b) :: b@[a→a'] * ((a+b)*e) → (a'+b)*e
         L :: (a + (b + c)) * e → ((a + b) + c) * e
         R :: ((a + b) + c) * e → (a + (b + c)) * e
         W :: (a + (b + c)) * e → (b + (a + c)) * e
@@ -49,15 +48,16 @@ See AboutABC for full explanations and design. This file just records each code,
         V :: a * e → (a + 0) * e
         C :: (a + 0) * e → a * e
 
+        ? :: (Droppable b) :: b@[a→a'] * ((a+b)*e) → (a'+b)*e
         D :: a * ((b+c) * e) → ((a*b) + (a*c)) * e -- distrib
         F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
         M :: (a + a') * e → a * e -- merge; a and a' compatible
         K :: (a + b ) * e → b * e -- assert; must be in b
 
         P :: (Observable x) ⇒ x * e → (x+(a*b)) * e -- x is pair?
-        N :: (Observable x) ⇒ x * e → (x+N(a)) * e -- x is number?
-        B :: (Observable x) ⇒ x * e → (x+[a→b]) * e -- x is block?
         S :: (Observable x) ⇒ x * e → (x+(a+b)) * e -- x is sum?
+        B :: (Observable x) ⇒ x * e → (x+[a→b]) * e -- x is block?
+        N :: (Observable x) ⇒ x * e → (x+N(a)) * e -- x is number?
         > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
             #4 #2 > -- asks whether 4 > 2. Returns (N(2)*N(4)) on right.
 
@@ -66,5 +66,7 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. 
+
+ABCD begins after U+00FF. 
 
 

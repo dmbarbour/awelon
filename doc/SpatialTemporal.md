@@ -2,7 +2,7 @@ I want ABC to have spatial-temporal concepts 'built in', but at the moment I don
 
 * time and space coordinates shouldn't be directly exposed to ABC code. Any information about 'absolute' locations must be privileged information (accessible via capabilities only). Code whose behavior depends upon where or when it runs raises many security concerns. 
 
-* movement between spaces should always be an explicit effect. In some cases, it is subject to failure. In other cases, it should be controlled so we can model isolation or confinement (e.g. by creating a 'new sealed space' with relevant goto and return-from operators, and compute a block within this space).
+* movement between concrete spaces should always be an explicit effect. In some cases, it is subject to failure. In other cases, it should be controlled so we can model isolation or confinement (e.g. by creating a 'new sealed space' with relevant goto and return-from operators, and compute a block within this space).
 
 * logical synchronization for operator seems relatively awkward to understand as a concrete behavior (within ABC's philosophy), especially for merge ( `M :: (a + a') * e → a * e`).
 
@@ -15,24 +15,12 @@ Ultimately, I'm left with only a couple temporal operators that make sense as am
 
 Delay makes a good ambient authority because computing takes time. Here, expiration is a substructural type limits how much further a block can be delayed. It is an error delay a relevant block beyond its expiration, or to use an irrelevant block.
 
-There may also be a synchronization operator of some sort. It seems feasible to leverage implicit synchronization, but implicit synchronization seems 
+There may also be a synchronization operator of some sort. It seems feasible to leverage implicit synchronization, but it isn't clear whether this will result in a clear 'failure' location with regards to expiring blocks.
 
 There doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space or logical-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to enter 'distinct' logical spaces. One option is to use two operations:
 
         h :: (Location u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
         g :: (Location u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
-
-Another option is to treat 'Location' as a vector that can be negated, though this seems problematic for analysis and symmetry. 
-
-        g :: (LVec lv) ⇒ lv * (x@p * e) → lv * (x@(p+lv) * e) 
-
-I think it might be better to stick with primitive moves and model vector operations as a loop.
-
-Alternatively, I could construct block based sealer/unsealer pairs:
-
-        s :: (Location u) ⇒ u * e → [x@p → x@{u|p}] * ([x@{u|p} → x@p] * e)
-
-This would closer match how capabilities are used, perhaps, but it isn't clear how I'd represent a single block of this form in ABC (except to reconstruct both and delete one, yuck). The `h` and `g` model seems better fit for ABC.
 
 I need a good notion of what logical location actually means, some useful properties.
 
@@ -42,28 +30,50 @@ I need a good notion of what logical location actually means, some useful proper
 
 * There must be clear circumstances in the spatial model for which combining two values (e.g. adding two integers) is clearly a type error. It must be possible to engineer these circumstances to occur, and possible to control interaction between spaces.
 
-* It should be feasible to model 'sealed values' - i.e. such that they cannot be significantly manipulated without use of an unsealer. 
+* I'd like to model 'sealed values' this way, somehow. Or perhaps a weaker variation of sealed values? Something useful, anyway, perhaps enough to support ADTs.
 
 Let's see if we can find a set of constraints towards a singular design!
 
-Point: `hg` and `gh` should always be identity if typesafe. This means:
+**Constraint:** location should be deterministic.
+**Constraint:** `hg` and `gh`, if safe, should be identity.
 
-* entry of a space cannot be idempotent or `hg` might be equivalent to `g` (if we're already there)
-* exit of a space cannot be idempotent or `gh` might be equivalent to `h` (if we're not already there)
+Between these two features, I must reject idempotence. Otherwise `hgg` and `hhg` might reduce in non-deterministic ways. So this leaves an option: I can either use type errors to reject `hh` and `gg`, or I can use a counting method that places computations in an infinite ad-hoc multi-dimensional grid. I somewhat favor the latter, since it is more symmetric with latency (relative, not absolute!)
 
-So this leaves option of counting entries like dimensions ('foo'*3) e.g. so we can seal a value more than once. If we understand these as 'dimensions' then we can also consider use of negatives to be somewhat interesting and meaningful. But it may also be useful to use only positive dimensions (negatives as a type error), or even binary dimensions (so `hh` is a type error).
+**Constraint:** support generic programming.
 
-The 'dimension without origin' model (w/ both positives and negatives) is actually quite tempting. Places computation in an infinite-dimensional grid instead of a tree. It would also eliminate assertions of location.
+If `hh` is a type error, then generic programming will be hindered because we cannot locally reason about logical locations. However, it seems acceptable to constrain dimensionality to a known non-negative value, i.e. if we have `g` we must also have an earlier `h`. 
 
-Thought: should this cover dimensionality of all things? (That would be somewhat cool, but I'm not sure it is practical.)
+**Soft Constraint:** can assert locations.
 
-* Multiplying two numbers will add their dimensions.
-* Adding two numbers requires they sit in the same dimension.
-* Applying a block requires...? Nothing, except the sanity of the types involved.
+Restricting to non-negative locations enables useful assertions on location, i.e. `gh` would have meaning as a typeful assertion that we're in a given logical location. 
 
-Of course, this use of 'dimensionality' is not what I really want for 'locality'. So, I think this thought will go nowhere, unless I also wish to formalize dimensionality for numbers (which is tempting, really, but another thing I don't know how to do well right off). 
+**Constraint:** logical location model is compatible with concrete locations
+**Soft Constraint:** work well with quotations.
 
-Re: commutativity of motion (is foo/bar/baz the same as baz/foo/bar?). 
+Either quotations `'` must capture objects all at one location, or they must be able to restore locations. While "restore location" seems okay for logical locations, it seems like a bad idea for concrete locations. So, quotation requires that all objects in a product have the same location.
+
+**Soft Constraint:** control effects in logical space
+
+
+
+
+**Soft Constraint:** (maybe) move concrete location, holding logical locations?
+
+In a sense, I don't want to explicitly restore relative locations when I cross physical boundaries. A logical space is parallel to physical spaces. Consequently, I must think in terms of a 'grid' rather than a 'tree' of spaces. 
+
+*Thought:* It seems feasible to use a simpler type model. Only 'effects' (capability invocations) are truly immobile. Maybe I only need to distinguish 'anywhere' effects from 'somewhere' effects. But... hmm. It seems I'll still need concrete locations for integers, etc..
+
+Most of these spaces are more about bindings of effects. 
+
+
+* It seems, if I'm going to model different locations, that I need some means to represent spaces with 'rules' to how we can progress through them. This suggests a richer model for locations than just text identifiers. How might such a model of spaces be expressed? A grammar?
+
+Perhaps, when moving into a new logical space, we must also specify the rule for moving out of it? Ugh, no. The logic should be maintained elsewhere, using blocks and linear types. 
+
+It seems an ambient authority for logical space should be okay; it's just a way of logically partitioning data so it can't accidentally be used in the wrong context. How can we do this better?
+
+
+ Notion of setting rules or challenges for moving into a new space seems very interesting, but is perhaps better modeled by encapsulation within blocks. 
 
 ### Spatial-Temporal Features
 

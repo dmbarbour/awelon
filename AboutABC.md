@@ -14,11 +14,7 @@ Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a str
 * **functional** higher order expressions, immutable values, pure by default
 * **bytecode** UTF-8 for text, but ABC codes within Latin-1 character set
 
-ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended as an intermediate language to be compiled to native code (or LLVM, etc.) for execution.
-
-Programmers generally work in a higher level language that compiles to ABC, such as AO. An interesting property of AO is that, with a good dictionary, both assembly and disassembly of ABC is quite feasible.
-
-Reuse of ABC code is possible and is orthogonal to reuse in the higher level language. Reusable sequences of ABC code may be named by secure hash and referenced via the capability mechanism, and accessed from a local cache or storage. This technique is described in greater detail later.
+ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended for compilation or JIT. ABC supports linking and invoking external code via `{#secureHash}`, as an effective basis for structure sharing and cachable compilation.
 
 ## The ABC Stream
 
@@ -79,7 +75,7 @@ For open or distributed systems, the token should be cryptographically secure an
 
 Environment-provided operators may be first-class. For example, `[{obj:SecureRandomGUID}]` might serve as a reference to a specific object in the environment. Applying this block would essentially result in passing a message to the object.
 
-*Note:* no nesting! These tokens may not contain `{` or `}` characters.
+*Note:* no nesting! These tokens may not contain `{` or `}` characters. All other characters are allowed, though whitespace is discouraged.
 
 ## ABC Behavior Details
 
@@ -181,15 +177,15 @@ Text is not a distinct type for ABC. Rather, text is understood as a compact rep
 
         e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
 
-The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX (end text) in C0. By convention, ABC systems use list terminators as type indicators to support visualization and dependent typing.
+The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX (end text) in C0. By convention, ABC systems use list terminators as weak type indicators to support visualization, debugging, and dependent typing.
 
 *NOTE:* ABC's representation of text is simplistic. Text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
 
 ### Identity
 
-ABC treats two whitespaces - SP (32) and LF (10) - as identity operators with type `x → x`. Effectively, whitespace in the ABC stream may be ignored. Also, the empty program is equivalent to identity, since it performs no operations on the tacit input.
+ABC treats two whitespace characters - SP (32) and LF (10) - as identity operators with type `x → x`. Effectively, whitespace in the ABC stream may be ignored. Also, the empty program is equivalent to identity, since it performs no operations on the tacit input.
 
-(Tabs or carriage returns are not valid ABC operators. If encountered in an ABC system, an error must be raised, as for any other invalid operator.)
+*Note:* Other whitespaces - e.g. tabs and carriage returns - are not valid ABC operators. If encountered in an ABC stream (outside of text), an error must be raised, as for any other invalid operator.
 
 ### Substructure
 
@@ -368,11 +364,9 @@ ABC leverages its effects model to access these `{#secureHash}` sources.
 
 Here, 'secureHash' will be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; typesafe), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
 
-To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required.
+To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required. Frequently used sources can be cached in precompiled form for performance. Thus, `{#secureHash}` sources serve as a foundation for separate compilation and linking in ABC. It works even for secure, streamable code.
 
-Frequently used sources can be cached in precompiled form for performance. Thus, `{#secureHash}` sources serve as a foundation for separate compilation and linking in ABC. 
-
-Long term, I envsion that global libraries of highly widely used sources will be developed and highly refined, such that there is much benefit to developing in terms of these higher level components, or using them for automatic factoring and compression of independent ABC code.
+Long term, I envision that global libraries of highly widely used sources will be developed and highly refined, such that there is much benefit to developing in terms of these higher level components, or using them for automatic factoring and compression of independent ABC code.
 
 ## Awelon Bytecode Deflated (ABCD)
 
