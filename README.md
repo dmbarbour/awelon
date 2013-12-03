@@ -1,40 +1,30 @@
 # Awelon Project
 
-The Awelon Project is a realization of two relatively new models with the potential for disruptive improvement in how we handle human-computer interaction. 
+The Awelon Project is a realization of two relatively new models with the potential for disruptive improvement in human-computer interaction. 
 
-**Awelon** is a personal user and development environment, designed for lifelong operation. Structures in the environment represent documents, graphs, diagrams, geometries, even animated values - video, sound. These documents and objects can serve a role similar to widgets and applications. User action in the environment - including navigation, copy-and-paste - is modeled as acts of programming. Users can program-by-example across different resources, and can extract their histories into reusable tools.
+**Awelon** is a personal user and development environment that can support lifelong operation. Structures in the environment represent documents, graphs, diagrams, geometries, even animated values - video, sound. User action in the environment - including navigation, copy-and-paste - are modeled by generating a stream of code to perform a transform on the environment. It is possible to extract and reuse or share subprograms from a user's action history. Thus, user macros or programming by example become widely feasible.
 
-**Reactive Demand Programming (RDP)** is a reactive model designed for live programming, persistence, and robust operation in open distributed systems. An RDP program is a behavior that continuously observes and influences external resources, capable of representing a service, framework, software agent, overlay network. Essentially, RDP is a variation of spreadsheets for general purpose programming. State in RDP systems is managed in external resources, simplifying orthogonal persistence and live programming. The notion of local, encapsulated state is expressed using linear types to exclusively bind state resources. See [AboutRDP](AboutRDP.md) for more. 
+**Reactive Demand Programming (RDP)** is a reactive model designed for robust operation in open distributed systems. An RDP program is a behavior that continuously observes and influences external resources. RDP subprograms can represent services, frameworks, agents, and overlay networks. Essentially, RDP is a variation of spreadsheets for general purpose programming. See [AboutRDP](AboutRDP.md) for more. 
 
-Awelon and RDP are related by a simple principle: structures in the user's environment have *meaning* to the user, and some of that meaning might be realized programmatically. That is, modifying the structure should have corresponding influence on the world. Or, conversely, the structure should gather and display information from the outside world - e.g. live documents or dashboards. This programmatic meaning is achieved by interpreting the user's environment as an RDP program. 
-
-(For efficiency and zoomability, some behaviors are only active when the user is observing them, and various level-of-detail conditions may apply.)
-
-Users are able to share values, documents, and any tools they create. 
-
-## Augmented Reality
-
-Awelon also has a goal of supporting augmented reality. Parts of the user's environment might be projected based on visual and GPS cues. In this case, the amount of metadata in the environment (regarding mapping to the real world) can often be greater than the useful data.
+Awelon and RDP are related by a principle: objects in the user's environment have meaning to the user, and some of that meaning should be realized programmatically - by interpreting that structure as an RDP behavior. Consequently, manipulating a virtual structures can influence the real world. And virtual structure can also gather data for display.
 
 ## Components of Awelon Project
 
-Awelon project is realized by a suite of new technologies. Some of these will initially be validated in Agda, but the goal is to bootstrap and integrate these products into Android devices, Meta glasses, and web services. 
+Awelon project requires a language that is suitable for streaming, code generation, code extraction, functional transforms and RDP. This requirement has led to development of Awelon Bytecode (ABC) and a higher level language for working with ABC, called Awelon Object (AO). See AboutABC and AboutAO for more.
 
-The current technologies under development are:
+Development of ABC and AO are necessary to an extent of bootstrapping and building a persistent web service with reasonable performance. Beyond that, an RDP implementation of ABC must be developed, and I would like to implement a wiki-based IDE for AO.
 
-**Awelon Bytecode** (ABC) is a typesafe, tacit concatenative bytecode based on category theory and Hughes' arrows model. (ABC is tree-based, not stack-based.) ABC is designed primarily for RDP, but is also effective  for procedural or functional code. ABC serves multiple roles in Awelon project. It supports streaming, serialization, rewriting. ABC can record data structures and their history. ABC serves as a low-level distribution language that can be typechecked then compiled to LLVM or native code.
+The personal Awelon user environment will happen later, most likely targeting Meta glasses. It is feasible to develop the Awelon user environment in the desktop space, and I plan to do so eventually. But in the short term, I believe people will be more open to a new user experience with glasses.
 
-**Awelon Object Language** (AO) is a thin layer above ABC, providing modularity and word-level abstractions to make it more human-friendly. Like other tactic concatenative AO is effective for the full range of abstractions, low to high level. 
+## How is Awelon Different?
 
-**Wiki-based IDE for AO** is an initial programming environment, which will operate in the browser.
+Awelon is not the first effort to unify UI and IDE. 
 
-After these technologies are developed and bootstrapped, development will start on the Awelon environment software.
+However, Awelon is perhaps the first to model the programmer as a first-class object in the language with no special privileges. This change is essential: it enables much programming to be far more implicit, in the form of user macros or tools and lenses. 
 
-Each user has a personal environment whose state includes documents, diagrams, graphs, and geometries. User action is implicitly modeled as a pure, streaming `state -> state` functions in a tacit concatenative (TC) language, operating on the environment. State is interpreted as a live RDP program, and stateful widgets with real-world effects can be modeled with simple program manipulations. State includes the full user model: navigation, focus, clipboard, lenses, tools. The user model is thus fully programmable. The TC stream history remains accessible for rewriting (including undo), review, and program extraction.
+Awelon also addresses a common point of failure. In many languages, objects become entangled with their environment. This can happen for a wide variety of reasons - library bindings, reflection, references to shared state, nominative types. The consequence is that sharing fine-grained behavior often requires shipping the whole IDE. This hinders integration, reuse, and (importantly) *personalization*. One can hardly entrust personal information to an environment when sharing behavior is coarse grained.
 
-Awelon will include support for traditional KVM and web applications, but Awelon is ultimately aimed at augmented reality, augmented virtuality, and ubiquitous programming systems. 
-
-Awelon is not the first effort to unify UI and IDE. But it is the first to formally model the user and treat language extensions (tools, lenses) as first-class objects. This change enables acts of programming to be implicit. RDP enables precise value sharing; there is no need to 'ship the IDE' to share behavior. And due to robust orthogonal persistence and capability-based security, users can keep important information in the environment without fear of losing or exposing it.
+Awelon Bytecode is designed to simplify precise extraction and sharing of code. 
 
 
 
