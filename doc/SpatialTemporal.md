@@ -1,3 +1,88 @@
+# Spatial-Temporal Features?
+
+I intend that Awelon project track spatial-temporal attributes - location and latency - for values. But it isn't clear to me how this should be expressed in the ABC code, and whether it should instead be pushed to capability invocations. 
+
+It turns out that, to protect composition and decomposition properties, it must be possible for any block to receive from and send to multiple locations. The decomposition property is that: `[foobar] = [foo][bar]o` for any break between complete subprograms. But if I manipulate space for different elements in a product and I require single output location, then a lot of breakdowns would be unsafe and it would take a lot of global context to determine which ones are safe.
+
+However, 'location' has its own issues with the `$` operator. How can I receive arguments at multiple logical locations if, for example, the block itself is at just one location? How do I specify these locations must have some aspects in common?
+
+I need a more compositional (perhaps monotonic?) model for space...
+
+A related, significant challenge is spatial-temporal attributes for literals. It seems to me the most natural location for a literal is the 'block' (or 'stream') of which it is part. This is okay, I think, but it could create a few hassles with regards to tracking 'expiration' and interacting with objects in various physical spaces.
+
+Until I address these challenges, I cannot really model spatial-temporal attributes at the ABC layer. I can, however, model them using capabilities.
+
+Regarding my current efforts:
+
+Likely: logical delay, expiration of blocks
+
+Possible: logical/pure space manipulators
+
+Challenges: 
+
+* where and when are literals? 
+* should I focus on staging? 
+* can I model sealer/unsealer pairs? 
+* should delay or synchronization be implicit?
+* can I apply blocks that operate on multiple locations?
+
+Related: 
+
+* [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009. 
+* [Type Theory for Mobility and Locality](http://www.cs.cmu.edu/~jwmoody/doc/talk/slides-proposal.pdf) by Jonathon Moody.
+
+### Parametricity?
+
+I would like to enforce parametricity in some cases. But ABC's "spatial idempotence" feature forbids this from being readily expressed by operators. The closest I know how to model would be an operator on a block, `p`, that somehow enforces parametricity, constraining behaviors on certain inputs. However, ABC doesn't really have the ability to express that a condition must hold 'forall' inputs of a certain class. I suppose this must be expressed using property tests. 
+
+# Older Stuff
+
+
+ABC values have spatial-temporal attributes, logical location and latency. Location can distinguish concepts like whether a number is on the client or server, the CPU or GPU. Latency tracks when values become available, now or later. 
+
+A value can be delayed by the operator `s`, which takes a rational numbner of seconds.
+
+        s :: N(non-negative dt) * (x * e) → (x' * e)
+
+Latency is *logical* in the sense that actual, physical latency can diverge from logical latency. With speculative evaluation, physical latency can be lower, e.g. to maintain a buffer of future actions. If computation resources are overburdened, physical latency can be higher. However, logical latency guides physical latency and scheduling of side effects. In most cases, they will match with a high degree of precision.
+
+Not every value may be delayed without consequence. In particular, ABC has a concept of *expiration* as a substructural type for blocks.
+
+        t :: N(non-negative dt) * ([a→b] * e) → [a→b]' * e
+
+Expiration is recorded as a rational number of seconds relative to latency of the block. If delayed beyond this value, the block expires. An expired block cannot be applied by `$` or `?` operators. If a block is also *relevant*, then expiration of that block is a type error. Between latency and expiration, developers can model upper and lower bounds for temporal behaviors.
+
+Logical location is represented in a multi-set. I use `x@p` to describe a structure of type `x` having location `p`. ABC provides operators `n` and `x` to enter and exit a location. 
+
+        n :: (Dim u) ⇒ u * (x@p * e) → x@{u|p} * e
+        x :: (Dim u) ⇒ u * (x@{u|p} * e) → x@p * e
+        -- Dim is usually text - copyable, droppable, comparable
+
+One may enter a space more than once, but it is not legal to exit a space that has not been entered. By itself, logical location can serve a role similar to newtype - i.e. protecting against accidental interactions. But this feature is most expressive when used with blocks that encapsulate a parametric or existential location. Motion becomes a securable capability. By such means, concrete locations are modeled as a subset of logical locations.
+
+(Can I somehow enforce parametricity?)
+
+Spatial-temporal attributes have a pervasive and somewhat ad-hoc effect on type analysis.
+
+Operators that combine values - e.g. `+`, `*`, `>`, `o` - are not valid unless both arguments coexist in the same space. If they have different latencies, the resulting latency will be the maximum of the two. The `$` and `?` operators require delaying every argument at least to match the block, and cannot be used if the block has a very different location than the arguments. 
+
+
+
+It might be problematic for composition if outputs can have multiple locations but inputs cannot. OTOH, if I limit it to a block having one input location and one output location, the compositional implications are more obvious... but there are also more constraints on decomposition. 
+
+I would like to maintain the tacit concatenative structure such that, any complete subsequence is a valid subprogram. This will be seriously damaged if I require single input or single output locations for blocks, simply because certain subprograms - e.g. that change the location of just part of the input - are not valid for use in blocks. 
+
+
+
+But this might be protected so long as I insist that blocks apply at a single location.
+
+
+Where is a static block? Literals require special attention. Where and when are they? How much effort should it be, to add one to a value at a given location?
+
+I feel that, rather than locations, I need some sort of 'evidence' model - the ability to reproduce a value at a given location. Static values are easy to reproduce; dynamic values not so much. OTOH, it does seem reasonable to require that blocks operate at a single location.
+
+# Even Older Stuff
+
 I want ABC to have spatial-temporal concepts 'built in', but at the moment I don't have a good way to express this in a bytecode. The issue seems to be:
 
 * time and space coordinates shouldn't be directly exposed to ABC code. Any information about 'absolute' locations must be privileged information (accessible via capabilities only). Code whose behavior depends upon where or when it runs raises many security concerns. 
@@ -10,8 +95,8 @@ Implicit synchronization seems problematic for block expiration, but it might no
 
 Ultimately, I'm left with only a couple temporal operators that make sense as ambient authorities: 'delay' and 'expire'.
 
-        d :: N(dt non-negative) * (x * e) → x' * e  -- x delayed by dt
-        x :: N(dt non-negative) * ([a→b]*e) → [a→b]' * e -- introduce expiration
+        s :: N(dt non-negative) * (x * e) → x' * e  -- x delayed by dt
+        t :: N(dt non-negative) * ([a→b]*e) → [a→b]' * e -- introduce expiration
 
 Delay makes a good ambient authority because computing takes time. Here, expiration is a substructural type limits how much further a block can be delayed. It is an error delay a relevant block beyond its expiration, or to use an irrelevant block.
 
@@ -19,8 +104,8 @@ There may also be a synchronization operator of some sort. It seems feasible to 
 
 There doesn't seem to be a role in ABC for spatial structures, unless I create an ambient authority for an orthogonal pure-space or logical-space model. Of course, there is an issue here regarding spatial idempotence; I'll need extra arguments to enter 'distinct' logical spaces. One option is to use two operations:
 
-        h :: (Location u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
-        g :: (Location u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
+        n :: (Location u) ⇒ u * (x@p * e) → u * (x@{u|p} * e)
+        x :: (Location u) ⇒ u * (x@{u|p} * e) → u * (x@p * e)
 
 I need a good notion of what logical location actually means, some useful properties.
 
@@ -35,7 +120,7 @@ I need a good notion of what logical location actually means, some useful proper
 Let's see if we can find a set of constraints towards a singular design!
 
 **Constraint:** location should be deterministic.
-**Constraint:** `hg` and `gh`, if safe, should be identity.
+**Constraint:** `nx` and `xn`, if safe, should be identity.
 
 Between these two features, I must reject idempotence. Otherwise `hgg` and `hhg` might reduce in non-deterministic ways. So this leaves an option: I can either use type errors to reject `hh` and `gg`, or I can use a counting method that places computations in an infinite ad-hoc multi-dimensional grid. I somewhat favor the latter, since it is more symmetric with latency (relative, not absolute!)
 
@@ -52,12 +137,17 @@ Restricting to non-negative locations enables useful assertions on location, i.e
 
 Either quotations `'` must capture objects all at one location, or they must be able to restore locations. While "restore location" seems okay for logical locations, it seems like a bad idea for concrete locations. So, quotation requires that all objects in a product have the same location.
 
+**Constraint:** work well with literals.
+
+???
+
 **Soft Constraint:** control effects in logical space
 
-
-
+Effects are generally limited in space, i.e. where are they available; where do they apply? 
 
 **Soft Constraint:** (maybe) move concrete location, holding logical locations?
+
+Actually, this might be best modeled by treating 'cross' as a polymorphic effect with regards to logical location.
 
 In a sense, I don't want to explicitly restore relative locations when I cross physical boundaries. A logical space is parallel to physical spaces. Consequently, I must think in terms of a 'grid' rather than a 'tree' of spaces. 
 
@@ -75,7 +165,7 @@ It seems an ambient authority for logical space should be okay; it's just a way 
 
  Notion of setting rules or challenges for moving into a new space seems very interesting, but is perhaps better modeled by encapsulation within blocks. 
 
-### Spatial-Temporal Features
+# Much Older Stuff
 
 ABC models spatial properties in terms of logical partitions, and temporal properties in terms of relative latencies. Within a product or sum, the different elements may have different spatial-temporal attributes - for example, we can have types of the form `(Number@CPU * Number@GPU)`. In addition, the product or sum as a whole may have a location, with regards to where it can be introspected.
 

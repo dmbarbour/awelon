@@ -166,11 +166,11 @@ AO is intended for a wiki-based programming environment. However, to help get st
         definitions can use multiple lines
         @word3 definition3
 
-Each entry starts with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. A word may be used before it is defined, but definitions must be acyclic. 
+Each entry starts with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. The character `@` is a separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. A word may be used before it is defined, but definitions must be acyclic. 
 
-The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list must identify an AO dictionary file (minus the **.ao** suffix) in a common search space. The semantics is simply to load definitions from each import in left-to-right order, with latter definitions replacing earlier ones. If imports are cyclic or ambiguous, an error is raised. 
+The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list must identify an AO dictionary file (minus the **.ao** suffix) in a common search space - e.g. current path plus AO_PATH environment variable. The semantics is to sequentially load definitions from each import in left-to-right order, with later definitions replacing earlier ones. (It is trivial to optimize this to avoid redundant loads.)
 
-Imports and dictionary files may be understood as concatenative functions that *patch* a tacit dictionary. Only the top level dictionary file assumes an empty dictionary to start.
+Essentially, dictionary files and imports can be understood as concatenative functions that *patch* a tacit dictionary. 
 
 ### Processing of AO Dictionary
 

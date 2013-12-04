@@ -1,0 +1,47 @@
+Name: ao
+Version: 0.1
+Synopsis: Interpreter for AO 
+Category: Awelon
+Description:
+  Awelon Object (AO) is a simple language that expands into Awelon
+  Byte Code (ABC), or an ambiguous variation thereof (AMBC). AO is
+  ultimately designed for Reactive Demand Programming (RDP) but is
+  suitable for procedural and functional programming. 
+  
+  An AO system is specified by a dictionary. This interpeter reads
+  a simple dictionary file format with the '.ao' extension. This
+  format is itself concatenative, patching a tacit dictionary. It
+  supports a simple model of imports.
+ 
+  This Haskell program is an interpreter for a constrained subset of
+  AO. Ambiguity features are not enabled. All `.ao` files must be in
+  the same directory. This interpreter is intended for bootstrapping
+  of a proper AO implementation.
+
+Author: David Barbour
+Maintainer: dmbarbour@gmail.com
+Homepage: http://github.com/dmbarbour/awelon
+
+Package-Url: 
+Copyright: (c) 2013 by David Barbour
+License: BSD3
+license-file: LICENSE.txt
+Stability: experimental
+build-type: Simple
+cabal-version: >= 1.8
+
+Source-repository head
+  type: git
+  location: http://github.com/dmbarbour/awelon.git
+
+Library
+  hs-Source-Dirs: hsrc
+  Build-Depends: base (>= 4.5 && < 5)
+    , parsec (>= 3.1)
+
+  Exposed-Modules:
+    AO
+    ABC
+  ghc-options: -Wall -auto-all
+
+

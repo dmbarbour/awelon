@@ -67,13 +67,13 @@ Numbers use operator `# :: e → (N(0)*e)` to introduce a new zero, then each di
 
 Text is shorthand for producing a list of small numbers between 0 and 1114111, the Unicode codepoints. *NOTE:* ABC has no support for binaries, but text can carry base-64 with reasonable efficiency.
 
-### Invocations
+### Capability Invocations
 
-Effects in ABC are achieved by invoking environment-provided operators: `{foo}` would invoke the environment with token "foo" and the tacit argument. This token is unforgeable from within ABC: there are no operators to invoke computed text as a capability. Access to effects is typically granted through a block, of a form like `[{foo}]`. 
+Effects in ABC are achieved by invoking environment-provided operators: `{foo}` invokes the environment with token "foo" and the tacit argument. 
 
-For open or distributed systems, the token should be cryptographically secure and specific to an environment - e.g. encrypted text, signed text, or secure random GUID - such that access to effects is [securable](http://en.wikipedia.org/wiki/Capability-based_security) in presence of ad-hoc code distribution.
+This token is unforgeable from within ABC. There are no operators to invoke the environment with computed text. In potentially open or distributed system, the token should also be unforgeable from outside of ABC. This feature is achieved by cryptographic means - e.g. encrypted text, signed text, or secure random GUID. 
 
-Environment-provided operators may be first-class. For example, `[{obj:SecureRandomGUID}]` might serve as a reference to a specific object in the environment. Applying this block would essentially result in passing a message to the object.
+Access to effects can then be [securely distributed](http://en.wikipedia.org/wiki/Capability-based_security) by wrapping invocations within a block like `[{foo}]`. In this role, blocks are often called capabilities.
 
 *Note:* no nesting! These tokens may not contain `{` or `}` characters. All other characters are allowed, though whitespace is discouraged.
 
@@ -262,20 +262,6 @@ ABC provides a simple operator for partiality, assertions, and contracts:
         K :: (a + b) * e → b * e
 
 This operator represents a form of divergence: if we're in the left, that's equivalent to a type error and we'll stop the program as quickly and cleanly as possible. Otherwise we're okay. However, ABC is not restricted to runtime detection of this error. Expressing partial functions with `K` enables ABC to infer dependent types and contracts. If `K` cannot be statically proven safe, the programming environment may issue a warning or raise an error.
-
-### Spatial-Temporal Features
-
-(under development!)
-
-Awelon project tracks spatial-temporal attributes - location and latency - for values. But it isn't clear how this should be expressed in the ABC code. The difficulty is that much access and manipulations of these properties mustn't be ambient authority.
-
-Likely: logical delay, expiration of blocks
-Possible: logical/pure space manipulators (concrete location modeled in terms of)
-
-Related: 
-
-* [Computing Needs Time](http://www.eecs.berkeley.edu/Pubs/TechRpts/2009/EECS-2009-30.pdf), Edward Lee 2009. 
-* [Type Theory for Mobility and Locality](http://www.cs.cmu.edu/~jwmoody/doc/talk/slides-proposal.pdf) by Jonathon Moody.
 
 ## ABC Assumptions
 

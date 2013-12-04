@@ -10,7 +10,7 @@ Awelon and RDP are related by a principle: objects in the user's environment hav
 
 ## Components of Awelon Project
 
-Awelon project requires a language that is suitable for streaming, code generation, code extraction, functional transforms and RDP. This requirement has led to development of Awelon Bytecode (ABC) and a higher level language for working with ABC, called Awelon Object (AO). See AboutABC and AboutAO for more.
+Awelon project requires a language that is suitable for streaming, code generation, code extraction, functional transforms and RDP. This requirement has led to development of Awelon Bytecode (ABC) and a higher level language for working with ABC, called Awelon Object (AO). See [AboutABC](AboutABC.md) and [AboutAO](AboutAO.md) for more.
 
 Development of ABC and AO are necessary to an extent of bootstrapping and building a persistent web service with reasonable performance. Beyond that, an RDP implementation of ABC must be developed, and I would like to implement a wiki-based IDE for AO.
 
@@ -18,9 +18,9 @@ The personal Awelon user environment will happen later, most likely targeting Me
 
 ## How is Awelon Different?
 
-Awelon is not the first effort to unify UI and IDE. 
+Awelon is not the first effort to unify user interfaces with programming languages or integrated development environments.
 
-However, Awelon is perhaps the first to model the programmer as a first-class object in the language with no special privileges. This change is essential: it enables much programming to be far more implicit, in the form of user macros or tools and lenses. 
+However, Awelon is perhaps the first to model the programmer as a first-class object in the language with no special privileges (other than 'undo'). This change is essential: it enables much programming to be far more implicit, in the form of macros, tools, and lenses modeled within the language and extracted from user history. 
 
 Awelon also addresses a common point of failure. In many languages, objects become entangled with their environment. This can happen for a wide variety of reasons - library bindings, reflection, references to shared state, nominative types. The consequence is that sharing fine-grained behavior often requires shipping the whole IDE. This hinders integration, reuse, and (importantly) *personalization*. One can hardly entrust personal information to an environment when sharing behavior is coarse grained.
 
