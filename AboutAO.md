@@ -170,7 +170,7 @@ AO is intended for a wiki-based programming environment. However, to help get st
 
 Regular entries start with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. The initial character `@` is a separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list must identify an AO dictionary file (minus the **.ao** suffix) in a configurable search space. (I use current directory plus AO_PATH as search space.) Imports are applied in the order listed, left to right, loading words with later definitions replacing earlier ones. (This is trivial to optimize.)
+The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list will identify an AO dictionary file (minus the **.ao** suffix) in a configurable search space - currently based on the `AO_PATH` environment variable. Entries from each import list are loaded in order, left to right, with later definitions replacing earlier ones. 
 
 Essentially, dictionary files and imports can be understood as concatenative functions that *patch* a tacit dictionary.
 
@@ -201,6 +201,14 @@ Testing in AO will include unit tests, but should also include [QuickCheck](http
 *Aside:* The centralized 'main' function of many languages seems to result in complications downstream - make systems, linkers, separate testing and document generation. My intuition is that AO's design is both simpler and more extensible. 
 
 *Note:* An interesting possibility is to disassemble an ABC stream relative to a dictionary, i.e. treating a dictionary as an implicit grammar. AO dictionaries can often be understood as large grammars for extracting structure from a stream.
+
+### Interactive AO
+
+Rather than conventional REPL environment as a separate mode of development and testing, my vision for interactive AO involves live maintenance of a dictionary. 
+
+Each user action will update the dictionary. If the user doesn't provide a word, a fresh word will be provided for them. There is no implicit environment other than the dictionary; to continue a previous 'action' simply involves beginning the next action with the previously defined word (trivially accessible by keyboard gesture). Words are rendered if they were recently defined in a session, configurable through certain words in the dictionary.
+
+I hope to avoid complexity of having multiple modes, and also be more amenable to direct use as applications.
 
 ### Flat Namespace
 
