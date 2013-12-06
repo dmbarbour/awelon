@@ -111,7 +111,7 @@ The meaning of the above subprogram may be any one of:
         a c d e g
         a c d e h
 
-Many expansions can be eliminated if they are not *meaningful*, that is if they are not type safe (including context). Of the remaining, valid expansions, one will be chosen heuristically. That is, rather than making a random choice, we search for a valid program that has nice characteristics and qualities according to a developer or configuration. 
+Many expansions can be eliminated if they are not *meaningful*, that is if they are not type safe in context or use undefined words. Of the valid expansions, one will be chosen heuristically. That is, rather than making a random choice, we search for a valid program that has nice characteristics and qualities according to a developer or configuration. 
 
 To support heuristics, programmers can annotate their code with *attributes*:
 
@@ -204,11 +204,17 @@ Testing in AO will include unit tests, but should also include [QuickCheck](http
 
 ### Interactive AO
 
-Rather than conventional REPL environment as a separate mode of development and testing, my vision for interactive AO involves live maintenance of a dictionary. 
+My vision for interactive AO involves live maintenance of a dictionary. A significant difference from a conventional REPL is that there is no implicit environment passed from one step to the next. Small, sequential steps may be modeled by having new definitions begin with previously defined words, e.g.:
 
-Each user action will update the dictionary. If the user doesn't provide a word, a fresh word will be provided for them. There is no implicit environment other than the dictionary; to continue a previous 'action' simply involves beginning the next action with the previously defined word (trivially accessible by keyboard gesture). Words are rendered if they were recently defined in a session, configurable through certain words in the dictionary.
+        @a1 3       -- renders '3'
+        @a2 a1 4 +  -- renders '7'
+        @a3 a2 6 *  -- renders '42'
 
-I hope to avoid complexity of having multiple modes, and also be more amenable to direct use as applications.
+Common patterns like this should, of course, be readily supported by the environment. Maintenance is 'live' in the sense that, at any time, we can update a previous definition and see changes propagate.
+
+        @a1 5        -- renders 5; a2 renders 9; a3 renders 54
+
+In some ways, interactive AO is close in nature to a spreadsheet. Of course, as mentioned before, some names may be understood (by naming convention) as specifying tests, documentation, data, configurations, services, or applications.
 
 ### Flat Namespace
 
@@ -229,24 +235,26 @@ I believe this feature can increase readability while reducing verbosity. Depend
 
 Using a new prefix for each new project is okay. Do it. Refactor later.
 
-## Standard Multi-Stack Environment
+## Multi-Stack Environment
 
-AO requires a basic `(s * e)` environment for literals. Beyond that, the expected environment depends on the dictionary and frameworks in use. However, changing requires widespread edits of the dictionary, so we want a decent extensible environment to start. I suggest:
+Just as developers operate on a tacit dictionary, AO words and literals operate on a tacit value. The latter value is structured and can often be understood as modeling an 'environment' for computation - e.g. a stack, or multiple stacks. The structure of this environment is determined by convention. However, changes are expensive, requiring widespread edits to data shuffling words.
 
-        (stack * (hand * (powerblock * ((stackName * namedStacks) * ext))))
+Based on a few experiments, I recommend the following as a flexible starting model for most AO systems:
+
+        (stack * (hand * (power * ((stackName * namedStacks) * ext)))))
 
 * stack - the current stack where operations occur
 * hand - a second stack, used as a semantic clipboard
 * named stacks - act as workspaces, registers, space for extensions area
 * stack name - name of current stack, so we can switch workspaces
-* powerblock - query for specific caps; source of state, authority, identity
+* power - block; query for specific caps; source of state, authority, identity
 * ext - unused, available for future extensions
 
-A stack is modeled using pairs `(a * (b * (... * 1)))`.
+A stack is modeled using pairs, e.g. `(a * (b * (... * 1)))`.
 
-So AO allows traditional stack-based programming on the main stack. However, the developer also has access to flexible data shuffling by use of the hand or named stacks. Also, multiple workspaces is very convenient when modeling complex workflows (one stack per task). We can take and put or copy and paste with the hand, store and load from named stacks, and switch the current workspace to a named stack.
+Traditional stack-based programming occurs on the current stack. The extra named stacks can model registers, inventories, or extra workspaces. Multiple workspaces are very convenient when modeling complex concurrent workflows - i.e. *one stack per task*. The hand enables take, put, copy, paste, and provides a very convenient temporary storage.
 
-Awelon project encourages compositional, widely reusable data structures: documents, diagrams, geometries, tables, matrices, grammars, constraint models, rulebooks, scene-graphs. Use of composition and lens or [zipper](http://en.wikibooks.org/wiki/Haskell/Zippers) based manipulations is encouraged. So the 'objects' on these stacks will often be document-like structures, and project-specific data structures are discouraged.
+I also recommend that objects on the stack typically be composable structures (documents, diagrams, geometries, tables, matrices, grammars, constraint models, rulebooks, scene-graphs, etc.) or mechanisms to surgically access and manipulate deep structure (e.g. [zippers](http://en.wikibooks.org/wiki/Haskell/Zippers) or [lenses](http://www.cis.upenn.edu/~bcpierce/papers/lenses-etapsslides.pdf)).
 
-The powerblock is the generic entry point to observe or influence the real world. Specific capabilities can be extracted from a powerblock as required, and developers should do when deep enough know what *least authority* actually requires. Meanwhile, a powerblock can be forked into parent/child, where the child may be restricted and passed to a subprogram. 
+The powerblock serves as the general-purpose entry point to observe or influence the real world. Specific capabilities can be extracted from a powerblock as required, and developers should use specific capabilities when deep enough know what *least authority* actually requires. Meanwhile, a powerblock may be forked such that a child - granted to an distrusted subprogram - is restricted based on upstream policies. 
 
