@@ -1,35 +1,44 @@
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE PatternGuards, FlexibleContexts #-}
 
 -- | This module provides just enough to interpret ABC or AMBC code.
 -- 
--- It does not typecheck or compile the stream. Performance is not
--- considered especially critical at this time, since this is meant
--- for bootstrapping a compiler, not final use.
+-- The code here is... sloppy, to put it mildly. It doesn't pay much
+-- attention to performance, nor does it validate the ABC stream for
+-- sane types. Error messages are inadequate for complicated work.
+-- The API presented to users isn't very symmetric or elegant. 
 --
--- To handle invocations requires calling out; this is modeled by a
--- monad for ABC. AMBC might be interpreted in MonadPlus. The AMBC
--- here will remain ambiguous across copies, so it isn't correct for AO.
--- 
+-- The reader for ABC and AMBC code are provided as Parsec parsers.
+--
+-- This implementation is not intended for much direct use. Rather,
+-- it is a step towards bootrapping AO, ABC, and Awelon project. This
+-- is the quick-and-dirty implementation.
+--
+-- Invocations are supported by monadic operators. AMBC is supported
+-- only with MonadPlus. Also, `{fail}` will be invoked if conditions
+-- lead to failure, enabling one last look at the current value.
+--
 module ABC
     ( V(..), Op(..), Code
     , runABC, runAMBC
-    , readABC, showABC
+    , parseABC -- parse ABC or AMBC
+    , showABC  -- show ABC or AMBC
+    , opCodeList
     , droppable, copyable, observable
     , quote, divModQ
     ) where
 
 import Control.Monad
 import Data.Ratio
-import Text.Parsec
-import qualified Text.Parsec.Text as T
+import qualified Text.Parsec as P
 import Data.Text (Text)
 import qualified Data.Text as T
 
-readABC :: Text -> Code
+parseABC :: (P.Stream s m Char) => P.ParsecT s u m Code
 showABC :: Code -> Text
-droppable, droppable, observable :: V -> Bool
-prod, sum, number, block, unit :: V -> Bool
-runABC :: (Monad m) => (Text -> V -> m V) -> V -> Code -> m V
+droppable, copyable, observable :: V -> Bool
+is_prod, is_sum, is_number, is_block, is_unit :: V -> Bool
+runABC :: (Monad m) => Invoker m -> V -> Code -> m V
+runAMBC :: (MonadPlus m) => Invoker m -> V -> Code -> m V
 
 data V -- ABC's structural types
     = L V        -- sum left
@@ -43,11 +52,11 @@ data Op
     | BL Code  -- block literal
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
-    | Amb [Code] -- AMBC extension to ABC 
+    | Amb [Code] -- AMBC extension to ABC; must be non-empty
 type Code = [Op]
 data BT = BT { bt_rel :: Bool, bt_aff :: Bool }
+type Invoker m = Text -> V -> m V -- used on invocation
 
--- the true 'bytecodes'
 opCodeList :: [Char]
 opCodeList = " \nlrwzvcLRWZVC%^$'okf0123456789#+*-/Q?DFMKPSBN>"
 
@@ -101,7 +110,7 @@ runPureOp (Op '+') (P (N x) (P (N y) e)) = j (P (N (x + y)) e)
 runPureOp (Op '*') (P (N x) (P (N y) e)) = j (P (N (x * y)) e)
 runPureOp (Op '/') (P (N x) e) | (0 /= x) = j (P (N (recip x)) e)
 runPureOp (Op '-') (P (N x) e) = j (P (N (negate x)) e)
-runPureOp (Op 'Q') (P (N b) (P (N a) e)) | (0 /= x) =
+runPureOp (Op 'Q') (P (N b) (P (N a) e)) | (0 /= b) =
     let (r,q) = divModQ b a in
     j (P (N r) (P (N (fromIntegral q)) e))
 runPureOp (Op 'D') (P a (P (L v) e)) = j (P (L (P a v)) e)
@@ -109,12 +118,12 @@ runPureOp (Op 'D') (P a (P (R v) e)) = j (P (R (P a v)) e)
 runPureOp (Op 'F') (P (L (P a b)) e) = j (P (L a) (P (L b) e))
 runPureOp (Op 'F') (P (R (P c d)) e) = j (P (R c) (P (R d) e))
 runPureOp (Op 'M') (P (L a) e) = j (P a e) -- M assumes (a + a)
-runPureOp (Op 'M') (P (R a) e) = j (P a e) -- M assumes (a + a)
+runPureOp (Op 'M') (P (R a) e) = j (P a e) 
 runPureOp (Op 'K') (P (R b) e) = j (P b e) -- K asserts in right
-runPureOp (Op 'P') (P x e) = mbP (obs prod x) e
-runPureOp (Op 'S') (P x e) = mbP (obs sum x) e
-runPureOp (Op 'B') (P x e) = mbP (obs block x) e
-runPureOp (Op 'N') (P x e) = mbP (obs number x) e
+runPureOp (Op 'P') (P x e) = mbP (obs is_prod x) e
+runPureOp (Op 'S') (P x e) = mbP (obs is_sum x) e
+runPureOp (Op 'B') (P x e) = mbP (obs is_block x) e
+runPureOp (Op 'N') (P x e) = mbP (obs is_number x) e
 runPureOp (Op '>') (P x (P y e)) =
     case opGT y x of
         Nothing -> Nothing
@@ -127,13 +136,12 @@ runPureOp _ _ = Nothing -- no more rules!
 
 mbP :: Maybe V -> V -> Maybe V
 mbP Nothing _ = Nothing
-mbP (j v1) v2 = j (P v1 v2)
+mbP (Just v1) v2 = Just (P v1 v2)
 
 obs :: (V -> Bool) -> V -> Maybe V
-obs pred v = 
-    if pred v then Just (R v) else
-    if observable v then Just (L v) else
-    Nothing
+obs cond v = 
+    if (not . observable) v then Nothing else
+    if cond v then Just (R v) else Just (L v)
 
 sumL, sumR, sumW, sumZ :: V -> Maybe V
 sumL (L a) = j (L (L a))
@@ -168,38 +176,41 @@ divModQ b a =
     (rN % denR, qN)
 
 -- opGreaterThan y x = Just (y > x)
---   unless it attempts to compare something incomparable
---   in that case, returns Nothing.
--- this implementation won't catch every unsafe use
--- ... but it will catch some, perhaps enough
+--   Unless it attempts to compare something incomparable.
+--   In that case, returns Nothing.
 opGT :: V -> V -> Maybe Bool
 opGT (P a b) (P a' b') =
-    if (opGT a a') then j True else
-    if (opGT a' a) then j False else
-    opGT b b'
+    case opGT a a' of
+        Nothing -> Nothing
+        Just True -> j True
+        Just False ->
+            case opGT a' a of
+                Nothing -> Nothing
+                Just True -> j False
+                Just False -> opGT b b'
 opGT (N y) (N x) = j (y > x)
 opGT y x | structGT y x = j True
 opGT y x | structGT x y = j False
-opGT (L a) (L a') = j (opGT a a')
-opGT (R b) (R b') = j (opGT b b')
+opGT (L a) (L a') = (opGT a a')
+opGT (R b) (R b') = (opGT b b')
 opGT U U = j False
 opGT _ _ = Nothing
 
 -- greater-than due to structure
 structGT :: V -> V -> Bool
-structGT (P _ _) x = number x || sum x
-structGT (N _) x = sum x
+structGT (P _ _) x = is_number x || is_sum x
+structGT (N _) x = is_sum x
 structGT (R _) (L _) = True
 structGT _ _ = False
 
--- lazily compute a text value!
+-- lazily translate text literal into structure
 textToVal :: Text -> V
 textToVal t = 
     case T.uncons t of
         Nothing -> N 3 -- ETX
         Just(c,t') ->
             let tV' = textToVal t' in
-            let nC = fromIntegral (ord c) in
+            let nC = fromIntegral (fromEnum c) in
             P (N nC) tV'
 
 -- convert some values back to text!
@@ -210,31 +221,31 @@ valToText (P (N r) v) =
         Just c ->
             case valToText v of
                 Nothing -> Nothing
-                Just t -> Just (c `cons` t)
+                Just t -> Just (c `T.cons` t)
 valToText (N 3) = Just T.empty
 valToText _ = Nothing
 
 -- convert some numbers to characters!
-charFromRational r :: Rational -> Maybe Char
+charFromRational :: Rational -> Maybe Char
 charFromRational r =
     let d = denominator r in
-    if (1 /= r) then return Nothing else
+    if (1 /= d) then Nothing else
     let n = numerator r in
     if ((0 > n) || (n > 0x10ffff)) then Nothing else
-    Just ((fromEnum . fromIntegral) n)
+    Just ((toEnum . fromIntegral) n)
 
 -- showABC :: Code -> Text
 showABC = T.concat . map showOp 
 
 showOp :: Op -> Text
 showOp (Op c) = T.singleton c
-showOp (BL code) = '[' `cons` showABC code `snoc` ']'
-showOp (TL text) = '"' `cons` escapeLF text `snoc` '\n' `snoc` '~'
-showOp (Invoke text) = '{' `cons` text `snoc` '}'
+showOp (BL code) = '[' `T.cons` showABC code `T.snoc` ']'
+showOp (TL text) = '"' `T.cons` escapeLF text `T.snoc` '\n' `T.snoc` '~'
+showOp (Invoke text) = '{' `T.cons` text `T.snoc` '}'
 showOp (Amb opts) = 
     let opTexts = map showABC opts in
     let sepOpts = T.intercalate (T.singleton '|') opTexts in
-    '(' `cons` sepOpts `snoc` ')'
+    '(' `T.cons` sepOpts `T.snoc` ')'
 
 -- add ABC's peculiar model for escaped text
 --  each LF in text is followed by SP
@@ -259,28 +270,29 @@ copyable (N _) = True
 copyable U = True
 
 -- can we introspect the value's structure?
-observable = not . unit
+observable = not . is_unit
 
-prod (P _ _) = True
-prod _ = False
+is_prod (P _ _) = True
+is_prod _ = False
 
-sum (L _) = True
-sum (R _) = True
-sum _ = False
+is_sum (L _) = True
+is_sum (R _) = True
+is_sum _ = False
 
-block (B _ _) = True
-block _ = False
+is_block (B _ _) = True
+is_block _ = False
 
-number (N _) = True
-number _ = False
+is_number (N _) = True
+is_number _ = False
 
-unit U = True
-unit _ = False
+is_unit U = True
+is_unit _ = False
 
 -- convert a value to a block of [1->val]
 quote :: V -> V
 quote v = B bt code where
     (bt,code) = quoteVal bt0 [Op 'c'] v
+    bt0 = BT { bt_rel = False, bt_aff = False }
     -- todo: optimize and verify generated code
 
 quoteVal :: BT -> Code -> V -> (BT, Code)
@@ -304,7 +316,7 @@ quoteVal bt c (B btb code) =
                  , bt_aff = (bt_aff bt || bt_aff btb) } in
     (bt',code')
 
--- given number, find code that generates it as a literal
+-- given a number, find code that generates it as a literal
 quoteNum :: Rational -> Code
 quoteNum r =
     if (r < 0) then quoteNum (negate r) ++ [Op '-'] else
@@ -333,10 +345,112 @@ iop 6 = Op '6'
 iop 7 = Op '7'
 iop 8 = Op '8'
 iop 9 = Op '9'
-iop n = error "iop expects argument between 0 and 9"
+iop _ = error "iop expects argument between 0 and 9"
+
+-- runABC :: (Monad m) => (Text -> V -> m V) -> V -> Code -> m V
+-- todo: consider modeling the call stacks more explicitly.
+runABC _ v0 [] = return v0 -- done!
+runABC invoke v0 (op:moreCode) =
+    case runPureOp op v0 of
+        Just vf -> runABC invoke vf moreCode
+        Nothing -> runABC' invoke moreCode op v0
+
+-- run a single (possibly impure) ABC operation in CPS
+-- (note: `Amb` code here will result in failure)
+runABC' :: (Monad m) => Invoker m -> Code -> Op -> V -> m V
+runABC' invoke cc (Op '$') (P (B _ code) (P x e)) =
+    runABC invoke x code >>= \ x' ->
+    runABC invoke (P x' e) cc
+runABC' invoke cc (Op '?') (P (B bt code) (P (L x) e)) | not (bt_rel bt) =
+    runABC invoke x code >>= \ x' ->
+    runABC invoke (P (L x') e) cc
+runABC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
+    runABC invoke (P (R x ) e) cc
+runABC' invoke cc (Invoke cap) v0 =
+    invoke cap v0 >>= \ vf ->
+    runABC invoke vf cc
+runABC' invoke _ _ v0 =
+    invoke (T.pack "fail") v0 >> 
+    fail "invalid ABC"
+
+-- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> Code -> m V
+runAMBC _ v0 [] = return v0 -- done!
+runAMBC invoke v0 (op:cc) =
+    case runPureOp op v0 of
+        Just vf -> runAMBC invoke vf cc
+        Nothing -> runAMBC' invoke cc op v0
+
+runAMBC' :: (MonadPlus m) => Invoker m -> Code -> Op -> V -> m V
+runAMBC' invoke cc (Op '$') (P (B _ code) (P x e)) =
+    runAMBC invoke x code >>= \ x' ->
+    runAMBC invoke (P x' e) cc
+runAMBC' invoke cc (Op '?') (P (B bt code) (P (L x) e)) | not (bt_rel bt) =
+    runAMBC invoke x code >>= \ x' ->
+    runAMBC invoke (P (L x') e) cc
+runAMBC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
+    runAMBC invoke (P (R x ) e) cc
+runAMBC' invoke cc (Invoke cap) v0 =
+    invoke cap v0 >>= \ vf ->
+    runAMBC invoke vf cc
+runAMBC' invoke cc (Amb opts) v0 =
+    msum (map (runAMBC invoke v0) opts) >>= \ vf ->
+    runAMBC invoke vf cc
+runAMBC' invoke _ _ v0 =
+    invoke (T.pack "fail") v0 >> mzero
 
 
--- readABC :: Text -> Code
 
 
+
+
+
+-- parseABC :: (P.Stream s m t) => P.ParsecT s u m Code
+parseABC = P.manyTill parseOp P.eof
+
+parseOp, parseCharOp, parseBlockLit,
+         parseTextLit, parseInvocation, parseAmb
+    :: (P.Stream s m Char) => P.ParsecT s u m Op
+
+parseOp = 
+    parseCharOp P.<|> 
+    parseBlockLit P.<|>
+    parseTextLit P.<|>
+    parseInvocation P.<|>
+    parseAmb
+
+parseCharOp = 
+    P.oneOf opCodeList >>= \ c -> 
+    return (Op c)
+
+parseBlockLit = 
+    P.char '[' >>
+    P.manyTill parseOp (P.char ']') >>= \ ops ->
+    return (BL ops)
+
+parseTextLit =
+    P.char '"' >>
+    parseTextLine >>= \ firstLine ->
+    P.manyTill (P.char ' ' >> parseTextLine) (P.char '~') >>= \ moreLines ->
+    let finalText = T.intercalate (T.singleton '\n') (firstLine : moreLines) in 
+    return (TL finalText) 
+
+parseTextLine :: (P.Stream s m Char) => P.ParsecT s u m Text
+parseTextLine =
+    P.manyTill (P.satisfy (/= '\n')) (P.char '\n') >>= \ s ->
+    return (T.pack s)
+
+parseInvocation =
+    P.char '{' >>
+    P.manyTill (P.satisfy notCB) (P.char '}') >>= \ invText ->
+    return (Invoke (T.pack invText))
+
+-- invocations may not contain '{' or '}'
+notCB :: Char -> Bool
+notCB c = ('{' /= c) && (c /= '}')
+
+parseAmb = 
+    P.char '(' >>
+    P.sepBy1 (P.many parseOp) (P.char '|') >>= \ opts ->
+    P.char ')' >>
+    return (Amb opts)
 

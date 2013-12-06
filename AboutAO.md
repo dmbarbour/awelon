@@ -31,7 +31,7 @@ AO supports a range of useful number representations. By example:
         1/3        (rational)
         0xca7f00d  (hexadecimal)
 
-In all cases, these are understood as exact rational numbers. Additionally, AO tags numbers with units, represented as a sorted list of `(dtext * number)` pairs, terminated by number 1.
+In all cases, these are understood as exact rational numbers. Additionally, AO tags numbers with units, represented as a sorted list of `(dlabel * number)` pairs.
 
         1.4e2`kg*m/s^2
         1/3`apple
@@ -67,28 +67,28 @@ The translation from AO to ABC is trivial, but offers a significant benefit. Wit
 
 ## Inline ABC
 
-ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`:
+ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In addition, capabilities may be syntactically represented using `%{` to following `}`.
 
         %vrwlc      (aka `swap`)
         %lwcwrwc    (aka `rot4`)
-        %{&xyzzy}   (annotation)
+        %{&par}     (an annotation)
 
-The canonical expansion of inlined ABC is simply each ABC operator alone. For example, `%vrwlc` expands to `%v %r %w %l %c`. Capabilities, read from `%{` to the following `}` (including whitespace) are special and must always be expressed in their canonical form. AO's inlined ABC in AO may contain most of ABC. The exceptions are as follows: 
+The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the definition of `%vrwlc` is effectively `%v %r %w %l %c`. Capabilities must always be in canonical form. AO's inlined ABC in AO may contain most of ABC. The exceptions are as follows: 
 
 * no whitespace (LF, SP)
 * no text or blocks
 * no numbers (`#0123456789`)
 * no semantic capabilities
 
-Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. AO uses a dedicated reader state for capabilities. So the first three points don't hinder AO. The limitation on capabilities is discussed below.
+Whitespace in ABC means identity. AO has its own support for text, numbers, and blocks. AO uses a dedicated reader state for capabilities. So the first three points don't hinder AO. The restriction on capabilities is discussed below.
 
 *Note:* AO does not allow inlining of ABCD. ABCD extends ABC with a fixed dictionary, which is redundant with AO's own dictionary feature. ABC will instead compiled to ABCD as a postprocess, independently of how AO modularizes code.
 
 ## Proper Capability Security
 
-AO prohibits syntactic representation of semantic capabilities, i.e. you cannot hardwire authorities (e.g. to read or write files), nor even pure extensions to ABC (e.g. for floating point matrix manipulations), into AO code. Under this constraint, AO becomes easier to port, configure, maintain (with tests and mockups), and secure. 
+AO prohibits syntactic representation of semantic capabilities. That is, most interesting capability text - e.g. to read or write a file, or to create a stateful object, or for high-performance matrix manipulations - may not be "hard wired" into the program. 
 
-AO does allow annotations to be expressed using capability text. Annotations express hints for a compiler, optimizer, debugger, e.g. to support parallelism, laziness, breakpoints, deprecation, typechecking. For example, `%{&par}` might apply to a block, and indicate the block should be evaluated in parallel.
+AO does allow annotations to be expressed using capability text. Annotations mostly express hints for a compiler, optimizer, debugger, e.g. to support parallelism, laziness, breakpoints, deprecation, typechecking. For example, `%{&par}` might apply to a block, and indicate the block should be evaluated in parallel.
 
 Capabilities are usually shared via 'powerblock' - a block with a standard location in the environment, that can be asked for specific capabilities. This gives AO the feel of an ambient authority language, since full authority tends to be passed forward by default. AO programmers must instead be explicit about where they restrict authority, leveraging combinators that restrict authority in known ways:
 
@@ -123,7 +123,7 @@ Roles for ambiguous code and program search: rapid prototyping, live coding, exp
 
 An interesting application of AO's ambiguity is genetic programming. A common class of ambiguous programs has structure amenable to treating choices as genes - i.e. most of the choices are shallow and near the toplevel. We can create populations of viable solutions modeled by vectors, test them, and search for stable, high quality solutions within the specified space of programs.
 
-*NOTES:* `()` is identity, `(a)` is just `a`, and `(a|)` is an optional `a`. Ambiguous choice is fully associative, commutative, and idempotent. The order that choices are expressed has no impact on heuristics. 
+*NOTES:* `(a)` is just `a`, and `(a|)` is an optional `a`. Ambiguous choice is associative, commutative, and idempotent. The order that choices are expressed has no impact on preference heuristics.
 
 ### Constraining Ambiguity
 
@@ -140,25 +140,27 @@ When a word is ambiguous generally, but unambiguous in context, it might be rend
 
 ### AO Definition Syntax
 
-Parsing AO code is simple. AO code is effectively a sequence of words, literals, and inlined ABC, and ambiguous choices. The most difficult part is parsing numbers. AO currently needs special reader states for:
+Parsing AO code is simple. AO code is a whitespace separated sequence of words, literals, and inlined ABC. Possibly a few ambiguous choices. The most difficult part is parsing numbers. AO currently needs special reader states for:
 
 * numbers and units
 * inline or block text
-* capability text (`%{` to following `}`)
+* capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-Words in AO are very flexible in their structure. However, words are limited to simplify parsing and printing. 
+Words in AO are very flexible in their structure. However, words are constrained to simplify parsing and printing. 
 
-* words cannot start with `%`, `-`, or a digit
-* words cannot contain `"`, `[`, `]`, `(`, `|`, `)`
-* words cannot contain C0 or C1 control characters, SP, or DEL.
+* words may not start with `%`, `-`, or a digit
+* words may not contain `"`, `[`, `]`, `(`, `|`, `)`
+* words may not contain C0 or C1 control characters, SP, or DEL.
 
 A specific programming environment might have a few extra constraints, e.g. so words can be used in URLs. We may also unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed, including UTF-8.
 
+Like ABC, AO uses only spaces and newlines for whitespace. 
+
 ### AO Dictionary File
 
-AO is intended for a wiki-based programming environment. However, to help get started, AO includes a simple **.ao** dictionary file format for use with command-line tools. A **.ao** dictionary supports multiple definitions and imports of other dictionary files. The file format looks roughly like:
+AO is intended for a wiki-based programming environment. However, to help get started, AO defines a simple **.ao** dictionary file format - primarily for use with command-line tools. An **.ao** dictionary supports multiple definitions and imports of other dictionary files. The file format looks roughly like:
 
         imports before first definition
         @word1 definition1 using word2 word3
@@ -166,11 +168,11 @@ AO is intended for a wiki-based programming environment. However, to help get st
         definitions can use multiple lines
         @word3 definition3
 
-Each entry starts with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. The character `@` is a separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. A word may be used before it is defined, but definitions must be acyclic. 
+Regular entries start with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. The initial character `@` is a separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list must identify an AO dictionary file (minus the **.ao** suffix) in a common search space - e.g. current path plus AO_PATH environment variable. The semantics is to sequentially load definitions from each import in left-to-right order, with later definitions replacing earlier ones. (It is trivial to optimize this to avoid redundant loads.)
+The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list must identify an AO dictionary file (minus the **.ao** suffix) in a configurable search space. (I use current directory plus AO_PATH as search space.) Imports are applied in the order listed, left to right, loading words with later definitions replacing earlier ones. (This is trivial to optimize.)
 
-Essentially, dictionary files and imports can be understood as concatenative functions that *patch* a tacit dictionary. 
+Essentially, dictionary files and imports can be understood as concatenative functions that *patch* a tacit dictionary.
 
 ### Processing of AO Dictionary
 
