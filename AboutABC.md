@@ -121,7 +121,7 @@ After construction, a block is applied with the `$` operator:
 
         $ :: [x→x'] * (x * e) → (x' * e)
 
-Loops can be modeled as fixpoint combinators that copy and apply a block, e.g. `[^$]&$` is a non-terminating loop, equivalent to the lambda calculus `(λx.(x x) λx.(x x))`. Of course, a proper loop should have a halting condition.
+Loops can be modeled as fixpoint combinators that copy and apply a block, e.g. `[v^$c]^$` is a non-terminating loop, similar to the lambda calculus `(λx.(x x) λx.(x x))`. Of course, a proper loop should have a halting condition.
 
 In ABC, higher order programming can be modeled as a block that expects a block as an argument. Currying (partial application) can be modeled in terms of quotation and composition.
 
@@ -152,7 +152,7 @@ Rational numbers must be computed through such manipulation. For example:
         #2#3/*-  (-2/3)
         #123/00/ (1.23)
 
-ABC is not rich in math, nor especially efficient at it. High performance graphical or scientific computing will often be handled indirectly, with support of external resources. Rich math is better modeled symbolically than directly evaluated.
+ABC is not rich in math, nor especially efficient at it. High performance graphical or scientific computing should often be handled indirectly, modeled symbolically and compiled for OpenCL or GPU. I imagine that, eventually, widely used math operations will be well supported by ABCD.
 
 *NOTE:* Awelon project systems shall generally track dimensionality properties for numbers. Doing so offers pretty good semantic content and safety, and nicely fit structural types. There are no primitives for this; just convention. See AboutAO for more.
 

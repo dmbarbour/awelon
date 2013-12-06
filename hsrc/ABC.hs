@@ -14,47 +14,53 @@
 -- is the quick-and-dirty implementation.
 --
 -- Invocations are supported by monadic operators. AMBC is supported
--- only with MonadPlus. Also, `{fail}` will be invoked if conditions
--- lead to failure, enabling one last look at the current value.
+-- only with MonadPlus. Pure variations are available. Failures will
+-- inject an `{&fail}` annotation for debugging purposes. 
 --
 module ABC
     ( V(..), Op(..), Code
     , runABC, runAMBC
-    , parseABC -- parse ABC or AMBC
+    , runPureABC, runPureAMBC
+    , parseABC, parseOp -- parse ABC or AMBC
+    , readABC  -- parseABC on text
     , showABC  -- show ABC or AMBC
-    , opCodeList
-    , droppable, copyable, observable
-    , quote, divModQ
     ) where
 
 import Control.Monad
 import Data.Ratio
 import qualified Text.Parsec as P
+import Text.Parsec.Text ()
 import Data.Text (Text)
 import qualified Data.Text as T
 
 parseABC :: (P.Stream s m Char) => P.ParsecT s u m Code
+readABC :: Text -> Either Error Code
 showABC :: Code -> Text
 droppable, copyable, observable :: V -> Bool
 is_prod, is_sum, is_number, is_block, is_unit :: V -> Bool
 runABC :: (Monad m) => Invoker m -> V -> Code -> m V
+runPureABC :: V -> Code -> V
 runAMBC :: (MonadPlus m) => Invoker m -> V -> Code -> m V
+runPureAMBC :: V -> Code -> Maybe V -- also works for AMBC
+type Error = Text
 
 data V -- ABC's structural types
     = L V        -- sum left
     | R V        -- sum right
     | N Rational -- number
-    | B BT Code  -- block
     | P V V      -- product
+    | B BT Code  -- block
     | U          -- unit
+    deriving (Show, Ord, Eq)
 data Op
     = Op Char  -- a normal operator
     | BL Code  -- block literal
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
     | Amb [Code] -- AMBC extension to ABC; must be non-empty
+    deriving (Show, Ord, Eq)
 type Code = [Op]
-data BT = BT { bt_rel :: Bool, bt_aff :: Bool }
+data BT = BT { bt_rel :: Bool, bt_aff :: Bool } deriving (Show, Ord, Eq)
 type Invoker m = Text -> V -> m V -- used on invocation
 
 opCodeList :: [Char]
@@ -369,9 +375,21 @@ runABC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
 runABC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
     runABC invoke vf cc
-runABC' invoke _ _ v0 =
-    invoke (T.pack "fail") v0 >> 
-    fail "invalid ABC"
+runABC' invoke _ op v0 =
+    invoke (T.pack "&fail") v0 >>
+    fail ("invalid ABC: " ++ (show op) ++ " @ " ++ (show v0))
+
+runPureABC v c = inId $ runABC inv v c where
+    inv txt v0 = 
+        case T.uncons txt of
+            Just ('&', _) -> Id v0
+            _ -> fail ("unknown operation: {" ++ show txt ++ "}")
+
+-- don't want MTL just for Identity, so...
+newtype Id a = Id { inId :: a }
+instance Monad Id where
+    return = Id
+    (>>=) (Id x) f = f x
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> Code -> m V
 runAMBC _ v0 [] = return v0 -- done!
@@ -396,12 +414,13 @@ runAMBC' invoke cc (Amb opts) v0 =
     msum (map (runAMBC invoke v0) opts) >>= \ vf ->
     runAMBC invoke vf cc
 runAMBC' invoke _ _ v0 =
-    invoke (T.pack "fail") v0 >> mzero
+    invoke (T.pack "&fail") v0 >> mzero
 
-
-
-
-
+runPureAMBC = runAMBC inv where
+    inv txt v0 = 
+       case T.uncons txt of
+            Just ('&',_) -> return v0
+            _ -> Nothing
 
 
 -- parseABC :: (P.Stream s m t) => P.ParsecT s u m Code
@@ -411,12 +430,12 @@ parseOp, parseCharOp, parseBlockLit,
          parseTextLit, parseInvocation, parseAmb
     :: (P.Stream s m Char) => P.ParsecT s u m Op
 
-parseOp = 
-    parseCharOp P.<|> 
-    parseBlockLit P.<|>
-    parseTextLit P.<|>
-    parseInvocation P.<|>
-    parseAmb
+parseOp = op P.<?> "ABC op" where
+    op = parseCharOp P.<|> 
+         parseBlockLit P.<|>
+         parseTextLit P.<|>
+         parseInvocation P.<|>
+         parseAmb
 
 parseCharOp = 
     P.oneOf opCodeList >>= \ c -> 
@@ -439,7 +458,7 @@ parseTextLine =
     P.manyTill (P.satisfy (/= '\n')) (P.char '\n') >>= \ s ->
     return (T.pack s)
 
-parseInvocation =
+parseInvocation = 
     P.char '{' >>
     P.manyTill (P.satisfy notCB) (P.char '}') >>= \ invText ->
     return (Invoke (T.pack invText))
@@ -453,4 +472,11 @@ parseAmb =
     P.sepBy1 (P.many parseOp) (P.char '|') >>= \ opts ->
     P.char ')' >>
     return (Amb opts)
+
+readABC = errtxt . P.runP parseABC () "readABC" 
+    where errtxt = onLeft (T.pack . show)
+          onLeft f = either (Left . f) Right
+
+
+
 
