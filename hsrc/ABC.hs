@@ -18,7 +18,7 @@
 -- inject an `{&fail}` annotation for debugging purposes. 
 --
 module ABC
-    ( V(..), Op(..), Code
+    ( V(..), Op(..), Code(..)
     , runABC, runAMBC
     , runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
@@ -51,16 +51,14 @@ data V -- ABC's structural types
     | P V V      -- product
     | B BT Code  -- block
     | U          -- unit
-    deriving (Show, Ord, Eq)
 data Op
     = Op Char  -- a normal operator
     | BL Code  -- block literal
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
     | Amb [Code] -- AMBC extension to ABC; must be non-empty
-    deriving (Show, Ord, Eq)
-type Code = [Op]
-data BT = BT { bt_rel :: Bool, bt_aff :: Bool } deriving (Show, Ord, Eq)
+newtype Code = ABC [Op] 
+data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
 type Invoker m = Text -> V -> m V -- used on invocation
 
 opCodeList :: [Char]
@@ -90,8 +88,8 @@ runPureOp (Op 'V') (P s e) = j (P (L s) e)
 runPureOp (Op 'C') (P (L s) e) = j (P s e)
 runPureOp (Op '%') (P x e) | droppable x = j e
 runPureOp (Op '^') (P x e) | copyable x = j (P x (P x e))
-runPureOp (Op 'o') (P (B b1 yz) (P (B b2 xy) e)) = j (P b' e)
-    where b' = B bt' (xy ++ yz) -- concatenation is composition!
+runPureOp (Op 'o') (P (B b1 (ABC yz)) (P (B b2 (ABC xy)) e)) = j (P b' e)
+    where b' = B bt' (ABC (xy ++ yz)) -- concatenation is composition!
           bt' = BT { bt_aff = (bt_aff b1 || bt_aff b2)
                    , bt_rel = (bt_rel b1 || bt_rel b2) }
 runPureOp (Op '\'') (P v e) = j (P (quote v) e)
@@ -241,7 +239,7 @@ charFromRational r =
     Just ((toEnum . fromIntegral) n)
 
 -- showABC :: Code -> Text
-showABC = T.concat . map showOp 
+showABC (ABC code) = T.concat $ map showOp code
 
 showOp :: Op -> Text
 showOp (Op c) = T.singleton c
@@ -252,6 +250,24 @@ showOp (Amb opts) =
     let opTexts = map showABC opts in
     let sepOpts = T.intercalate (T.singleton '|') opTexts in
     '(' `T.cons` sepOpts `T.snoc` ')'
+
+instance Show Code where 
+    show = T.unpack . showABC
+
+instance Show Op where 
+    show op = show (ABC [op])
+
+instance Show V where 
+    show (N r) | (1 == denominator r) = show (numerator r)
+    show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
+    show (P a b) = "(" ++ show a ++ "*" ++ show b ++ ")"
+    show (L a) = "(" ++ show a ++ "+_)"
+    show (R b) = "(_+" ++ show b ++ ")"
+    show U     = "u"
+    show (B bt code) = "[" ++ show code ++ "]" ++ rel ++ aff
+        where rel = if bt_rel bt then "k" else ""
+              aff = if bt_aff bt then "f" else ""
+
 
 -- add ABC's peculiar model for escaped text
 --  each LF in text is followed by SP
@@ -296,12 +312,12 @@ is_unit _ = False
 
 -- convert a value to a block of [1->val]
 quote :: V -> V
-quote v = B bt code where
+quote v = B bt (ABC code) where
     (bt,code) = quoteVal bt0 [Op 'c'] v
     bt0 = BT { bt_rel = False, bt_aff = False }
     -- todo: optimize and verify generated code
 
-quoteVal :: BT -> Code -> V -> (BT, Code)
+quoteVal :: BT -> [Op] -> V -> (BT, [Op])
 quoteVal bt c U = (bt, intro1 ++ c)
     where intro1 = [Op 'v', Op 'v', Op 'r', Op 'w', Op 'l', Op 'c']
 quoteVal bt c (L a) = quoteVal bt (Op 'V' : c) a
@@ -323,7 +339,7 @@ quoteVal bt c (B btb code) =
     (bt',code')
 
 -- given a number, find code that generates it as a literal
-quoteNum :: Rational -> Code
+quoteNum :: Rational -> [Op]
 quoteNum r =
     if (r < 0) then quoteNum (negate r) ++ [Op '-'] else
     let num = numerator r in
@@ -333,7 +349,7 @@ quoteNum r =
     quoteNat (quoteNat [Op '/', Op '*'] den) num 
 
 -- build from right to left
-quoteNat :: Code -> Integer -> Code
+quoteNat :: [Op] -> Integer -> [Op]
 quoteNat code n =
     if (0 == n) then (Op '#' : code) else
     let (q,r) = n `divMod` 10 in
@@ -353,13 +369,14 @@ iop 8 = Op '8'
 iop 9 = Op '9'
 iop _ = error "iop expects argument between 0 and 9"
 
+
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> Code -> m V
 -- todo: consider modeling the call stacks more explicitly.
-runABC _ v0 [] = return v0 -- done!
-runABC invoke v0 (op:moreCode) =
+runABC _ v0 (ABC []) = return v0 -- done!
+runABC invoke v0 (ABC (op:cc)) =
     case runPureOp op v0 of
-        Just vf -> runABC invoke vf moreCode
-        Nothing -> runABC' invoke moreCode op v0
+        Just vf -> runABC invoke vf (ABC cc)
+        Nothing -> runABC' invoke (ABC cc) op v0
 
 -- run a single (possibly impure) ABC operation in CPS
 -- (note: `Amb` code here will result in failure)
@@ -392,11 +409,11 @@ instance Monad Id where
     (>>=) (Id x) f = f x
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> Code -> m V
-runAMBC _ v0 [] = return v0 -- done!
-runAMBC invoke v0 (op:cc) =
+runAMBC _ v0 (ABC []) = return v0 -- done!
+runAMBC invoke v0 (ABC (op:cc)) =
     case runPureOp op v0 of
-        Just vf -> runAMBC invoke vf cc
-        Nothing -> runAMBC' invoke cc op v0
+        Just vf -> runAMBC invoke vf (ABC cc)
+        Nothing -> runAMBC' invoke (ABC cc) op v0
 
 runAMBC' :: (MonadPlus m) => Invoker m -> Code -> Op -> V -> m V
 runAMBC' invoke cc (Op '$') (P (B _ code) (P x e)) =
@@ -424,7 +441,9 @@ runPureAMBC = runAMBC inv where
 
 
 -- parseABC :: (P.Stream s m t) => P.ParsecT s u m Code
-parseABC = P.manyTill parseOp P.eof
+parseABC = 
+    P.manyTill parseOp P.eof >>= \ ops ->
+    return (ABC ops)
 
 parseOp, parseCharOp, parseBlockLit,
          parseTextLit, parseInvocation, parseAmb
@@ -444,7 +463,7 @@ parseCharOp =
 parseBlockLit = 
     P.char '[' >>
     P.manyTill parseOp (P.char ']') >>= \ ops ->
-    return (BL ops)
+    return (BL (ABC ops))
 
 parseTextLit =
     P.char '"' >>
@@ -471,7 +490,7 @@ parseAmb =
     P.char '(' >>
     P.sepBy1 (P.many parseOp) (P.char '|') >>= \ opts ->
     P.char ')' >>
-    return (Amb opts)
+    return (Amb (map ABC opts))
 
 readABC = errtxt . P.runP parseABC () "readABC" 
     where errtxt = onLeft (T.pack . show)

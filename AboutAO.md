@@ -170,9 +170,7 @@ AO is intended for a wiki-based programming environment. However, to help get st
 
 Regular entries start with `@word` at the beginning of a new line. The definition follows the word, up to the start of the next word. The initial character `@` is a separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list will identify an AO dictionary file (minus the **.ao** suffix) in a configurable search space - currently based on the `AO_PATH` environment variable. Entries from each import list are loaded in order, left to right, with later definitions replacing earlier ones. 
-
-Essentially, dictionary files and imports can be understood as concatenative functions that *patch* a tacit dictionary.
+The *import* section is special. Syntactically, it is a sequence of words. However, each word in the import list will identify an AO dictionary file (minus the **.ao** suffix). Imports recursively load definitions in left to right order; as before, later definitions replace earlier ones. Imports are loaded from a configurable search path - e.g. an `AO_PATH` environment variable. Ambiguity or cycles in imports result in error.
 
 ### Processing of AO Dictionary
 
