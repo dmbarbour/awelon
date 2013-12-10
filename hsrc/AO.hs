@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards #-}
 
 -- | This module can read basic AO dictionary files and process
 -- an AO dictionary in simple ways for bootstrapping of AO. 
@@ -6,24 +6,32 @@
 -- See AboutAO.md for details on the dictionary file and AO
 --
 module AO
-    ( parseDictFile
+    ( DictFile(..), Src(..), Def(..), Action(..)
+    , readDictFile
+    , parseEntry, parseWord, parseAction
+    , parseNumber, parseUnitString, canonicalUnits
+    , parseMultiLineText, parseInlineText
     ) where
 
 import Control.Monad
 import Control.Exception (assert)
+import Control.Arrow (second)
 import Data.Ratio
 import Data.Text (Text)
+import Data.Function (on)
+import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Text.Parsec as P
+import Text.Parsec.Text()
 -- import Filesystem
 import ABC
 
-data DictF = DictF -- single dictionary file
-    { df_imps :: [W]
-    , df_defs :: [(W, [Action])]
-    } 
-type W = Text 
-type Units = [(Text,Rational)]
+data DictFile = DictF [Import] [Def]
+data Def = Def W Src (Either Error [Action])
+data Src = Src Import Integer -- source file & entry number
+type Import = Text -- name of dictionary file (minus '.ao' file extension)
+type Entry = Text  -- text of entry within a dictionary file
+type W = Text
 data Action 
     = Word W                -- ref to dictionary
     | Number Rational Units -- literal number
@@ -31,157 +39,127 @@ data Action
     | Block [Action]        -- block of AO
     | Ambiguous [[Action]]  -- ambiguous choice
     | Primitive [Op]        -- inline ABC
+type Units = [(Text,Rational)]
+type Error = Text
 
-------------------------------------
--- PARSER FOR AO DICTIONARY FILES
-------------------------------------
+---------------------------------------------
+-- READER / PARSER FOR AO DICTIONARY FILES --
+---------------------------------------------
 
-parseDictFile :: (P.Stream s m Char) => P.ParsecT s u m DictF
-parseDictFile = parser P.<?> "AO dictionary file" where
-    parser = 
-        parseImports >>= \ imps ->
-        parseDefinitions >>= \ defs ->
-        return (DictF { df_imps = imps, df_defs = defs })
+readDictFile :: Import -> Text -> DictFile
+readDictFile src = readDictFileE src . splitEntries
 
-parseImports :: (P.Stream s m Char) => P.ParsecT s u m [W]
-parseImports = parser P.<?> "imports" where
-    parser = P.optional spaces >> P.manyTill importWord endOfEntry
-    importWord = parseWord >>= \ w -> spaces >> return w
-    spaces = P.skipMany1 (P.satisfy isSpace)
+splitEntries :: Text -> [Entry]
+splitEntries t = 
+    case T.uncons t of 
+        Just ('@', t') -> T.empty : T.splitOn eSep t'
+        _ -> T.splitOn eSep t
+    where eSep = T.pack "\n@"
 
-parseDefinitions :: (P.Stream s m Char) => P.ParsecT s u m [(W,[Action])]
-parseDefinitions = parser P.<?> "definitions" where
-    parser = P.manyTill parseDef P.eof
-    parseDef = 
-        parseWord >>= \ w ->
-        P.manyTill parseAction endOfEntry >>= \ actions ->
-        return (w,actions)
+readDictFileE :: Import -> [Entry] -> DictFile
+readDictFileE src (imps:defs) = DictF impL defL where
+    impL = splitImports imps
+    defL = map (readDefE src) (zip [1..] defs)
+readDictFileE _ _ = error "error in splitEntries"
 
--- Some of these may be redundant with Haskell's functions.
--- However, I want precise, local knowledge of what I mean.
--- 
---   AO acknowledges only two kinds of space - SP, LF
---   control characters include C0, C1, DEL
---   word separators include spaces, block [], amb (|)
---
--- Words may include higher unicode spaces (e.g. NBSP).
--- Tokens in %{token} may not contain {, }, or LF
---
-isSpace, isDigit, isNZDigit, isHexDigit, isControl, 
-    isWordSep, isWordStart, isWordCont, isTokenChar :: Char -> Bool
+splitImports :: Entry -> [Import]
+splitImports t =
+    let tAfterWS = T.dropWhile isSpace t in
+    if T.null tAfterWS then [] else
+    let (imp,t') = T.break isSpace tAfterWS in
+    imp : splitImports t'
 
-isSpace c = (' ' == c) || ('\n' == c)
-isDigit c = ('0' <= c) && (c <= '9')
-isNZDigit c = ('1' <= c) && (c <= '9')
-isHexDigit c = isDigit c 
-    || (('a' <= c) && (c <= 'f')) 
-    || (('A' <= c) && (c <= 'F'))
-isControl c = (n <= 0x1F) || ((0x7F <= n) && (n <= 0x9F)) 
-    where n = fromEnum c
-isWordSep c = isSpace c || ('[' == c) || (']' == c)
-    || ('(' == c) || ('|' == c) || (')' == c)
-isWordStart c = isWordCont c && 
-    not (isDigit c || ('-' == c) || ('%' == c) || ('@' == c))
-isWordCont c = not (isWordSep c || ('"' == c) || isControl c)
-isTokenChar c = not (('{' == c) || ('}' == c) || ('\n' == c))
+readDefE :: Import -> (Integer,Entry) -> Def
+readDefE srcI (eNum,eTxt) = Def word src def where
+    src = Src srcI eNum
+    (word,def) = pp (P.parse parseEntry "" eTxt)
+    pp (Right (w,d)) = (w, Right d)
+    pp (Left e) =
+        -- parse error; estimate the word
+        let wEst = T.takeWhile (not . isWordSep) eTxt in
+        let eMsg = T.pack (show e) in
+        (wEst, Left eMsg)
 
--- Words in AO are pretty flexible. Words are separated by SP, LF,
--- block [], or amb (|) characters. Words cannot start as a number
--- (digit or '-') nor as inline ABC ('%'), nor with '@' to simplify
--- unambiguous streaming of entries. Other than these, just a few 
--- restrictions apply: no C0 or C1 control characters, no DEL, 
--- no double quote.
---
+-- parse entry after having separated entries.
+parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,[Action])
+parseEntry =
+    parseWord >>= \ w -> -- word being defined!
+    P.manyTill parseAction P.eof >>= \ actions ->
+    return (w, actions)
+
 parseWord :: (P.Stream s m Char) => P.ParsecT s u m W
-parseWord = parser P.<?> "word" where
-    parser =
-        P.satisfy isWordStart >>= \ c1 ->
-        P.manyTill wordCont wordEnd >>= \ cs ->
-        return (T.pack (c1:cs))
-    wordCont = P.satisfy isWordCont P.<?> "continuing word character"
-    wordEnd = (P.lookAhead (P.satisfy isWordSep)) P.<?> "word separator"
+parseWord = 
+    P.satisfy isWordStart >>= \ c1 ->
+    P.many (P.satisfy isWordCont) >>= \ cs ->
+    expectWordSep >> 
+    return (T.pack (c1:cs))
+
+expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
+expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator expected" where
+    wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
 -- An AO action is word, text, number, block, amb, or inline ABC.
 -- Whitespace is preserved as inline ABC.
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word, text, number, block, amb, or inline ABC" where
-    parser = spaces P.<|> prim P.<|> text P.<|> 
-             number P.<|> block P.<|> amb P.<|> word
-    prim = P.char '%' >> (invocation P.<|> inlineABC)
+    parser = word P.<|> spaces P.<|> prim P.<|> text P.<|> 
+             number P.<|> block P.<|> amb
+    prim = P.char '%' >> ((invocation P.<|> inlineABC) P.<?> "inline ABC")
     invocation =
-        P.char '{' >>
+        P.char '{' >> 
         P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
-        requireWordSep ("%{" ++ txt ++ "}") >>
+        expectWordSep >>
         return (Primitive [Invoke (T.pack txt)])
     inlineABC = 
         P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
-        requireWordSep ("%" ++ ops) >>
+        expectWordSep >>
         return (Primitive (map Op ops))
+    spaces = -- spaces are preserved as inline ABC for now
+        P.many1 (P.satisfy isSpace) >>= \ ws -> 
+        return (Primitive (map Op ws))
     word = parseWord >>= return . Word
-    text = 
-        (parseInlineText P.<|> parseMultiLineText) >>= \ txt ->
-        requireWordSep "text literal" >>
-        return (Literal txt)
-    number = 
-        parseNumberUnits >>= \ (r,u) -> 
-        requireWordSep "number literal" >>
-        return (Number r u)
-    requireWordSep sMsg = P.lookAhead (P.satisfy isWordSep) 
-        P.<?> ("word separator required after " ++ sMsg)
-    block =
-        P.char '[' >>
-        P.manyTill parseAction (P.char ']') >>= \ blockActions ->
-        return (Block blockActions)
+    text = (parseInlineText P.<|> parseMultiLineText) >>= return . Literal
+    number = parseNumberUnits >>= return . uncurry Number
+    block = 
+        P.char '[' >> 
+        P.manyTill parseAction (P.char ']') >>= 
+        return . Block
     amb =
         P.char '(' >>
-        P.sepBy1 (P.many parseAction) (P.char '|') >>= \ options ->
+        P.sepBy1 (P.many parseAction) (P.char '|') >>= \ opts ->
         P.char ')' >>
-        return (Ambiguous options)
-    spaces = -- spaces are preserved as inlined ABC
-        P.many1 (P.satisfy isSpace) >>= return . Primitive . map Op
+        return (Ambiguous opts)
 
-
--- end of entry or end of input
-endOfEntry :: (P.Stream s m Char) => P.ParsecT s u m ()
-endOfEntry = entrySep P.<|> P.eof where
-    entrySep = (atLineStart >> P.char '@' >> return ()) P.<?> "end of entry"
-
--- AO and the AO dictionary is sensitive to line starts.
--- Here, I leverage that Parsec tracks Column info. 
+-- AO is sensitive to line starts for multi-line vs. inline text.
 atLineStart, notAtLineStart :: (Monad m) => P.ParsecT s u m ()
 atLineStart = P.getPosition >>= \ pos -> when (P.sourceColumn pos > 1) mzero
 notAtLineStart = P.getPosition >>= \ pos -> unless (P.sourceColumn pos > 1) mzero 
         
-parseMultiLineText, parseInlineText 
+parseMultiLineText, lineOfText, parseInlineText 
     :: (P.Stream s m Char) => P.ParsecT s u m Text
+parseMultiLineText = 
+    atLineStart >> P.char '"' >> 
+    lineOfText >>= \ firstLine ->
+    P.manyTill (P.char ' ' >> lineOfText) (P.char '~') >>= \ moreLines ->
+    expectWordSep >> -- require word separator after ~
+    return (T.intercalate (T.singleton '\n') (firstLine : moreLines))
 
-parseMultiLineText = parser P.<?> "multi-line text" where
-    parser = 
-        atLineStart >>
-        P.char '"' >>
-        lineOfText >>= \ firstLine ->
-        P.manyTill contLine (P.char '~') >>= \ moreLines ->
-        return (T.intercalate (T.singleton '\n') (firstLine : moreLines))
-    contLine = (P.char ' ' >> lineOfText) P.<?> "continuing line of text"
-    lineOfText = 
-        P.manyTill (P.satisfy (/= '\n')) (P.char '\n') >>= 
-        return . T.pack
+lineOfText = P.manyTill (P.satisfy (/= '\n')) (P.char '\n') >>= return . T.pack
 
-parseInlineText = parser P.<?> "inline text" where
-    parser = 
-        notAtLineStart >>
-        P.char '"' >>
-        P.manyTill (P.satisfy tc) (P.char '"') >>= \ s ->
-        return (T.pack s)
-    tc c = not (c == '"' || c == '\n')
+parseInlineText = 
+    notAtLineStart >> P.char '"' >> 
+    P.manyTill (P.satisfy isInlineTextChar) (P.char '"') >>= \ txt ->
+    expectWordSep >> -- require word separator after end quote
+    return (T.pack txt)
 
 -- Numbers may have units in AO. A unit string is marked with '`'.
 -- A number must be followed by a word separator. 
 parseNumberUnits :: P.Stream s m Char => P.ParsecT s u m (Rational, Units)
 parseNumberUnits = 
-    parseNumber >>= \ n ->
+    parseNumber >>= \ r ->
     P.option [] (P.char '`' >> parseUnitString) >>= \ u ->
-    return (n,u)
+    expectWordSep >>
+    return (r,u)
 
 -- Numbers in AO are intended to be convenient for human users. The
 -- cost is that there are many formats to parse. The following
@@ -191,32 +169,33 @@ parseNumberUnits =
 --   fractional (e.g. 2/3)
 --   scientific (e.g. 3.4e5)
 --   percentile (e.g. 98.7%)
---   hexadecimal (for natural numbers only)
+--   hexadecimal (e.g. 0x221E; natural numbers only)
 -- These are similar to some extent. This parser attempts to 
--- reuse partial matches. 
+-- reuse partial matches. All numbers are converted to exact
+-- rationals in the end.
 parseNumber :: P.Stream s m Char => P.ParsecT s u m Rational
 parseNumber = parser P.<?> "number" where
-    parser = P.try parseDecimal P.<|> parseHexadecimal
+    parser = (P.try parseHexadecimal) P.<|> parseDecimal
     parseHexadecimal =
         P.char '0' >> P.char 'x' >> 
-        P.many1 (P.satisfy isHexDigit) >>= \ ds ->
-        return (fromIntegral (hexToNum ds))
+        P.many1 (P.satisfy isHexDigit) >>=
+        return . fromIntegral . hexToNum
     parseDecimal = 
         P.option False (P.char '-' >> return True) >>= \ bNeg ->
         parseUnsignedIntegral >>= \ n ->
         parseFragment n >>= \ r ->
         return (if bNeg then (negate r) else r)
-    parseUnsignedIntegral = zero P.<|> positive
-    zero = P.char '0' >> return 0
-    positive = 
-        P.satisfy isNZDigit >>= \ d ->
-        P.many (P.satisfy isDigit) >>= \ ds ->
-        return (decToNum (d:ds))
+    parseUnsignedIntegral = zeroInt P.<|> posInt
+    zeroInt = P.char '0' >> return 0
+    posInt = 
+        P.satisfy isNZDigit >>= \ c1 ->
+        P.many (P.satisfy isDigit) >>= \ cs ->
+        return (decToNum (c1:cs))
     parseFragment n =
         (P.char '/' >> fractional n) P.<|>
         (P.char '.' >> decimalDot n) P.<|>
         (postDecFragment (fromIntegral n))
-    fractional num = positive >>= \ den -> return (num % den)
+    fractional num = posInt >>= \ den -> return (num % den)
     decimalDot n = 
         P.many1 (P.satisfy isDigit) >>= \ ds ->
         let fNum = decToNum ds in
@@ -234,7 +213,7 @@ parseNumber = parser P.<?> "number" where
         parseUnsignedIntegral >>= \ n ->
         let factor = 10 ^ n in
         if bNeg then return (r * (1 % factor))
-                else return (r * fromIntegral factor)
+                else return (r * fromInteger factor)
 
 hexToNum :: [Char] -> Integer
 hexToNum = foldl addHexDigit 0 where
@@ -251,7 +230,67 @@ decToNum = foldl addDecDigit 0 where
           | otherwise = error "illegal decimal digit"
 
 parseUnitString :: (P.Stream s m Char) => P.ParsecT s u m Units
-parseUnitString = error "todo: parseUnitString"
+parseUnitString = mbDivUnit P.<?> "unit string" where
+    mbDivUnit =
+        undivUnit >>= \ uNum ->
+        P.option [] (P.char '/' >> undivUnit) >>= \ uDen ->
+        let ul = (uNum ++ map (second negate) uDen) in
+        return (canonicalUnits ul)
+    undivUnit = (P.char '1' >> return []) P.<|> unitProd
+    unitProd = P.sepBy oneUnit (P.char '*')
+    oneUnit = 
+        unitLabel >>= \ label ->
+        P.option 1 (P.char '^' >> unitFactor) >>= \ factor ->
+        return (label,factor)
+    unitLabel = P.many1 (P.satisfy isUnitChar) >>= return . T.pack
+    unitFactor = P.many1 (P.satisfy isDigit) >>= return . fromInteger . decToNum    
 
+canonicalUnits, aggrUnits :: Units -> Units
+canonicalUnits = aggrUnits . L.sortBy (compare `on` fst)
+aggrUnits ((_,0):more) = aggrUnits more
+aggrUnits ((u,r1):(u',r2):more) | (u == u') = aggrUnits ((u,r1+r2):more)
+aggrUnits (l:more) = l : aggrUnits more
+aggrUnits [] = []
+
+----------------------------------
+-- Character Predicates for AO
+----------------------------------
+
+-- AO recognizes only two kinds of whitespace - SP and LF
+-- 
+-- I have several character predicates to support parsing that might
+-- be slightly distinct from Data.Char.
+isSpace, isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
+isSpace c = (' ' == c) || ('\n' == c)
+isControl c = isC0 || isC1orDEL where
+    n = fromEnum c
+    isC0 = n <= 0x1F
+    isC1orDEL = n >= 0x7F && n <= 0x9F
+isDigit c = ('0' <= c) && (c <= '9')
+isNZDigit c = isDigit c && not ('0' == c)
+isHexDigit c = isDigit c || smallAF || bigAF where
+    smallAF = ('a' <= c) && (c <= 'f')
+    bigAF = ('A' <= c) && (c <= 'F')
+
+-- words in AO are separated by spaces, [], (|). They also may not
+-- start the same as a number, inline ABC, or a new `@word` entry.
+isWordSep, isWordStart, isWordCont :: Char -> Bool
+isWordSep c = isSpace c || block || amb where
+    block = '[' == c || ']' == c
+    amb = '(' == c || '|' == c || ')' == c
+isWordCont c = not (isWordSep c || isControl c || '"' == c)
+isWordStart c = isWordCont c && not (number || abc || entry) where
+    number = isDigit c || '-' == c
+    abc = '%' == c
+    entry = '@' == c
+
+-- tokens in AO are described with %{...}. They can have most
+-- characters, except for {, }, and LF.
+isTokenChar, isUnitChar, isInlineTextChar :: Char -> Bool
+isTokenChar c = not ('{' == c || '\n' == c || '}' == c)
+isInlineTextChar c = not ('"' == c || '\n' == c)
+isUnitChar c = not (isWordSep c || number || unitAction) where
+    number = ('-' == c) || (isDigit c)
+    unitAction = ('^' == c || '*' == c || '/' == c)
 
 

@@ -143,7 +143,7 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-Words in AO are very flexible in their structure. However, words are slightly constrained to simplify reading, parsing, printing, and streaming of multiple definitions. Also, block and amb characters work as word separators.
+Words in AO are very flexible in their structure. However, words are slightly constrained to simplify reading, parsing, printing, and streaming. Also, block and amb characters work as word separators.
 
 * words may not start with `@`, `%`, `-`, or a digit
 * words may not contain `"`, `[`, `]`, `(`, `|`, `)`
@@ -162,11 +162,11 @@ AO is intended for a wiki-based programming environment. However, to help get st
         multiple lines
         @word3 [definition3]
 
-Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator, not part of the word. If a word is already defined, the earlier definition is replaced (retroactively). A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`.
+Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is not part of the word, but is an entry separator capable of isolating parse errors. If an entry doesn't parse, it is ignored with a warning. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section is special. Syntactically, it is a sequence of words. However, each word identifies an AO dictionary file (minus the **.ao** suffix). Semantically, imports recursively load definitions in left to right order, with later definitions replacing earlier ones. (Imports are not namespaces. AO favors a flat namespace.)
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Each element identifies an AO dictionary file, minus the **.ao** suffix. The search is configured via the `AO_PATH` environment variable. Missing, ambiguous, or cyclic imports result in error. Imports are processed sequentially from left to right, potentially replacing earlier definitions. 
 
-The search path for imports is configured by the `AO_PATH` environment variable. Ambiguous or cyclic imports result in error.
+Replacing definitions has global scope. Entries and imports may thus be understood as *patches* on a tacit dictionary. Only the final dictionary is evaluated. Hence, it is acceptable for a dictionary to temporarily contain errors, undefined words, or cycles.
 
 ### Processing of AO Dictionary
 
@@ -198,7 +198,7 @@ Tests in AO include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickC
 
 ### Interactive AO
 
-My vision for interactive AO involves live maintenance of a dictionary. A significant difference from a conventional REPL is that there is no implicit environment passed from one step to the next. Small, sequential steps may be modeled by having new definitions begin with previously defined words, e.g.:
+My vision for interactive AO involves live maintenance of a dictionary. A significant difference from a conventional REPL is that there is no implicit environment passed from one step to the next. Small, sequential steps may be modeled by having new definitions begin by naming the previously defined word, e.g.:
 
         @a1 3       -- renders '3'
         @a2 a1 4 +  -- renders '7'
@@ -208,7 +208,7 @@ Common patterns like this should, of course, be readily supported by the environ
 
         @a1 5        -- renders 5; a2 renders 9; a3 renders 54
 
-In some ways, interactive AO is close in nature to a spreadsheet. Of course, as mentioned before, some names may be understood (by naming convention) as specifying tests, documentation, data, configurations, services, or applications.
+In some ways, interactive AO may be close in nature to a spreadsheet, at least for programs of type `[1→(x*1)]`. With appropriate naming conventions, even rendering as a spreadsheet is feasible. Of course, as mentioned before, different names may also be understood (by naming convention) as specifying tests, documentation, data, configurations, services, extensions, or applications. 
 
 ### Flat Namespace
 

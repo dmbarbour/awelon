@@ -359,20 +359,9 @@ quoteNat code n =
     let (q,r) = n `divMod` 10 in
     quoteNat (iop r : code) q
 
--- partial function
 iop :: Integer -> Op 
-iop 0 = Op '0'
-iop 1 = Op '1'
-iop 2 = Op '2'
-iop 3 = Op '3'
-iop 4 = Op '4'
-iop 5 = Op '5'
-iop 6 = Op '6'
-iop 7 = Op '7'
-iop 8 = Op '8'
-iop 9 = Op '9'
-iop _ = error "iop expects argument between 0 and 9"
-
+iop n | (0 <= n && n <= 9) = Op (toEnum (48 + fromIntegral n)) 
+      | otherwise = error "iop expects argument between 0 and 9"
 
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> Code -> m V
 -- todo: consider modeling the call stacks more explicitly.
