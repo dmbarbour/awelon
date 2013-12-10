@@ -24,6 +24,7 @@ module ABC
     , parseABC, parseOp -- parse ABC or AMBC
     , readABC  -- parseABC on text
     , showABC  -- show ABC or AMBC
+    , opCodeList, inlineOpCodeList
     ) where
 
 import Control.Monad
@@ -43,6 +44,7 @@ runPureABC :: V -> Code -> V
 runAMBC :: (MonadPlus m) => Invoker m -> V -> Code -> m V
 runPureAMBC :: V -> Code -> Maybe V -- also works for AMBC
 type Error = Text
+type Invoker m = Text -> V -> m V -- used on invocation
 
 data V -- ABC's structural types
     = L V        -- sum left
@@ -59,10 +61,12 @@ data Op
     | Amb [Code] -- AMBC extension to ABC; must be non-empty
 newtype Code = ABC [Op] 
 data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
-type Invoker m = Text -> V -> m V -- used on invocation
 
-opCodeList :: [Char]
-opCodeList = " \nlrwzvcLRWZVC%^$'okf0123456789#+*-/Q?DFMKPSBN>"
+-- single character opcodes; a subset are also used by AO
+-- for inline ABC, but distinguished here to avoid redundancy
+opCodeList, inlineOpCodeList :: [Char]
+opCodeList = " \n0123456789#" ++ inlineOpCodeList
+inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
 
 -- to cut down on verbose code, and because the 
 -- syntax highlighting of 'Just' is distracting...
@@ -468,9 +472,10 @@ parseBlockLit =
 parseTextLit =
     P.char '"' >>
     parseTextLine >>= \ firstLine ->
-    P.manyTill (P.char ' ' >> parseTextLine) (P.char '~') >>= \ moreLines ->
+    P.manyTill contLine (P.char '~') >>= \ moreLines ->
     let finalText = T.intercalate (T.singleton '\n') (firstLine : moreLines) in 
     return (TL finalText) 
+    where contLine = (P.char ' ' >> parseTextLine) P.<?> "continuing line of text"
 
 parseTextLine :: (P.Stream s m Char) => P.ParsecT s u m Text
 parseTextLine =
@@ -479,12 +484,12 @@ parseTextLine =
 
 parseInvocation = 
     P.char '{' >>
-    P.manyTill (P.satisfy notCB) (P.char '}') >>= \ invText ->
+    P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ invText ->
     return (Invoke (T.pack invText))
 
--- invocations may not contain '{' or '}'
-notCB :: Char -> Bool
-notCB c = ('{' /= c) && (c /= '}')
+-- invocation tokens may not contain '{', '}', or LF ('\n')
+isTokenChar :: Char -> Bool
+isTokenChar c = not (('{' == c) || ('}' == c) || ('\n' == c))
 
 parseAmb = 
     P.char '(' >>

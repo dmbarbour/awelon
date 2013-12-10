@@ -75,7 +75,7 @@ This token is unforgeable from within ABC. There are no operators to invoke the 
 
 Access to effects can then be [securely distributed](http://en.wikipedia.org/wiki/Capability-based_security) by wrapping invocations within a block like `[{foo}]`. In this role, blocks are often called capabilities.
 
-*Note:* no nesting! These tokens may not contain `{` or `}` characters. All other characters are allowed, though whitespace is discouraged.
+*Note:* tokens may not contain characters `{`, `}`, or LF (10). 
 
 ## ABC Behavior Details
 
@@ -356,15 +356,15 @@ Long term, I envision that global libraries of highly widely used sources will b
 
 ## Awelon Bytecode Deflated (ABCD)
 
-I plan to develop a larger bytecode above ABC: ABCD, or ABC Deflated.
+I plan to develop a larger bytecode above ABC: ABC Deflated, or ABCD.
 
-ABCD extends ABC with a dictionary that maps UTF-8 characters (U+0100 and above) to common, widely used sequences. ABC streams can then be compressed against this dictionary. But frequency isn't the only desired characteristic for symbols in this dictionary: a carefully developed ABCD dictionary will capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, or operators for linear algebras and matrix manipulation.
+ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, widely used sequences. ABC streams may then be compressed against this dictionary. But compression isn't the only desired characteristic for symbols in this dictionary: a carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, or operators for linear algebras and matrix manipulation.
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I imagine ABCD will never grow much beyond 1600 functions. Initial ABCD operators will be in the two octet range, which has almost 2000 elements. 
 
-ABCD is intended to be used together with `{#secureHash}` sources. ABCD is suitable for relatively short, frequent, widely used, obviously 'correct' operations. Sources are suitable for large, project-specific components or configurations. Between these features, ABC can be minimal without concern for performance or parsimony.
+ABCD is intended to be used together with `{#secureHash}` sources. These techniques won't overlap much. ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, data and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced.
 
-Core ABC may (very rarely) be updated to express new concepts. 
+Between these features, ABC can be minimal without concern for performance or parsimony.
 
 ## Ambiguous Awelon Bytecode (AMBC)
 
