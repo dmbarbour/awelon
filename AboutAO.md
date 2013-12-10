@@ -28,7 +28,7 @@ AO supports a range of useful number representations. By example:
         -12.3      (decimal)
         2.1e-3     (scientific; eN means *10^N)
         34.5%      (percentile; same as e-2)
-        1/3        (rational)
+        2/3        (rational)
         0xca7f00d  (hexadecimal)
 
 In all cases, these are understood as exact rational numbers. Additionally, AO uniformly pairs numbers with units, represented as a sorted list of `(label * number)` pairs. A number literal without units will simply result in an empty list of units, representing a scalar entity.

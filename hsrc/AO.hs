@@ -27,7 +27,7 @@ import Text.Parsec.Text()
 import ABC
 
 data DictFile = DictF [Import] [Def]
-data Def = Def W Src (Either Error [Action])
+data Def = Def W Src (Either Error AO)
 data Src = Src Import Integer -- source file & entry number
 type Import = Text -- name of dictionary file (minus '.ao' file extension)
 type Entry = Text  -- text of entry within a dictionary file
@@ -36,10 +36,11 @@ data Action
     = Word W             -- ref to dictionary
     | Num Rational Units -- literal number
     | Lit Text           -- literal text
-    | Block [Action]     -- block of AO
-    | Amb [[Action]]     -- ambiguous choice of AO
+    | Block AO           -- block of AO
+    | Amb [AO]           -- ambiguous choice of AO (non-empty)
     | Prim ABC           -- inline ABC
-    deriving (Show) -- for quick debugging
+    deriving Show
+newtype AO = AO [Action] deriving Show
 type Units = [(Text,Integer)]
 type Error = Text
 
@@ -88,11 +89,11 @@ readDefE srcI (eNum,eTxt) = Def word src def where
         (wEst, Left eMsg)
 
 -- parse entry after having separated entries.
-parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,[Action])
+parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AO)
 parseEntry =
     parseWord >>= \ w ->
     P.manyTill parseAction P.eof >>= \ actions ->
-    return (w, actions)
+    return (w, AO actions)
 
 parseWord :: (P.Stream s m Char) => P.ParsecT s u m W
 parseWord = 
@@ -130,12 +131,12 @@ parseAction = parser P.<?> "word, text, number, block, amb, or inline ABC" where
     block = 
         P.char '[' >> 
         P.manyTill parseAction (P.char ']') >>= 
-        return . Block
+        return . Block . AO
     amb =
         P.char '(' >>
         P.sepBy1 (P.many parseAction) (P.char '|') >>= \ opts ->
         P.char ')' >>
-        return (Amb opts)
+        return (Amb (map AO opts))
 
 -- AO is sensitive to line starts for multi-line vs. inline text.
 atLineStart, notAtLineStart :: (Monad m) => P.ParsecT s u m ()
