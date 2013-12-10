@@ -18,7 +18,7 @@
 -- inject an `{&fail}` annotation for debugging purposes. 
 --
 module ABC
-    ( V(..), Op(..), Code(..)
+    ( V(..), Op(..), ABC(..)
     , runABC, runAMBC
     , runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
@@ -34,15 +34,15 @@ import Text.Parsec.Text ()
 import Data.Text (Text)
 import qualified Data.Text as T
 
-parseABC :: (P.Stream s m Char) => P.ParsecT s u m Code
-readABC :: Text -> Either Error Code
-showABC :: Code -> Text
+parseABC :: (P.Stream s m Char) => P.ParsecT s u m ABC
+readABC :: Text -> Either Error ABC
+showABC :: ABC -> Text
 droppable, copyable, observable :: V -> Bool
 is_prod, is_sum, is_number, is_block, is_unit :: V -> Bool
-runABC :: (Monad m) => Invoker m -> V -> Code -> m V
-runPureABC :: V -> Code -> V
-runAMBC :: (MonadPlus m) => Invoker m -> V -> Code -> m V
-runPureAMBC :: V -> Code -> Maybe V -- also works for AMBC
+runABC :: (Monad m) => Invoker m -> V -> ABC -> m V
+runPureABC :: V -> ABC -> V
+runAMBC :: (MonadPlus m) => Invoker m -> V -> ABC -> m V
+runPureAMBC :: V -> ABC -> Maybe V -- also works for AMBC
 type Error = Text
 type Invoker m = Text -> V -> m V -- used on invocation
 
@@ -51,15 +51,15 @@ data V -- ABC's structural types
     | R V        -- sum right
     | N Rational -- number
     | P V V      -- product
-    | B BT Code  -- block
+    | B BT ABC  -- block
     | U          -- unit
 data Op
     = Op Char  -- a normal operator
-    | BL Code  -- block literal
+    | BL ABC  -- block literal
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
-    | Amb [Code] -- AMBC extension to ABC; must be non-empty
-newtype Code = ABC [Op] 
+    | AMBC [ABC] -- AMBC extension to ABC; must be non-empty
+newtype ABC = ABC [Op] 
 data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
 
 -- single character opcodes; a subset are also used by AO
@@ -242,7 +242,7 @@ charFromRational r =
     if ((0 > n) || (n > 0x10ffff)) then Nothing else
     Just ((toEnum . fromIntegral) n)
 
--- showABC :: Code -> Text
+-- showABC :: ABC -> Text
 showABC (ABC code) = T.concat $ map showOp code
 
 showOp :: Op -> Text
@@ -250,12 +250,12 @@ showOp (Op c) = T.singleton c
 showOp (BL code) = '[' `T.cons` showABC code `T.snoc` ']'
 showOp (TL text) = '"' `T.cons` escapeLF text `T.snoc` '\n' `T.snoc` '~'
 showOp (Invoke text) = '{' `T.cons` text `T.snoc` '}'
-showOp (Amb opts) = 
+showOp (AMBC opts) = 
     let opTexts = map showABC opts in
     let sepOpts = T.intercalate (T.singleton '|') opTexts in
     '(' `T.cons` sepOpts `T.snoc` ')'
 
-instance Show Code where 
+instance Show ABC where 
     show = T.unpack . showABC
 
 instance Show Op where 
@@ -363,7 +363,7 @@ iop :: Integer -> Op
 iop n | (0 <= n && n <= 9) = Op (toEnum (48 + fromIntegral n)) 
       | otherwise = error "iop expects argument between 0 and 9"
 
--- runABC :: (Monad m) => (Text -> V -> m V) -> V -> Code -> m V
+-- runABC :: (Monad m) => (Text -> V -> m V) -> V -> ABC -> m V
 -- todo: consider modeling the call stacks more explicitly.
 runABC _ v0 (ABC []) = return v0 -- done!
 runABC invoke v0 (ABC (op:cc)) =
@@ -372,8 +372,8 @@ runABC invoke v0 (ABC (op:cc)) =
         Nothing -> runABC' invoke (ABC cc) op v0
 
 -- run a single (possibly impure) ABC operation in CPS
--- (note: `Amb` code here will result in failure)
-runABC' :: (Monad m) => Invoker m -> Code -> Op -> V -> m V
+-- (note: `AMBC` code here will result in failure)
+runABC' :: (Monad m) => Invoker m -> ABC -> Op -> V -> m V
 runABC' invoke cc (Op '$') (P (B _ code) (P x e)) =
     runABC invoke x code >>= \ x' ->
     runABC invoke (P x' e) cc
@@ -401,14 +401,14 @@ instance Monad Id where
     return = Id
     (>>=) (Id x) f = f x
 
--- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> Code -> m V
+-- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
 runAMBC _ v0 (ABC []) = return v0 -- done!
 runAMBC invoke v0 (ABC (op:cc)) =
     case runPureOp op v0 of
         Just vf -> runAMBC invoke vf (ABC cc)
         Nothing -> runAMBC' invoke (ABC cc) op v0
 
-runAMBC' :: (MonadPlus m) => Invoker m -> Code -> Op -> V -> m V
+runAMBC' :: (MonadPlus m) => Invoker m -> ABC -> Op -> V -> m V
 runAMBC' invoke cc (Op '$') (P (B _ code) (P x e)) =
     runAMBC invoke x code >>= \ x' ->
     runAMBC invoke (P x' e) cc
@@ -420,7 +420,7 @@ runAMBC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
 runAMBC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
     runAMBC invoke vf cc
-runAMBC' invoke cc (Amb opts) v0 =
+runAMBC' invoke cc (AMBC opts) v0 =
     msum (map (runAMBC invoke v0) opts) >>= \ vf ->
     runAMBC invoke vf cc
 runAMBC' invoke _ _ v0 =
@@ -433,7 +433,7 @@ runPureAMBC = runAMBC inv where
             _ -> Nothing
 
 
--- parseABC :: (P.Stream s m t) => P.ParsecT s u m Code
+-- parseABC :: (P.Stream s m t) => P.ParsecT s u m ABC
 parseABC = 
     P.manyTill parseOp P.eof >>= \ ops ->
     return (ABC ops)
@@ -484,7 +484,7 @@ parseAmb =
     P.char '(' >>
     P.sepBy1 (P.many parseOp) (P.char '|') >>= \ opts ->
     P.char ')' >>
-    return (Amb (map ABC opts))
+    return (AMBC (map ABC opts))
 
 readABC = errtxt . P.runP parseABC () "readABC" 
     where errtxt = onLeft (T.pack . show)
