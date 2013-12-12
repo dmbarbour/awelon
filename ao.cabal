@@ -46,6 +46,10 @@ Library
   Exposed-Modules:
     AO
     ABC
+
+  Extensions: CPP
   ghc-options: -Wall -auto-all
 
+  if os(windows)
+    CPP-Options: -DWinPathFmt
 

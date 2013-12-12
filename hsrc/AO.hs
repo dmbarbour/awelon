@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, PatternGuards #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, CPP #-}
 
 -- | This module can read basic AO dictionary files and process
 -- an AO dictionary in simple ways for bootstrapping of AO. 
@@ -6,31 +6,39 @@
 -- See AboutAO.md for details on the dictionary file and AO
 --
 module AO
-    ( DictFile(..), Src(..), Def(..), Action(..)
-    , readDictFile
-    , parseEntry, parseWord, parseAction
+    ( Action(..)
+
+    -- FILESYSTEM OPERATIONS
+    , loadDictFile 
+
+    -- READERS/PARSERS
+    , readDictFile, parseEntry, parseWord, parseAction
     , parseNumberUnits, parseNumber, parseUnitString, canonicalUnits
     , parseMultiLineText, parseInlineText
     ) where
 
 import Control.Monad
 import Control.Exception (assert)
-import Control.Arrow (second)
+import Control.Arrow (second, left)
 import Data.Ratio
 import Data.Text (Text)
 import Data.Function (on)
+import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
--- import Filesystem
+import qualified Filesystem as FS
+import qualified Filesystem.Path.CurrentOS as FS
+import qualified System.Environment as Env
+import qualified System.IO.Error as Err
 import ABC
 
-data DictFile = DictF [Import] [Def]
-data Def = Def W Src (Either Error AO)
-data Src = Src Import Integer -- source file & entry number
+type DictF = ([Import],[(Line, ParseEnt)]) -- one dictionary file
+type ParseEnt = Either Error (W,AO) -- one parsed entry (or error)
 type Import = Text -- name of dictionary file (minus '.ao' file extension)
 type Entry = Text  -- text of entry within a dictionary file
+type Line = Int    -- line number for an entry
 type W = Text
 data Action 
     = Word W             -- ref to dictionary
@@ -43,33 +51,43 @@ data Action
 newtype AO = AO [Action] deriving Show
 type Units = [(Text,Integer)]
 type Error = Text
+type Dict = M.Map W AO -- dictionary is map from words to definitions
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
 ---------------------------------------------
 
-readDictFile :: Import -> Text -> DictFile
-readDictFile src = readDictFileE src . splitEntries . dropBOM
+readDictFile :: Text -> DictF
+readDictFile = readDictFileE . splitEntries . dropBOM
 
+-- drop initial Byte Order Mark from text (if necessary)
 dropBOM :: Text -> Text
-dropBOM t = -- drop initial Byte Order Mark from text (if necessary)
-    case T.uncons t of
-        Just ('\xfeff', t') -> t'
-        _ -> t 
+dropBOM t = case T.uncons t of { Just ('\xfeff', t') -> t' ; _ -> t }
 
-splitEntries :: Text -> [Entry]
+-- split entries (by '\n@'); handle edge case starting with @
+splitEntries :: Text -> [(Line,Entry)]
 splitEntries t = 
     case T.uncons t of 
-        Just ('@', t') -> T.empty : T.splitOn eSep t'
-        _ -> T.splitOn eSep t
+        Just ('@', t') -> (0, T.empty) : lnum 1 (T.splitOn eSep t') 
+        _ -> lnum 1 (T.splitOn eSep t)
     where eSep = T.pack "\n@"
 
-readDictFileE :: Import -> [Entry] -> DictFile
-readDictFileE src (imps:defs) = DictF impL defL where
-    impL = splitImports imps
-    defL = map (readDefE src) (zip [1..] defs)
-readDictFileE _ _ = error "error in splitEntries"
+-- recover line numbers for each entry
+lnum :: Line -> [Entry] -> [(Line,Entry)]
+lnum _ [] = []
+lnum n (e:es) = (n,e) : lnum n' es where
+    n' = T.foldl accumLF (1 + n) e
+    accumLF ct '\n' = 1 + ct
+    accumLF ct _ = ct
 
+-- process entries
+readDictFileE :: [(Line,Entry)] -> DictF
+readDictFileE (imps:defs) = (impL,defL) where
+    impL = splitImports (snd imps)
+    defL = map readDefE defs
+readDictFileE _ = error "error in splitEntries"
+
+-- imports simply whitespace separated
 splitImports :: Entry -> [Import]
 splitImports t =
     let tAfterWS = T.dropWhile isSpace t in
@@ -77,16 +95,12 @@ splitImports t =
     let (imp,t') = T.break isSpace tAfterWS in
     imp : splitImports t'
 
-readDefE :: Import -> (Integer,Entry) -> Def
-readDefE srcI (eNum,eTxt) = Def word src def where
-    src = Src srcI eNum
-    (word,def) = pp (P.parse parseEntry "" eTxt)
-    pp (Right (w,d)) = (w, Right d)
-    pp (Left e) =
-        -- parse error; estimate the word
-        let wEst = T.takeWhile (not . isWordSep) eTxt in
-        let eMsg = T.pack (show e) in
-        (wEst, Left eMsg)
+-- parse entries; use line number to improve error messages
+readDefE :: (Line, Entry) -> (Line, ParseEnt)
+readDefE (ln, txt) = (ln, pp txt) where
+    pp = left ppe . P.parse (fixln >> parseEntry) ""
+    ppe = T.pack . show
+    fixln = P.getPosition >>= P.setPosition . (`P.setSourceLine` ln)
 
 -- parse entry after having separated entries.
 parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AO)
@@ -109,7 +123,7 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
 -- An AO action is word, text, number, block, amb, or inline ABC.
 -- Whitespace is preserved as inline ABC.
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
-parseAction = parser P.<?> "word, text, number, block, amb, or inline ABC" where
+parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> prim P.<|> text P.<|> 
              number P.<|> block P.<|> amb
     prim = P.char '%' >> ((invocation P.<|> inlineABC) P.<?> "inline ABC")
@@ -281,16 +295,14 @@ isHexDigit c = isDigit c || smallAF || bigAF where
     bigAF = ('A' <= c) && (c <= 'F')
 
 -- words in AO are separated by spaces, [], (|). They also may not
--- start the same as a number, inline ABC, or a new `@word` entry.
+-- start the same as a number, %inlineABC, or an @word entry.
 isWordSep, isWordStart, isWordCont :: Char -> Bool
 isWordSep c = isSpace c || block || amb where
     block = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
 isWordCont c = not (isWordSep c || isControl c || '"' == c)
-isWordStart c = isWordCont c && not (number || abc || entry) where
+isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
     number = isDigit c || '-' == c
-    abc = '%' == c
-    entry = '@' == c
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF.
@@ -298,5 +310,43 @@ isTokenChar, isUnitChar, isInlineTextChar :: Char -> Bool
 isTokenChar c = not ('{' == c || '\n' == c || '}' == c)
 isInlineTextChar c = not ('"' == c || '\n' == c)
 isUnitChar c = isWordStart c && not ('^' == c || '*' == c || '/' == c)
+
+------------------------
+-- FILESYSTEM LOADERS --
+------------------------
+
+-- AO_PATH is a list of directories (I assume this anyway)
+--  ... or will default to the working directory. 
+--
+-- The ordering of this list is not relevant because imports 
+-- are not allowed to be ambiguous.
+-- 
+getAO_PATH :: IO [FS.FilePath]
+getAO_PATH = 
+    Env.lookupEnv "AO_PATH" >>= \ mbAOP ->
+    case mbAOP of
+        Just aopStr -> return (splitPath aopStr)
+        Nothing -> FS.getWorkingDirectory >>= return . (:[])
+
+-- OS-dependent AO_PATH separator
+isPathSep :: Char -> Bool
+#if defined(WinPathFmt)
+isPathSep = (== ';')
+#else
+isPathSep = (== ':')
+#endif
+
+splitPath :: String -> [FS.FilePath]
+splitPath = map FS.fromText . T.split isPathSep . T.pack 
+
+loadDictFile :: Import -> IO (Either Error DictF)
+loadDictFile imp = 
+    getAO_PATH >>= \ paths ->
+    loadDictFileFrom paths imp
+
+loadDictFileFrom :: [FS.FilePath] -> Import -> IO (Either Error DictF)
+loadDictFileFrom paths target =
+    error "TODO"
+    
 
 

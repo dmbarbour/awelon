@@ -17,8 +17,7 @@ AO is intended for use in a wiki-based programming environment, where each page 
 
 Most AO features come from ABC. See AboutABC for more information.
 
-For bootstrapping, filesystem or command-line tools for AO will support a **.ao** dictionary format. This format has a simple patching-based import and dictionary model.
-
+Filesystem or command-line tools for AO will support a simple **.ao** dictionary format. 
 
 ## Literals: Numbers, Text, Blocks
 
@@ -164,9 +163,9 @@ AO is intended for a wiki-based programming environment. However, to help get st
 
 Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is not part of the word, but is an entry separator capable of isolating parse errors. If an entry doesn't parse, it is ignored with a warning. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Each element identifies an AO dictionary file, minus the **.ao** suffix. The search is configured via the `AO_PATH` environment variable. Missing, ambiguous, or cyclic imports result in error. Imports are processed sequentially from left to right, potentially replacing earlier definitions. 
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable, adding an implicit **.ao** suffix. Missing, cyclic, or ambiguous imports result in error. 
 
-Replacing definitions has global scope. Entries and imports may thus be understood as *patches* on a tacit dictionary. Only the final dictionary is evaluated. Hence, it is acceptable for a dictionary to temporarily contain errors, undefined words, or cycles.
+Replacing definitions has global scope. Entries and imports may thus be understood as *patches* on a tacit dictionary. Only the final, resulting dictionary is evaluated for cyclic, missing, or otherwise meaningless definitions. 
 
 ### Processing of AO Dictionary
 
