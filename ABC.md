@@ -65,8 +65,7 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 
 Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
-Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. 
+Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, ABCD begins at U+00C0.
 
-ABCD begins after U+00FF. 
 
 

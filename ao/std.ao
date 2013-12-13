@@ -1,0 +1,242 @@
+@doc.import.std "standard AO dictionary"
+
+@doc.StandardEnvironment
+"The required environment for AO is a pair: (s*e). Literals, such as
+ blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea
+ is that 's' represents the current stack, while 'e' is kept stable
+ and represents the remainder of the environment.
+ 
+ The standard environment elaborates 'e' with a structure designed for
+ flexible workflows and dataflows, concurrency, and extensibility. The
+ type is roughly:
+ 
+     (s * (h * (p * ((sn * lns) * ext)
+ 
+ Where:
+   s: the current stack, where most operations apply
+   h: the hand, a temporary store and semantic clipboard
+   p: a powerblock, to observe or influence real world
+   sn: current stack name for when we switch workspaces
+   lns: list of (name*stack) pairs usable as workspaces or registers
+ 
+ Thus AO's standard environment supports stack programming, but the
+ extra stacks and powerblocks are very convenient and expressive.
+ 
+ Many basic stack manipulators are borrowed from Factor and FORTH.
+ Also, operations on the stack are often documented using notation
+ for stack effects developed in FORTH, e.g. `dup` is `x -- x x`,
+ but this corresponds to a full type `((x*s)*e)→((x*(x*s))*e)`.
+~
+
+@doc.id " -- "
+@doc.dup "(Copyable x) ⇒ x -- x x"
+@doc.dupd "(Copyable x) ⇒ x y -- x x y"
+@doc.over "(Copyable x) ⇒ x y -- x y x"
+@doc.pick "(Copyable x) ⇒ x y z -- x y z x"
+@doc.drop "(Droppable x) ⇒ x -- "
+@doc.nip  "(Droppable x) ⇒ x y -- y"
+@doc.nip2 "(Droppable x,y) ⇒ x y z -- z"
+@doc.swap "y x -- x y"
+@doc.swapd "x y z -- y x z"
+@doc.rot "x y z -- y z x"
+@doc.unrot "y z x -- x y z"
+@doc.assocl "y x -- (x*y)"
+@doc.assocr "(x*y) -- y x"
+@doc.intro1 " -- Unit"
+@doc.elim1 "Unit -- "
+
+@id 
+@dup %r^zlwl
+@dupd swap dup rot
+@over dupd swap
+@pick pick TODO
+@drop %r%
+@nip swap drop
+@nip2 unrot drop2
+@swap  %rwr      %wzw      %lwl
+@swapd %rwr %wzr %wzw %lzw %lwl
+@rot swapd swap
+@unrot swap swapd
+@assocl %rwrzwll
+@assocr %rrwzlwl
+@intro1 %vvrwlcl
+@elim1 %rvrwlcc
+
+@doc.Quotable
+"Most values in AO are quotable. However, if tracking spatial-temporal
+ properties, distributed values are generally not quotable.
+~
+@doc.quote "(Quotable x) ⇒ x -- [1→x]"
+@doc.unquote "[1→x] -- x"
+@quote %r'l
+@unquote %rvvrwlcw$l
+
+
+@relevant %rkl
+@affine   %rfl
+@linear   relevant affine
+@doc.relevant "mark block on stack as relevant (not Droppable)"
+@doc.affine "mark block on stack as affine (not Copyable)"
+@doc.linear "mark block on stack as linear (neither Copyable nor Droppable)"
+
+@reifyStack intro1 %rwl
+@restoreStack %rwl elim1
+@retainStack %^l
+@doc.reifyStack "(s*e)→((s*Unit)*e) : stack becomes object on fresh stack"
+@doc.restoreStack "((s*Unit)*e)→(s*e) : single object on stack becomes stack"
+@doc.retainStack "(Copyable s) ⇒ (s*e)→((s*s)*e) : stack copied onto current stack"
+
+@doc.drop2 "(Droppable x,y) ⇒ x y -- "
+@doc.drop3 "(Droppable x,y,z) ⇒ x y z -- "
+@doc.drop4 "(Droppable w,x,y,z) ⇒ w x y z -- "
+@drop2 drop drop
+@drop3 drop drop drop
+@drop4 drop drop drop drop
+
+@doc.copy2 "(Copyable x,y) ⇒ x y -- x y x y"
+@doc.copy3 "(Copyable x,y) ⇒ x y z -- x y z x y z"
+@doc.copy4 "(Copyable x,y) ⇒ w x y z -- w x y z w x y z"
+@copy2 copy2 TODO
+@copy3 copy3 TODO
+@copy4 copy4 TODO
+
+@assertUnit elim1 intro1
+@assertNonLinear dup drop
+@assertNonLinearStack retainStack drop
+@doc.assertUnit "asserts value on stack is the unit value"
+@doc.assertNonLinear "asserts value on stack is copyable and droppable"
+@doc.assertNonLinearStack "asserts current stack is copyable and droppable"
+
+@doc.Zippers
+
+% Data Surgery with Zippers
+% 
+% A zipper (data structure) is a pure way to  navigate and manipulate
+% tree-structured or list-structured data. The zipped structure has
+% enough information to restore its structure, keeping any changes.
+%
+% In Awelon, zipper operations apply to top object on current stack. 
+%
+%    zwrap - prepare zipper; stack object is initial target
+%    zf - if target was (x*y), x is now target; undo with zuf
+%    zs - if target was (x*y), y is now target; undo with zus
+%    zu - undoes last zipper navigation (selects zuf or zus)
+%    zunwrap - fully exit and unwrap zipper, even if deep
+%    zunwrap_ - just unwrap zipper
+%
+% Knowing the representation of the zipper structure isn't essential,
+% but it might be interesting to some people. 
+%
+%    zwrap :: x <~> x*(1*1) :: zunwrap_ (on stack)
+%    zf    :: (x*y)*(l*r) <~> x*(1*(y*(l*r))) :: zuf
+%    zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
+%
+% The 'zu' and 'zunwrap' operations must perform introspection. 
+%
+% To manipulate the zipper target, developers will usually use an
+% operation such as:
+%   
+%    zswap - switch target of zipper (2nd) with object on stack (1st)
+%    zpop  - move target to top of stack (unit placeholder)
+%    zpush - undo zpop
+%
+zwrap = intro1 intro1 assocl rot2 pzip assocl  
+zunwrap_ = assocr pzip rot2 assocr elim1 elim1  
+zf = assocr xf intro1 assocl roll2 assocl 
+zuf = assocr roll2 assocr elim1 cf assocl
+zs = assocr xf roll3 cs roll2 assocl
+zus = assocr roll2 xf roll3 cs assocl
+zswap = cf assocr roll2 assocl xf
+zpop = intro1S zswap
+zpush = zswap elim1S
+% TODO: zu, zu*
+zu = % look at wrapper to decide step back
+zu* = % iterative zu
+zunwrap = zu* zunwrap_
+
+% Thoughts: zipper for the sum type? maybe should have a 
+% different name for it?
+
+@doc.Hands
+% Hands to Carry Things
+%
+% In Awelon, the 'hand' is a secondary stack. It provides convenient
+% scratch storage for deep operations on the current stack, and an
+% intuitive basis for data-plumbing between stacks. 
+%
+% Clean Hands policy: words should have a neutral affect on the hand
+%   (excepting explicit and obvious hand-manipulation behaviors)
+% 
+% The hand currently is not used for active content. 
+%
+take  = pzip rot2                             % ((x*s)*(h*e)) -> (s*((x*h)*e))
+put   = rot2 pzip                             % (s*((x*h)*e)) -> ((x*s)*(h*e))
+juggle2 = rot2 swap rot3 rot2 swap rot2       % (s*((x*(y*h))*e)) -> (s*((y*(x*h))*e))
+juggle3 = rot2 swap rot4 rot2 swap rot2       % (s*((x*(y*(z*h)))*e)) -> (s*((z*(x*(y*h)))*e))
+juggle4 = put juggle3 take juggle2
+juggle5 = put juggle4 take juggle2
+take2 = take take
+take3 = take take take
+take4 = take take take take
+take5 = take take take take take
+put2  = put put
+put3  = put put put
+put4  = put put put put  % i think i can i think i can
+put5  = put put put put put
+
+%
+% Programmers can also perform some manipulations of the hand. 
+%   reifyHand - capture contents of hand as value in hand
+%   restoreHand - expand value in hand to contents in hand
+%   swapStackHand - switch stack and hand.
+%
+reifyHand = intro1 rot3 assocl rot2          % (s*(h*e)) -> (s*((h*1)*e))
+restoreHand = rot2 assocr rot3 rot3 elim1    % (s*((h*1)*e)) -> (s*(h*e))
+swapStackHand = rot2                         % (s*(h*e)) -> (h*(s*e))
+% Other useful hand ops?
+%  takeCopy
+%  putCopy
+%  discard - destroy item in hand
+
+
+% Environment Manipulations
+%
+%  (todo) fix for new environment model... need to choose name for
+%  initial stack? Maybe "main"?
+%
+%  wrapE - wrap a value in a fresh environment; wrapped value becomes
+%    the only element in a fresh env's current stack. If `wrapE` is 
+%    called without a specific target, it captures the current 
+%    environment.
+%  wrapS - capture current stack as a value, which is afterwards the
+%    only value on the current stack. 
+%  unwrapE/unwrapS - reverse these manipulations.
+%
+% The normal block applicators will wrap a new environment around the
+% arguments before applying the block. This allows subprograms to use
+% the multi-stack and hands concept, but prevents accidental coupling
+% with the current environment. 
+%
+%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
+%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
+
+
+
+
+% Combinators: remove a block from top of the current stack, and 
+%   apply it to all or part of the environment.
+%
+%   apply: target whole environment (as if block is coded inline)
+%   appX: target top item on stack (without fresh environment)
+% 
+% Note that these do not wrap the input in a fresh environment, so
+% only `appE` is directly usable.
+%
+apply = assocr intro1 swap assocr first swap elim1
+appX = assocr rot2 assocr rot3 first assocl
+
+
+
+

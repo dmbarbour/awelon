@@ -1,0 +1,231 @@
+@doc.import.abc 
+"low level data shuffling and manipulation
+ 
+ using prefix 'abc' because similar words operating on the
+ AO stack will be favored.
+~
+
+@assocl.abc %l
+@assocr.abc %r
+@swapw.abc  %w
+@swapz.abc  %z
+@intro1.abc %v
+@elim1.abc  %c
+
+@doc.assocl.abc "(a * (y * z)) → ((a * y) * z)"
+@doc.assocr.abc "((a * y) * z) → (a * (y * z))"
+@doc.swapw.abc  "(a * (y * z)) → (y * (a * z))"
+@doc.swapz.abc  "(a * (b * (c * d))) → (a * (c * (b * d)))"
+@doc.intro1.abc "a → a * 1"
+@doc.elim1.abc  "a * 1 → a"
+
+@swap.abc %vrwlc
+@rot2.abc %w
+@rot3.abc %zw
+@rot4.abc %l rot3.abc %wrzw
+@rot5.abc %l rot4.abc %wrzw
+@rot6.abc %l rot5.abc %wrzw
+@rot7.abc %l rot6.abc %wrzw
+@zip2.abc %rzl
+
+@doc.swap.abc "(a * b) → (b * a)"
+@doc.rot3.abc "(a * (b * (c * d))) → (c * (a * (b * d)))"
+@doc.zip2.abc "((a * b) * (c * d)) → ((a * c) * (b * d))"
+
+@assocl+.abc %L
+@assocr+.abc %R
+@swapw+.abc  %W
+@swapz+.abc  %Z
+@intro0.abc  %V
+@elim0.abc   %C
+
+@doc.assocl+.abc "((a + (b + c)) * e) → (((a + b) + c) * e)"
+@doc.assocr+.abc "(((a + b) + c) * e) → ((a + (b + c)) * e)"
+@doc.swapw+.abc  "((a + (b + c)) * e) → ((b + (a + c)) * e)"
+@doc.swapz+.abc  "((a + (b + (c + d))) * e) → ((a + (c + (b + d))) * e)"
+@doc.intro0.abc  "(a * e) → ((a + 0) * e)"
+@doc.elim0.abc   "((a + 0) * e) → (a * e)"
+
+@mirror.abc %VRWLC
+@not.abc    mirror.abc
+@rot2+.abc  %W
+@rot3+.abc  %ZW
+@rot4+.abc  %L rot3+ %WRZW
+@rot5+.abc  %L rot4+ %WRZW
+@rot6+.abc  %L rot5+ %WRZW
+@rot7+.abc  %L rot6+ %WRZW
+@zip2+.abc  %RZL
+
+@drop.abc %%
+@copy.abc %^
+
+@doc.drop.abc "(Droppable x) ⇒ (x * e) → e"
+@doc.copy.abc "(Copyable x) ⇒ (x * e) → (x * (x * e))"
+
+@apply.abc %$
+@compose.abc %o
+@quote.abc %'
+@unquote.abc %vvrwlcw$
+@markRelevant.abc %k
+@markAffine.abc %f
+@markLinear.abc %kf 
+
+@add.abc %+
+@multiply.abc %*
+@negate.abc %-
+@invert.abc %/
+@divmod.abc %Q
+
+@cond.abc %?
+@distrib.abc %D
+@pfactor.abc %F
+@factor.abc %FM
+@merge.abc %M
+@assert.abc %K
+
+@isPair.abc %P
+@isSum.abc  %S
+@isBlock.abc %B
+@isNumber.abc %N
+
+@gt.abc %>
+@leq.abc  gt.abc    not.abc
+@lt.abc   swapw.abc gt.abc   mirror.abc
+@geq.abc  lt.abc    not.abc
+
+@doc.whitespace.abc
+"ABC permits whitespace to simplify formatting. Only SP (32) and 
+ LF (10) are permitted. These are understood as operators with type
+ (a → a). Whitespace may also express paragraphs.
+ 
+ AO doesn't offer direct access to ABC whitespace, but may use it
+ to provide a more readable output.
+~
+
+@doc.paragraph.abc
+"When streaming ABC, it is convenient to break the stream into chunks
+ that start and end with the argument in a 'clean' state (e.g. with 
+ respect to rendering and atomicity). This is enforcable with blocks.
+ However, a weak form is also useful. So ABC suggests a *convention* 
+ to break a stream into 'paragraphs' with a blank line between them.
+ 
+ The paragraph separator is LF LF. A paragraph is a weak suggestion
+ that code within the paragraph should be processed atomically, and
+ should be batched up to that point.
+~
+
+@doc.numbers.abc
+"ABC favors legibility over parsimony. One aspect of this regards how
+ numbers are represented. ABC uses eleven basic number operators:
+ 
+     # :: e → N(0) * e  (constructs a new number)
+     0 :: N(x) * e → N(10x + 0) * e
+     1 :: N(x) * e → N(10x + 1) * e
+     2 :: N(x) * e → N(10x + 2) * e
+     ...
+     9 :: N(x) * e → N(10x + 9) * e
+ 
+ This design enables natural numbers to be expressed legibly, as in
+ `#42` constructing the number 42. Richer numbers must be represented
+ using operations on natural numbers, e.g. 2/3 as `#2#3/*`.
+ 
+ AO provides its own literal numbers, with a variety of formats. AO 
+ doesn't permit use of these eleven operators for inline ABC.
+~
+
+@doc.text.abc
+"ABC has a simple block-like format for literal text.
+ 
+     "This is example text.
+      It may continue multiple lines.
+      Each continuing line must begin with SP (32). 
+      Terminate by starting the next line with `~`.
+     ~
+ 
+ By design, only LF (10) must be escaped, and it is escaped by the 
+ continuing line. The final LF before `~` is dropped. ABC text is 
+ conventionally formatted to start at a new line.
+ 
+ ABC doesn't have a distinct 'text type'. Instead, literal text is
+ shorthand for constructing a large product of small integers. For 
+ example "Text\n~" has type:
+ 
+        e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
+ 
+ Essentially, this is a list terminated with number 3 (ETX). I would
+ encourage a convention of ending lists with different numbers to help 
+ weakly indicate different list types.
+ 
+ AO's multi-line text mode is very the same, except it *requires*
+ starting at a new line, and literals appear on an implicit stack of
+ form (s*e)→((L*s)*e) to ensure stability of environment. AO also 
+ supports inline text form "foo", which may not contain newlines or
+ double quotes.
+~
+
+@doc.block.abc
+"A literal block may be represented in ABC using square brackets
+ like so: `[vrwlc]`. This constructs a first-class function:
+ 
+     [vrwlc] :: e → [(a*b)→(b*a)] * e
+ 
+ AO uses a similar format, simply using AO words instead of ABC.
+~
+
+@doc.ambiguous.abc
+"AO models ambiguous behaviors using (foo|bar) constructs. This 
+ would indicate either foo or bar. This ambiguity may be resolved
+ based on type safety analysis and heuristic weighting based on
+ ad-hoc attributes (modeled with `{&attrib}`). 
+ 
+ When compiled, AO actually targets an extended ABC called AMBC that
+ preserves these ambiguous forms. AMBC is simply ABC extended with 
+ '(', '|', and ')', with the same meanings possessed in AO. 
+ 
+ AMBC is unsuitable for streaming code. 
+~
+
+@doc.invocations.abc
+"ABC can call out to the environment by using special curly brace
+ operators of the form `{foo}`. This will invoke the environment
+ with token 'foo' and the tacit value. 
+ 
+ ABC cannot forge the token, i.e. no primitive ABC operators permit 
+ moving from "foo" as text to {foo} as an operator. In addition, it
+ is recommended that implementations favor cryptographically secure
+ text - i.e. encrypted or signed text, or secure random GUIDs - for
+ open systems where code distribution is common. When wrapped in a 
+ block like [{foo}], these invocations become first-class securable 
+ capabilities. 
+ 
+ AO does not permit most tokens to be hard-wired in code. The main
+ exception is annotations, of the form {&...}. Annotations may help
+ an optimizer, typechecker, or debugger.
+~
+
+@doc.linking.abc
+"ABC has its own layer for reusing, linking, and compiling code. 
+ Linking an external source is represented by:
+ 
+     {#secureHash}
+ 
+ Where 'secureHash' is actually the base64url representation of an
+ SHA3-384 of external ABC source. The meaning is to load the named
+ code and apply it in place. The loaded code may contain more such
+ references.
+ 
+ Naming code by secure hash avoids potential problems. There is no
+ risk of cyclic dependencies. The name becomes location independent.
+ Distribution may use proxies, P2P, or content distribution networks.
+ Any update and versioning concerns are cleanly separated. Caches are
+ very easily implemented. Separate compilation is modeled by caching
+ precompiled forms.
+ 
+ AO does not directly support secure hash sources. These are instead
+ generated from a raw ABC stream as a postprocess. Ideally, services
+ will help factor code into optimally reusable components based on 
+ observations of large systems over time.
+~
+
+
+

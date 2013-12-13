@@ -20,13 +20,17 @@ prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
 prim(A,v,[A,unit]).
 prim([A,unit],c,A).
 
-% FAVORITE PRIMITIVE SET SO FAR
-%prim([A,[B,C]], l, [[A,B],C]).
-%prim([[A,B],C], r, [A,[B,C]]).
-%prim([A,[B,C]], w, [B,[A,C]]).
-%prim([A,[B,[C,D]]], x, [C,[B,[A,D]]]).
-%prim(ENV,intro1,[unit,ENV]).
-%prim([unit,ENV],elim1,ENV).
+lib(A,id,A,[]).
+%lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
+%lib([[A,B],C], rwl, [[B,A],C], [r,w,l]). % swapE
+%lib([[A,B],[C,D]], rzl, [[A,C], [B,D]], [r,z,l]). % zip2
+%lib([[A,[B,C]],E], assocl, [[[A,B],C],E], [r,w,r,z,w,l,l]).
+%lib([[[A,B],C],E], assocr, [[A,[B,C]],E], [r,r,w,z,l,w,l]).
+
+%lib([A,B], vrwlc, [B, A], [v,r,w,l,c]). % swap
+%lib(A, vvrwlc, [unit,A], [v,vrwlc]). % intro1
+%lib([unit,A], vrwlcc, A, [vrwlc,c]). % elim1
+
 
 assocr(N) :- path([[x,y],z], [x,[y,z]], N).
 assocl(N) :- path([x,[y,z]], [[x,y],z], N).
@@ -35,6 +39,8 @@ rot2(N) :- path([x,[y,z]], [y,[x,z]], N).
 swapE(N)   :- path([[x,y],e], [[y,x],e], N).
 assoclE(N) :- path([[x,[y,z]],e], [[[x,y],z],e], N).
 assocrE(N) :- path([[[x,y],z],e], [[x,[y,z]],e], N).
+assoclEw(N) :- path([[x,[y,z]],e], [[[y,x],z],e], N).
+assocrEw(N) :- path([[[x,y],z],e], [[y,[x,z]],e], N).
 roxE(N)    :- path([[a,[b,[c,z]]],e], [[c,[b,[a,z]]],e], N).
 rot3E(N)   :- path([[a,[b,[c,z]]],e], [[c,[a,[b,z]]],e], N).
 rot2E(N)   :- path([[x,[y,z]],e], [[y,[x,z]],e], N).
@@ -45,8 +51,9 @@ rot4(N)     :- path([a,[b,[c,[d,e]]]], [d,[a,[b,[c,e]]]], N).
 rot5(N)     :- path([a,[b,[c,[d,[e,f]]]]], [e,[a,[b,[c,[d,f]]]]], N).
 zip2E(N)   :- path([[[a,b],[c,d]],e], [[[a,c],[b,d]],e], N).
 
-lib(A,id,A,[]).
-%lib([A,[B,[C,D]]], rotx, [C,[B,[A,D]]], [w,l,z,r,w]).
+
+
+
 %lib([[A,B],C], swapE, [[B,A],C], [r,w,l]).
 %lib(
 %lib([A,[B,[C,[D,E]]]], r4, [D,[A,[B,[C,E]]]], [l,w,c,w,r,w,c]).

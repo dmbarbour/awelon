@@ -220,7 +220,7 @@ A sum type, `(a + b)`, represents that we're either right with `b` or left with 
         > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-Most types are observable and comparable. Pairs are greater than numbers, and numbers are greater than sums. Pairs compare first before second, i.e. such that text or lists will compare in lexicographic order. Sums treat left as before right, and only compare inner elements if the branching is equal. 
+Most types are observable and comparable. Pairs are greater than numbers, and numbers are greater than sums. Pairs compare first before second, i.e. such that text (modulo case) compares in lexicographic order. Sums treat left as before right, and only compare inner elements if the branching is equal. 
 
 However, blocks are not comparable, unit is not observable, and unit may be compared only with unit (and is equal). Unit provides a foundation for static structure: in general, developers must know statically where to find unit values. This is discussed later.
 

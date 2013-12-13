@@ -9,7 +9,9 @@ module AO
     ( Action(..)
 
     -- FILESYSTEM OPERATIONS
+    , getAO_PATH
     , loadDictFile 
+    --, importDictFile, importDictFileFrom
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction
@@ -20,12 +22,14 @@ module AO
 import Control.Monad
 import Control.Exception (assert)
 import Control.Arrow (second, left)
+import Data.Either (rights)
 import Data.Ratio
 import Data.Text (Text)
 import Data.Function (on)
 import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 import qualified Filesystem as FS
@@ -316,17 +320,23 @@ isUnitChar c = isWordStart c && not ('^' == c || '*' == c || '/' == c)
 ------------------------
 
 -- AO_PATH is a list of directories (I assume this anyway)
---  ... or will default to the working directory. 
+-- or will default to the working directory. If AO_PATH is
+-- defined, it may explicitly include the working directory.
 --
 -- The ordering of this list is not relevant because imports 
--- are not allowed to be ambiguous.
+-- are not allowed to be ambiguous. The list is canonicalized
+-- and nub'd before returning it.
 -- 
 getAO_PATH :: IO [FS.FilePath]
 getAO_PATH = 
-    Env.lookupEnv "AO_PATH" >>= \ mbAOP ->
-    case mbAOP of
-        Just aopStr -> return (splitPath aopStr)
+    Env.lookupEnv "AO_PATH" >>= \ aop ->
+    case aop of
         Nothing -> FS.getWorkingDirectory >>= return . (:[])
+        Just str ->
+            let paths = splitPath str in
+            mapM (Err.tryIOError . FS.canonicalizePath) paths >>= \ cps ->
+            filterM FS.isDirectory (rights cps) >>= \ dirs ->
+            return (L.nub dirs)
 
 -- OS-dependent AO_PATH separator
 isPathSep :: Char -> Bool
@@ -339,14 +349,14 @@ isPathSep = (== ':')
 splitPath :: String -> [FS.FilePath]
 splitPath = map FS.fromText . T.split isPathSep . T.pack 
 
-loadDictFile :: Import -> IO (Either Error DictF)
-loadDictFile imp = 
-    getAO_PATH >>= \ paths ->
-    loadDictFileFrom paths imp
+-- load a specific dictionary file.
+loadDictFile :: FS.FilePath -> IO (Either Error DictF)
+loadDictFile = liftM s . Err.tryIOError . liftM r . FS.readFile where
+    r = readDictFile . T.decodeUtf8
+    s = left (T.pack . show)
 
-loadDictFileFrom :: [FS.FilePath] -> Import -> IO (Either Error DictF)
-loadDictFileFrom paths target =
-    error "TODO"
+--loadDictFileFrom :: [FS.FilePath] -> Import -> IO (Either Error DictF)
+--loadDictFileFrom paths target = load where
     
 
 
