@@ -51,7 +51,12 @@ rot4(N)     :- path([a,[b,[c,[d,e]]]], [d,[a,[b,[c,e]]]], N).
 rot5(N)     :- path([a,[b,[c,[d,[e,f]]]]], [e,[a,[b,[c,[d,f]]]]], N).
 zip2E(N)   :- path([[[a,b],[c,d]],e], [[[a,c],[b,d]],e], N).
 
+take(N) :- path([[x,s],[h,e]], [s,[[x,h],e]], N).
+put(N) :- path([s,[[x,h],e]], [[x,s],[h,e]], N).
+jugl2(N) :- path([s,[[x,[y,h]],e]], [s,[[y,[x,h]],e]], N).
 
+t0(N) :- path([[x,s],e], [s,[x,e]], N).
+p0(N) :- path([s,[x,e]], [[x,s],e], N).
 
 
 %lib([[A,B],C], swapE, [[B,A],C], [r,w,l]).

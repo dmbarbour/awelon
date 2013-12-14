@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards, FlexibleContexts #-}
+{-# LANGUAGE PatternGuards, FlexibleContexts, FlexibleInstances #-}
 
 -- | This module provides just enough to interpret ABC or AMBC code.
 -- 
@@ -18,7 +18,8 @@
 -- inject an `{&fail}` annotation for debugging purposes. 
 --
 module ABC
-    ( V(..), Op(..), ABC(..)
+    ( V(..), ToABCV(..), FromABCV(..)
+    , Op(..), ABC(..)
     , runABC, runAMBC
     , runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
@@ -28,6 +29,7 @@ module ABC
     ) where
 
 import Control.Monad
+import Control.Applicative ((<$>),(<*>))
 import Data.Ratio
 import qualified Text.Parsec as P
 import Text.Parsec.Text ()
@@ -59,7 +61,7 @@ data Op
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
     | AMBC [ABC] -- AMBC extension to ABC; must be non-empty
-newtype ABC = ABC [Op] 
+newtype ABC = ABC [Op]
 data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
 
 -- single character opcodes; a subset are also used by AO
@@ -397,9 +399,7 @@ runPureABC v c = inId $ runABC inv v c where
 
 -- don't want MTL just for Identity, so...
 newtype Id a = Id { inId :: a }
-instance Monad Id where
-    return = Id
-    (>>=) (Id x) f = f x
+instance Monad Id where { return = Id; (>>=) (Id x) f = f x }
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
 runAMBC _ v0 (ABC []) = return v0 -- done!
@@ -492,4 +492,56 @@ readABC = errtxt . P.runP parseABC () "readABC"
 
 
 
+
+
+--
+-- HASKELL / ABC INTEGRATION
+--
+-- (a) conversion functions for values (ToABCV, FromABCV)
+-- (b) quickly build powerblock/invoker for simplified apps
+--  (possibly with forking for named threads and subprograms)
+--
+class ToABCV v where toABCV :: v -> V
+instance ToABCV V where toABCV = id
+instance ToABCV (Ratio Integer) where toABCV = N 
+instance ToABCV Integer where toABCV = N . fromInteger
+instance (ToABCV a, ToABCV b) => ToABCV (Either a b) where 
+    toABCV = either (L . toABCV) (R . toABCV)
+instance (ToABCV a) => ToABCV (Maybe a) where
+    toABCV = maybe (L U) (R . toABCV)
+instance (ToABCV a) => ToABCV [a] where
+    toABCV [] = N 0
+    toABCV (a:as) = P (toABCV a) (toABCV as)
+instance (ToABCV a, ToABCV b) => ToABCV (a,b) where
+    toABCV (a,b) = P (toABCV a) (toABCV b)
+instance ToABCV Text where toABCV = textToVal
+instance ToABCV () where toABCV () = U
+
+class FromABCV v where fromABCV :: V -> Maybe v
+instance FromABCV V where  fromABCV = Just
+instance FromABCV Integer where
+    fromABCV (N r) | (1 == denominator r) = Just (numerator r)
+    fromABCV _ = Nothing
+instance FromABCV (Ratio Integer) where
+    fromABCV (N r) = Just r
+    fromABCV _ = Nothing
+instance (FromABCV a, FromABCV b) => FromABCV (Either a b) where
+    fromABCV (L a) = Left <$> fromABCV a 
+    fromABCV (R b) = Right <$> fromABCV b
+    fromABCV _ = Nothing
+instance (FromABCV a) => FromABCV (Maybe a) where
+    fromABCV (L U) = Just Nothing
+    fromABCV (R a) = Just <$> fromABCV a
+    fromABCV _ = Nothing
+instance (FromABCV a) => FromABCV [a] where
+    fromABCV (P a as) = (:) <$> fromABCV a <*> fromABCV as
+    fromABCV (N _) = return []
+    fromABCV _ = Nothing
+instance (FromABCV a, FromABCV b) => FromABCV (a,b) where
+    fromABCV (P a b) = (,) <$> fromABCV a <*> fromABCV b
+    fromABCV _ = Nothing
+instance FromABCV Text where fromABCV = valToText
+instance FromABCV () where
+    fromABCV U = Just ()
+    fromABCV _ = Nothing
 

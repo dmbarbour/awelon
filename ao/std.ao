@@ -1,4 +1,4 @@
-@doc.import.std "standard AO dictionary"
+@doc.import.std "an okay starting point for AO dictionaries"
 
 @doc.StandardEnvironment
 "The required environment for AO is a pair: (s*e). Literals, such as
@@ -10,14 +10,15 @@
  flexible workflows and dataflows, concurrency, and extensibility. The
  type is roughly:
  
-     (s * (h * (p * ((sn * lns) * ext)
+     (s * (h * (p * ((sn * lns) * ex))))
  
  Where:
    s: the current stack, where most operations apply
    h: the hand, a temporary store and semantic clipboard
    p: a powerblock, to observe or influence real world
-   sn: current stack name for when we switch workspaces
-   lns: list of (name*stack) pairs usable as workspaces or registers
+   sn: name of current stack, used when switching stacks
+   lns: list of (name*stack) pairs for workspaces and registers
+   ex: unused, available for experimental extensions
  
  Thus AO's standard environment supports stack programming, but the
  extra stacks and powerblocks are very convenient and expressive.
@@ -32,6 +33,7 @@
 @doc.dup "(Copyable x) ⇒ x -- x x"
 @doc.dupd "(Copyable x) ⇒ x y -- x x y"
 @doc.over "(Copyable x) ⇒ x y -- x y x"
+@doc.tuck "(Copyable y) ⇒ x y -- y x y"
 @doc.pick "(Copyable x) ⇒ x y z -- x y z x"
 @doc.drop "(Droppable x) ⇒ x -- "
 @doc.nip  "(Droppable x) ⇒ x y -- y"
@@ -40,6 +42,9 @@
 @doc.swapd "x y z -- y x z"
 @doc.rot "x y z -- y z x"
 @doc.unrot "y z x -- x y z"
+@doc.roll "w x y z -- x y z w"
+@doc.unroll "x y z w -- w x y z"
+@doc.spin "x y z -- z y x"
 @doc.assocl "y x -- (x*y)"
 @doc.assocr "(x*y) -- y x"
 @doc.intro1 " -- Unit"
@@ -49,7 +54,8 @@
 @dup %r^zlwl
 @dupd swap dup rot
 @over dupd swap
-@pick pick TODO
+@tuck swap over
+@pick %rw over %wl swap
 @drop %r%
 @nip swap drop
 @nip2 unrot drop2
@@ -57,20 +63,34 @@
 @swapd %rwr %wzr %wzw %lzw %lwl
 @rot swapd swap
 @unrot swap swapd
+@spin swap swapd swap
+@roll %rw roll3 %wl swap
+@unroll swap %rw unrot %wl
+
+@roll2 swap
+@roll3 rot
+@roll4 roll
+
 @assocl %rwrzwll
 @assocr %rrwzlwl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
 
 @doc.Quotable
-"Most values in AO are quotable. However, if tracking spatial-temporal
- properties, distributed values are generally not quotable.
+"Most values in AO are quotable, except in contexts where an AO 
+ program models a distributed behavior. Distributed values are not
+ quotable; all values entering a quote must have the same location.
+ 
+ A quotation is simply a block that reproduces a value. Quotations
+ can be utilized together with composition for partial application.
+ 
+ If a block with affine or relevant properties is quoted, the quote
+ will inherit these properties. 
 ~
 @doc.quote "(Quotable x) ⇒ x -- [1→x]"
 @doc.unquote "[1→x] -- x"
 @quote %r'l
 @unquote %rvvrwlcw$l
-
 
 @relevant %rkl
 @affine   %rfl
@@ -81,10 +101,8 @@
 
 @reifyStack intro1 %rwl
 @restoreStack %rwl elim1
-@retainStack %^l
 @doc.reifyStack "(s*e)→((s*Unit)*e) : stack becomes object on fresh stack"
 @doc.restoreStack "((s*Unit)*e)→(s*e) : single object on stack becomes stack"
-@doc.retainStack "(Copyable s) ⇒ (s*e)→((s*s)*e) : stack copied onto current stack"
 
 @doc.drop2 "(Droppable x,y) ⇒ x y -- "
 @doc.drop3 "(Droppable x,y,z) ⇒ x y z -- "
@@ -93,23 +111,169 @@
 @drop3 drop drop drop
 @drop4 drop drop drop drop
 
-@doc.copy2 "(Copyable x,y) ⇒ x y -- x y x y"
-@doc.copy3 "(Copyable x,y) ⇒ x y z -- x y z x y z"
-@doc.copy4 "(Copyable x,y) ⇒ w x y z -- w x y z w x y z"
-@copy2 copy2 TODO
-@copy3 copy3 TODO
-@copy4 copy4 TODO
+@doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
+@doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
+@doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
+@dup2 assocl dup %rw 
+      assocr %wl
+      assocr
+@dup3 assocl assocl dup %rw 
+      assocr assocr %wl 
+      assocr assocr
+@dup4 assocl assocl assocl dup %rw 
+      assocr assocr assocr %wl 
+      assocr assocr assocr
 
-@assertUnit elim1 intro1
-@assertNonLinear dup drop
-@assertNonLinearStack retainStack drop
-@doc.assertUnit "asserts value on stack is the unit value"
-@doc.assertNonLinear "asserts value on stack is copyable and droppable"
-@doc.assertNonLinearStack "asserts current stack is copyable and droppable"
+@doc.Hands
+"In AO, the hand is modeled as a second stack. It can be used as a
+ temporary storage for deep operations on the current stack, and 
+ also serves as a semantic clipboard for ad-hoc data shuffling.
+ 
+ Developers can:
+ 
+   * take top item from stack into hand
+   * put top item from hand onto stack
+   * juggle (rotate) a few items
+   * discard a value from the hand
+   * copy an item from the stack into hand
+   * paste an item in the hand onto the stack
+ 
+ In addition, hands are stable when developers use navigational
+ metaphors, i.e. to operate in different workspaces. 
+~
+
+@take %rzlw
+@put  %wrzl
+@discard put drop
+@copy dup take
+@paste put copy
+
+@take2 take take
+@take3 take take take
+@take4 take take take take
+@put2  put  put
+@put3  put  put  put
+@put4  put  put  put  put
+@juggle2 %w roll2 %w
+@juggle3 %w roll3 %w
+@juggle4 %w roll4 %w
+
+@doc.take "move value at top of stack to top of hand"
+@doc.put "move value at top of hand to top of stack"
+@doc.discard "drop and destroy value in hand"
+@doc.copy "copy object from top of stack into hand (copy/paste metaphor)"
+@doc.paste "paste object from hand onto top of stack (copy/paste metaphor)"
+
+@reifyHand %w reifyStack %w
+@restoreHand %w restoreStack %w
+@doc.reifyHand "hand becomes single object in fresh hand"
+@doc.restoreHand "single object in hand becomes hand"
+
+@doc.EnvironmentManipulation
+"AO developers aren't limited to a single instance of the standard
+ environment. Subprograms may be computed in their own complete 
+ environments, and objects may be shifted from one environment to
+ another (using the hand, by default, for data shuffling). 
+ 
+ Developers can:
+ 
+   * create a fresh, empty environment on the stack
+   * safely destroy an empty environment on the stack
+   * swap environment on the stack with the current 
+   * apply a function in a fresh environment
+ 
+ When swapping to a new environment, the current hand and powerblock
+ come with the user (at least by the standard functions). It isn't
+ difficult to abstract motion that also switches hands and tools.
+ 
+ Environments can simplify reasoning about subprogram interactions. 
+~
+
+@doc.TODO
+"Much to do about AO
+  * functions on lists, association lists, records
+  * optimizers and compilers for ABC, AMBC, and AO
+  * simplified app type for quick integration with Haskell? (use plugins?)
+  * 2D-3D scene-graphs based on enneatrees and zippers
+  * secure pseduo-random number generators; probabilistic programs
+  * math libs - linear algebra, symbolic maths
+  * knowledge databases as words (or sets thereof) in dictionary
+  *   unicode
+  *   countries, flags, populations, maps
+  *   project Gutenberg novels
+ 
+ AO's design philosophy is actually similar to Wolfram's - that code
+ should have easy access to vast quantities of useful, maintainable
+ data. AO provides this access in the form of words in a very large
+ dictionary.
+~
+
+@JUNK
+
+% Environment Manipulations
+%
+%  (todo) fix for new environment model... need to choose name for
+%  initial stack? Maybe "main"?
+%
+%  wrapE - wrap a value in a fresh environment; wrapped value becomes
+%    the only element in a fresh env's current stack. If `wrapE` is 
+%    called without a specific target, it captures the current 
+%    environment.
+%  wrapS - capture current stack as a value, which is afterwards the
+%    only value on the current stack. 
+%  unwrapE/unwrapS - reverse these manipulations.
+%
+% The normal block applicators will wrap a new environment around the
+% arguments before applying the block. This allows subprograms to use
+% the multi-stack and hands concept, but prevents accidental coupling
+% with the current environment. 
+%
+%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
+%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
+
+
+% Combinators: remove a block from top of the current stack, and 
+%   apply it to all or part of the environment.
+%
+%   apply: target whole environment (as if block is coded inline)
+%   appX: target top item on stack (without fresh environment)
+% 
+% Note that these do not wrap the input in a fresh environment, so
+% only `appE` is directly usable.
+%
+apply = assocr intro1 swap assocr first swap elim1
+appX = assocr rot2 assocr rot3 first assocl
 
 @doc.Zippers
+"The zipper data structure was described by Gérard Huet in 1997. It
+ enables navigation and modification of tree-structured data in a
+ purely functional context. At any time, the original tree structure
+ can be recovered with the modifications. For Awelon project, zippers 
+ are widely useful for modeling navigation through scene graphs or 
+ documents, and document-like structures. They may also be used for
+ raycasting and rendering.
+ 
+ To support user intuitions, zippers should be specialized for common
+ data structures. However, AO does provide a few standard primitives
+ for zippers on AO's product data type.
+~
 
-% Data Surgery with Zippers
+@doc.HigherOrderZippers
+"Zippers are a first derivative on a data structure. However, higher
+ derivatives are also very useful. For example, first derivative can
+ focus on a single character in text, but second derivative models
+ an expandable selection of text. In a scene graph, such could model
+ a mobile bounding volume. 
+ 
+ I don't grasp third derivatives yet, but my intuition is that it 
+ can help structurally abstract sweeps or convolutions, e.g. the
+ process of casting a ray through a scene-graph.
+~ 
+
+@JUNK
+
 % 
 % A zipper (data structure) is a pure way to  navigate and manipulate
 % tree-structured or list-structured data. The zipped structure has
@@ -157,86 +321,27 @@ zunwrap = zu* zunwrap_
 % Thoughts: zipper for the sum type? maybe should have a 
 % different name for it?
 
-@doc.Hands
-% Hands to Carry Things
-%
-% In Awelon, the 'hand' is a secondary stack. It provides convenient
-% scratch storage for deep operations on the current stack, and an
-% intuitive basis for data-plumbing between stacks. 
-%
-% Clean Hands policy: words should have a neutral affect on the hand
-%   (excepting explicit and obvious hand-manipulation behaviors)
-% 
-% The hand currently is not used for active content. 
-%
-take  = pzip rot2                             % ((x*s)*(h*e)) -> (s*((x*h)*e))
-put   = rot2 pzip                             % (s*((x*h)*e)) -> ((x*s)*(h*e))
-juggle2 = rot2 swap rot3 rot2 swap rot2       % (s*((x*(y*h))*e)) -> (s*((y*(x*h))*e))
-juggle3 = rot2 swap rot4 rot2 swap rot2       % (s*((x*(y*(z*h)))*e)) -> (s*((z*(x*(y*h)))*e))
-juggle4 = put juggle3 take juggle2
-juggle5 = put juggle4 take juggle2
-take2 = take take
-take3 = take take take
-take4 = take take take take
-take5 = take take take take take
-put2  = put put
-put3  = put put put
-put4  = put put put put  % i think i can i think i can
-put5  = put put put put put
+@assertUnit elim1 intro1
+@assertNonLinear dup drop
+@assertNonLinearStack retainStack drop
+@doc.assertUnit "asserts value on stack is the unit value"
+@doc.assertNonLinear "asserts value on stack is copyable and droppable"
+@doc.assertNonLinearStack "asserts current stack is copyable and droppable"
 
-%
-% Programmers can also perform some manipulations of the hand. 
-%   reifyHand - capture contents of hand as value in hand
-%   restoreHand - expand value in hand to contents in hand
-%   swapStackHand - switch stack and hand.
-%
-reifyHand = intro1 rot3 assocl rot2          % (s*(h*e)) -> (s*((h*1)*e))
-restoreHand = rot2 assocr rot3 rot3 elim1    % (s*((h*1)*e)) -> (s*(h*e))
-swapStackHand = rot2                         % (s*(h*e)) -> (h*(s*e))
-% Other useful hand ops?
-%  takeCopy
-%  putCopy
-%  discard - destroy item in hand
-
-
-% Environment Manipulations
-%
-%  (todo) fix for new environment model... need to choose name for
-%  initial stack? Maybe "main"?
-%
-%  wrapE - wrap a value in a fresh environment; wrapped value becomes
-%    the only element in a fresh env's current stack. If `wrapE` is 
-%    called without a specific target, it captures the current 
-%    environment.
-%  wrapS - capture current stack as a value, which is afterwards the
-%    only value on the current stack. 
-%  unwrapE/unwrapS - reverse these manipulations.
-%
-% The normal block applicators will wrap a new environment around the
-% arguments before applying the block. This allows subprograms to use
-% the multi-stack and hands concept, but prevents accidental coupling
-% with the current environment. 
-%
-%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
-%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
-%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
-%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
-
-
-
-
-% Combinators: remove a block from top of the current stack, and 
-%   apply it to all or part of the environment.
-%
-%   apply: target whole environment (as if block is coded inline)
-%   appX: target top item on stack (without fresh environment)
-% 
-% Note that these do not wrap the input in a fresh environment, so
-% only `appE` is directly usable.
-%
-apply = assocr intro1 swap assocr first swap elim1
-appX = assocr rot2 assocr rot3 first assocl
-
-
-
+@doc.NamingConventions
+"The naming convention in this AO dictionary is: (type).(context).
+ 
+ Here 'type' is just a weak identifier to help suggest how the word
+ should be interpreted. If there is no standard type, then it may
+ be omitted. 'doc', 'test', and 'app' are example types. Context may 
+ identify a projects, users, frameworks, or DSLs. 
+ 
+ Extended naming conventions may exist, e.g. for using AO dictionary
+ as a spreadsheet, or having multiple levels of depth. However, AO
+ encourages a relatively 'flat' namespace, minimizing hierarchy. 
+ 
+ A good programming environment should help make long names readable
+ by coloring words by context, styling them by type, hiding common 
+ prefixes and suffixes, and enabling easy navigation and discovery.
+~
 

@@ -8,10 +8,11 @@
 module AO
     ( Action(..)
 
+    -- PROCESSING AO
+
     -- FILESYSTEM OPERATIONS
-    , getAO_PATH
-    , loadDictFile 
-    --, importDictFile, importDictFileFrom
+    , getAO_PATH, importDictFile
+    , loadFullDict, loadFullDictT
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction
@@ -56,6 +57,11 @@ newtype AO = AO [Action] deriving Show
 type Units = [(Text,Integer)]
 type Error = Text
 type Dict = M.Map W AO -- dictionary is map from words to definitions
+
+------------------------
+-- PROCESSING AO CODE --
+------------------------
+
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -319,14 +325,7 @@ isUnitChar c = isWordStart c && not ('^' == c || '*' == c || '/' == c)
 -- FILESYSTEM LOADERS --
 ------------------------
 
--- AO_PATH is a list of directories (I assume this anyway)
--- or will default to the working directory. If AO_PATH is
--- defined, it may explicitly include the working directory.
---
--- The ordering of this list is not relevant because imports 
--- are not allowed to be ambiguous. The list is canonicalized
--- and nub'd before returning it.
--- 
+-- obtain unique, canonicalized AO_PATHs
 getAO_PATH :: IO [FS.FilePath]
 getAO_PATH = 
     Env.lookupEnv "AO_PATH" >>= \ aop ->
@@ -335,8 +334,7 @@ getAO_PATH =
         Just str ->
             let paths = splitPath str in
             mapM (Err.tryIOError . FS.canonicalizePath) paths >>= \ cps ->
-            filterM FS.isDirectory (rights cps) >>= \ dirs ->
-            return (L.nub dirs)
+            filterM FS.isDirectory (L.nub $ rights cps)
 
 -- OS-dependent AO_PATH separator
 isPathSep :: Char -> Bool
@@ -349,14 +347,40 @@ isPathSep = (== ':')
 splitPath :: String -> [FS.FilePath]
 splitPath = map FS.fromText . T.split isPathSep . T.pack 
 
--- load a specific dictionary file.
-loadDictFile :: FS.FilePath -> IO (Either Error DictF)
-loadDictFile = liftM s . Err.tryIOError . liftM r . FS.readFile where
-    r = readDictFile . T.decodeUtf8
-    s = left (T.pack . show)
+-- load unique texts for a given import (based on AO_PATH)
+loadDictFileTexts :: Import -> IO [Text]
+loadDictFileTexts imp = 
+    getAO_PATH >>= \ paths ->
+    let fn = FS.fromText imp FS.<.> (T.pack ".ao") in
+    let files = map (FS.</> fn) paths in
+    mapM (Err.tryIOError . FS.readFile) files >>=
+    return . map T.decodeUtf8 . L.nub . rights
 
---loadDictFileFrom :: [FS.FilePath] -> Import -> IO (Either Error DictF)
---loadDictFileFrom paths target = load where
-    
+-- import a dictionary file (based on AO_PATH)
+importDictFile :: Import -> IO (Either Error DictF)
+importDictFile imp =
+    loadDictFileTexts imp >>= \ txts ->
+    return $ case txts of
+            (t:[]) -> Right (readDictFile t)
+            (_:_)  -> Left ambiguous
+            []     -> Left missing
+    where 
+    ambiguous = imp `T.append` (T.pack " ambiguous in AO_PATH")
+    missing = imp `T.append` (T.pack " missing in AO_PATH")
+
+-- | Load a full dictionary from the filesystem.
+--
+-- Currently the 'root' dictionary is considered distinct from the
+-- imports model. I'm unsure whether this is a good or bad idea.
+-- Regardless, cycles will be discovered (one step delayed).
+loadFullDict :: FS.FilePath -> IO Dict
+loadFullDict fRoot = FS.readFile fRoot >>= loadFullDictT . T.decodeUtf8
+
+-- | Load dictionary (with imports) using a text root dictionary.
+loadFullDictT :: Text -> IO Dict
+loadFullDictT txtRoot = loadRoot where
+    d0@(imps,_) = readDictFile txtRoot
+    loadRoot = error "TODO"
+
 
 
