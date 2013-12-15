@@ -28,13 +28,13 @@ AO supports a range of useful number representations. By example:
         2/3        (rational)
         0xca7f00d  (hexadecimal)
 
-In all cases, these are understood as exact rational numbers. Additionally, AO uniformly pairs numbers with units, represented as a sorted list of `(label * number)` pairs. A number literal without units will simply result in an empty list of units, representing a scalar entity.
+In addition, developers are strongly encouraged to augment numbers with unit information. By convention, words for units are prefixed with a backquote and have type `num → (num * dim)` pair (for the top object on the current stack). The type for dimensions is typically a sorted list of `(label * num)` pairs.
 
-        1.4e2`kg*m/s^2
-        1/3`apple
-        -12.3`C
+        1.4e2 `kg*m/s^2
+        1.4e2 `Joules
+        -12.3 `C
 
-Units for numbers are very useful for static safety validation, and for keeping some context. However, beyond providing some standard structure, AO leaves interpretation or normalization of units to user code. The unit expression is assumed to be of the form `x*y/a*b`, allowing for `1/a`, or `m^N`. One `/` character is allowed, placing everything to its right in the denominator. 
+Units are useful for static safety validations, and they provide a little extra context and meaning for the numbers. AO math words will generally include logic to recognize and process units. 
 
 AO supports two formats for text, both starting with `"`.
 

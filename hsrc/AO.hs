@@ -14,8 +14,7 @@ module AO
     , getAO_PATH, importDictFile, loadFullDict
 
     -- READERS/PARSERS
-    , readDictFile, parseEntry, parseWord, parseAction
-    , parseNumberUnits, parseNumber, parseUnitString, canonicalUnits
+    , readDictFile, parseEntry, parseWord, parseAction, parseNumber
     , parseMultiLineText, parseInlineText
     ) where
 
@@ -46,22 +45,17 @@ type Entry = Text  -- text of entry within a dictionary file
 type Line = Int    -- line number for an entry
 type W = Text
 data Action 
-    = Word W             -- ref to dictionary
-    | Num Rational Units -- literal number
-    | Lit Text           -- literal text
-    | Block AO           -- block of AO
-    | Amb [AO]           -- ambiguous choice of AO (non-empty)
-    | Prim ABC           -- inline ABC
+    = Word W        -- ref to dictionary
+    | Num Rational  -- literal number
+    | Lit Text      -- literal text
+    | Block AO      -- block of AO
+    | Amb [AO]      -- ambiguous choice of AO (non-empty)
+    | Prim ABC      -- inline ABC
     deriving Show
 newtype AO = AO [Action] deriving Show
 type Units = [(Text,Integer)]
 type Error = Text
 type Dict = M.Map W AO -- dictionary is map from words to definitions
-
-------------------------
--- PROCESSING AO CODE --
-------------------------
-
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -151,7 +145,7 @@ parseAction = parser P.<?> "word or primitive" where
         return ((Prim . ABC) (map Op ws))
     word = parseWord >>= return . Word
     text = (parseInlineText P.<|> parseMultiLineText) >>= return . Lit
-    number = parseNumberUnits >>= return . uncurry Num
+    number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
     block = 
         P.char '[' >> 
         P.manyTill parseAction (P.char ']') >>= 
@@ -183,15 +177,6 @@ parseInlineText =
     P.manyTill (P.satisfy isInlineTextChar) (P.char '"') >>= \ txt ->
     expectWordSep >> -- require word separator after end quote
     return (T.pack txt)
-
--- Numbers may have units in AO. A unit string is marked with '`'.
--- A number must be followed by a word separator. 
-parseNumberUnits :: P.Stream s m Char => P.ParsecT s u m (Rational, Units)
-parseNumberUnits = 
-    parseNumber >>= \ r ->
-    P.option [] (P.char '`' >> parseUnitString) >>= \ u ->
-    expectWordSep >>
-    return (r,u)
 
 -- Numbers in AO are intended to be convenient for human users. The
 -- cost is that there are many formats to parse. The following
@@ -261,29 +246,6 @@ decToNum = foldl addDecDigit 0 where
     d2i c | (('0' <= c) && (c <= '9')) = fromEnum c - fromEnum '0'
           | otherwise = error "illegal decimal digit"
 
-parseUnitString :: (P.Stream s m Char) => P.ParsecT s u m Units
-parseUnitString = mbDivUnit P.<?> "unit string" where
-    mbDivUnit =
-        undivUnit >>= \ uNum ->
-        P.option [] (P.char '/' >> undivUnit) >>= \ uDen ->
-        let ul = (uNum ++ map (second negate) uDen) in
-        return (canonicalUnits ul)
-    undivUnit = (P.char '1' >> return []) P.<|> unitProd
-    unitProd = P.sepBy1 oneUnit (P.char '*')
-    oneUnit = 
-        unitLabel >>= \ label ->
-        P.option 1 (P.char '^' >> unitFactor) >>= \ factor ->
-        return (label,factor)
-    unitLabel = P.many1 (P.satisfy isUnitChar) >>= return . T.pack
-    unitFactor = P.many1 (P.satisfy isDigit) >>= return . decToNum    
-
-canonicalUnits, aggrUnits :: Units -> Units
-canonicalUnits = aggrUnits . L.sortBy (compare `on` fst)
-aggrUnits ((_,0):more) = aggrUnits more
-aggrUnits ((u,r1):(u',r2):more) | (u == u') = aggrUnits ((u,r1+r2):more)
-aggrUnits (l:more) = l : aggrUnits more
-aggrUnits [] = []
-
 ----------------------------------
 -- Character Predicates for AO
 ----------------------------------
@@ -316,10 +278,9 @@ isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF.
-isTokenChar, isUnitChar, isInlineTextChar :: Char -> Bool
+isTokenChar, isInlineTextChar :: Char -> Bool
 isTokenChar c = not ('{' == c || '\n' == c || '}' == c)
 isInlineTextChar c = not ('"' == c || '\n' == c)
-isUnitChar c = isWordStart c && not ('^' == c || '*' == c || '/' == c)
 
 ------------------------
 -- FILESYSTEM LOADERS --
@@ -419,21 +380,31 @@ loadFullDict fRoot =
 -- recursively load imports. AO's import semantics is to load each 
 -- import into the dictionary, left to right. However, this can be
 -- optimized by loading right to left and skipping redundant loads.
--- This loads in optimal order, so each unique import is loaded only
--- once. The full dictionary is loaded.
+-- Each distinct import is loaded only once. The full dictionary is
+-- loaded.
+--
+-- Cycles, at this point, will be broken at an arbitrary position.
+-- They'll be properly detected later.
 deeplyImport :: [Import] -> [(Import,ImpR)] -> IO [(Import, ImpR)]
-deeplyImport [] imps = return imps
-deeplyImport (i:is) imps = 
-    case L.lookup i imps of
-        Just _ -> deeplyImport is imps -- import already loaded
+deeplyImport [] impsDone = return impsDone
+deeplyImport (imp:imps) impsDone = 
+    case L.lookup imp impsDone of
+        Just _ -> deeplyImport imps impsDone -- import already loaded
         Nothing ->
-            importDictFile i >>= \ impR ->
-            let isR = either (const []) (L.reverse . fst . snd) impR in
-            deeplyImport (isR ++ is) ((i,impR):imps)
+            importDictFile imp >>= \ impR ->
+            let impsDeep = either (const []) (L.reverse . fst . snd) impR in
+            deeplyImport (impsDeep ++ imps) ((imp,impR):impsDone)
 
 buildDict :: [(Import,ImpR)] -> ([Error],Dict)
-buildDict = error "TODO : buildDict"
-
-
+buildDict imps = (errors, dict) where
+    errors = importErrors
+        -- TODO: report cyclic imports, parse errors 
+        -- TODO: cyclic definitions, simplified typechecking
+    dict = error "TODO: build dict"
+    impsD = map (uncurry distrib) imps
+    importErrors = map (T.pack . show) $ lefts impsD
+    okayImports = rights impsD
+    adjacencyLists = map extractAdjacency okayImports
+    extractAdjacency (imp,(_,(impList, _))) = (imp,impList)
 
 
