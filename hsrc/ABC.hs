@@ -15,13 +15,14 @@
 --
 -- Invocations are supported by monadic operators. AMBC is supported
 -- only with MonadPlus. Pure variations are available. Failures will
--- inject an `{&fail}` annotation for debugging purposes. 
+-- inject an `{&fail}` annotation for debugging purposes. The invoker
+-- described here is inadequate for implicit parallelism and flexible
+-- scheduling. However, it will be enough for a simplified app model.
 --
 module ABC
     ( V(..), ToABCV(..), FromABCV(..)
     , Op(..), ABC(..)
-    , runABC, runAMBC
-    , runPureABC, runPureAMBC
+    , runABC, runAMBC, runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
     , readABC  -- parseABC on text
     , showABC  -- show ABC or AMBC
@@ -29,6 +30,7 @@ module ABC
     ) where
 
 import Control.Monad
+import Control.Monad.Identity
 import Control.Applicative ((<$>),(<*>))
 import Data.Ratio
 import qualified Text.Parsec as P
@@ -391,15 +393,11 @@ runABC' invoke _ op v0 =
     invoke (T.pack "&fail") v0 >>
     fail ("invalid ABC: " ++ (show op) ++ " @ " ++ (show v0))
 
-runPureABC v c = inId $ runABC inv v c where
+runPureABC v c = runIdentity $ runABC inv v c where
     inv txt v0 = 
         case T.uncons txt of
-            Just ('&', _) -> Id v0
-            _ -> fail ("unknown operation: {" ++ show txt ++ "}")
-
--- don't want MTL just for Identity, so...
-newtype Id a = Id { inId :: a }
-instance Monad Id where { return = Id; (>>=) (Id x) f = f x }
+            Just ('&', _) -> Identity v0
+            _ -> fail ("unknown operation: {" ++ T.unpack txt ++ "}")
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
 runAMBC _ v0 (ABC []) = return v0 -- done!
@@ -498,7 +496,7 @@ readABC = errtxt . P.runP parseABC () "readABC"
 -- HASKELL / ABC INTEGRATION
 --
 -- (a) conversion functions for values (ToABCV, FromABCV)
--- (b) quickly build powerblock/invoker for simplified apps
+-- (b) build powerblock/invoker for simplified app model
 --  (possibly with forking for named threads and subprograms)
 --
 class ToABCV v where toABCV :: v -> V

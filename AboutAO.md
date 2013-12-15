@@ -150,7 +150,7 @@ A specific programming environment might have a few extra constraints, e.g. so w
 
 ### AO Dictionary File
 
-AO is intended for a wiki-based programming environment. However, to help get started, AO defines a simple **.ao** dictionary file format - primarily for use with command-line tools. An **.ao** dictionary supports multiple definitions and imports of other dictionary files. This dictionary format looks like:
+To help bootstrap, AO defines a simple **.ao** dictionary file format - primarily for use with command-line tools. An **.ao** dictionary supports multiple definitions and imports of other dictionary files. This dictionary format looks like:
 
         import list before first definition
         @word1 definition1 using word2 word3
@@ -161,7 +161,7 @@ AO is intended for a wiki-based programming environment. However, to help get st
 
 Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is not part of the word, but is an entry separator capable of isolating parse errors. If an entry doesn't parse, it is ignored with a warning. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable, implicit adding a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error. 
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable for a file named the same as the import plus a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error. 
 
 Replacing definitions has global scope. Entries and imports may thus be understood as *patches* on a tacit dictionary. Only the final, resulting dictionary is evaluated for cyclic, missing, or otherwise meaningless definitions. 
 

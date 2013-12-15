@@ -11,8 +11,7 @@ module AO
     -- PROCESSING AO
 
     -- FILESYSTEM OPERATIONS
-    , getAO_PATH, importDictFile
-    , loadFullDict, loadFullDictT
+    , getAO_PATH, importDictFile, loadFullDict
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction
@@ -23,7 +22,7 @@ module AO
 import Control.Monad
 import Control.Exception (assert)
 import Control.Arrow (second, left)
-import Data.Either (rights)
+import Data.Either (rights, lefts)
 import Data.Ratio
 import Data.Text (Text)
 import Data.Function (on)
@@ -37,6 +36,7 @@ import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
+import qualified System.IO as Sys
 import ABC
 
 type DictF = ([Import],[(Line, ParseEnt)]) -- one dictionary file
@@ -347,40 +347,93 @@ isPathSep = (== ':')
 splitPath :: String -> [FS.FilePath]
 splitPath = map FS.fromText . T.split isPathSep . T.pack 
 
--- load unique texts for a given import (based on AO_PATH)
-loadDictFileTexts :: Import -> IO [Text]
-loadDictFileTexts imp = 
+reportError :: (Show e) => e -> IO ()
+reportError = Sys.hPutStrLn Sys.stderr . show
+
+distrib :: a -> Either b c -> Either (a,b) (a,c)
+distrib a (Left b) = Left (a,b)
+distrib a (Right c) = Right (a,c)
+
+-- load unique dict files for a given import identifier
+-- implicit argument: AO_PATH environment variable
+--
+-- load errors (other than 'does not exist') reported on stderr to
+--   help detect permission errors and similar
+--
+-- 'false' ambiguity - where multiple instances of an import have
+-- the exact same text - are ignored.
+loadDictFiles :: Import -> IO [(FS.FilePath, DictF)]
+loadDictFiles imp = 
     getAO_PATH >>= \ paths ->
     let fn = FS.fromText imp FS.<.> (T.pack ".ao") in
     let files = map (FS.</> fn) paths in
-    mapM (Err.tryIOError . FS.readFile) files >>=
-    return . map T.decodeUtf8 . L.nub . rights
+    mapM (Err.tryIOError . FS.readFile) files >>= \ loaded ->
+    let lpaths = zipWith distrib paths loaded in
+    let xerrs = L.filter (not . Err.isDoesNotExistError . snd) $ lefts lpaths in 
+    mapM_ reportError xerrs >>
+    let uniqueFiles = L.nubBy ((==) `on` snd) $ rights lpaths in
+    return (map (second (readDictFile . T.decodeUtf8)) uniqueFiles)
+
+type ImpR = Either Error (FS.FilePath, DictF)
 
 -- import a dictionary file (based on AO_PATH)
-importDictFile :: Import -> IO (Either Error DictF)
+-- returns Left if no file found or ambiguous files found
+importDictFile :: Import -> IO ImpR
 importDictFile imp =
-    loadDictFileTexts imp >>= \ txts ->
-    return $ case txts of
-            (t:[]) -> Right (readDictFile t)
-            (_:_)  -> Left ambiguous
-            []     -> Left missing
+    loadDictFiles imp >>= \ lpaths ->
+    case lpaths of
+        ((p,df):[]) -> return (Right (p,df))
+        [] -> err missing
+        _  -> err (ambiguous (map fst lpaths))
     where 
-    ambiguous = imp `T.append` (T.pack " ambiguous in AO_PATH")
+    err = return . Left
+    ambiguous paths = 
+        imp `T.append` (T.pack " ambiguous in AO_PATH: ") 
+            `T.append` (T.pack (show paths))
     missing = imp `T.append` (T.pack " missing in AO_PATH")
 
 -- | Load a full dictionary from the filesystem.
 --
--- Currently the 'root' dictionary is considered distinct from the
--- imports model. I'm unsure whether this is a good or bad idea.
--- Regardless, cycles will be discovered (one step delayed).
-loadFullDict :: FS.FilePath -> IO Dict
-loadFullDict fRoot = FS.readFile fRoot >>= loadFullDictT . T.decodeUtf8
+-- Currently the 'root' dictionary is considered separately from the
+-- imports model. I'm unsure whether this is a good or bad idea, but
+-- it will work. Cycles will still be discovered.
+--
+-- Errors returned are also reported on stderr. The design here aims 
+-- to report many errors in a single run.
+--
+loadFullDict :: FS.FilePath -> IO ([Error],Dict)
+loadFullDict fRoot = 
+    Err.tryIOError (FS.readFile fRoot) >>= \ eb ->
+    case eb of
+        Left err -> 
+            let etxt = T.pack (show (fRoot, err)) in
+            reportError etxt >> return ([etxt],M.empty)
+        Right bytes -> 
+            let d0 = readDictFile (T.decodeUtf8 bytes) in
+            let seed = Right (fRoot, d0) in
+            deeplyImport (L.reverse (fst d0)) [(T.empty,seed)] >>= \ impL ->
+            let edf = buildDict impL in
+            mapM_ reportError (fst edf) >>
+            return edf
 
--- | Load dictionary (with imports) using a text root dictionary.
-loadFullDictT :: Text -> IO Dict
-loadFullDictT txtRoot = loadRoot where
-    d0@(imps,_) = readDictFile txtRoot
-    loadRoot = error "TODO"
+-- recursively load imports. AO's import semantics is to load each 
+-- import into the dictionary, left to right. However, this can be
+-- optimized by loading right to left and skipping redundant loads.
+-- This loads in optimal order, so each unique import is loaded only
+-- once. The full dictionary is loaded.
+deeplyImport :: [Import] -> [(Import,ImpR)] -> IO [(Import, ImpR)]
+deeplyImport [] imps = return imps
+deeplyImport (i:is) imps = 
+    case L.lookup i imps of
+        Just _ -> deeplyImport is imps -- import already loaded
+        Nothing ->
+            importDictFile i >>= \ impR ->
+            let isR = either (const []) (L.reverse . fst . snd) impR in
+            deeplyImport (isR ++ is) ((i,impR):imps)
+
+buildDict :: [(Import,ImpR)] -> ([Error],Dict)
+buildDict = error "TODO : buildDict"
+
 
 
 
