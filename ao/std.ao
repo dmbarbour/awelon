@@ -66,15 +66,16 @@
 @spin swap swapd swap
 @roll %rw roll3 %wl swap
 @unroll swap %rw unrot %wl
-
-@roll2 swap
-@roll3 rot
-@roll4 roll
-
 @assocl %rwrzwll
 @assocr %rrwzlwl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
+
+@doc.rollN "synonyms for swap, rot, roll"
+@roll2 swap
+@roll3 rot
+@roll4 roll
+
 
 @doc.Quotable
 "Most values in AO are quotable, except in contexts where an AO 
@@ -128,6 +129,8 @@
 "In AO, the hand is modeled as a second stack. It can be used as a
  temporary storage for deep operations on the current stack, and 
  also serves as a semantic clipboard for ad-hoc data shuffling.
+ 
+     (currentStack * (hand * ... ))
  
  Developers can:
  

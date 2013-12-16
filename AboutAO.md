@@ -1,6 +1,6 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a programming language built above Awelon Bytecode (ABC). AO is a concatenative programming language, but is distinguished from other such languages in several ways: 
+Awelon Object language (AO) is a programming language built above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language, but is distinguished from other such languages in several ways: 
 
 * AO is not stack-based. It can operate on any value structured by pairs.
 * AO leverages pairs to model multiple stacks, Huet zippers, lenses, tools.
@@ -11,11 +11,25 @@ Awelon Object language (AO) is a programming language built above Awelon Bytecod
 * AO exhibits *spatial idempotence*, which simplifies equational reasoning.
 * AO can represent adaptive or declarative search-spaces of programs. 
 
-In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The basic semantic for any word is to expand into its definition. Valid definitions are acyclic. At the limit, code expands into literals and inlined ABC. The relationship between words their definitions is maintained by a **dictionary**. 
+In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The relationship between words their definitions is maintained by a **dictionary** with a flat namespace.
 
-AO is intended for use in a wiki-based programming environment, where each page is a word in the dictionary. However, filesystem tools for AO support a simple **.ao** dictionary format, where files may contain multiple definitions and imports. An AO programming environment will make use of naming conventions: documentation, automatic tests, environment extensions, and active services may be identified based on prefix. A single dictionary can support thousands of projects with rich cross-project refactoring, flexible integration testing, and an ever more refined and reusable dictionary.
+The formal semantics for every word is simply the inline expansion of its definition. Recursive definitions are invalid; loops are instead expressed using fixpoint combinators. Expansion ends at a finite sequence of text, numbers, blocks, and inlined ABC.
 
-Most AO features come from ABC. See AboutABC for more information.
+Words in AO additionally have *informal* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems can be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
+
+Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. 
+
+A good AO programming environment can augment AO or mitigate its weaknesses:
+
+* style and color should replace rendering of common prefixes or suffixes
+* hyperlinking or zooming to quickly access definitions and documentation
+* automatic visualization of inferred stack-like structures, reduced burden
+* graphical manipulation of rendered structures to simplify data shuffling
+* automatic animation highlighting changes in structure across words in def
+* support for automatic word completion, sensitive to type and context
+* automated refactoring support; discover similar code in other projects
+
+AO is envisioned with these features in a wiki-based programming environment. However, a simple **.ao** dictionary file format with imports has been defined for a more conventional filesystem and text-editor programming environment. Working without automatic visualization has a steep learning curve that can intimidate potential programmers, so I do not wish to promote the **.ao** dictionary format much beyond its intended use for bootstrapping.
 
 ## Literals: Numbers, Text, Blocks
 
@@ -159,7 +173,7 @@ To help bootstrap, AO defines a simple **.ao** dictionary file format - primaril
         multiple lines
         @word3 [definition3]
 
-Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is not part of the word, but is an entry separator capable of isolating parse errors. If an entry doesn't parse, it is ignored with a warning. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
+Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, not part of any word. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
 The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable for a file named the same as the import plus a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error. 
 
@@ -179,15 +193,15 @@ Whether a dictionary develops in a wiki-based programming environment or an AO d
 *   `test.foo` - automatic testing, more errors or warnings
 *   `doc.foo` - automatic documentation or reports 
 *   `app.foo` - automatic executable generation
-*   `icon.foo` - generate an icon for a desktop app
-*   programming environment extensions
+*   `b3$foo` - word as cell in the 'foo' spreadsheet
+*   programming environment extensions or configuration variables
 *   live services: web services, publish/subscribe, control systems
 
 By leveraging naming conventions to decide processing of words, a single AO dictionary can describe a whole system of services, applications, documents, tests, configurations, plugins or extensions (via capability secure reflection on a dictionary), and other outputs. 
 
-AO does not have syntax for comments. Instead, define documentation words. In general, each word may be associated with a documentation word by naming convention. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible. 
+AO does not have syntax for comments. Instead, developers must define documentation words. In general, each word may be associated with a documentation word through naming conventions. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible. 
 
-Tests in AO include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-style property testing, and deep reflective analysis on the dictionary. The capability-secure nature of AO can help with modeling mockup environments and econfigurations.
+Tests in AO include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-style property testing, and deep reflective analysis on the dictionary (via reflective capabilities). The capability-secure nature of AO can help with modeling mockup environments and configurations.
 
 *Aside:* The singular 'main' function of mainstream languages is a significant source of accidental complexity. Developers are forced to use external make systems and linkers to configure multiple applications. Further, applications are not reusable as software components. AO's flexible use of naming conventions should mitigate these issues.
 
@@ -195,17 +209,21 @@ Tests in AO include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickC
 
 ### Interactive AO
 
-My vision for interactive AO involves live maintenance of a dictionary. A significant difference from a conventional REPL is that there is no implicit environment passed from one step to the next. Small, sequential steps may be modeled by having new definitions begin by naming the previously defined word, e.g.:
+My vision for interactive AO is closer in nature to a spreadsheet than a REPL. Developers manipulate definitions for a small, structured subset of dictionary words. A proposed naming convention is `a1$foo` and `b3$foo` naming cells that can be rendered together as spreadsheet 'foo'. Rendering may also hide a rendundant `$foo` suffix, instead displaying `a1` or `b3` with a configurable color. 
 
-        @a1 3       -- renders '3'
-        @a2 a1 4 +  -- renders '7'
-        @a3 a2 6 *  -- renders '42'
+A REPL can trivially be modeled in a spreadsheet by treating each command as sequentially defining a row in the spreadsheet. To represent a continuing session with lots of steps, each word simply starts with the previous word (leveraging a feature of concatenative programming). For example:
 
-Common patterns like this should, of course, be readily supported by the environment. This interaction may be 'live' in the sense that, at any time, we can update a definition and see changes propagate.
+        @a1 3       -- renders 3
+        @a2 a1 4 +  -- renders 7
+        @a3 a2 6 *  -- renders 42
 
-        @a1 5        -- renders 5; a2 renders 9; a3 renders 54
+Of course, unlike traditional REPLs, one might redefine a word at any time.
 
-In some ways, interactive AO may be close in nature to a spreadsheet, at least for programs of type `[1→(x*1)]`. With appropriate naming conventions, even rendering as a spreadsheet is feasible. Of course, as mentioned before, different names may also be understood (by naming convention) as specifying tests, documentation, data, configurations, services, extensions, or applications. 
+        @a1 5       -- renders 5; a2 renders 9; a3 renders 54
+
+A good AO programming environment should provide support for viewing 'live' spreadsheets, where cells in the spreadsheet may use any word from the dictionary - including other spreadsheets modeled in the same dictionary. Such spreadsheets can include information about tests, and basically provide some health information about the dictionary overall.
+
+*Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a render context for a given view of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`.
 
 ### Flat Namespace
 
