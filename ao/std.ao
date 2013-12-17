@@ -283,6 +283,24 @@ appX = assocr rot2 assocr rot3 first assocl
  process of casting a ray through a scene-graph.
 ~ 
 
+
+
+@doc.prefix.ioapp
+"'ioapp' is a prefix for a very trivial application model.
+ 
+ The expected application type is `Power → Power` where Power
+ is a linear powerblock of literal form `[{io}]`. All effects are
+ modeled as messages to this block, trivally:
+ 
+     µ Power . [(label * msg) → (Power * result)]
+ 
+ This design essentially represents a single-threaded procedural
+ application where actions are messages to the thread. However, it
+ is feasible that an ioapp can be layered into other models.
+ 
+ ioapp type is used for bootstrapping of AO.
+~ 
+
 @JUNK
 
 % 
