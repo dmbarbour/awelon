@@ -27,10 +27,12 @@ module ABC
     , readABC  -- parseABC on text
     , showABC  -- show ABC or AMBC
     , opCodeList, inlineOpCodeList
+    , quoteNum
+
+    -- For a better invoker
     ) where
 
 import Control.Monad
-import Control.Monad.Identity
 import Control.Applicative ((<$>),(<*>))
 import Data.Ratio
 import qualified Text.Parsec as P
@@ -55,7 +57,7 @@ data V -- ABC's structural types
     | R V        -- sum right
     | N Rational -- number
     | P V V      -- product
-    | B BT ABC  -- block
+    | B BT ABC   -- block
     | U          -- unit
 data Op
     = Op Char  -- a normal operator
@@ -393,10 +395,14 @@ runABC' invoke _ op v0 =
     invoke (T.pack "&fail") v0 >>
     fail ("invalid ABC: " ++ (show op) ++ " @ " ++ (show v0))
 
-runPureABC v c = runIdentity $ runABC inv v c where
+-- to avoid pain of ghci module name conflicts between mtl and monad-tf...
+newtype Id a = Id { runId :: a }
+instance Monad Id where { return = Id; (>>=) (Id a) f = f a }
+
+runPureABC v c = runId $ runABC inv v c where
     inv txt v0 = 
         case T.uncons txt of
-            Just ('&', _) -> Identity v0
+            Just ('&', _) -> return v0
             _ -> fail ("unknown operation: {" ++ T.unpack txt ++ "}")
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
@@ -496,8 +502,7 @@ readABC = errtxt . P.runP parseABC () "readABC"
 -- HASKELL / ABC INTEGRATION
 --
 -- (a) conversion functions for values (ToABCV, FromABCV)
--- (b) build powerblock/invoker for simplified app model
---  (possibly with forking for named threads and subprograms)
+-- (b) need to quickly build an invoker
 --
 class ToABCV v where toABCV :: v -> V
 instance ToABCV V where toABCV = id

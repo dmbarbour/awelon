@@ -10,12 +10,11 @@
 -- See AboutAO.md for details on the dictionary file and AO
 --
 module AO
-    ( Action(..)
+    ( Action(..), AO(..) 
 
     -- PROCESSING AO
-
-    -- FILESYSTEM OPERATIONS
-    , getAO_PATH, importDictFile, loadFullDict
+    , loadDict, loadDictC
+    , compileDict, compileAO, compileAction
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction, parseNumber
@@ -26,7 +25,7 @@ import Control.Monad
 import Control.Exception (assert)
 import Control.Arrow (second)
 import Data.Either (rights, lefts)
-import Data.Ratio
+import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Function (on)
 import qualified Data.Map as M
@@ -60,6 +59,90 @@ data Action
 newtype AO = AO [Action] deriving Show
 type Error = Text
 type Dict = M.Map W AO
+type DictC = M.Map W ABC
+
+------------------------------
+-- PROCESSING OF DICTIONARY --
+------------------------------
+
+-- | Compile a dictionary. This will report errors for cyclic 
+-- definitions, which are then removed from the dictionary. 
+-- If a definition uses an undefined word, this is also reported
+-- as an error.
+-- 
+-- At the moment, no typechecking is performed. The words are
+-- simply expanded to ABC. Each word is expanded only once.
+compileDict :: Dict -> ([Error], DictC)
+compileDict dict = (errors, dictC) where
+    cycles = (detectCycles . M.toList . M.map aoWords) dict
+    cycleErrors = map showCycleError cycles
+    showCycleError cyc =
+        T.pack "ERROR, cycle among definitions: " `T.append`
+        T.intercalate (T.pack " \x2192 ") cyc
+    dict' = L.foldr M.delete dict (L.concat cycles) -- d0 without cycles
+    (missingWords, dictC) = L.foldl compileW ([],M.empty) (M.toList dict')
+    missingErrors = map showMissingWord missingWords
+    showMissingWord (d,w) =
+        T.pack "ERROR, missing word " `T.append` w `T.snoc` ' ' 
+        `T.append` T.pack " needed by " `T.append` d 
+    errors = cycleErrors ++ missingErrors
+    loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict'
+    compileW r (w,def) = case M.lookup w (snd r) of
+        Just _ -> r -- this word has already been compiled successfully
+        Nothing -> -- compile required words first, then compile this word
+            let required = rights $ map loadW $ aoWords def in
+            let (mws,dc) = L.foldl compileW r required in
+            let mbdefc = compileAO dc def in -- then compile this word
+            case mbdefc of
+                Left lw -> -- compilation failed, missing words
+                    let mw = map ((,) w) $ L.nub lw in
+                    (mw ++ mws, dc)
+                Right abcdef -> (mws, M.insert w abcdef dc) -- success!
+
+-- compile AO code given a dictionary containing the required
+-- word definitions. If words are missing, it will return a 
+-- list of those, instead.
+compileAO :: DictC -> AO -> Either [W] ABC
+compileAO dc (AO actions) = 
+    let r0 = map (compileAction dc) actions in
+    let abcOps (ABC ops) = ops in
+    case lefts r0 of
+        [] -> Right $ ABC $ L.concat $ map abcOps $ rights r0
+        lw -> Left (L.concat lw)
+
+-- compile a single action, given a precompiled dictionary 
+-- containing all required words... or report missing words
+compileAction :: DictC -> Action -> Either [W] ABC
+compileAction dc (Word w) =
+    case M.lookup w dc of
+        Nothing -> Left [w]
+        Just abc -> Right abc
+compileAction _ (Num r) = Right $ ABC $ ((quoteNum r) ++ [Op 'l'])
+compileAction _ (Lit txt) = Right $ ABC $ [TL txt, Op 'l']
+compileAction dc (Block ao) =
+    case compileAO dc ao of
+        Left mws -> Left mws -- missing word in a block
+        Right abc -> Right $ ABC $ [BL abc, Op 'l']
+compileAction dc (Amb options) =
+    let r0 = map (compileAO dc) options in
+    case lefts r0 of
+        [] -> Right $ ABC $ [AMBC (rights r0)]
+        lw -> Left (L.concat lw)
+compileAction _ (Prim abc) = Right abc
+
+-- extract words from a definition to help detect cycles or missing
+-- definitions. Most words in AO have small definitions, so extracting
+-- words from a definition is fairly cheap.
+aoWords :: AO -> [W]
+aoWords (AO ao) = L.concatMap actionWords ao
+
+actionWords :: Action -> [W] 
+actionWords (Word w) = [w]
+actionWords (Block ao) = aoWords ao
+actionWords (Amb opts) = L.concatMap aoWords opts
+actionWords _ = []
+
+
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -123,13 +206,16 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
 
 -- An AO action is word, text, number, block, amb, or inline ABC.
 -- Whitespace is preserved as inline ABC.
+--
+-- Note that, for invocations, currently only annotations are accepted.
+-- All other invocations will be rejected by the parser.
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> prim P.<|> text P.<|> 
              number P.<|> block P.<|> amb
-    prim = P.char '%' >> ((invocation P.<|> inlineABC) P.<?> "inline ABC")
-    invocation =
-        P.char '{' >> 
+    prim = P.char '%' >> ((annotation P.<|> inlineABC) P.<?> "inline ABC")
+    annotation =
+        P.char '{' >> P.char '&' >>
         P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
         expectWordSep >>
         return ((Prim . ABC) [Invoke (T.pack txt)])
@@ -305,8 +391,8 @@ isPathSep = (== ':')
 splitPath :: String -> [FS.FilePath]
 splitPath = map FS.fromText . T.split isPathSep . T.pack 
 
-reportError :: (Show e) => e -> IO ()
-reportError = Sys.hPutStrLn Sys.stderr . show
+reportError :: Text -> IO ()
+reportError = Sys.hPutStrLn Sys.stderr . T.unpack
 
 distrib :: a -> Either b c -> Either (a,b) (a,c)
 distrib a (Left b) = Left (a,b)
@@ -323,14 +409,15 @@ distrib a (Right c) = Right (a,c)
 loadDictFiles :: Import -> IO [(FS.FilePath, DictF)]
 loadDictFiles imp = 
     getAO_PATH >>= \ paths ->
-    let fn = FS.fromText imp FS.<.> (T.pack ".ao") in
+    let fn = FS.fromText imp FS.<.> (T.pack "ao") in
     let files = map (FS.</> fn) paths in
     mapM (Err.tryIOError . FS.readFile) files >>= \ loaded ->
-    let lpaths = zipWith distrib paths loaded in
-    let xerrs = L.filter (not . Err.isDoesNotExistError . snd) $ lefts lpaths in 
-    mapM_ reportError xerrs >>
-    let uniqueFiles = L.nubBy ((==) `on` snd) $ rights lpaths in
-    return (map (second (readDictFile . T.decodeUtf8)) uniqueFiles)
+    let errs = L.filter (not . Err.isDoesNotExistError) $ lefts loaded in
+    mapM_ (reportError . T.pack . show) errs >>
+    let lp = rights $ zipWith distrib files loaded in
+    let uf = L.nubBy ((==) `on` snd) lp in
+    let ds = map (second (readDictFile . T.decodeUtf8)) uf in
+    return ds
 
 type ImpR = Either Error (FS.FilePath, DictF)
 
@@ -338,29 +425,31 @@ type ImpR = Either Error (FS.FilePath, DictF)
 -- returns Left if no file found or ambiguous files found
 importDictFile :: Import -> IO ImpR
 importDictFile imp =
-    loadDictFiles imp >>= \ lpaths ->
-    case lpaths of
+    loadDictFiles imp >>= \ dicts ->
+    case dicts of
         ((p,df):[]) -> return (Right (p,df))
         [] -> err missing
-        _  -> err (ambiguous (map fst lpaths))
+        _  -> err (ambiguous (map fst dicts))
     where 
     err = return . Left
     ambiguous paths = 
         imp `T.append` (T.pack " ambiguous in AO_PATH: ") 
-            `T.append` (T.pack (show paths))
+            `T.append` (T.concat $ map showPath paths)
+    showPath = T.append (T.pack "\n    ") . either id id . FS.toText
     missing = imp `T.append` (T.pack " missing in AO_PATH")
 
--- | Load a full dictionary from the filesystem.
+-- | Load a full dictionary from the filesystem. Does not process 
+-- the dictionary, other than to load it.
 --
 -- Currently the 'root' dictionary is considered separately from the
 -- imports model. I'm unsure whether this is a good or bad idea, but
--- it will work. Cycles will still be discovered.
+-- it will work. Import will still be discovered.
 --
--- Errors returned are also reported on stderr. The design here aims 
--- to report many errors in a single run.
+-- A few specific errors - e.g filesystem permission failures, are not
+-- recorded as errors relevant to AO. Those are reported to stderr.
 --
-loadFullDict :: FS.FilePath -> IO ([Error],Dict)
-loadFullDict fRoot = 
+loadDict :: FS.FilePath -> IO ([Error],Dict)
+loadDict fRoot = 
     Err.tryIOError (FS.readFile fRoot) >>= \ eb ->
     case eb of
         Left err -> -- failed to load root dictionary file
@@ -369,10 +458,15 @@ loadFullDict fRoot =
         Right bytes -> 
             let d0 = readDictFile (T.decodeUtf8 bytes) in
             let seed = Right (fRoot, d0) in
-            deeplyImport (L.reverse (fst d0)) [(T.empty,seed)] >>= \ impL ->
-            let edf = buildDict impL in
-            mapM_ reportError (fst edf) >>
-            return edf
+            deeplyImport (L.reverse (fst d0)) [(T.empty,seed)] >>= 
+            return . buildDict
+
+-- load a dictionary, then compile it, and combine the errors
+loadDictC :: FS.FilePath -> IO ([Error],DictC)
+loadDictC fRoot =
+    loadDict fRoot >>= \ (loadErrors, dict) ->
+    let (dictErrors, dictC) = compileDict dict in
+    return (loadErrors ++ dictErrors, dictC)
 
 -- recursively load imports. AO's import semantics is to load each 
 -- import into the dictionary, left to right. However, this can be
@@ -393,13 +487,13 @@ deeplyImport (imp:imps) impsDone =
             deeplyImport (impsDeep ++ imps) ((imp,impR):impsDone)
 
 -- buildDict centralizes a lot of processing
--- potential todo: include location info in dict (via annotations)
+-- it builds a raw (possibly cyclic) dictionary from file imports
+-- it pushes through errors, but also records them.
 buildDict :: [(Import,ImpR)] -> ([Error],Dict)
 buildDict imps = (errors, dict) where
     errors = importErrors -- ambiguous or missing imports
           ++ importCycleErrors -- cyclic imports
           ++ parseErrors -- bad parse entries
-          ++ dictErrors -- cyclic definitions, missing words
     impsD = map (uncurry distrib) imps
     importErrors = map (T.pack . show) $ lefts impsD
     goodImports = rights impsD -- [(Import, (FilePath, DictF))]
@@ -414,18 +508,28 @@ buildDict imps = (errors, dict) where
     showParseError (fp,(ln,err)) = T.pack (show (modErrPos (fixpos fp ln) err))
     modErrPos f e = P.setErrorPos (f (P.errorPos e)) e
     fixpos fp ln = (`P.setSourceName` (show fp)) . (`P.incSourceLine` (ln - 1))
-    d0 = M.fromList (map (snd . snd) (rights parseEnts))
-    (dictErrors, dict) = processDict d0
+    dict = M.fromList (map toDictEnt (rights parseEnts))
+    toDictEnt (fp, (l, (w, ao))) = (w, frame fp l w ao)
+
+-- Add location annotations to the compiled entries.
+--  This adds two annotations: {&@word file line} and {&@-} to push and pop
+--  frame information within the AO code. This can help with debugging.
+frame :: FS.FilePath -> Line -> W -> AO -> AO
+frame fp l w (AO actions) = AO (pushFrame : (actions ++ [popFrame])) where 
+    popFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
+    pushFrame = Prim $ ABC [Invoke $ frameText]
+    frameText = T.pack "&@" `T.append` w `T.snoc` ' ' 
+                `T.append` fptxt `T.snoc` ' ' 
+                `T.append` (T.pack (show l))
+    fptxt = either id id $ FS.toText fp
        
 -- AO forbids recursive import lists and definitions. It is important
 -- that these errors be caught to avoid infinite expansions for any
 -- definitions.
 --
 -- This function reports cycles based on a depth first search on an
--- adjacency list. 
---
--- Cycles are returned as lists of elements, with the last item
--- implicitly linked to the first. 
+-- adjacency list. Cycles are reported as lists of linked elements, 
+-- with the last item implicitly linked to the first. 
 detectCycles :: (Ord v) => [(v,[v])] -> [[v]]
 detectCycles = deforest . M.map (L.sort . L.nub) . M.fromListWith (++) where
     deforest g = case M.minViewWithKey g of
@@ -448,36 +552,6 @@ detectCycles = deforest . M.map (L.sort . L.nub) . M.fromListWith (++) where
                 let (cxw,cycw) = dfs g cx p vs in
                 (cxw,(cyc0:cycw))
     edgesFrom g v = maybe [] id $ M.lookup v g
-
--- basic post-process of dictionary...
---
---  * report missing or cyclic defs
---  * remove cyclic defs from dictionary
---  * remove incomplete defs from dictionary
---
-processDict :: Dict -> ([Error], Dict)
-processDict d0 = (errors, df) where
-    cycles = detectCycles (M.toList (M.map aoWords d0))
-    cycleErrors = map showCycleError cycles
-    showCycleError cyc =
-        T.pack "Cyclic def detected: " `T.append`
-        T.intercalate (T.pack " \x2192 ") cyc
-    d' = L.foldr M.delete d0 (L.concat cycles) -- d0 without cycles
-    df = d' -- TODO: remove incomplete defs
-    errors = cycleErrors ++ incompleteDefErrors
-    incompleteDefErrors = [] -- TODO!
-
--- extract words from a definition to help detect cycles or missing
--- definitions. Most words in AO have small definitions, so extracting
--- words from a definition is fairly cheap.
-aoWords :: AO -> [W]
-aoWords (AO ao) = L.concatMap actionWords ao
-
-actionWords :: Action -> [W] 
-actionWords (Word w) = [w]
-actionWords (Block ao) = aoWords ao
-actionWords (Amb opts) = L.concatMap aoWords opts
-actionWords _ = []
 
 
 

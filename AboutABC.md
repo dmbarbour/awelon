@@ -325,7 +325,7 @@ It also may give ABC a more dynamic feel, especially combined with dependently t
 
 ### Annotations as Capabilities
 
-Annotations are expressed as capability text, by convention using prefix `&` as in `{&par}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint, but not enforce any properties. Despite these limitations, annotations can be useful for many purposes:
+Annotations are expressed as capability text using prefix `&` as in `{&par}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint, but not enforce any properties. Despite these limitations, annotations can be useful for many purposes:
 
 * suggest blocks compute lazily
 * suggest seq or par for potentially lazy value
@@ -336,9 +336,9 @@ Annotations are expressed as capability text, by convention using prefix `&` as 
 * assert properties inaccessible to `K`, e.g. purity of a block
 * improve blame, error, or warning messages; add a warning
 * track locations in original source code
-* debugger interaction - breakpoints, visualization, console
+* debugger support - breakpoints, location info, console traces
 
-When an ABC system doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Some annotations may be lost when aggressively optimizing.
+When an ABC system doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Annotations may be removed when aggressively optimizing.
 
 ### Capabilities for Structure Sharing and Separate Compilation
 

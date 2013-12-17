@@ -102,9 +102,9 @@ With a little convention, security implications should at least be visible and o
 
 Annotations - by convention, capabilities with prefix `&` - are not semantic and may be hard-wired into an application. Annotations express hints for a compiler, optimizer, debugger, e.g. to support parallelism, laziness, breakpoints, better warning or error messages, and so on. For example, `%{&par}` might apply to a lazy thunk and indicate its value should be calculated in parallel.
 
-## Ambiguity and Search
+## Ambiguity and Program Search
 
-Ambiguous choice in AO is syntactically expressed by wrapping an ambiguous section in parentheses, and separating one or more options with a vertical bar. For example:
+Ambiguity is syntactically expressed by wrapping a section in parentheses, and separating one or more options with a vertical bar. For example:
 
         a (b | c d) e (f|g|h)
 
@@ -117,30 +117,26 @@ The meaning of the above subprogram may be any one of:
         a c d e g
         a c d e h
 
-Many expansions can be eliminated if they are not *meaningful*, that is if they are not type safe in context or use undefined words. Of the valid expansions, one will be chosen heuristically. That is, rather than making a random choice, we search for a valid program that has nice characteristics and qualities according to a developer or configuration. 
-
-To support heuristics, programmers can annotate their code with *attributes*:
+The choice of meanings in a given use case is left to the AO compiler. Formally, the choice is non-deterministic, but it is not random. Similar to ambiguity in natural language, ambiguity in AO is *resolved in context*.  Choices are eliminated if obviously not typesafe in context. The remaining choices may be searched based on a heuristic functions, which may evaluate options for performance, size, confidence of safety, stability (across versions of a program), and programmer attribute annotations.
 
         %{&attrib} :: (Attribute x) => (x * e) -> (x * e)
 
-Attributes are statically computable, introspectable values, passed to the `%{&attrib}` annotation - usually a `(label*number)` pair. An invalid attribute will result in a minor warning and be ignored. In addition to user-defined attributes, an AO programming environment may compute attributes regarding stability, size, expected performance. The whole list of attributes is generally passed to user-provided heuristic functions, and subject to a variety of search techniques.
+Through attributes and control of the heuristic function, programmers can effectively influence the compiler's choice. However, there is never a guarantee that an optimum solution will be selected. It is not difficult to express programs with a hundred options for 2^100 meanings or more. With such large search spaces, non-exhaustive mechanisms must be used to select a 'good' program - e.g. hill climbing or genetic programming. 
 
-Roles for ambiguous code and program search: rapid prototyping, live coding, exploring design spaces, adaptive code, optimization, tactical theorem proving. Of course, search isn't the only approach: edit-time suggestions and auto-complete can support similar roles. Due to the overhead of search, edit-time techniques should be favored where feasible.
+The choice operator `|` is *commutative, associative, and idempotent*. The syntactic order in which choices are expressed must not contribute to heuristic evaluation of choices. This independence is important for refactoring ambiguous programs, and for optimizing search. It also means that, formally, we can understand ambiguity as expressing a *set* of programs. 
 
-An interesting application of AO's ambiguity is genetic programming. A common class of ambiguous programs has structure amenable to treating choices as genes - i.e. most of the choices are shallow and near the toplevel. We can create populations of viable solutions modeled by vectors, test them, and search for stable, high quality solutions within the specified space of programs.
-
-*NOTES:* `(a)` is just `a`, and `(a|)` is an optional `a`. Ambiguous choice is associative, commutative, and idempotent. The order that choices are expressed has no impact on preference heuristics.
+Ambiguous code has many roles: rapid prototyping, self-healing or adaptive code, exploring design spaces and tradeoffs, and tactical theorem proving. Adding or removing ambiguity allows programmers to shift gradually between 'crystalline' code with rigid structure and 'fluid' code that can reshape itself for its context. Developers can control where and how much adaptation occurs.
 
 ### Constraining Ambiguity
 
-Search is expensive. Also, context-dependent meaning can be semantically troubling, e.g. it hinders equational reasoning. Ambiguity is a feature that must be used carefully, and removed from the codebase when it is no longer necessary.
+Context-dependent or non-deterministic meaning can be semantically troubling. For example, it hinders equational reasoning. Also, search is expensive. Ambiguity should be avoided or removed from a codebase when there is no obvious benefit from it. Where feasible, we should push program search to edit-time, and perhaps resolve ambiguous code at edit-time. 
 
-One job of the programming environment is to help developers easily recognize and control where ambiguity is used. Towards this end, I suggest two techniques:
+A good programming environment can help developers manage ambiguity:
 
-1. ambiguous words are colored or styled differently when rendered
-2. automatic tests may introspect dictionary and fail if a word is ambiguous
+1. ambiguous words are styled or colored differently when rendered
+2. automatic tests may be set to fail if specific code is ambiguous
 
-When a word is ambiguous generally, but unambiguous in context, it might be rendered differently than if ambiguous in context. Overall, this design is simple, flexible, and easily extended for more attributes and properties. 
+The first technique helps developers recognize ambiguity without digging deeply through code. The second technique helps control ambiguity, preventing it from stealthily entering the dictionary.
 
 ## Processing AO
 
@@ -148,8 +144,8 @@ When a word is ambiguous generally, but unambiguous in context, it might be rend
 
 Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence of words, literals, and inlined ABC. Possibly a few ambiguous choices. The most difficult part is parsing numbers. AO currently needs special reader states for:
 
-* numbers and units
-* inline or block text
+* numbers - decimal, fractional, hexadecimal
+* text - inline or block
 * capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
@@ -177,18 +173,15 @@ Regular entries start with `@word` at the beginning of a new line, followed by t
 
 The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable for a file named the same as the import plus a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error.
 
-Imports and entries can be understood as patching a flat, tacit dictionary.
-
 ### Processing of AO Dictionary
 
-Whether a dictionary develops in a wiki-based programming environment or an AO dictionary file, may be processed in many ways:
+Independently of how a dictionary is maintained, it may be processed in several ways:
 
 * detect cyclic definitions and raise errors
-* detect definition of invalid words and raise errors
+* detect invalid definitions and parse errors 
 * detect use of undefined words and raise errors
 * static analysis and typechecking for obvious errors
-* generate AMBC or ABC code for any given word
-* generate an 'optimized' dictionary
+* on demand, compile a word to AMBC or ABC
 * leverage naming conventions for ad-hoc roles:
 *   `test.foo` - automatic testing, more errors or warnings
 *   `doc.foo` - automatic documentation or reports 
@@ -223,7 +216,7 @@ Of course, unlike traditional REPLs, one might redefine a word at any time.
 
 A good AO programming environment should provide support for viewing 'live' spreadsheets, where cells in the spreadsheet may use any word from the dictionary - including other spreadsheets modeled in the same dictionary. Such spreadsheets can include information about tests, and basically provide some health information about the dictionary overall.
 
-*Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a render context for a given view of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`.
+*Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a rendering context for common views of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`. 
 
 ### Flat Namespace
 

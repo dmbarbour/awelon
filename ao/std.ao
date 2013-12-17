@@ -1,3 +1,4 @@
+abc abc abc
 @doc.import.std "an okay starting point for AO dictionaries"
 
 @doc.StandardEnvironment
@@ -49,6 +50,7 @@
 @doc.assocr "(x*y) -- y x"
 @doc.intro1 " -- Unit"
 @doc.elim1 "Unit -- "
+@doc.pswap "(x*y) -- (y*x)"
 
 @id 
 @dup %r^zlwl
@@ -70,12 +72,12 @@
 @assocr %rrwzlwl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
+@pswap %rrwll
 
-@doc.rollN "synonyms for swap, rot, roll"
+@doc.roll{N} "synonyms for swap, rot, roll"
 @roll2 swap
 @roll3 rot
 @roll4 roll
-
 
 @doc.Quotable
 "Most values in AO are quotable, except in contexts where an AO 
@@ -191,6 +193,12 @@
  
  Environments can simplify reasoning about subprogram interactions. 
 ~
+
+%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
+%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
+%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
+%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
+
 
 @doc.TODO
 "Much to do about AO
