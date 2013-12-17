@@ -154,7 +154,7 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-Words in AO are very flexible in their structure. However, words are slightly constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
+Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
 
 * words may not start with `@`, `%`, `-`, or a digit
 * words may not contain `"`, `[`, `]`, `(`, `|`, `)`
@@ -175,9 +175,9 @@ To help bootstrap, AO defines a simple **.ao** dictionary file format - primaril
 
 Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, not part of any word. If a word is already defined, the earlier definition is replaced. A word may also be *undefined* by convention of defining a word to itself, e.g. `@foo foo`. 
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable for a file named the same as the import plus a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error. 
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are loaded into the dictionary sequentially from left to right, replacing earlier definitions - trivially optimized to eliminate redundant processing. Imports are currenly located by searching the `AO_PATH` environment variable for a file named the same as the import plus a **.ao** suffix. Missing, cyclic, or ambiguous imports result in error.
 
-Replacing definitions has global scope. Entries and imports may thus be understood as *patches* on a tacit dictionary. Only the final, resulting dictionary is evaluated for cyclic, missing, or otherwise meaningless definitions. 
+Imports and entries can be understood as patching a flat, tacit dictionary.
 
 ### Processing of AO Dictionary
 
