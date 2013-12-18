@@ -29,7 +29,11 @@ module ABC
     , opCodeList, inlineOpCodeList
     , quoteNum
 
-    -- For a better invoker
+    -- minor optimizations
+    , removeAnnotations, simplifyABC
+
+    -- impure execution
+    --, runIOapp, ioAppInvoker
     ) where
 
 import Control.Monad
@@ -39,6 +43,7 @@ import qualified Text.Parsec as P
 import Text.Parsec.Text ()
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.List as L
 
 parseABC :: (P.Stream s m Char) => P.ParsecT s u m ABC
 readABC :: Text -> Either Error ABC
@@ -65,7 +70,8 @@ data Op
     | TL Text  -- text literal
     | Invoke Text -- {invocation}
     | AMBC [ABC] -- AMBC extension to ABC; must be non-empty
-newtype ABC = ABC [Op]
+    deriving (Eq) -- structural equality
+newtype ABC = ABC [Op] deriving (Eq)
 data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
 
 -- single character opcodes; a subset are also used by AO
@@ -495,14 +501,39 @@ readABC = errtxt . P.runP parseABC () "readABC"
           onLeft f = either (Left . f) Right
 
 
+-- MINOR OPTIMIZATIONS
+-- removeAnnotations, simplifyDataShuffling
+removeAnnotations :: ABC -> ABC
+removeAnnotations = ABC . map rdeep . L.filter (not . isInvocation) . inABC where
+    inABC (ABC ops) = ops
+    isInvocation (Invoke text) = maybe False ((== '&') . fst) (T.uncons text)
+    isInvocation _ = False
+    rdeep (BL abc) = BL (removeAnnotations abc)
+    rdeep (AMBC opts) = AMBC (map removeAnnotations opts)
+    rdeep x = x
 
-
+-- | single-pass simplification (always terminates)
+simplifyABC :: ABC -> ABC
+simplifyABC = ABC . ss . inABC where
+    inABC (ABC ops) = ops
+    ss [] = [] -- halt
+    ss (Op ' ' : ops) = ss ops
+    ss (Op '\n' : ops) = ss ops
+    ss (Op 'l' : Op 'r' : ops) = ss ops
+    ss (Op 'r' : Op 'l' : ops) = ss ops
+    ss (Op 'w' : Op 'w' : ops) = ss ops
+    ss (Op 'z' : Op 'z' : ops) = ss ops
+    ss (Op 'v' : Op 'c' : ops) = ss ops
+    ss (Op 'c' : Op 'v' : ops) = ss ops
+    ss (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = ss (Op 'z' : Op 'w' : ops)
+    ss (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = ss (Op 'w' : Op 'z' : ops)
+    ss (op:ops) = op : ss ops -- progress 
 
 --
 -- HASKELL / ABC INTEGRATION
 --
 -- (a) conversion functions for values (ToABCV, FromABCV)
--- (b) need to quickly build an invoker
+-- (b) need a useful invoker for bootstrap purposes
 --
 class ToABCV v where toABCV :: v -> V
 instance ToABCV V where toABCV = id
@@ -547,4 +578,11 @@ instance FromABCV Text where fromABCV = valToText
 instance FromABCV () where
     fromABCV U = Just ()
     fromABCV _ = Nothing
+
+-- | For quick bootstrap purposes, I've created a simplified 'ioapp'
+-- application model
+
+    -- impure execution
+--    , runIOapp, ioAppInvoker
+
 

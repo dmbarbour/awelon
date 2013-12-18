@@ -12,9 +12,9 @@
 module AO
     ( Action(..), AO(..) 
 
-    -- PROCESSING AO
-    , loadDict, loadDictC
-    , compileDict, compileAO, compileAction
+    -- LOADING AND PROCESSING AO
+    , loadDict, loadDictC, loadSimple 
+    , compileDict, compileAO, compileAction, simplifyDictC
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction, parseNumber
@@ -83,7 +83,7 @@ compileDict dict = (errors, dictC) where
     (missingWords, dictC) = L.foldl compileW ([],M.empty) (M.toList dict')
     missingErrors = map showMissingWord missingWords
     showMissingWord (d,w) =
-        T.pack "ERROR, missing word " `T.append` w `T.snoc` ' ' 
+        T.pack "ERROR, missing word " `T.append` w 
         `T.append` T.pack " needed by " `T.append` d 
     errors = cycleErrors ++ missingErrors
     loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict'
@@ -142,7 +142,10 @@ actionWords (Block ao) = aoWords ao
 actionWords (Amb opts) = L.concatMap aoWords opts
 actionWords _ = []
 
-
+-- simplify and weakly optimize words in dictionary
+-- not very incremental, but whatever
+simplifyDictC :: DictC -> DictC
+simplifyDictC = M.map (simplifyABC . removeAnnotations)
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -467,6 +470,15 @@ loadDictC fRoot =
     loadDict fRoot >>= \ (loadErrors, dict) ->
     let (dictErrors, dictC) = compileDict dict in
     return (loadErrors ++ dictErrors, dictC)
+
+-- load a dictionary, compile it, print errors on stderr, simplify result
+loadSimple :: FS.FilePath -> IO DictC
+loadSimple fp =
+    loadDictC fp >>= \ (errors, dc) ->
+    mapM_ reportError errors >>
+    return (simplifyDictC dc)
+
+
 
 -- recursively load imports. AO's import semantics is to load each 
 -- import into the dictionary, left to right. However, this can be

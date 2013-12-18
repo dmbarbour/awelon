@@ -182,7 +182,7 @@ Independently of how a dictionary is maintained, it may be processed in several 
 * detect use of undefined words and raise errors
 * static analysis and typechecking for obvious errors
 * on demand, compile a word to AMBC or ABC
-* leverage naming conventions for ad-hoc roles:
+* leverage ad-hoc naming conventions for ad-hoc roles
 *   `test.foo` - automatic testing, more errors or warnings
 *   `doc.foo` - automatic documentation or reports 
 *   `app.foo` - automatic executable generation
@@ -190,7 +190,7 @@ Independently of how a dictionary is maintained, it may be processed in several 
 *   programming environment extensions or configuration variables
 *   live services: web services, publish/subscribe, control systems
 
-By leveraging naming conventions to decide processing of words, a single AO dictionary can describe a whole system of services, applications, documents, tests, configurations, plugins or extensions (via capability secure reflection on a dictionary), and other outputs. 
+By leveraging naming conventions to decide processing of words, a single AO dictionary can describe a whole system of services, applications, documents, tests, configurations, plugins or extensions (via capability secure reflection on a dictionary), and other outputs. In a suitable context, an AO dictionary can act much like the filesystem of a larger operating system.
 
 AO does not have syntax for comments. Instead, developers must define documentation words. In general, each word may be associated with a documentation word through naming conventions. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible. 
 

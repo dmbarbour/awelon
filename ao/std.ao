@@ -1,5 +1,25 @@
-abc abc abc
+
 @doc.import.std "an okay starting point for AO dictionaries"
+
+@doc.NamingConventions
+"The naming convention for AO places context to the right and type
+ to the left. Example types include 'doc', 'test', and 'ioapp'. 
+ Type, in this sense, determines how the word is processed by the
+ larger programming environment - e.g. 'test' results in automatic
+ testing. Context provides extra information about where the word
+ is needed or used. It may identify a project, user, DSL, framework,
+ and so on. 
+ 
+ A good programming environment should replace structured suffixes or
+ popular prefixes with style and color upon rendering. This feature 
+ improves parsimony and readability. It may also improve ability to
+ recognize usage patterns in a zoomable view of a word's expansion.
+ This replaces syntax highlighting, which isn't very relevant in AO.
+ 
+ There is a distinct naming convention for spreadsheet elements, of
+ form `b3$foo` to indicate cell b3 in a spreadsheet called foo. The
+ names for cells imply location in a spreadsheet.
+~
 
 @doc.StandardEnvironment
 "The required environment for AO is a pair: (s*e). Literals, such as
@@ -25,9 +45,9 @@ abc abc abc
  extra stacks and powerblocks are very convenient and expressive.
  
  Many basic stack manipulators are borrowed from Factor and FORTH.
- Also, operations on the stack are often documented using notation
- for stack effects developed in FORTH, e.g. `dup` is `x -- x x`,
- but this corresponds to a full type `((x*s)*e)→((x*(x*s))*e)`.
+ Also, operations on the stack are often documented using a simple
+ notation for stack effects. "x y z -- y x z" means the top item on
+ the stack (z) remains in place, and the two below it are swapped.
 ~
 
 @doc.id " -- "
@@ -50,7 +70,6 @@ abc abc abc
 @doc.assocr "(x*y) -- y x"
 @doc.intro1 " -- Unit"
 @doc.elim1 "Unit -- "
-@doc.pswap "(x*y) -- (y*x)"
 
 @id 
 @dup %r^zlwl
@@ -72,12 +91,39 @@ abc abc abc
 @assocr %rrwzlwl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
-@pswap %rrwll
 
 @doc.roll{N} "synonyms for swap, rot, roll"
 @roll2 swap
 @roll3 rot
 @roll4 roll
+
+@doc.pswap "(x*y) -- (y*x)"
+@doc.xf "(x*y) -- y x"
+@doc.xs "(x*y) -- x y"
+@doc.pf "y x -- (x*y)"
+@doc.ps "y x -- (y*x)"
+@pswap %rrwll
+@xf assocr
+@xs pswap assocr
+@pf assocl
+@ps assocl pswap
+
+@doc.prefix.id "typeful identity functions (e.g. for testing optimizers)"
+@id.swap swap swap
+@id.swapd swapd swapd
+@id.rot rot rot rot
+@id.unrot unrot unrot unrot
+@id.roll roll roll roll roll
+@id.spin spin spin
+@id.introElim intro1 elim1
+@id.elimIntro elim1 intro1
+@id.assoclr assocl assocr
+@id.assocrl assocr assocl
+@id.pswap pswap pswap
+@id.dupdrop dup drop
+@id.dupdrop2 dup2 drop2
+@id.quoteUnquote quote unquote
+@id.unquoteQuote unquote quote
 
 @doc.Quotable
 "Most values in AO are quotable, except in contexts where an AO 
@@ -174,6 +220,18 @@ abc abc abc
 @doc.reifyHand "hand becomes single object in fresh hand"
 @doc.restoreHand "single object in hand becomes hand"
 
+@id.takePut take put
+@id.putTake put take
+@id.juggle3 juggle3 juggle3 juggle3
+@id.copyDiscard copy discard
+@id.pasteDiscardTake paste discard take
+@id.reifyRestoreHand reifyHand restoreHand
+@id.take3put3 take3 put3
+
+@doc.BlockOperations
+"A block in
+
+
 @doc.EnvironmentManipulation
 "AO developers aren't limited to a single instance of the standard
  environment. Subprograms may be computed in their own complete 
@@ -194,6 +252,7 @@ abc abc abc
  Environments can simplify reasoning about subprogram interactions. 
 ~
 
+@JUNK
 %wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
 %unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
 %wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
@@ -285,20 +344,22 @@ appX = assocr rot2 assocr rot3 first assocl
 
 
 
-@doc.prefix.ioapp
-"'ioapp' is a prefix for a very trivial application model.
+@doc.ioapp
+"'ioapp' names a trivial application model.
  
- The expected application type is `Power → Power` where Power
- is a linear powerblock of literal form `[{io}]`. All effects are
- modeled as messages to this block, trivally:
+ An ioapp application takes a single input, just a linear block 
+ called 'powerblock' roughly of form `[{io}]` and type:
  
-     µ Power . [(label * msg) → (Power * result)]
+     µ P . [message → (P * result)]
  
- This design essentially represents a single-threaded procedural
- application where actions are messages to the thread. However, it
- is feasible that an ioapp can be layered into other models.
- 
- ioapp type is used for bootstrapping of AO.
+ Effects are achieved by directly messaging the powerblock. Responses
+ include a new linear powerblock and a result value. Operations on the
+ powerblock are single-threaded, protecting AO's assumption of causal
+ commutativity and spatial idempotence. Depending on the message set,
+ asynchronous or multi-threaded operations are quite feasible.
+   
+ The intention is to deprecate this model quickly. It is very ad-hoc
+ and underspecified, but hopefully is good for bootstrapping.
 ~ 
 
 @JUNK
@@ -347,30 +408,54 @@ zu = % look at wrapper to decide step back
 zu* = % iterative zu
 zunwrap = zu* zunwrap_
 
-% Thoughts: zipper for the sum type? maybe should have a 
-% different name for it?
+@doc.rgb "usage: `1/3 5/7 4/5 rgb` in red-green-blue order"
+@rgb 1 rgba
+@rgba ps ps ps "rgba" pf
+@rgb/8 
+    1/255 *. take
+    1/255 *. take
+    1/255 *. put2
+    rgb
+@rgba/8 1/255 *. take rgb/8 put rgba
 
-@assertUnit elim1 intro1
-@assertNonLinear dup drop
-@assertNonLinearStack retainStack drop
-@doc.assertUnit "asserts value on stack is the unit value"
-@doc.assertNonLinear "asserts value on stack is copyable and droppable"
-@doc.assertNonLinearStack "asserts current stack is copyable and droppable"
+@doc.prefix.# "prefix '#' is for widely useful named constants."
+@doc.Colors "Following Elm's example - using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simple names."
 
-@doc.NamingConventions
-"The naming convention in this AO dictionary is: (type).(context).
- 
- Here 'type' is just a weak identifier to help suggest how the word
- should be interpreted. If there is no standard type, then it may
- be omitted. 'doc', 'test', and 'app' are example types. Context may 
- identify a projects, users, frameworks, or DSLs. 
- 
- Extended naming conventions may exist, e.g. for using AO dictionary
- as a spreadsheet, or having multiple levels of depth. However, AO
- encourages a relatively 'flat' namespace, minimizing hierarchy. 
- 
- A good programming environment should help make long names readable
- by coloring words by context, styling them by type, hiding common 
- prefixes and suffixes, and enabling easy navigation and discovery.
-~
+@#lightRed      0xef 0x29 0x29 rgb/8
+@#red           0xcc 0x00 0x00 rgb/8
+@#darkRed       0xa4 0x00 0x00 rgb/8 
+@#lightOrange   0xfc 0xaf 0x3e rgb/8
+@#orange        0xf5 0x79 0x00 rgb/8
+@#darkOrange    0xce 0x5c 0x00 rgb/8
+@#lightYellow   0xfc 0xe9 0x4f rgb/8
+@#yellow        0xed 0xd4 0x00 rgb/8
+@#darkYellow    0xc4 0xa0 0x00 rgb/8
+@#lightGreen    0x8a 0xe2 0x34 rgb/8
+@#green         0x73 0xd2 0x16 rgb/8
+@#darkGreen     0x4e 0x9a 0x06 rgb/8
+@#lightBlue     0x72 0x9f 0xcf rgb/8
+@#blue          0x34 0x65 0xa4 rgb/8
+@#darkBlue      0x20 0x4a 0x87 rgb/8
+@#lightPurple   0xad 0x7f 0xa8 rgb/8
+@#purple        0x75 0x50 0x7b rgb/8
+@#darkPurple    0x5c 0x35 0x66 rgb/8
+@#lightBrown    0xe9 0xb9 0x6e rgb/8
+@#brown         0xc1 0x7d 0x11 rgb/8
+@#darkBrown     0x8f 0x59 0x02 rgb/8
+@#white         0xff 0xff 0xff rgb/8
+@#lightGrey     0xee 0xee 0xec rgb/8
+@#grey          0xd3 0xd7 0xcf rgb/8
+@#darkGrey      0xba 0xbd 0xb6 rgb/8
+@#lightCharcoal 0x88 0x8a 0x85 rgb/8
+@#charcoal      0x55 0x57 0x53 rgb/8
+@#darkCharcoal  0x23 0x34 0x36 rgb/8
+@#black         0x00 0x00 0x00 rgb/8
+
+@#gray      #grey
+@#lightGray #lightGrey
+@#darkGray  #darkGrey
+
+@doc.prefix.` "prefix '`' is for units on numbers."
+@`g  1/1000 *. `kg
+
 
