@@ -77,27 +77,27 @@ compileDict dict = (errors, dictC) where
     cycles = (detectCycles . M.toList . M.map aoWords) dict
     cycleErrors = map showCycleError cycles
     showCycleError cyc =
-        T.pack "ERROR, cycle among definitions: " `T.append`
+        T.pack "ERROR: cycle among definitions: " `T.append`
         T.intercalate (T.pack " \x2192 ") cyc
-    dict' = L.foldr M.delete dict (L.concat cycles) -- d0 without cycles
-    (missingWords, dictC) = L.foldl compileW ([],M.empty) (M.toList dict')
-    missingErrors = map showMissingWord (L.nub missingWords)
-    showMissingWord (d,w) =
-        T.pack "ERROR, missing word " `T.append` w 
-        `T.append` T.pack " needed by " `T.append` d 
+    dict' = L.foldr M.delete dict (L.concat cycles) -- dict without cycles
+    (dictMW,dictC) = L.foldl compileW (M.empty, M.empty) (M.toList dict')
+    missingErrors = L.map mwError $ M.toList dictMW
+    mwError (w,mws) = 
+        T.pack "ERROR: word " `T.append` w `T.append` 
+        T.pack " requires definitions for: " `T.append` T.unwords mws
     errors = cycleErrors ++ missingErrors
     loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict'
-    compileW r (w,def) = case M.lookup w (snd r) of
-        Just _ -> r -- this word has already been compiled successfully
-        Nothing -> -- compile required words first, then compile this word
-            let required = rights $ map loadW $ aoWords def in
-            let (mws,dc) = L.foldl compileW r required in
-            let mbdefc = compileAO dc def in -- then compile this word
-            case mbdefc of
-                Left lw -> -- compilation failed, missing words
-                    let mw = map ((,) w) lw in
-                    (mw ++ mws, dc)
-                Right abcdef -> (mws, M.insert w abcdef dc) -- success!
+    compileW r (w,def) = case (M.lookup w (snd r), M.lookup w (fst r)) of
+        (Just _, _) -> r -- word has already been compiled
+        (_, Just _) -> r -- word cannot be compiled (missing words)
+        (Nothing, Nothing) -> -- attempt to compile this word
+            -- first compile words used by this def into dictionary
+            let reqWords = rights $ map loadW $ aoWords def in 
+            let (dmw,dc) = L.foldl compileW r reqWords in
+            -- compile the provided definition; use updated dictionary
+            case compileAO dc def of
+                Left mws -> (M.insert w (L.nub mws) dmw , dc)
+                Right abcdef -> (dmw , M.insert w abcdef dc)
 
 -- compile AO code given a dictionary containing the required
 -- word definitions. If words are missing, it will return a 

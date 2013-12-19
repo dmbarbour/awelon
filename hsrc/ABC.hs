@@ -502,6 +502,12 @@ readABC = errtxt . P.runP parseABC () "readABC"
 
 
 -- MINOR OPTIMIZATIONS
+--  removeAnnotations will remove all annotations.
+--
+--  long term, I might want to just remove '@' locations based on
+--  depth and width heuristics, i.e. so we still have useful info
+--  about locations without compromising performance. Also, I could
+--  perform partial optimizations across these.
 removeAnnotations :: ABC -> ABC
 removeAnnotations = ABC . map rdeep . L.filter (not . isInvocation) . inABC where
     inABC (ABC ops) = ops
@@ -585,9 +591,21 @@ instance FromABCV () where
     fromABCV _ = Nothing
 
 -- | For quick bootstrap purposes, I've created a simplified 'ioapp'
--- application model
+-- application model. Effects are modeled as direct messages to a 
+-- central capability - the 'powerblock'. Messages are interpreted
+-- and processed.
+--
+-- The Haskell implementation supports procedural IO in a few domains:
+--
+--    load command-line arguments or environment variables
+--    simple reading and writing for files and console
+--    simple socket IO 
+--    limited support for asynchronous or parallel operations
+-- 
+-- That is it for now. I would like to get AO self-hosted before
+-- pushing much further - e.g. for graphics. 
+-- 
 
-    -- impure execution
---    , runIOapp, ioAppInvoker
+
 
 

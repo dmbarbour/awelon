@@ -17,8 +17,8 @@ prim([A,[B,C]], l, [[A,B],C]).
 prim([[A,B],C], r, [A,[B,C]]).
 prim([A,[B,C]], w, [B,[A,C]]).
 prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
-%prim(A,v,[A,unit]).
-%prim([A,unit],c,A).
+prim(A,v,[A,unit]).
+prim([A,unit],c,A).
 
 lib(A,id,A,[]).
 %lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
@@ -26,11 +26,19 @@ lib(A,id,A,[]).
 %lib([[A,B],[C,D]], rzl, [[A,C], [B,D]], [r,z,l]). % zip2
 %lib([[A,[B,C]],E], assocl, [[[A,B],C],E], [r,w,r,z,w,l,l]).
 %lib([[[A,B],C],E], assocr, [[A,[B,C]],E], [r,r,w,z,l,w,l]).
+%lib(A, intro1, [unit,A], [v,vrwlc]). % intro1
+%lib([unit,A], elim1, A, [vrwlc,c]). % elim1
 
-%lib([A,B], vrwlc, [B, A], [v,r,w,l,c]). % swap
-%lib(A, vvrwlc, [unit,A], [v,vrwlc]). % intro1
-%lib([unit,A], vrwlcc, A, [vrwlc,c]). % elim1
+dip_preStep(N) :- path([[x,[b,s]],e], [b,[[s,e],[x,unit]]], N).
+dip_postStep(N) :- path([[s,e],[x,unit]], [[x,s],e], N).
 
+apply_preStep(N) :- path([[b,s],[h,e]],  [b, [[s,[unit,e]], [h,unit]]], N).
+apply_postStep(N) :- path([[s,[unit,e]],[h,unit]], [s,[h,e]], N).
+
+inline_preStep(N) :- path([[b,s],e], [b, [[s,e],unit]], N).
+
+apply(N) :- path([[b,s],[h,e]], [b, [ [s,[unit,e]], h]], N).
+endApply(N) :- path([ [s,[unit,e]], h], [s,[h,e]], N).
 
 assocr(N) :- path([[x,y],z], [x,[y,z]], N).
 assocl(N) :- path([x,[y,z]], [[x,y],z], N).

@@ -1,35 +1,18 @@
 
-@doc.import.std "an okay starting point for AO dictionaries"
+@doc.import.std "one big starting point for AO systems"
 
 @doc.NamingConventions
-"The naming convention for AO places context to the right and type
- to the left. Example types include 'doc', 'test', and 'ioapp'. 
- Type, in this sense, determines how the word is processed by the
- larger programming environment - e.g. 'test' results in automatic
- testing. Context provides extra information about where the word
- is needed or used. It may identify a project, user, DSL, framework,
- and so on. 
+"The naming convention for AO places context to the right and type to the left. Example types include 'doc', 'test', and 'ioapp'. Type, in this sense, determines how the word is processed by the larger programming environment - e.g. 'test' results in automatic testing. Context provides extra information about where the word is needed or used. It may identify a project, user, DSL, framework, and so on. 
  
- A good programming environment should replace structured suffixes or
- popular prefixes with style and color upon rendering. This feature 
- improves parsimony and readability. It may also improve ability to
- recognize usage patterns in a zoomable view of a word's expansion.
- This replaces syntax highlighting, which isn't very relevant in AO.
+ A good programming environment should replace structured suffixes or popular prefixes with style and color upon rendering. This feature improves parsimony and readability. It may also improve ability to recognize usage patterns in a zoomable view of a word's expansion. This replaces syntax highlighting, which isn't very relevant in AO.
  
- There is a distinct naming convention for spreadsheet elements, of
- form `b3$foo` to indicate cell b3 in a spreadsheet called foo. The
- names for cells imply location in a spreadsheet.
+ There is a distinct naming convention for spreadsheet elements, of form `b3$foo` to indicate cell b3 in a spreadsheet called foo. The names for cells imply location in a spreadsheet.
 ~
 
 @doc.StandardEnvironment
-"The required environment for AO is a pair: (s*e). Literals, such as
- blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea
- is that 's' represents the current stack, while 'e' is kept stable
- and represents the remainder of the environment.
+"The required environment for AO is a pair: (s*e). Literals, such as blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea is that 's' represents the current stack, while 'e' is kept stable and represents the remainder of the environment.
  
- The standard environment elaborates 'e' with a structure designed for
- flexible workflows and dataflows, concurrency, and extensibility. The
- type is roughly:
+ The standard environment elaborates 'e' with a structure designed for flexible workflows and dataflows, concurrency, and extensibility. The type is roughly:
  
      (s * (h * (p * ((sn * lns) * ex))))
  
@@ -41,15 +24,33 @@
    lns: list of (name*stack) pairs for workspaces and registers
    ex: unused, available for experimental extensions
  
- Thus AO's standard environment supports stack programming, but the
- extra stacks and powerblocks are very convenient and expressive.
+ Thus AO's standard environment supports stack programming, but the extra stacks and powerblocks are very convenient and expressive.
  
- Many basic stack manipulators are borrowed from Factor and FORTH.
- Also, operations on the stack are often documented using a simple
- notation for stack effects. "x y z -- y x z" means the top item on
- the stack (z) remains in place, and the two below it are swapped.
+ Many basic stack manipulators are borrowed from Factor and FORTH. Also, operations on the stack are often documented using a simple notation for stack effects. "x y z -- y x z" means the top item on the stack (z) remains in place, and the two below it are swapped.
+ 
+ TODO: develop a more compositional environment model for Awelon project, perhaps based on navigating a kd-tree by zipper while carrying an inventory of tools, plus programmable lenses & HUD.
 ~
 
+@doc.FirstPrincipleIsComposition
+"Awelon project favors compositional abstraction. By 'favors' I mean 'with extreme prejudice', prioritizing composition over ad-hoc higher order or parametric abstractions.
+ 
+ There isn't a true conflict: some abstractions are both higher order and compositional. However, prioritizing composition does sacrifice many non-compositional higher-order programming abstractions that have become conventional or established practice in academia and industry today. State machines, records, nominative types, procedural loops, conventional conditional expressions, and even parametric abstraction (where a model is parameterized by a value of *ad-hoc* type) are NOT compositional. Instead, Awelon favors grammars, tables, structural types, incremental processes, sum types, parser combinators, and make systems (staged) or reader monads for dependency injection.
+ 
+ I use 'composition' in the formal sense of a trinity: components, operators, and properties. Components determine expressiveness and what can be described, whether it be 'functions' or 'diagrams' or 'grammars'. Operators determine flexibility. Each operator provides a means to combine two components into a third. Operators must be closed under composition. Properties determine scalability. Every compositional property must be *invariant* (a law) or *inductive* over operators and components. Composional properties enable users to reason about abstract models without knowing deep implementation details.
+ 
+ The challenge of composition is that we must make domain-specific tradeoffs between the three aspects. In a specialized domain, like 'diagrams', we can have many operators and useful properties, but the set of components is small. In a general domain, like functions, we have few common composition operators (compose, left, first) and a few general compositional properties (structural type).
+ 
+ To enable specialized tradeoffs for different parts of a system, Awelon project uses *layering* such that the result of processing one compositional model is another compositional model. Partial evaluation and specialization enable performance even with deep layers. Program search can mitigate the first-order nature of many component models, by abstracting over details. With care, dependent types can be leveraged for safety analysis across diverse layers.
+ 
+ Awelon project provides the features needed for great composition.
+ 
+ Every part of Awelon project is designed with composition as the first principle. In AO we have juxtaposition as composition, words as software components, and effects model via capability security. In ABC, we have concatenative bytecodes, spatial idempotence, causal commutativity, and a non-conventional link model with `{#secureHash}` sources as software components (which may be separately compiled).
+ 
+ But AO is the middle layer. Composition must also be prioritized for higher abstractions: documents, diagrams, geometries, scene-graphs, stories, lenses, grammars, functions, relations, constraints, traits, and so on. I ask that all AO developers embrace composition as first design principle, pervasively, with priority above other features.
+ 
+ Composition provides a formal foundation for long-term benefits.
+~
+ 
 @doc.id " -- "
 @doc.dup "(Copyable x) ⇒ x -- x x"
 @doc.dupd "(Copyable x) ⇒ x y -- x x y"
@@ -114,6 +115,7 @@
 @id.rot rot rot rot
 @id.unrot unrot unrot unrot
 @id.roll roll roll roll roll
+@id.unroll unroll unroll unroll unroll
 @id.spin spin spin
 @id.introElim intro1 elim1
 @id.elimIntro elim1 intro1
@@ -121,25 +123,11 @@
 @id.assocrl assocr assocl
 @id.pswap pswap pswap
 @id.dupdrop dup drop
-@id.dupdrop2 dup2 drop2
+@id.dupSwapDrop dup swap drop
+@id.dupSwapdDropSwap dup swapd drop swap
+@id.dup2drop2 dup2 drop2
 @id.quoteUnquote quote unquote
 @id.unquoteQuote unquote quote
-
-@doc.Quotable
-"Most values in AO are quotable, except in contexts where an AO 
- program models a distributed behavior. Distributed values are not
- quotable; all values entering a quote must have the same location.
- 
- A quotation is simply a block that reproduces a value. Quotations
- can be utilized together with composition for partial application.
- 
- If a block with affine or relevant properties is quoted, the quote
- will inherit these properties. 
-~
-@doc.quote "(Quotable x) ⇒ x -- [1→x]"
-@doc.unquote "[1→x] -- x"
-@quote %r'l
-@unquote %rvvrwlcw$l
 
 @relevant %rkl
 @affine   %rfl
@@ -173,24 +161,35 @@
       assocr assocr assocr %wl 
       assocr assocr assocr
 
+@doc.Quotable
+"Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location.
+ 
+ A quotation is simply a block that reproduces a value. Quotations can be utilized together with composition for partial application.
+ 
+ If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
+~
+@doc.quote "(Quotable x) ⇒ x -- [1→x]"
+@doc.unquote "[1→x] -- x"
+@quote %r'l
+@unquote intro1 swap .apply
+
 @doc.Hands
-"In AO, the hand is modeled as a second stack. It can be used as a
- temporary storage for deep operations on the current stack, and 
- also serves as a semantic clipboard for ad-hoc data shuffling.
+"In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as a semantic clipboard for ad-hoc data shuffling.
  
      (currentStack * (hand * ... ))
  
  Developers can:
  
-   * take top item from stack into hand
-   * put top item from hand onto stack
-   * juggle (rotate) a few items
-   * discard a value from the hand
-   * copy an item from the stack into hand
-   * paste an item in the hand onto the stack
+ * take top item from stack into hand
+ * put top item from hand onto stack
+ * juggle (rotate) a few items
+ * discard a value from the hand
+ * copy an item from the stack into hand
+ * paste an item in the hand onto the stack
  
- In addition, hands are stable when developers use navigational
- metaphors, i.e. to operate in different workspaces. 
+ In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces. 
+ 
+ AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. The `apply` word enforces this policy by hiding the current hand when applying a block.
 ~
 
 @take %rzlw
@@ -228,18 +227,61 @@
 @id.reifyRestoreHand reifyHand restoreHand
 @id.take3put3 take3 put3
 
-@doc.ScalarMath
-"The intention is for AO to operate easily with units and matrices.
- The prefix '.' is used for math operations on naked, single numbers.
- The same operations without the prefix may also be used, but contains
- extra dispatch logic that requires more aggressive optimizations to
- remove.
+@doc.MakingWithBlocks
+"A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
  
- More generally, AO will be leaning towards symbolic math libraries, 
- i.e. such that we build expressions in a math DSL rather than directly
- compute results. This enables much richer analysis and optimization
- to be performed within the language, at expense of making it difficult
- to directly optimize the language (except by partial evaluation).
+ * representing loop behaviors by copying and applying blocks
+ * modeling conditional behavior, apply block on just one branch
+ * direct models of higher order programs and behavioral abstraction
+ * transporting access and authority to resources and side-effects
+ 
+ Best practices for use of blocks have not fully been established. Awelon project favors compositional abstractions to such an extent that use of ad-hoc parametric abstraction is discouraged. (See @doc.FirstPrincipleIsComposition.) My expectation is that blocks will be de-emphasized for behavioral abstraction in favor of indirect mechanisms - e.g. structured DSLs, symbolic expressions, free monads, staged programming. In this sense, AO discourages conventional 'functional programming' in favor of a more 'language oriented programming'.
+ 
+ Nonetheless, blocks remain essential for loops, effects, and conditions. Also, blocks make an effective compilation target, an alternative to interpretation, and they can help an embedded DSL model corner cases.
+ 
+ Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
+ 
+     o       :: [x→y] [y→z] -- [x→z]      (sequential)
+     .curry  :: x [(x*y)→z] -- [y→z]      (partial)
+     .first  :: [x→x'] -- [(x*e)→(x'*e)]  (concurrent)
+     .left   :: [x→x'] -- [(x+e)→(x'+e)]  (conditional)
+ 
+ Some readers might be familiar with the notions of 'first' and 'left' from John Hughes' arrow model, which was an important foundation for AO and RDP.
+ 
+ Above, I described primitive forms. The 'curry', 'first', and 'left' words must more generally be sensitive to the programming environment. (Unfortunately, I lack a good notation for effects on a multi-stack environment. I plan to rely on automatic visualization features to explain such things.)
+ 
+ In addition, blocks may be constructed by quotation of a value:
+ 
+     quote   :: (Quotable x) ⇒ x -- [1→x]
+     unquote :: [1→x] -- x
+ 
+ After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
+ 
+     .apply :: x [x→y] -- y (apply block on stack to next value on stack)
+     .dip   :: (apply block to everything except top object on stack)
+     apply  :: (apply block on stack to full environment, hiding current hand)
+     inline :: (apply block on stack as if written inline, i.e. hand is visible)
+     dip    :: (hides hand and top items on stack)
+     bi     :: (Copyable x) ⇒ x [x→y] [x→z] -- y z
+ 
+ The set of application words will undoubtedly evolve with experience.
+~
+
+
+@o pf %rrol
+@.apply pf %rr$l
+@.dip %rwrzwvrwr %$ %wlcl
+@apply reifyHand put .dip take restoreHand
+@inline %rvr$c
+@dip  take  apply put
+@dip2 take2 apply put2
+@dip3 take3 apply put3
+@dip4 take4 apply put4
+
+@doc.PrimitiveMath
+"The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
+ 
+ More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
 ~
 
 @.multiply pf %rr*l
@@ -254,15 +296,19 @@
 @doc..add "N(b) N(a) -- N(a+b)"
 @doc..negate "N(a) -- N(-a)"
 @doc..invert "N(a) -- N(1/a); a must be non-zero"
-@doc..divMod "N(a) N(m) -- N(r) N(q) where a=q*m+r and r in (m,0] or [0,m)"
+@doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
 @doc..subtract "N(a) N(b) -- N(a-b)"
 @doc..divide "N(a) N(b) -- N(a/b)"
 
+@id.mul1 1 .multiply
+@id.div1 1 .divide
+@id.add0 0 .add
+@id.sub0 0 .subtract
+
+
+
 @doc.EnvironmentManipulation
-"AO developers aren't limited to a single instance of the standard
- environment. Subprograms may be computed in their own complete 
- environments, and objects may be shifted from one environment to
- another (using the hand, by default, for data shuffling). 
+"AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
  
  Developers can:
  
@@ -273,9 +319,7 @@
  
  (TODO: make the above possible with simple words)
  
- When swapping to a new environment, the current hand and powerblock
- come with the user (at least by the standard functions). It isn't
- difficult to abstract motion that also switches hands and tools.
+ When swapping to a new environment, the current hand and powerblock come with the user (at least by the standard functions). It isn't difficult to abstract motion that also switches hands and tools.
  
  Environments can simplify reasoning about subprogram interactions. 
 ~
@@ -293,10 +337,7 @@
   *   countries, flags, populations, maps
   *   project Gutenberg novels
  
- AO's design philosophy is actually similar to Wolfram's - that code
- should have easy access to vast quantities of useful, maintainable
- data. AO provides this access in the form of words in a very large
- dictionary.
+ AO's design philosophy is actually similar to Wolfram's - that code should have easy access to vast quantities of useful, maintainable data. AO provides this access in the form of words in a very large dictionary.
 ~
 
 @JUNK
@@ -338,29 +379,15 @@ apply = assocr intro1 swap assocr first swap elim1
 appX = assocr rot2 assocr rot3 first assocl
 
 @doc.Zippers
-"The zipper data structure was described by Gérard Huet in 1997. It
- enables navigation and modification of tree-structured data in a
- purely functional context. At any time, the original tree structure
- can be recovered with the modifications. For Awelon project, zippers 
- are widely useful for modeling navigation through scene graphs or 
- documents, and document-like structures. They may also be used for
- raycasting and rendering.
+"The zipper data structure was described by Gérard Huet in 1997. It enables navigation and modification of tree-structured data in a purely functional context. At any time, the original tree structure can be recovered with the modifications. For Awelon project, zippers are widely useful for modeling navigation through scene graphs or documents, and document-like structures. They may also be used for raycasting and rendering.
  
- To support user intuitions, zippers should be specialized for common
- data structures. However, AO does provide a few standard primitives
- for zippers on AO's product data type.
+ To support user intuitions, zippers should be specialized for common data structures. However, AO does provide a few standard primitives for zippers on AO's product data type.
 ~
 
 @doc.HigherOrderZippers
-"Zippers are a first derivative on a data structure. However, higher
- derivatives are also very useful. For example, first derivative can
- focus on a single character in text, but second derivative models
- an expandable selection of text. In a scene graph, such could model
- a mobile bounding volume. 
+"Zippers are a first derivative on a data structure. However, higher derivatives are also very useful. For example, first derivative can focus on a single character in text, but second derivative models an expandable selection of text. In a scene graph, such could model a mobile bounding volume. 
  
- I don't grasp third derivatives yet, but my intuition is that it 
- can help structurally abstract sweeps or convolutions, e.g. the
- process of casting a ray through a scene-graph.
+ I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
 ~ 
 
 
@@ -368,21 +395,13 @@ appX = assocr rot2 assocr rot3 first assocl
 @doc.ioapp
 "'ioapp' names a trivial application model.
  
- An ioapp application takes a single input, just a linear block 
- called 'powerblock' roughly of form `[{io}]` and type:
+ An ioapp application takes a single input, just a linear block called 'powerblock' roughly of form `[{io}]` and type:
  
      µ P . [message → (P * result)]
  
- Effects are achieved by directly messaging the powerblock. Responses
- include a new linear powerblock and a result value. Operations on the
- powerblock are single-threaded, protecting AO's assumption of causal
- commutativity and spatial idempotence. Depending on the message set,
- asynchronous or multi-threaded operations are quite feasible.
+ Effects are achieved by directly messaging the powerblock. Responses include a new linear powerblock and a result value. Operations on the powerblock are single-threaded, protecting AO's assumption of causal commutativity and spatial idempotence. Depending on the message set, asynchronous or multi-threaded operations are quite feasible.
  
- This model is useful for quickly bootstrapping. However, it does not
- offer many other advantages for safety, parallelism, optimization, 
- documentation. It is very ad-hoc. The intention is to deprecate this 
- model quickly.
+ This model is useful for quickly bootstrapping. However, it does not offer many other advantages for safety, parallelism, optimization, documentation. It is very ad-hoc. The intention is to deprecate this model quickly.
 ~ 
 
 @JUNK
