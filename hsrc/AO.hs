@@ -81,7 +81,7 @@ compileDict dict = (errors, dictC) where
         T.intercalate (T.pack " \x2192 ") cyc
     dict' = L.foldr M.delete dict (L.concat cycles) -- d0 without cycles
     (missingWords, dictC) = L.foldl compileW ([],M.empty) (M.toList dict')
-    missingErrors = map showMissingWord missingWords
+    missingErrors = map showMissingWord (L.nub missingWords)
     showMissingWord (d,w) =
         T.pack "ERROR, missing word " `T.append` w 
         `T.append` T.pack " needed by " `T.append` d 
@@ -95,7 +95,7 @@ compileDict dict = (errors, dictC) where
             let mbdefc = compileAO dc def in -- then compile this word
             case mbdefc of
                 Left lw -> -- compilation failed, missing words
-                    let mw = map ((,) w) $ L.nub lw in
+                    let mw = map ((,) w) lw in
                     (mw ++ mws, dc)
                 Right abcdef -> (mws, M.insert w abcdef dc) -- success!
 

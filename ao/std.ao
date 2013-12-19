@@ -72,7 +72,7 @@
 @doc.elim1 "Unit -- "
 
 @id 
-@dup %r^zlwl
+@dup %r^wzlwl
 @dupd swap dup rot
 @over dupd swap
 @tuck swap over
@@ -108,7 +108,7 @@
 @pf assocl
 @ps assocl pswap
 
-@doc.prefix.id "typeful identity functions (e.g. for testing optimizers)"
+@doc.prefix.id "typeful identity functions for testing optimizers"
 @id.swap swap swap
 @id.swapd swapd swapd
 @id.rot rot rot rot
@@ -228,9 +228,35 @@
 @id.reifyRestoreHand reifyHand restoreHand
 @id.take3put3 take3 put3
 
-@doc.BlockOperations
-"A block in
+@doc.ScalarMath
+"The intention is for AO to operate easily with units and matrices.
+ The prefix '.' is used for math operations on naked, single numbers.
+ The same operations without the prefix may also be used, but contains
+ extra dispatch logic that requires more aggressive optimizations to
+ remove.
+ 
+ More generally, AO will be leaning towards symbolic math libraries, 
+ i.e. such that we build expressions in a math DSL rather than directly
+ compute results. This enables much richer analysis and optimization
+ to be performed within the language, at expense of making it difficult
+ to directly optimize the language (except by partial evaluation).
+~
 
+@.multiply pf %rr*l
+@.add      pf %rr+l
+@.negate   %r-l
+@.invert   %r/l
+@.divMod   pf %rrQll xs
+@.subtract .negate .add
+@.divide   .invert .multiply
+
+@doc..multiply "N(b) N(a) -- N(a*b)"
+@doc..add "N(b) N(a) -- N(a+b)"
+@doc..negate "N(a) -- N(-a)"
+@doc..invert "N(a) -- N(1/a); a must be non-zero"
+@doc..divMod "N(a) N(m) -- N(r) N(q) where a=q*m+r and r in (m,0] or [0,m)"
+@doc..subtract "N(a) N(b) -- N(a-b)"
+@doc..divide "N(a) N(b) -- N(a/b)"
 
 @doc.EnvironmentManipulation
 "AO developers aren't limited to a single instance of the standard
@@ -245,19 +271,14 @@
    * swap environment on the stack with the current 
    * apply a function in a fresh environment
  
+ (TODO: make the above possible with simple words)
+ 
  When swapping to a new environment, the current hand and powerblock
  come with the user (at least by the standard functions). It isn't
  difficult to abstract motion that also switches hands and tools.
  
  Environments can simplify reasoning about subprogram interactions. 
 ~
-
-@JUNK
-%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
-%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
-%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
-%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
-
 
 @doc.TODO
 "Much to do about AO
@@ -357,18 +378,16 @@ appX = assocr rot2 assocr rot3 first assocl
  powerblock are single-threaded, protecting AO's assumption of causal
  commutativity and spatial idempotence. Depending on the message set,
  asynchronous or multi-threaded operations are quite feasible.
-   
- The intention is to deprecate this model quickly. It is very ad-hoc
- and underspecified, but hopefully is good for bootstrapping.
+ 
+ This model is useful for quickly bootstrapping. However, it does not
+ offer many other advantages for safety, parallelism, optimization, 
+ documentation. It is very ad-hoc. The intention is to deprecate this 
+ model quickly.
 ~ 
 
 @JUNK
 
 % 
-% A zipper (data structure) is a pure way to  navigate and manipulate
-% tree-structured or list-structured data. The zipped structure has
-% enough information to restore its structure, keeping any changes.
-%
 % In Awelon, zipper operations apply to top object on current stack. 
 %
 %    zwrap - prepare zipper; stack object is initial target
@@ -412,11 +431,11 @@ zunwrap = zu* zunwrap_
 @rgb 1 rgba
 @rgba ps ps ps "rgba" pf
 @rgb/8 
-    1/255 *. take
-    1/255 *. take
-    1/255 *. put2
-    rgb
-@rgba/8 1/255 *. take rgb/8 put rgba
+    take2 fracOfOctet
+    put   fracOfOctet
+    put   fracOfOctet
+    rgba
+@fracOfOctet 1/255 .multiply
 
 @doc.prefix.# "prefix '#' is for widely useful named constants."
 @doc.Colors "Following Elm's example - using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simple names."
@@ -456,6 +475,6 @@ zunwrap = zu* zunwrap_
 @#darkGray  #darkGrey
 
 @doc.prefix.` "prefix '`' is for units on numbers."
-@`g  1/1000 *. `kg
+@`g  1/1000 .multiply `kg
 
 

@@ -502,7 +502,6 @@ readABC = errtxt . P.runP parseABC () "readABC"
 
 
 -- MINOR OPTIMIZATIONS
--- removeAnnotations, simplifyDataShuffling
 removeAnnotations :: ABC -> ABC
 removeAnnotations = ABC . map rdeep . L.filter (not . isInvocation) . inABC where
     inABC (ABC ops) = ops
@@ -514,8 +513,12 @@ removeAnnotations = ABC . map rdeep . L.filter (not . isInvocation) . inABC wher
 
 -- | single-pass simplification (always terminates)
 simplifyABC :: ABC -> ABC
-simplifyABC = ABC . ss . inABC where
+simplifyABC = ABC . repeatss . inABC where
     inABC (ABC ops) = ops
+    repeatss ops =
+        let ops' = ss ops in 
+        if (ops' == ops) then ops' else
+        repeatss ops' 
     ss [] = [] -- halt
     ss (Op ' ' : ops) = ss ops
     ss (Op '\n' : ops) = ss ops
@@ -525,9 +528,11 @@ simplifyABC = ABC . ss . inABC where
     ss (Op 'z' : Op 'z' : ops) = ss ops
     ss (Op 'v' : Op 'c' : ops) = ss ops
     ss (Op 'c' : Op 'v' : ops) = ss ops
-    ss (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = ss (Op 'z' : Op 'w' : ops)
-    ss (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = ss (Op 'w' : Op 'z' : ops)
+    ss (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = ss (Op 'z' : Op 'w' : ops) -- from zwz = wzw
+    ss (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = ss (Op 'w' : Op 'z' : ops) -- from zwz = wzw
     ss (op:ops) = op : ss ops -- progress 
+    -- TODO: systematically discover reducible data shufflers. Don't do by hand.
+    -- (also, leave most work to AO code).
 
 --
 -- HASKELL / ABC INTEGRATION

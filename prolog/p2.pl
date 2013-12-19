@@ -17,8 +17,8 @@ prim([A,[B,C]], l, [[A,B],C]).
 prim([[A,B],C], r, [A,[B,C]]).
 prim([A,[B,C]], w, [B,[A,C]]).
 prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
-prim(A,v,[A,unit]).
-prim([A,unit],c,A).
+%prim(A,v,[A,unit]).
+%prim([A,unit],c,A).
 
 lib(A,id,A,[]).
 %lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
@@ -127,6 +127,9 @@ zswap(N) :-
 
 onStack([X,opaqueEnv],X).
 
+
+% closed (cyclic) paths, i.e. find identity functions
+cpath(X,N) :- uPath(X,X,N,[],P),length(P,NL),write(P),write(NL).
 
 
 
