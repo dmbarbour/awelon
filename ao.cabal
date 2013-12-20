@@ -34,6 +34,17 @@ Source-repository head
   type: git
   location: http://github.com/dmbarbour/awelon.git
 
+Executable aoi
+  hs-source-dirs: hsrc_aoi
+  build-depends: base (>= 4.5 && < 5)
+    , ao
+    , parsec
+    , system-fileio
+    , system-filepath
+    , text
+  main-is: AOI.hs
+  ghc-options: -main-is AOI
+
 Library
   hs-Source-Dirs: hsrc
   Build-Depends: base (>= 4.5 && < 5)

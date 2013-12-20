@@ -21,13 +21,24 @@ prim(A,v,[A,unit]).
 prim([A,unit],c,A).
 
 lib(A,id,A,[]).
-%lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
-%lib([[A,B],C], rwl, [[B,A],C], [r,w,l]). % swapE
-%lib([[A,B],[C,D]], rzl, [[A,C], [B,D]], [r,z,l]). % zip2
+
+lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
+lib([[A,B],C], rwl, [[B,A],C], [r,w,l]). % swapE
+lib([[A,B],[C,D]], rzl, [[A,C], [B,D]], [r,z,l]). % zip2
+lib([A,[B,[C,[D,E]]]], lzr, [A,[B,[D,[C,E]]]], [l,z,r]).
 %lib([[A,[B,C]],E], assocl, [[[A,B],C],E], [r,w,r,z,w,l,l]).
 %lib([[[A,B],C],E], assocr, [[A,[B,C]],E], [r,r,w,z,l,w,l]).
 %lib(A, intro1, [unit,A], [v,vrwlc]). % intro1
 %lib([unit,A], elim1, A, [vrwlc,c]). % elim1
+
+ioapp_postStep(N) :- path([[sn,pb],unit], [unit,[unit,[pb,[[sn,unit],unit]]]], N).
+iomsg_preStep(N) :- path([s,[h,[pb,e]]], [[pb,s],[h,e]], N).
+
+introE_postStep(N) :- path([[sn,s],e], [[  [unit,[[sn,unit],unit]],  s],e], N). 
+elimE_preStep(N) :- path([[  [unit,[[sn,unit],unit]],  s],e], [[sn,s],e], N).
+swapE_step(N) :- 
+    path([ [[s2,e2],s1], [h,[p,e1]]  ],
+         [ [[s1,e1],s2], [h,[p,e2]]  ], N).
 
 dip_preStep(N) :- path([[x,[b,s]],e], [b,[[s,e],[x,unit]]], N).
 dip_postStep(N) :- path([[s,e],[x,unit]], [[x,s],e], N).

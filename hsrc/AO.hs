@@ -13,8 +13,8 @@ module AO
     ( Action(..), AO(..) 
 
     -- LOADING AND PROCESSING AO
-    , loadDict, loadDictC, loadSimple 
-    , compileDict, compileAO, compileAction, simplifyDictC
+    , loadDict, loadDictC
+    , compileDict, compileAO, compileAction
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction, parseNumber
@@ -141,11 +141,6 @@ actionWords (Word w) = [w]
 actionWords (Block ao) = aoWords ao
 actionWords (Amb opts) = L.concatMap aoWords opts
 actionWords _ = []
-
--- simplify and weakly optimize words in dictionary
--- not very incremental, but whatever
-simplifyDictC :: DictC -> DictC
-simplifyDictC = M.map (simplifyABC . removeAnnotations)
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -471,15 +466,6 @@ loadDictC fRoot =
     let (dictErrors, dictC) = compileDict dict in
     return (loadErrors ++ dictErrors, dictC)
 
--- load a dictionary, compile it, print errors on stderr, simplify result
-loadSimple :: FS.FilePath -> IO DictC
-loadSimple fp =
-    loadDictC fp >>= \ (errors, dc) ->
-    mapM_ reportError errors >>
-    return (simplifyDictC dc)
-
-
-
 -- recursively load imports. AO's import semantics is to load each 
 -- import into the dictionary, left to right. However, this can be
 -- optimized by loading right to left and skipping redundant loads.
@@ -520,16 +506,16 @@ buildDict imps = (errors, dict) where
     showParseError (fp,(ln,err)) = T.pack (show (modErrPos (fixpos fp ln) err))
     modErrPos f e = P.setErrorPos (f (P.errorPos e)) e
     fixpos fp ln = (`P.setSourceName` (show fp)) . (`P.incSourceLine` (ln - 1))
-    dict = M.fromList (map toDictEnt (rights parseEnts))
-    toDictEnt (fp, (l, (w, ao))) = (w, frame fp l w ao)
+    dict = M.fromList (L.map toDictEnt (rights parseEnts))
+    toDictEnt (fp, (l, (w, ao))) = (w, withFrame fp l w ao)
 
 -- Add location annotations to the compiled entries.
 --  This adds two annotations: {&@word file line} and {&@-} to push and pop
 --  frame information within the AO code. This can help with debugging.
-frame :: FS.FilePath -> Line -> W -> AO -> AO
-frame fp l w (AO actions) = AO (pushFrame : (actions ++ [popFrame])) where 
-    popFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
-    pushFrame = Prim $ ABC [Invoke $ frameText]
+withFrame :: FS.FilePath -> Line -> W -> AO -> AO
+withFrame fp l w (AO actions) = AO (inFrame : (actions ++ [exFrame])) where 
+    inFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
+    exFrame = Prim $ ABC [Invoke $ frameText]
     frameText = T.pack "&@" `T.append` w `T.snoc` ' ' 
                 `T.append` fptxt `T.snoc` ' ' 
                 `T.append` (T.pack (show l))
@@ -564,6 +550,5 @@ detectCycles = deforest . M.map (L.sort . L.nub) . M.fromListWith (++) where
                 let (cxw,cycw) = dfs g cx p vs in
                 (cxw,(cyc0:cycw))
     edgesFrom g v = maybe [] id $ M.lookup v g
-
 
 

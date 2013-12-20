@@ -20,7 +20,7 @@
 -- scheduling. However, it will be enough for a simplified app model.
 --
 module ABC
-    ( V(..), ToABCV(..), FromABCV(..)
+    ( V(..), BT(..), ToABCV(..), FromABCV(..)
     , Op(..), ABC(..)
     , runABC, runAMBC, runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
@@ -28,12 +28,6 @@ module ABC
     , showABC  -- show ABC or AMBC
     , opCodeList, inlineOpCodeList
     , quoteNum
-
-    -- minor optimizations
-    , removeAnnotations, simplifyABC
-
-    -- impure execution
-    --, runIOapp, ioAppInvoker
     ) where
 
 import Control.Monad
@@ -43,7 +37,6 @@ import qualified Text.Parsec as P
 import Text.Parsec.Text ()
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.List as L
 
 parseABC :: (P.Stream s m Char) => P.ParsecT s u m ABC
 readABC :: Text -> Either Error ABC
@@ -276,7 +269,10 @@ instance Show Op where
 instance Show V where 
     show (N r) | (1 == denominator r) = show (numerator r)
     show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
-    show (P a b) = "(" ++ show a ++ "*" ++ show b ++ ")"
+    show p@(P a b) = 
+        case valToText p of
+            Just txt -> show txt
+            Nothing -> "(" ++ show a ++ "*" ++ show b ++ ")"
     show (L a) = "(" ++ show a ++ "+_)"
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
@@ -500,46 +496,6 @@ readABC = errtxt . P.runP parseABC () "readABC"
     where errtxt = onLeft (T.pack . show)
           onLeft f = either (Left . f) Right
 
-
--- MINOR OPTIMIZATIONS
---  removeAnnotations will remove all annotations.
---
---  long term, I might want to just remove '@' locations based on
---  depth and width heuristics, i.e. so we still have useful info
---  about locations without compromising performance. Also, I could
---  perform partial optimizations across these.
-removeAnnotations :: ABC -> ABC
-removeAnnotations = ABC . map rdeep . L.filter (not . isInvocation) . inABC where
-    inABC (ABC ops) = ops
-    isInvocation (Invoke text) = maybe False ((== '&') . fst) (T.uncons text)
-    isInvocation _ = False
-    rdeep (BL abc) = BL (removeAnnotations abc)
-    rdeep (AMBC opts) = AMBC (map removeAnnotations opts)
-    rdeep x = x
-
--- | single-pass simplification (always terminates)
-simplifyABC :: ABC -> ABC
-simplifyABC = ABC . repeatss . inABC where
-    inABC (ABC ops) = ops
-    repeatss ops =
-        let ops' = ss ops in 
-        if (ops' == ops) then ops' else
-        repeatss ops' 
-    ss [] = [] -- halt
-    ss (Op ' ' : ops) = ss ops
-    ss (Op '\n' : ops) = ss ops
-    ss (Op 'l' : Op 'r' : ops) = ss ops
-    ss (Op 'r' : Op 'l' : ops) = ss ops
-    ss (Op 'w' : Op 'w' : ops) = ss ops
-    ss (Op 'z' : Op 'z' : ops) = ss ops
-    ss (Op 'v' : Op 'c' : ops) = ss ops
-    ss (Op 'c' : Op 'v' : ops) = ss ops
-    ss (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = ss (Op 'z' : Op 'w' : ops) -- from zwz = wzw
-    ss (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = ss (Op 'w' : Op 'z' : ops) -- from zwz = wzw
-    ss (op:ops) = op : ss ops -- progress 
-    -- TODO: systematically discover reducible data shufflers. Don't do by hand.
-    -- (also, leave most work to AO code).
-
 --
 -- HASKELL / ABC INTEGRATION
 --
@@ -589,23 +545,4 @@ instance FromABCV Text where fromABCV = valToText
 instance FromABCV () where
     fromABCV U = Just ()
     fromABCV _ = Nothing
-
--- | For quick bootstrap purposes, I've created a simplified 'ioapp'
--- application model. Effects are modeled as direct messages to a 
--- central capability - the 'powerblock'. Messages are interpreted
--- and processed.
---
--- The Haskell implementation supports procedural IO in a few domains:
---
---    load command-line arguments or environment variables
---    simple reading and writing for files and console
---    simple socket IO 
---    limited support for asynchronous or parallel operations
--- 
--- That is it for now. I would like to get AO self-hosted before
--- pushing much further - e.g. for graphics. 
--- 
-
-
-
 

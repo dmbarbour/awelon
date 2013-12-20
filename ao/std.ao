@@ -14,14 +14,14 @@
  
  The standard environment elaborates 'e' with a structure designed for flexible workflows and dataflows, concurrency, and extensibility. The type is roughly:
  
-     (s * (h * (p * ((sn * lns) * ex))))
+     (s * (h * (p * ((sn * rns) * ex))))
  
  Where:
    s: the current stack, where most operations apply
    h: the hand, a temporary store and semantic clipboard
    p: a powerblock, to observe or influence real world
    sn: name of current stack, used when switching stacks
-   lns: list of (name*stack) pairs for workspaces and registers
+   rns: record of (name*stack) pairs for workspaces and registers
    ex: unused, available for experimental extensions
  
  Thus AO's standard environment supports stack programming, but the extra stacks and powerblocks are very convenient and expressive.
@@ -31,26 +31,6 @@
  TODO: develop a more compositional environment model for Awelon project, perhaps based on navigating a kd-tree by zipper while carrying an inventory of tools, plus programmable lenses & HUD.
 ~
 
-@doc.FirstPrincipleIsComposition
-"Awelon project favors compositional abstraction. By 'favors' I mean 'with extreme prejudice', prioritizing composition over ad-hoc higher order or parametric abstractions.
- 
- There isn't a true conflict: some abstractions are both higher order and compositional. However, prioritizing composition does sacrifice many non-compositional higher-order programming abstractions that have become conventional or established practice in academia and industry today. State machines, records, nominative types, procedural loops, conventional conditional expressions, and even parametric abstraction (where a model is parameterized by a value of *ad-hoc* type) are NOT compositional. Instead, Awelon favors grammars, tables, structural types, incremental processes, sum types, parser combinators, and make systems (staged) or reader monads for dependency injection.
- 
- I use 'composition' in the formal sense of a trinity: components, operators, and properties. Components determine expressiveness and what can be described, whether it be 'functions' or 'diagrams' or 'grammars'. Operators determine flexibility. Each operator provides a means to combine two components into a third. Operators must be closed under composition. Properties determine scalability. Every compositional property must be *invariant* (a law) or *inductive* over operators and components. Composional properties enable users to reason about abstract models without knowing deep implementation details.
- 
- The challenge of composition is that we must make domain-specific tradeoffs between the three aspects. In a specialized domain, like 'diagrams', we can have many operators and useful properties, but the set of components is small. In a general domain, like functions, we have few common composition operators (compose, left, first) and a few general compositional properties (structural type).
- 
- To enable specialized tradeoffs for different parts of a system, Awelon project uses *layering* such that the result of processing one compositional model is another compositional model. Partial evaluation and specialization enable performance even with deep layers. Program search can mitigate the first-order nature of many component models, by abstracting over details. With care, dependent types can be leveraged for safety analysis across diverse layers.
- 
- Awelon project provides the features needed for great composition.
- 
- Every part of Awelon project is designed with composition as the first principle. In AO we have juxtaposition as composition, words as software components, and effects model via capability security. In ABC, we have concatenative bytecodes, spatial idempotence, causal commutativity, and a non-conventional link model with `{#secureHash}` sources as software components (which may be separately compiled).
- 
- But AO is the middle layer. Composition must also be prioritized for higher abstractions: documents, diagrams, geometries, scene-graphs, stories, lenses, grammars, functions, relations, constraints, traits, and so on. I ask that all AO developers embrace composition as first design principle, pervasively, with priority above other features.
- 
- Composition provides a formal foundation for long-term benefits.
-~
- 
 @doc.id " -- "
 @doc.dup "(Copyable x) ⇒ x -- x x"
 @doc.dupd "(Copyable x) ⇒ x y -- x x y"
@@ -222,6 +202,8 @@
 @id.takePut take put
 @id.putTake put take
 @id.juggle3 juggle3 juggle3 juggle3
+@id.takeJugglePutSwap take2 juggle2 put2 swap
+@id.takeSwapPutSwapd take swap put swapd
 @id.copyDiscard copy discard
 @id.pasteDiscardTake paste discard take
 @id.reifyRestoreHand reifyHand restoreHand
@@ -257,16 +239,14 @@
  
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
-     .apply :: x [x→y] -- y (apply block on stack to next value on stack)
+     .apply :: x [x→y] -- y (apply block to just top object on stack)
      .dip   :: (apply block to everything except top object on stack)
      apply  :: (apply block on stack to full environment, hiding current hand)
      inline :: (apply block on stack as if written inline, i.e. hand is visible)
      dip    :: (hides hand and top items on stack)
-     bi     :: (Copyable x) ⇒ x [x→y] [x→z] -- y z
  
  The set of application words will undoubtedly evolve with experience.
 ~
-
 
 @o pf %rrol
 @.apply pf %rr$l
@@ -305,24 +285,30 @@
 @id.add0 0 .add
 @id.sub0 0 .subtract
 
-
+@doc.ConditionalBehavior
 
 @doc.EnvironmentManipulation
 "AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
  
  Developers can:
  
-   * create a fresh, empty environment on the stack
-   * safely destroy an empty environment on the stack
-   * swap environment on the stack with the current 
+   * create a fresh, empty environment on the stack (introE)
+   * safely destroy an empty environment on the stack (elimE)
+   * swap current environment with environment on stack (swapE)
    * apply a function in a fresh environment
  
- (TODO: make the above possible with simple words)
- 
- When swapping to a new environment, the current hand and powerblock come with the user (at least by the standard functions). It isn't difficult to abstract motion that also switches hands and tools.
- 
- Environments can simplify reasoning about subprogram interactions. 
+ When swapping environments, the current hand and powerblock will follow the user. Moving objects between environments involves use of the hand. A initial stack name for an environment is simply the empty string (which is equivalent to number 3). 
 ~
+
+@doc.introE "adds empty environment object to stack"
+@doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
+@doc.swapE "switch current environment with env on stack"
+@introE "" %r %vrvrwvrr %vrwlc %l
+@elimE  %r %vrwlc %llcwlclc %l drop
+@swapE %zrzwlz %vrwlc %zrwzl
+
+@id.introElimE introE elimE
+@id.swapE swapE swapE
 
 @doc.TODO
 "Much to do about AO
@@ -393,16 +379,25 @@ appX = assocr rot2 assocr rot3 first assocl
 
 
 @doc.ioapp
-"'ioapp' names a trivial application model.
+"'ioapp' names a trivial application model. An ioapp application takes a single input, a linear powerblock of type roughly: µP.[a→(P*b)]. The powerblock will receive a message 'a' and generate a result 'b' along with a fresh powerblock. Or it will fail, halting the application. The ioapp model is trivial to implement in an imperative interpreter. Its intended role is bootstrapping.
  
- An ioapp application takes a single input, just a linear block called 'powerblock' roughly of form `[{io}]` and type:
+ The word `ioapp` will wrap the initial powerblock into the standard environment. It also helps document that the following words describe an ioapp application. The word `iomsg` will send the top value on the stack to the powerblock, replace the powerblock, and leave the result on the stack. Words using iomsg will often use suffix '.iomsg'. Words describing ioapp applications will often use prefix 'ioapp.'.  
  
-     µ P . [message → (P * result)]
- 
- Effects are achieved by directly messaging the powerblock. Responses include a new linear powerblock and a result value. Operations on the powerblock are single-threaded, protecting AO's assumption of causal commutativity and spatial idempotence. Depending on the message set, asynchronous or multi-threaded operations are quite feasible.
- 
- This model is useful for quickly bootstrapping. However, it does not offer many other advantages for safety, parallelism, optimization, documentation. It is very ad-hoc. The intention is to deprecate this model quickly.
-~ 
+ The ioapp model has several weaknesses. First, effects are very ad-hoc. Developers must learn which messages are accepted through external documentation. There is no effective static type-checking for the effects. Second, it is relatively inefficient and difficult to optimize. Every time an effect is used, the message must be recognized and dispatched. Third, it is very linear, with poor support for parallelism.
+~
+
+@ioapp %v "" %vrrvrwvrrwr
+@iomsg %zwl .apply xf %rwz
+
+@doc.readFile.iomsg "filename -- text"
+@doc.writeFile.iomsg "text filename --"
+@readFile.iomsg "readFile" pf iomsg
+@writeFile.iomsg pf "writeFile" pf iomsg
+
+@doc.getEnv.iomsg "varname -- text"
+@doc.getArgs.iomsg "-- List-of-text"
+@getEnv.iomsg "getEnv" pf iomsg
+@getArgs.iomsg intro1 "getArgs" pf iomsg
 
 @JUNK
 
@@ -456,44 +451,61 @@ zunwrap = zu* zunwrap_
     rgba
 @fracOfOctet 1/255 .multiply
 
-@doc.prefix.# "prefix '#' is for widely useful named constants."
 @doc.Colors "Following Elm's example - using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simple names."
 
-@#lightRed      0xef 0x29 0x29 rgb/8
-@#red           0xcc 0x00 0x00 rgb/8
-@#darkRed       0xa4 0x00 0x00 rgb/8 
-@#lightOrange   0xfc 0xaf 0x3e rgb/8
-@#orange        0xf5 0x79 0x00 rgb/8
-@#darkOrange    0xce 0x5c 0x00 rgb/8
-@#lightYellow   0xfc 0xe9 0x4f rgb/8
-@#yellow        0xed 0xd4 0x00 rgb/8
-@#darkYellow    0xc4 0xa0 0x00 rgb/8
-@#lightGreen    0x8a 0xe2 0x34 rgb/8
-@#green         0x73 0xd2 0x16 rgb/8
-@#darkGreen     0x4e 0x9a 0x06 rgb/8
-@#lightBlue     0x72 0x9f 0xcf rgb/8
-@#blue          0x34 0x65 0xa4 rgb/8
-@#darkBlue      0x20 0x4a 0x87 rgb/8
-@#lightPurple   0xad 0x7f 0xa8 rgb/8
-@#purple        0x75 0x50 0x7b rgb/8
-@#darkPurple    0x5c 0x35 0x66 rgb/8
-@#lightBrown    0xe9 0xb9 0x6e rgb/8
-@#brown         0xc1 0x7d 0x11 rgb/8
-@#darkBrown     0x8f 0x59 0x02 rgb/8
-@#white         0xff 0xff 0xff rgb/8
-@#lightGrey     0xee 0xee 0xec rgb/8
-@#grey          0xd3 0xd7 0xcf rgb/8
-@#darkGrey      0xba 0xbd 0xb6 rgb/8
-@#lightCharcoal 0x88 0x8a 0x85 rgb/8
-@#charcoal      0x55 0x57 0x53 rgb/8
-@#darkCharcoal  0x23 0x34 0x36 rgb/8
-@#black         0x00 0x00 0x00 rgb/8
+@color.lightRed      0xef 0x29 0x29 rgb/8
+@color.red           0xcc 0x00 0x00 rgb/8
+@color.darkRed       0xa4 0x00 0x00 rgb/8 
+@color.lightOrange   0xfc 0xaf 0x3e rgb/8
+@color.orange        0xf5 0x79 0x00 rgb/8
+@color.darkOrange    0xce 0x5c 0x00 rgb/8
+@color.lightYellow   0xfc 0xe9 0x4f rgb/8
+@color.yellow        0xed 0xd4 0x00 rgb/8
+@color.darkYellow    0xc4 0xa0 0x00 rgb/8
+@color.lightGreen    0x8a 0xe2 0x34 rgb/8
+@color.green         0x73 0xd2 0x16 rgb/8
+@color.darkGreen     0x4e 0x9a 0x06 rgb/8
+@color.lightBlue     0x72 0x9f 0xcf rgb/8
+@color.blue          0x34 0x65 0xa4 rgb/8
+@color.darkBlue      0x20 0x4a 0x87 rgb/8
+@color.lightPurple   0xad 0x7f 0xa8 rgb/8
+@color.purple        0x75 0x50 0x7b rgb/8
+@color.darkPurple    0x5c 0x35 0x66 rgb/8
+@color.lightBrown    0xe9 0xb9 0x6e rgb/8
+@color.brown         0xc1 0x7d 0x11 rgb/8
+@color.darkBrown     0x8f 0x59 0x02 rgb/8
+@color.white         0xff 0xff 0xff rgb/8
+@color.lightGrey     0xee 0xee 0xec rgb/8
+@color.grey          0xd3 0xd7 0xcf rgb/8
+@color.darkGrey      0xba 0xbd 0xb6 rgb/8
+@color.lightCharcoal 0x88 0x8a 0x85 rgb/8
+@color.charcoal      0x55 0x57 0x53 rgb/8
+@color.darkCharcoal  0x23 0x34 0x36 rgb/8
+@color.black         0x00 0x00 0x00 rgb/8
 
-@#gray      #grey
-@#lightGray #lightGrey
-@#darkGray  #darkGrey
+@color.gray      color.grey
+@color.lightGray color.lightGrey
+@color.darkGray  color.darkGrey
 
 @doc.prefix.` "prefix '`' is for units on numbers."
 @`g  1/1000 .multiply `kg
+@`km 1000 .multiply `m
+
+
+@doc.CompositionIsFirstPrinciple
+"Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically closed; they often combine two components into a third. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 
+ 
+ Composition is useful as a formal foundation for scalability and modularity. Compositional properties enable developers to reason about components without knowledge of the implementation details. Composition operators are also convenient due to their uniformity, i.e. we aren't forced to develop or learn a new language or interface for every object.
+ 
+ Many models in common practice - including state machines, records, process loops, nominative types, conventional conditional expressions, even parametric abstraction - are not compositional. 
+ 
+ Compositional alternatives are available. Grammars can operate as state machines (via parsing). Datalog or relational algebras generalize records. Processes can be compositional if we instead model them as partial and incremental (i.e. small-step processes; `µP.a→(P*b)`). Nominative types can be replaced with structural types. If/then/else and ad-hoc pattern-case conditional expressions can be replaced with a structural sum types. Ad-hoc parametric abstraction can often be replaced with staging and a reader monad.
+ 
+ Awelon project strongly favors compositional models and designs. This should be reflected in AO's dictionaries and ontologies. I ask that all AO developers embrace composition as first design principle, pervasively, with priority above other features.
+ 
+ Effective use of composition often requires domain-specific tradeoffs between the three aspects. For example, by limiting what we talk about (just diagrams) we can achieve more specialized properties (e.g. bounding areas, efficient occlusion) and more operators (add, scale, rotate, translate, etc.). It is possible to switch between compositional models primarily by layering them, such that the output of one compositional model becomes another compositional model. At a lower layer, a generic compositional model enables integration of domain-specific models.
+ 
+ AO is designed to serve as that generic compositional layer. AO's words are software components. AO's compositional properties - especially causal commutativity, spatial idempotence, and capability security - are very useful in this role. AO is also designed to mitigate common weaknesses of deeply layered abstractions by aggressive use of partial evaluation, dependent type analysis, and program search.
+~
 
 
