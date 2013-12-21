@@ -15,7 +15,7 @@ module AO
 
     -- LOADING AND PROCESSING AO
     , loadDict, loadDictC, importDict, importDictC
-    , compileDict, compileAO, compileAction
+    , aoWords, compileDict, compileAO, compileAction
 
     -- READERS/PARSERS
     , readDictFile, parseEntry, parseWord, parseAction, parseNumber

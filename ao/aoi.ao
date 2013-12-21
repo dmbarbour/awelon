@@ -3,49 +3,61 @@ std
 @doc.aoi
 "aoi is a simplistic imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
  
- The aoi application model is very trivial. A single, linear powerblock is provided to the program, of type roughly µP.[a→(P*b)], then the word 'prelude.aoi' is invoked (if it exists). AOI starts with a default interpreter, but it is feasible to modify this interpreter by use of an effect.
+ The aoi application model is very trivial. A single, linear powerblock is provided to the program, of type roughly µP.[a→(P*b)], then the word 'prelude.aoi' is invoked if it exists. Effects are achieved by passing messages to the powerblock, which is supported implicitly by `iomsg.aoi`, `readFile`, etc. assuming the powerblock is in its standard location:
  
- IO effects are achieved by passing messages to the powerblock. A simple `iomsg.aoi` will execute this action. All actions the aoi interpreter supports are also given specific names, such as 'readFile'. This effects model would generally be inadequate for type safety, optimization, parallelization, and security in open systems. It isn't recommended for general use, but it is sufficient for bootstrapping. 
+     (stack * (hand * (powerblock * ...)))
  
- AOI allows switching interpreters at runtime, so developers can substitute readers. (Motivation is to support bootstrapping of interpreters.)
+ The aoi effects model is inadequate for safety, efficiency, scalability, and open system security. It is not recommended. I would not use it even in aoi, if it were not for how trivially it is to implement.
+ 
+ AOI does have a little extra support to help bootstrap a proper REPL/interpreter. See @doc.switchAOI for more information!
 ~
  
 @doc.wrapE.aoi "wrap initial powerblock in standard environment"
 @wrapE.aoi %v "" %vrrvrwvrrwr
 @prelude.aoi wrapE.aoi
 
-@doc.iomsg.aoi "invoke powerblock with a message on stack; restore new powerblock"
+@doc.iomsg.aoi "invoke linear powerblock with message from stack"
 @iomsg.aoi %zwl .apply xf %rwz
-
 
 @doc.switchAOI 
 "An interpreter function has roughly type:
  
-     ((text * (env0 * sI)) * envI) → ((textLeftOver * (env0' * sI')) * envI')
+     type iFn = [e0 t -- e0' t']  (iFn must be copyable, too)
  
- Here, 'env0' is the value presented to the user, while 'envI' is the interpreter's own context. The left over text is whatever couldn't be processed. A full interpreter consists of this interpreter function paired with an initial envI:
+ Here, `e0` is the value presented to the user, `t` is the text interpreted, and `t'` is the leftover text that should be reprocessed. In each interpreter step, the previous text is appended with any new input and reprocessed. The interpreter has its own environment, `eI`, in which the above `iFn` is processed. A full interpreter consists of a pair: the function and the initial environment (minus text and world).
  
-     type interpreter = ([(t*(e0*sI))*eI → (t'*(e0'*sI'))*eI'] * eI)
+     type interpreter = ([iFn] * eI)
  
- The `switchAOI` word will (in a standard environment with a powerblock) swap an interpreter on the stack with a new one, holding onto 't' and 'e0' from the prior interpreter. The new interpreter is immediately executed once on the leftover text (even if it is empty). 
+ The `switchAOI` word will swap out the current interpreter with a new one.
  
-     switchAOI :: interpreter -- interpreter
+     switchAOI :: interpreter -- interpreter'
  
- Note: Interpreter functions must be copyable. AOI basically repeats the process of copying the current interpreter function and applying it to the current text, continuing whenever more text is available. However, the eI might not be copyable or droppable.
-~
-@doc.loadWord "text -- (1 + [x→y]); load a word from the AOI dictionary"
+ Note that the prior interpreter is returned as a value, so that developers can model stacks of interpreters, temporary interpreters, and similar. The real motivation for switchAOI is to help bootstrap new interpreter/REPL models.
+~ 
 @switchAOI "switchAOI" pf iomsg.aoi
+
+@doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
 @loadWord  "loadWord" pf iomsg.aoi
 
+@doc.frame.aoi 
+"The Haskell AO compiler adds annotations to help track call stack 
+ locations for debugging purposes. AOI provides 'pushFrame' and 'popFrame'
+ for similar reasons. The input to pushFrame must be simple text.
+ 
+ Be sure to keep popFrame balanced with pushFrame! 
+~
+@doc.pushFrame "frameText --; see @doc.frame.aoi"
+@doc.popFrame "--; see @doc.frame.aoi"
+@doc.getFrameStack "-- list of texts"
+@pushFrame "pushFrameText" pf iomsg.aoi
+@popFrame intro1 "popFrameText" pf iomsg.aoi
+@getFrameStack intro1 "getFrameStack" pf iomsg.aoi
 
 @doc.readFile "filename -- (1(err) + text)"
 @doc.writeFile "text filename -- (1(err) + 1(ok))"
 @readFile "readFile" pf iomsg.aoi
 @writeFile pf "writeFile" pf iomsg.aoi
 
-
-@doc.getEnv.iomsg "varname -- text"
-@doc.getArgs.iomsg "-- List-of-text"
-@getEnv.iomsg "getEnv" pf iomsg.aoi
-@getArgs.iomsg intro1 "getArgs" pf iomsg.aoi
+@doc.getEnv.iomsg "varname -- text; traditional environment variables!"
+@getEnv "getOSEnv" pf iomsg.aoi
 

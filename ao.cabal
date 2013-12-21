@@ -42,6 +42,9 @@ Executable aoi
     , system-fileio
     , system-filepath
     , text
+    , haskeline (>= 0.7)
+    , ansi-terminal (>= 0.6)
+    , random (>= 1.0)
   main-is: AOI.hs
   ghc-options: -main-is AOI
 
