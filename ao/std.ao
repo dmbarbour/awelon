@@ -18,17 +18,17 @@
  
  Where:
    s: the current stack, where most operations apply
-   h: the hand, a temporary store and semantic clipboard
+   h: the hand, temporary store and semantic clipboard
    p: a powerblock, to observe or influence real world
    sn: name of current stack, used when switching stacks
    rns: record of (name*stack) pairs for workspaces and registers
    ex: unused, available for experimental extensions
  
- Thus AO's standard environment supports stack programming, but the extra stacks and powerblocks are very convenient and expressive.
+ Remember, this isn't built into AO. It really is just a plain old value that happens to model a multi-stack programming environment, and AO could just as easily work in another environment (though it may require developing new data shuffling metaphors and vocabulary). Multiple stacks are very convenient when modeling multiple concurrent tasks and workflows. 
  
  Many basic stack manipulators are borrowed from Factor and FORTH. Also, operations on the stack are often documented using a simple notation for stack effects. "x y z -- y x z" means the top item on the stack (z) remains in place, and the two below it are swapped.
  
- TODO: develop a more compositional environment model for Awelon project, perhaps based on navigating a kd-tree by zipper while carrying an inventory of tools, plus programmable lenses & HUD.
+ This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
 ~
 
 @doc.id " -- "
@@ -108,6 +108,7 @@
 @id.dup2drop2 dup2 drop2
 @id.quoteUnquote quote unquote
 @id.unquoteQuote unquote quote
+@id.textDrop "text" drop
 
 @relevant %rkl
 @affine   %rfl
@@ -244,6 +245,8 @@
      apply  :: (apply block on stack to full environment, hiding current hand)
      inline :: (apply block on stack as if written inline, i.e. hand is visible)
      dip    :: (hides hand and top items on stack)
+     keep   :: copies top item on stack before apply, then replaces them.
+     top    :: apply block to top of stack in fresh environment... must have single value result
  
  The set of application words will undoubtedly evolve with experience.
 ~
@@ -257,6 +260,10 @@
 @dip2 take2 apply put2
 @dip3 take3 apply put3
 @dip4 take4 apply put4
+@keep  take copy juggle2 put apply put
+@keep2 take pf copy xf juggle2 put apply put xf
+@keep3 take pf pf copy xf xf juggle2 put apply put xf xf
+@keep4 take pf pf pf copy xf xf xf juggle2 put apply put xf xf xf
 
 @doc.PrimitiveMath
 "The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
@@ -292,10 +299,10 @@
  
  Developers can:
  
-   * create a fresh, empty environment on the stack (introE)
-   * safely destroy an empty environment on the stack (elimE)
-   * swap current environment with environment on stack (swapE)
-   * apply a function in a fresh environment
+ * create a fresh, empty environment on the stack (introE)
+ * safely destroy an empty environment on the stack (elimE)
+ * swap current environment with environment on stack (swapE)
+ * apply function to top of stack in a fresh environment (top)
  
  When swapping environments, the current hand and powerblock will follow the user. Moving objects between environments involves use of the hand. A initial stack name for an environment is simply the empty string (which is equivalent to number 3). 
 ~
@@ -303,9 +310,12 @@
 @doc.introE "adds empty environment object to stack"
 @doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
 @doc.swapE "switch current environment with env on stack"
+@doc.applyE "apply block on stack to top item on stack in a fresh 
+@doc.top "apply block of type [x -- y] in a fresh environment."
 @introE "" %r %vrvrwvrr %vrwlc %l
 @elimE  %r %vrwlc %llcwlclc %l drop
 @swapE %zrzwlz %vrwlc %zrwzl
+@top take2 introE swapE put2 rot take apply put swap take swapE elimE put
 
 @id.introElimE introE elimE
 @id.swapE swapE swapE
@@ -376,29 +386,6 @@ appX = assocr rot2 assocr rot3 first assocl
  I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
 ~ 
 
-
-
-@doc.ioapp
-"'ioapp' names a trivial application model. An ioapp application takes a single input, a linear powerblock of type roughly: µP.[a→(P*b)]. The powerblock will receive a message 'a' and generate a result 'b' along with a fresh powerblock. Or it will fail, halting the application. The ioapp model is trivial to implement in an imperative interpreter. Its intended role is bootstrapping.
- 
- The word `ioapp` will wrap the initial powerblock into the standard environment. It also helps document that the following words describe an ioapp application. The word `iomsg` will send the top value on the stack to the powerblock, replace the powerblock, and leave the result on the stack. Words using iomsg will often use suffix '.iomsg'. Words describing ioapp applications will often use prefix 'ioapp.'.  
- 
- The ioapp model has several weaknesses. First, effects are very ad-hoc. Developers must learn which messages are accepted through external documentation. There is no effective static type-checking for the effects. Second, it is relatively inefficient and difficult to optimize. Every time an effect is used, the message must be recognized and dispatched. Third, it is very linear, with poor support for parallelism.
-~
-
-@ioapp %v "" %vrrvrwvrrwr
-@iomsg %zwl .apply xf %rwz
-
-@doc.readFile.iomsg "filename -- text"
-@doc.writeFile.iomsg "text filename --"
-@readFile.iomsg "readFile" pf iomsg
-@writeFile.iomsg pf "writeFile" pf iomsg
-
-@doc.getEnv.iomsg "varname -- text"
-@doc.getArgs.iomsg "-- List-of-text"
-@getEnv.iomsg "getEnv" pf iomsg
-@getArgs.iomsg intro1 "getArgs" pf iomsg
-
 @JUNK
 
 % 
@@ -450,8 +437,9 @@ zunwrap = zu* zunwrap_
     put   fracOfOctet
     rgba
 @fracOfOctet 1/255 .multiply
+@doc.fracOfOctet "divide by 255, such that numbers of range 0..255 result in a range 0 to 1 (inclusive)"
 
-@doc.Colors "Following Elm's example - using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simple names."
+@doc.color "Following Elm's example, I'm using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simpler names: red, orange, yellow, green, blue, purple, brown, gray, and charcoal - each with light and dark variations."
 
 @color.lightRed      0xef 0x29 0x29 rgb/8
 @color.red           0xcc 0x00 0x00 rgb/8

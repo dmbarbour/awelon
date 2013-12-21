@@ -1,0 +1,51 @@
+std
+
+@doc.aoi
+"aoi is a simplistic imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
+ 
+ The aoi application model is very trivial. A single, linear powerblock is provided to the program, of type roughly µP.[a→(P*b)], then the word 'prelude.aoi' is invoked (if it exists). AOI starts with a default interpreter, but it is feasible to modify this interpreter by use of an effect.
+ 
+ IO effects are achieved by passing messages to the powerblock. A simple `iomsg.aoi` will execute this action. All actions the aoi interpreter supports are also given specific names, such as 'readFile'. This effects model would generally be inadequate for type safety, optimization, parallelization, and security in open systems. It isn't recommended for general use, but it is sufficient for bootstrapping. 
+ 
+ AOI allows switching interpreters at runtime, so developers can substitute readers. (Motivation is to support bootstrapping of interpreters.)
+~
+ 
+@doc.wrapE.aoi "wrap initial powerblock in standard environment"
+@wrapE.aoi %v "" %vrrvrwvrrwr
+@prelude.aoi wrapE.aoi
+
+@doc.iomsg.aoi "invoke powerblock with a message on stack; restore new powerblock"
+@iomsg.aoi %zwl .apply xf %rwz
+
+
+@doc.switchAOI 
+"An interpreter function has roughly type:
+ 
+     ((text * (env0 * sI)) * envI) → ((textLeftOver * (env0' * sI')) * envI')
+ 
+ Here, 'env0' is the value presented to the user, while 'envI' is the interpreter's own context. The left over text is whatever couldn't be processed. A full interpreter consists of this interpreter function paired with an initial envI:
+ 
+     type interpreter = ([(t*(e0*sI))*eI → (t'*(e0'*sI'))*eI'] * eI)
+ 
+ The `switchAOI` word will (in a standard environment with a powerblock) swap an interpreter on the stack with a new one, holding onto 't' and 'e0' from the prior interpreter. The new interpreter is immediately executed once on the leftover text (even if it is empty). 
+ 
+     switchAOI :: interpreter -- interpreter
+ 
+ Note: Interpreter functions must be copyable. AOI basically repeats the process of copying the current interpreter function and applying it to the current text, continuing whenever more text is available. However, the eI might not be copyable or droppable.
+~
+@doc.loadWord "text -- (1 + [x→y]); load a word from the AOI dictionary"
+@switchAOI "switchAOI" pf iomsg.aoi
+@loadWord  "loadWord" pf iomsg.aoi
+
+
+@doc.readFile "filename -- (1(err) + text)"
+@doc.writeFile "text filename -- (1(err) + 1(ok))"
+@readFile "readFile" pf iomsg.aoi
+@writeFile pf "writeFile" pf iomsg.aoi
+
+
+@doc.getEnv.iomsg "varname -- text"
+@doc.getArgs.iomsg "-- List-of-text"
+@getEnv.iomsg "getEnv" pf iomsg.aoi
+@getArgs.iomsg intro1 "getArgs" pf iomsg.aoi
+

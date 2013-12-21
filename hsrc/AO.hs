@@ -10,10 +10,11 @@
 -- See AboutAO.md for details on the dictionary file and AO
 --
 module AO
-    ( Action(..), AO(..) 
+    ( Action(..), AO(..)
+    , Dict, DictC
 
     -- LOADING AND PROCESSING AO
-    , loadDict, loadDictC
+    , loadDict, loadDictC, importDict, importDictC
     , compileDict, compileAO, compileAction
 
     -- READERS/PARSERS
@@ -466,6 +467,18 @@ loadDictC fRoot =
     let (dictErrors, dictC) = compileDict dict in
     return (loadErrors ++ dictErrors, dictC)
 
+-- import a dictionary given just a list of imports (ordered same as
+-- an AO file import section, i.e. rightmost has priority).
+importDict :: [Import] -> IO ([Error], Dict)
+importDict imps = deeplyImport (L.reverse imps) [] >>= return . buildDict
+
+-- import and compile a dictionary
+importDictC :: [Import] -> IO ([Error], DictC)
+importDictC imps = 
+    importDict imps >>= \ (loadErrors, dict) ->
+    let (dictErrors, dictC) = compileDict dict in
+    return (loadErrors ++ dictErrors, dictC)
+    
 -- recursively load imports. AO's import semantics is to load each 
 -- import into the dictionary, left to right. However, this can be
 -- optimized by loading right to left and skipping redundant loads.

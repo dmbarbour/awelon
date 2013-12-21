@@ -1,12 +1,20 @@
 
--- | AOI describes a traditional, imperative REPL for the language
--- AO. This isn't ideal; my intention for interactive AO is closer
--- in nature to a spreadsheet. With imperative actions, we must
--- concern ourselves more with the history of actions.
+-- | AOI describes a simplistic, imperative REPL for language AO.
+-- AOI will start by importing the "aoi" dictionary unless a .ao 
+-- file is specified on the command line, in which case the specified
+-- dictionary is loaded. AOI has a trivial effects model, documented
+-- in the standard aoi dictionary file. 
 --
--- This REPL keeps its value from step to step. Users cannot
--- re-define words. It isn't very usable, but it will be enough
--- to help guide the bootstrap.
+-- Interactive AO is intended to be reactive like spreadsheets, with
+-- more pure functions or RDP behaviors in test environments. AOI is
+-- only intended to help gain confidence with libraries and support
+-- bootstrap. 
+--
+-- This REPL keeps its value from step to step, so the session 
+-- becomes one long word. The dictionary is provided as a command
+-- line argument, or by AOI_DICT.
+-- define words. It isn't very usable, but it will be enough
+-- to gain some confidence in the dictionary.
 module AOI
     ( runIOApp
     , main
@@ -17,15 +25,32 @@ import qualified System.IO.Error as Err
 import qualified System.Environment as Env
 import qualified Data.Text as T
 import qualified Data.List as L
+import qualified Filesystem.Path.CurrentOS as FS
+import qualified Filesystem as FS
 import qualified Text.Parsec as P
 import Data.Text (Text)
 import AO
 import ABC
 
+-- AOI will load just one dictionary. This can be configured as a
+-- command line argument (a '.ao' file) or will default to loading
+-- the 'aoi' dictionary.
+aoiDict :: IO DictC
+aoiDict =
+    Env.getArgs >>= \ args ->
+    let aoFiles = (L.filter ((T.pack ".ao") `T.isSuffixOf`) . L.map T.pack) args in
+    let loadAction = case aoFiles of
+            [] -> importDictC [T.pack "aoi"]
+            (fn:[]) -> loadDictC (FS.fromText fn)
+            _ -> fail ("did not understand arguments: " ++ show args)
+    in
+    loadAction >>= \ (errors, dictC) ->
+    mapM_ (Sys.hPutStrLn Sys.stderr . T.unpack) errors >>
+    return dictC
+
 main :: IO ()
 main = Sys.putStrLn "okay, it compiles"
    
-    
 
 -- | For quick bootstrap purposes, I've created a simplified 'ioapp'
 -- application model. This doesn't contain much more than is needed
