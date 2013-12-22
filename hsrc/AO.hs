@@ -11,7 +11,7 @@
 --
 module AO
     ( Action(..), AO(..)
-    , Dict, DictC
+    , Dict, DictC, Import
 
     -- LOADING AND PROCESSING AO
     , loadDict, loadDictC, importDict, importDictC

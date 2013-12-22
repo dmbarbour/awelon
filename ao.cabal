@@ -42,9 +42,13 @@ Executable aoi
     , system-fileio
     , system-filepath
     , text
+    , containers
+    , bytestring
+    , base64-bytestring (>= 1.0)
     , haskeline (>= 0.7)
     , ansi-terminal (>= 0.6)
     , random (>= 1.0)
+    , cprng-aes (>= 0.5)
   main-is: AOI.hs
   ghc-options: -main-is AOI
 

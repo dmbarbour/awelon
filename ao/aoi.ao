@@ -1,20 +1,14 @@
 std
 
 @doc.aoi
-"aoi is a simplistic imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
+"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
  
- The aoi application model is very trivial. A single, linear powerblock is provided to the program, of type roughly µP.[a→(P*b)], then the word 'prelude.aoi' is invoked if it exists. Effects are achieved by passing messages to the powerblock, which is supported implicitly by `iomsg.aoi`, `readFile`, etc. assuming the powerblock is in its standard location:
+ The aoi application model is simplistic. The application starts in a standard environment that is empty except for a linear powerblock. The powerblock has type roughly `µP.[msg→(P*ans)]` where 'msg' is a (label * contents) pair. Use of `iomsg.aoi` will send an ad-hoc message to the powerblock and leave the answer on the stack. All implemented operations also have dedicated words like `readFile`.
  
-     (stack * (hand * (powerblock * ...)))
- 
- The aoi effects model is inadequate for safety, efficiency, scalability, and open system security. It is not recommended. I would not use it even in aoi, if it were not for how trivially it is to implement.
+ The aoi effects model is inadequate for safety, efficiency, scalability, and open system security. Because it is not safe, it also isn't compatible with ambiguity. It is not recommended in general. I would not use it even in aoi, if it were not for how trivial it is to implement as a bootstrap model.
  
  AOI does have a little extra support to help bootstrap a proper REPL/interpreter. See @doc.switchAOI for more information!
 ~
- 
-@doc.wrapE.aoi "wrap initial powerblock in standard environment"
-@wrapE.aoi %v "" %vrrvrwvrrwr
-@prelude.aoi wrapE.aoi
 
 @doc.iomsg.aoi "invoke linear powerblock with message from stack"
 @iomsg.aoi %zwl .apply xf %rwz
@@ -48,16 +42,29 @@ std
 ~
 @doc.pushFrame "frameText --; see @doc.frame.aoi"
 @doc.popFrame "--; see @doc.frame.aoi"
-@doc.getFrameStack "-- list of texts"
-@pushFrame "pushFrameText" pf iomsg.aoi
-@popFrame intro1 "popFrameText" pf iomsg.aoi
-@getFrameStack intro1 "getFrameStack" pf iomsg.aoi
+@pushFrame "pushFrame" pf iomsg.aoi
+@popFrame intro1 "popFrame" pf iomsg.aoi elim1
+
+@doc.getEnv.iomsg "varname -- text; traditional environment variables!"
+@getEnv "getOSEnv" pf iomsg.aoi
+
+@doc.randomBytes "count -- (list of octets); secure random source"
+@randomBytes "randomBytes" pf iomsg.aoi
+
+@doc.reload "reload dictionary from filesystem (i.e. to see updates)"
+@reload intro1 "reloadDictionary" pf iomsg.aoi elim1
 
 @doc.readFile "filename -- (1(err) + text)"
 @doc.writeFile "text filename -- (1(err) + 1(ok))"
 @readFile "readFile" pf iomsg.aoi
 @writeFile pf "writeFile" pf iomsg.aoi
 
-@doc.getEnv.iomsg "varname -- text; traditional environment variables!"
-@getEnv "getOSEnv" pf iomsg.aoi
+@doc.destroy "destroy will drop any input, including relevant blocks; useful to clean the environment, but not very safe"
+@destroy "destroy" pf iomsg.aoi elim1
+
+@doc.clear "clear the current environment (except hand and powerblock)"
+@reset introE swapE destroy
+
+@doc.exit "gracefully halt the program"
+@exit intro1 "exit" pf iomsg.aoi elim1
 
