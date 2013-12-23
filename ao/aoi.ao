@@ -14,19 +14,17 @@ std
 @iomsg.aoi %zwl .apply xf %rwz
 
 @doc.switchAOI 
-"An interpreter function has roughly type:
+"The AOI reader incrementally compiles lines or paragraphs of user input (text) into a blocks that will be applied in the current user environment. Compilation may return error and fail, in which case no action is taken and the text is returned to the user for further editing. The incremental interpreter function has roughly type:
  
-     type iFn = [e0 t -- e0' t']  (iFn must be copyable, too)
+     type IFN = (text * eIC) → (errorText + ([eU → eU'] * eIC'))
  
- Here, `e0` is the value presented to the user, `t` is the text interpreted, and `t'` is the leftover text that should be reprocessed. In each interpreter step, the previous text is appended with any new input and reprocessed. The interpreter has its own environment, `eI`, in which the above `iFn` is processed. A full interpreter consists of a pair: the function and the initial environment (minus text and world).
+ Here, `eIC` is any extra context the incremental compiler decides to keep from step to step. Type `eU` represents the user's environment. On error, neither eIC nor eU will be modified, and the input is ideally (perhaps via history) returned to the user for further editing. AOI does not currently validate the sanity of the resulting block - i.e. no typechecking internally, no testing against eU. However, the design here makes it feasible to introduce a few features to prevent runtime errors.
  
-     type interpreter = ([iFn] * eI)
+ Developers may modify the AOI reader (from within eU) by use of switchAOI word and command. 
  
- The `switchAOI` word will swap out the current interpreter with a new one.
+     switchAOI :: ([IFN] * eIC) -- ([IFN]' * eIC')
  
-     switchAOI :: interpreter -- interpreter'
- 
- Note that the prior interpreter is returned as a value, so that developers can model stacks of interpreters, temporary interpreters, and similar. The real motivation for switchAOI is to help bootstrap new interpreter/REPL models.
+ This is coarse-grained at the level of lines and blocks. The new reader will be used to process the next block. The motivation for switchAOI is to simplify bootstrapping of an AO REPL or interactive mode from within AO.
 ~ 
 @switchAOI "switchAOI" pf iomsg.aoi
 
@@ -59,12 +57,16 @@ std
 @readFile "readFile" pf iomsg.aoi
 @writeFile pf "writeFile" pf iomsg.aoi
 
-@doc.destroy "destroy will drop any input, including relevant blocks; useful to clean the environment, but not very safe"
+@doc.destroy "destroy will drop any input, including relevant blocks (unsafe, but useful)"
 @destroy "destroy" pf iomsg.aoi elim1
 
 @doc.clear "clear the current environment (except hand and powerblock)"
 @reset introE swapE destroy
 
-@doc.exit "gracefully halt the program"
-@exit intro1 "exit" pf iomsg.aoi elim1
+@doc.reset "clear the environment then reload the dictionary"
+@reset clear reload
+
+@doc.debugOut "text --; print a line on stderr"
+@debugOut "debugOut" pf iomsg.aoi elim1
+
 

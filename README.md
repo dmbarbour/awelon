@@ -16,15 +16,21 @@ Development of ABC and AO are necessary to an extent of bootstrapping and buildi
 
 The personal Awelon user environment will happen later, most likely targeting Meta glasses. It is feasible to develop the Awelon user environment in the desktop space, and I plan to do so eventually. But in the short term, I believe people will be more open to a new user experience with glasses.
 
-## How is Awelon Different?
+## How can Awelon succeed where prior efforts failed?
 
 Awelon is not the first effort to unify user interfaces with programming languages or integrated development environments.
 
-However, Awelon is perhaps the first to model the programmer as a first-class object in the language with no special privileges (other than 'undo'). This change is essential: it enables much programming to be far more implicit, in the form of macros, tools, and lenses modeled within the language and extracted from user history. 
+However, Awelon project is perhaps the first to model the programmer as a first-class object in the language with no special privileges. A 'user model' of the programmer is essential! It enables the act of programming itself to be described and extended programmatically. Editor macros, views, paintbrushes, and IDEs become first-class functions. 
 
-Awelon also addresses a common point of failure. In many languages, objects become entangled with their environment. This can happen for a wide variety of reasons - library bindings, reflection, references to shared state, nominative types. The consequence is that sharing fine-grained behavior often requires shipping the whole IDE. This hinders integration, reuse, and (importantly) *personalization*. One can hardly entrust personal information to an environment when sharing behavior is coarse grained.
+In addition, Awelon is unusually well suited to pattern recognition and automatic code generation. This is a consequence of ABC's and AO's concatenative nature and static typing. Program search can enable the sort of 'fuzzy' programming and refinement suitable for rapid prototyping and exploration. Pattern recognition and extraction of patterns from a user's history can support programming and control of systems by example. 
 
-Awelon Bytecode is designed to simplify precise extraction and sharing of code. 
+Technically, similar features are possible in other languages. But structurally complex languages have a much higher barrier for entry, a kind of [activation energy](http://en.wikipedia.org/wiki/Activation_energy) that hinders casual application.
 
+Awelon also addresses a common point of failure. 
 
+In many languages, objects become entangled with their environment. This can happen for a wide variety of reasons: library bindings, reflection, nominative types and versions, multimethods, deep closures, ambient authority and shared state. The consequence is that sharing fine-grained behavior has historically required 'shipping' the whole IDE. This hinders integration, reuse, and (importantly) *personalization*. We can hardly entrust private or personal information to an environment unless we can be very selective about what we share. Conversely, we cannot readily execute foreign code within our environment without a high degree of language security.
+
+Awelon Bytecode is designed for secure code distribution, and it is not difficult to extract a function. Further, ABC's linear structure can be parsed and disassembled by an AO dictionary or other forms, thus users can read, inspect, tweak, and understand foreign code with their own words, independent of origin.
+
+In short, Awelon can succeed because it offers less resistance against success.
 
