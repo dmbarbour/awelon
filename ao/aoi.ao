@@ -11,7 +11,14 @@ std
 ~
 
 @doc.iomsg.aoi "invoke linear powerblock with message from stack"
-@iomsg.aoi %zwl .apply xf %rwz
+@iomsg.aoi.raw %zwl .apply xf %rwz
+@iomsg.aoi xf copy pf put pushFrame iomsg.aoi.raw popFrame
+
+@doc.reload "reload dictionary from filesystem (i.e. to see updates)"
+@reload intro1 "reloadDictionary" pf iomsg.aoi elim1
+
+@doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
+@loadWord  "loadWord" pf iomsg.aoi
 
 @doc.switchAOI 
 "The AOI reader incrementally compiles lines or paragraphs of user input (text) into a blocks that will be applied in the current user environment. Compilation may return error and fail, in which case no action is taken and the text is returned to the user for further editing. The incremental interpreter function has roughly type:
@@ -28,9 +35,6 @@ std
 ~ 
 @switchAOI "switchAOI" pf iomsg.aoi
 
-@doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
-@loadWord  "loadWord" pf iomsg.aoi
-
 @doc.frame.aoi 
 "The Haskell AO compiler adds annotations to help track call stack 
  locations for debugging purposes. AOI provides 'pushFrame' and 'popFrame'
@@ -40,33 +44,34 @@ std
 ~
 @doc.pushFrame "frameText --; see @doc.frame.aoi"
 @doc.popFrame "--; see @doc.frame.aoi"
-@pushFrame "pushFrame" pf iomsg.aoi
-@popFrame intro1 "popFrame" pf iomsg.aoi elim1
+@pushFrame "pushFrame" pf iomsg.aoi.raw elim1
+@popFrame intro1 "popFrame" pf iomsg.aoi.raw elim1
 
-@doc.getEnv.iomsg "varname -- text; traditional environment variables!"
+@doc.getEnv.iomsg "varname -- text; environment variable or empty text"
 @getEnv "getOSEnv" pf iomsg.aoi
 
 @doc.randomBytes "count -- (list of octets); secure random source"
-@randomBytes "randomBytes" pf iomsg.aoi
-
-@doc.reload "reload dictionary from filesystem (i.e. to see updates)"
-@reload intro1 "reloadDictionary" pf iomsg.aoi elim1
+@randomBytes "loadRandomBytes" pf iomsg.aoi
 
 @doc.readFile "filename -- (1(err) + text)"
+@doc.readFile.binary "filename -- (1(err) + binary)"
 @doc.writeFile "text filename -- (1(err) + 1(ok))"
+@doc.writeFile.binary "binary filename -- (1(err) + 1(ok))"
 @readFile "readFile" pf iomsg.aoi
 @writeFile pf "writeFile" pf iomsg.aoi
+@readFile.binary "readFileB" pf iomsg.aoi
+@writeFile.binary pf "writeFileB" pf iomsg.aoi
 
-@doc.destroy "destroy will drop any input, including relevant blocks (unsafe, but useful)"
+@doc.destroy "destroy will drop any input, including relevant blocks (unsafe)"
 @destroy "destroy" pf iomsg.aoi elim1
 
 @doc.clear "clear the current environment (except hand and powerblock)"
-@reset introE swapE destroy
+@clear introE swapE destroy
 
 @doc.reset "clear the environment then reload the dictionary"
 @reset clear reload
 
-@doc.debugOut "text --; print a line on stderr"
-@debugOut "debugOut" pf iomsg.aoi elim1
+@doc.debugOut "val -- val; prints given value on stderr; returns it unchanged"
+@debugOut "debugOut" pf iomsg.aoi
 
 

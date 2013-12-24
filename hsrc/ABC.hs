@@ -20,7 +20,7 @@
 -- scheduling. However, it will be enough for a simplified app model.
 --
 module ABC
-    ( V(..), BT(..), ToABCV(..), FromABCV(..)
+    ( V(..), BT(..), ToABCV(..), toABCVL, FromABCV(..)
     , Op(..), ABC(..)
     , runABC, runAMBC, runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
@@ -31,12 +31,15 @@ module ABC
     ) where
 
 import Control.Monad
-import Control.Applicative ((<$>),(<*>))
+import Control.Applicative
 import Data.Ratio
 import qualified Text.Parsec as P
 import Text.Parsec.Text ()
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+import qualified Data.Word as W
 
 parseABC :: (P.Stream s m Char) => P.ParsecT s u m ABC
 readABC :: Text -> Either Error ABC
@@ -216,37 +219,6 @@ structGT (N _) x = is_sum x
 structGT (R _) (L _) = True
 structGT _ _ = False
 
--- lazily translate text literal into structure
-textToVal :: Text -> V
-textToVal t = 
-    case T.uncons t of
-        Nothing -> N 3 -- ETX
-        Just(c,t') ->
-            let tV' = textToVal t' in
-            let nC = fromIntegral (fromEnum c) in
-            P (N nC) tV'
-
--- convert some values back to text!
-valToText :: V -> Maybe Text
-valToText (P (N r) v) =
-    case charFromRational r of
-        Nothing -> Nothing
-        Just c ->
-            case valToText v of
-                Nothing -> Nothing
-                Just t -> Just (c `T.cons` t)
-valToText (N 3) = Just T.empty
-valToText _ = Nothing
-
--- convert some numbers to characters!
-charFromRational :: Rational -> Maybe Char
-charFromRational r =
-    let d = denominator r in
-    if (1 /= d) then Nothing else
-    let n = numerator r in
-    if ((0 > n) || (n > 0x10ffff)) then Nothing else
-    Just ((toEnum . fromIntegral) n)
-
 -- showABC :: ABC -> Text
 showABC (ABC code) = T.concat $ map showOp code
 
@@ -280,6 +252,11 @@ instance Show V where
         where rel = if bt_rel bt then "k" else ""
               aff = if bt_aff bt then "f" else ""
 
+valToText :: V -> Maybe Text
+valToText = fromABCV
+
+textToVal :: Text -> V
+textToVal = toABCV
 
 -- add ABC's peculiar model for escaped text
 --  each LF in text is followed by SP
@@ -511,12 +488,18 @@ instance (ToABCV a, ToABCV b) => ToABCV (Either a b) where
 instance (ToABCV a) => ToABCV (Maybe a) where
     toABCV = maybe (L U) (R . toABCV)
 instance (ToABCV a) => ToABCV [a] where
-    toABCV [] = N 0 -- generic list terminal
-    toABCV (a:as) = P (toABCV a) (toABCV as)
+    toABCV = toABCVL (N 0)
 instance (ToABCV a, ToABCV b) => ToABCV (a,b) where
     toABCV (a,b) = P (toABCV a) (toABCV b)
-instance ToABCV Text where toABCV = textToVal
+instance ToABCV Text where toABCV = toABCVL (N 3) . T.unpack
+instance ToABCV Char where toABCV = N . fromIntegral . fromEnum
+instance ToABCV ByteString where toABCV = toABCVL (N 8) . B.unpack
+instance ToABCV W.Word8 where toABCV = N . fromIntegral
 instance ToABCV () where toABCV () = U
+
+toABCVL :: (ToABCV a) => V -> [a] -> V
+toABCVL vf [] = vf
+toABCVL vf (v:vs) = toABCV v `P` toABCVL vf vs
 
 class FromABCV v where fromABCV :: V -> Maybe v
 instance FromABCV V where  fromABCV = Just
@@ -541,7 +524,24 @@ instance (FromABCV a) => FromABCV [a] where
 instance (FromABCV a, FromABCV b) => FromABCV (a,b) where
     fromABCV (P a b) = (,) <$> fromABCV a <*> fromABCV b
     fromABCV _ = Nothing
-instance FromABCV Text where fromABCV = valToText
+instance FromABCV Text where 
+    fromABCV l = T.pack <$> fromABCV l
+instance FromABCV Char where
+    fromABCV (N x) =
+        if (1 /= denominator x) then Nothing else
+        let n = numerator x in
+        if (n < 0 || n > 0x10ffff) then Nothing else
+        Just ((toEnum . fromIntegral) n)
+    fromABCV _ = Nothing
+instance FromABCV ByteString where 
+    fromABCV lst = B.pack <$> fromABCV lst
+instance FromABCV W.Word8 where
+    fromABCV (N x) =
+        if (1 /= denominator x) then Nothing else
+        let n = numerator x in
+        if (n < 0 || n > 255) then Nothing else
+        Just (fromIntegral n)
+    fromABCV _ = Nothing
 instance FromABCV () where
     fromABCV U = Just ()
     fromABCV _ = Nothing

@@ -310,7 +310,6 @@
 @doc.introE "adds empty environment object to stack"
 @doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
 @doc.swapE "switch current environment with env on stack; keep hand and power"
-@doc.applyE "apply block on stack to top item on stack in a fresh 
 @doc.top "apply block of type [x -- y] in a fresh environment."
 @introE "" %r %vrvrwvrr %vrwlc %l
 @elimE  %r %vrwlc %llcwlclc %l drop

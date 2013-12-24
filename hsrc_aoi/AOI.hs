@@ -3,8 +3,9 @@
 -- | AOI describes a simplistic, imperative REPL for language AO.
 -- AOI will start by importing the "aoi" dictionary unless a .ao 
 -- file is specified on the command line. Developers cannot modify
--- definitions from within aoi. However, they may tweak original 
--- files and use 'reload'.
+-- definitions from within aoi. However, devs may tweak original 
+-- files and use 'reload' however often they wish. (This design 
+-- helps minimize tendency to lose work performed in REPL.)
 --
 --   TODO: leverage haskeline, possibly ansi-terminal
 --         consider support for acid-state persistent sessions
@@ -23,11 +24,13 @@
 module AOI
     ( main
     -- stuff that should probably be in separate modules
-    , HLS(..), hls_init, hls_get, hls_put
-    , randomBytes, randomText
+    , HLS(..), hls_init, hls_put
+    , randomBytes, newSecret
     ) where
 
 import Control.Monad
+import Control.Applicative
+import Control.Arrow (first)
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
 import qualified System.Environment as Env
@@ -36,26 +39,28 @@ import qualified Crypto.Random.AESCtr as CR
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString as B
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified Filesystem as FS
 import qualified Text.Parsec as P
 import Data.Text (Text)
+import Data.ByteString (ByteString)
 import AO
 import ABC
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
 
--- AOI_CONTEXT holds mutable state plus runtime constants
+-- AOI_CONTEXT holds state for running AO
 data AOI_CONTEXT = AOI_CONTEXT 
     { aoi_dict    :: DictC  -- loaded dictionary
     , aoi_secret  :: Text   -- secret held by powerblock
     , aoi_power   :: M.Map Text (V -> AOI V) -- common powers
     , aoi_source  :: Either [Import] FS.FilePath -- for reloads
     , aoi_frames  :: HLS [Text] -- stack frame history (for debugging)
-    , aoi_steps   :: HLS V -- starting values history (for recovery) 
+    , aoi_step    :: HLS (Integer,V) -- recovery values 
     , aoi_ifn     :: IFN 
     }
 
@@ -63,12 +68,12 @@ type Error = Text
 newtype AOI a = AOI { runAOI :: AOI_CONTEXT -> IO (AOI_CONTEXT, Either Error a) }
 
 instance Monad AOI where
-    return a = AOI $ \ cx -> (cx, return (Right a))
+    return a = AOI $ \ cx -> return (cx, (Right a))
     (>>=) m f = AOI $ \ cx ->
         runAOI m cx >>= \ r ->
         case snd r of
-            Left e -> return r
-            Right a -> runAOI (f a) (fst r)
+            Left e -> return (fst r, Left e)
+            Right a -> runAOI (f a) (fst r) 
     fail msg = AOI $ \ cx -> return (cx, Left (T.pack msg))
 
 -- AOI supports a reprogrammable interpreter to support bootstrap.
@@ -100,15 +105,15 @@ aoiIOAction :: IO a -> AOI a
 aoiIOAction m = AOI $ \ cx ->
     Err.tryIOError m >>= \ ea ->
     case ea of
-        Left e -> (cx, Left (T.pack (show e)))
-        Right a -> (cx, Right a)
+        Left e -> return (cx, Left (T.pack (show e)))
+        Right a -> return (cx, Right a)
 
 aoiInvoker :: Text -> V -> AOI V
 aoiInvoker t v = 
     case T.uncons t of
         Just ('&',anno) -> aoiAnno anno >> return v
         Just ('!',s) -> aoiTrySecret s (aoiCommand v)
-        Just ('i',m) | T.null m -> aoiInterperet v
+        Just ('i',m) | T.null m -> f1 (uncurry aoiInterpret) v
         _ -> fail ("unknown invocation {" ++ T.unpack t ++ "}")
 
 -- aoi ignores most annotations, except for frames
@@ -116,24 +121,33 @@ aoiAnno :: Text -> AOI ()
 aoiAnno t = 
     case T.uncons t of
         Just('@',f) | f == fDrop -> popFrame
-                    | otherwise -> pushFrame frame
+                    | otherwise -> pushFrame f
         _ -> return ()
     where fDrop = T.singleton '-'
 
 -- aoiInterpret corresponds to an ABC function of type:
 --    (text * eIC) -> (errorText + ((eU -> eU') * eIC)
--- consequently, parse failures are reported through the
--- in-band error result, but other errors are reported out of band.
-aoiInterpret :: V -> AOI V
-aoiInterpret iInput = case iInput of
-    Nothing -> fail "AOI interpreter requires (text * env) pair!"
-    Just (text, eIC) -> readAO text >>= either parseErr build
-  where
-    parseErr = toABCV . Left . T.pack . show
-    build ao = aoiGetDict >>= \ dc -> either berr bok (compileAO dc ao)
-    bok = B (BT { bt_rel = False, bt_aff = False }) 
-    missingWords =  T.pack "WORDS NOT UNDERSTOOD:"
-    berr = toABCV . Left . T.unwords . (missingWords:) . L.nub
+-- This is really an incremental compilation for the given text.
+-- Parse failures are reported in-band. Input type failures are
+-- reported out-of-band.
+aoiInterpret :: Text -> V -> AOI (Either Error (V,V))
+aoiInterpret txt eIC = liftM tov (aoiInterpret' txt) where
+    tov (Left e) = Left e
+    tov (Right abc) = Right (B bt0 abc, eIC)
+    bt0 = BT { bt_rel = False, bt_aff = False }
+
+aoiInterpret' :: Text -> AOI (Either Error ABC)
+aoiInterpret' = either parseErr build . readAO where
+    parseErr = return . Left . T.pack . show
+    build ao = aoiGetDict >>= \ dc -> buildDC dc ao
+    buildDC dc ao = either buildErr buildOK $ compileAO dc ao
+    buildErr = return . Left . T.unwords . (uw :) . L.nub
+    uw = T.pack "unrecognized words: "
+    buildOK = return . Right
+
+readAO :: Text -> Either P.ParseError AO
+readAO = liftM AO . P.parse pma "" where
+    pma = P.manyTill parseAction P.eof
 
 -- execute only if a secret matches, fail otherwise
 aoiTrySecret :: Text -> AOI a -> AOI a 
@@ -145,7 +159,7 @@ aoiTrySecret s action =
 
 aoiCommand :: V -> AOI V
 aoiCommand msg = case fromABCV msg of
-    Nothing -> fail badCommand
+    Nothing -> fail ("unrecognized command: " ++ show msg)
     Just (label, message) -> 
         aoiDispatch label message >>= \ response ->
         aoiGetSecret >>= \ secret ->
@@ -159,22 +173,31 @@ aoiDispatch label msg =
         Nothing -> fail ("unknown action: " ++ T.unpack label)
         Just action -> action msg
 
+aoiGetContext :: AOI AOI_CONTEXT
+aoiGetContext = AOI $ \ cx -> return (cx, Right cx)
+
+aoiPutContext :: AOI_CONTEXT -> AOI ()
+aoiPutContext cx' = AOI $ \ _ -> return (cx', Right ())
+
 aoiGetSecret :: AOI Text
-aoiGetSecret = AOI $ \ cx -> return (cx, (Right . aoi_secret) cx)
+aoiGetSecret = liftM aoi_secret aoiGetContext
 
 aoiGetPowers :: AOI (M.Map Text (V -> AOI V))
-aoiGetPowers = AOI $ \ cx -> return (cx, (Right . aoi_power) cx)
+aoiGetPowers = liftM aoi_power aoiGetContext
 
 aoiGetDict :: AOI DictC
-aoiGetDict = AOI $ \ cx -> (cx, (Right . aoi_dict) cx)
+aoiGetDict = liftM aoi_dict aoiGetContext
 
 aoiGetFrames :: AOI [Text]
-aoiGetFrames = AOI $ \ cx -> (cx, (Right . hls_state . aoi_frames) cx)
+aoiGetFrames = liftM (hls_state . aoi_frames) aoiGetContext
 
 aoiPutFrames :: [Text] -> AOI ()
-aoiPutFrames fs = AOI $ \cx -> 
+aoiPutFrames fs = 
+    aoiGetContext >>= \ cx -> 
     let s' = hls_put fs (aoi_frames cx) in
-    s' `seq` cx { aoi_frames = s' }
+    let cx' = cx { aoi_frames = s' } in
+    s' `seq`
+    aoiPutContext cx'
 
 pushFrame :: Text -> AOI ()
 pushFrame text = aoiGetFrames >>= aoiPutFrames . (text :)
@@ -186,9 +209,9 @@ popFrame =
         [] -> fail "debug frames underflow"
         (_:fs) -> aoiPutFrames fs
     
-randomBytes :: Int -> IO ByteString
+randomBytes :: Integer -> IO ByteString
 randomBytes n = liftM toBytes CR.makeSystem where 
-    toBytes = B.pack . L.take n . randoms
+    toBytes = B.pack . L.take (fromInteger n) . R.randoms
 
 -- AOI context secret (in case of open systems)
 newSecret :: IO Text
@@ -199,22 +222,23 @@ newSecret = liftM toText (randomBytes 18) where
 pb :: Text -> V
 pb secret = B (BT True True) (ABC [Invoke (T.cons '!' secret)])
 
--- load a specified dictionary    
-aoiLoadDict :: Either [Import] FS.FileName -> IO ([Error], DictC)
+-- load a specified dictionary, print errors and return whatever
+-- dictionary we manage to build.
+aoiLoadDict :: Either [Import] FS.FilePath -> IO DictC
 aoiLoadDict src = 
     either importDictC loadDictC src >>= \ (errors,dictC) ->
-    mapM_ (printErrLn . T.unpack) errors >>
+    mapM_ (putErrLn . T.unpack) errors >>
     return dictC
 
 -- load dictionary from file; print errors
 --  (AOI word 'reload' will also repeat this)
 aoiReload :: AOI ()
 aoiReload = source >>= load >>= set where
-    source = liftM aoi_source aoiGetState
+    source = liftM aoi_source aoiGetContext
     load = aoiIOAction . aoiLoadDict 
     set dc = AOI $ \ cx ->
         let cx' = cx { aoi_dict = dc } in
-        return (cx', ())
+        return (cx', Right ())
 
 aoiSourceFromArgs :: IO (Either [Import] FS.FilePath)
 aoiSourceFromArgs = 
@@ -223,7 +247,7 @@ aoiSourceFromArgs =
     let aoSuffix = T.pack ".ao" in
     let aoFileArgs = L.filter (aoSuffix `T.isSuffixOf`) textArgs in
     case aoFileArgs of
-        [] -> Left [T.pack "aoi"]
+        [] -> return (Left [T.pack "aoi"])
         (f:[]) -> 
             FS.canonicalizePath (FS.fromText f) >>= \ fc ->
             return (Right fc)
@@ -256,17 +280,102 @@ newDefaultContext =
             , aoi_power = defaultPower
             , aoi_source = source
             , aoi_frames = hls_init []
-            , aoi_steps = hls_init (toABCV eU0) 
+            , aoi_step = hls_init (0, toABCV eU0) 
             , aoi_ifn = defaultIFN
             }
     in
     return cx0
+
+defaultPower :: M.Map Text (V -> AOI V)
+defaultPower = M.fromList $ map (first T.pack) lPowers where
+
+lPowers :: [(String, V -> AOI V)]
+lPowers = 
+    [("switchAOI", f1 switchAOI)
+    ,("reloadDictionary", f1 (\ () -> aoiReload))
+    ,("loadWord",  f1 loadWord)
+    ,("getOSEnv",  f1 (aoiIOAction . getOSEnv))
+    ,("loadRandomBytes", f1 (aoiIOAction . randomBytes))
+    ,("destroy", const (return U))
+    -- debugger support
+    ,("debugOut", (\ v -> debugOut v >> return v))
+    ,("pushFrame", f1 pushFrame)
+    ,("popFrame",  f1 (\() -> popFrame))
+    -- read and write files
+    ,("readFile", f1 (aoiIOAction . readFileT))
+    ,("writeFile", f1 (aoiIOAction . uncurry writeFileT))
+    ,("readFileB", f1 (aoiIOAction . readFileB))
+    ,("writeFileB", f1 (aoiIOAction . uncurry writeFileB))
+    ]
+
+f1 :: (FromABCV arg, ToABCV res) => (arg -> AOI res) -> V -> AOI V
+f1 action v = case fromABCV v of
+    Nothing -> fail ("invalid command argument: " ++ show v)
+    Just arg -> action arg >>= return . toABCV
+
+switchAOI :: IFN -> AOI IFN
+switchAOI ifn = AOI $ \ cx ->
+    let ifn0 = aoi_ifn cx in
+    let cx' = cx { aoi_ifn = ifn } in
+    return (cx', Right ifn0)
+
+debugOut :: V -> AOI ()
+debugOut = aoiIOAction . putErrLn . show
+
+loadWord :: Text -> AOI (Maybe V)
+loadWord w =
+    let bt0 = BT { bt_rel = False, bt_aff = False } in
+    aoiGetDict >>= \ dc ->
+    return (B bt0 <$> M.lookup w dc)
+
+getOSEnv :: Text -> IO Text
+getOSEnv = liftM tt . Env.lookupEnv . T.unpack where
+    tt = maybe T.empty T.pack
+
+-- tryIO returns error condition inline, but only as a minimal
+-- (1 + result). 
+tryIO :: IO a -> IO (Maybe a)
+tryIO m = 
+    Err.tryIOError m >>= \ ea ->
+    case ea of
+        Left err -> putErrLn (show err) >> return Nothing 
+        Right a -> return (Just a)
+
+readFileT :: FS.FilePath -> IO (Maybe Text)
+readFileT = tryIO . FS.readTextFile
+
+writeFileT :: FS.FilePath -> Text -> IO (Maybe ())
+writeFileT fp txt = tryIO $ FS.writeTextFile fp txt
+ 
+readFileB :: FS.FilePath -> IO (Maybe ByteString)
+readFileB = tryIO . FS.readFile
+
+writeFileB :: FS.FilePath -> ByteString -> IO (Maybe ())
+writeFileB fp bytes = tryIO $ FS.writeFile fp bytes
+
+instance ToABCV FS.FilePath where 
+    toABCV = toABCV . either id id . FS.toText 
+instance FromABCV FS.FilePath where 
+    fromABCV = liftM FS.fromText . fromABCV
+
 
 main :: IO ()
 main = 
     newDefaultContext >>= \ cx ->
     putErrLn (T.unpack (aoi_secret cx)) >>
     return ()
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- states with exponential decay of history
 data HLS s = HLS 
@@ -279,10 +388,10 @@ data HLS s = HLS
 
 -- defaults to a halflife of 100 steps.
 hls_init :: s -> HLS s
-hls_init s0 = HLS
+hls_init s0 = s0 `seq` HLS
     { hls_halflife = 100 -- arbitrary default halflife
-    , hls_rgen = mkStdGen 8675309
-    , hls_state = s
+    , hls_rgen = R.mkStdGen 60091 -- flight number of our galactic sun
+    , hls_state = s0
     , hls_hist = []
     , hls_join = const
     }
@@ -306,15 +415,12 @@ hls_modify f hls = hls_put (f (hls_state hls)) hls
 -- This operation is strict in the join function because it is
 -- important to avoid a memory leak. 
 dropHLS :: (s -> s -> s) -> Integer -> [s] -> [s]
-dropHLS _ _ [] = []
-dropHLS _ _ (x:[]) = (x:[])
-dropHLS jf n (sNewer:sOlder:ss) 
-    | (n < 1)   = let s' = jf sNewer sOlder in s' `seq` (s':ss)
-    | otherwise = let ss' = dropHLS jf (n-1) ss in ss' `seq` (s:ss')
-                  
-
-dropHLS jf n (s:l@(s':ss)) | n > 0 = s : dropHLS jf (n-1) l
-                           | otherwise = jf s s' : ss
-
+dropHLS jf n (s:ss) | (n > 0) = 
+    let ss' = dropHLS jf (n - 1) ss in
+    ss' `seq` (s : ss')
+dropHLS jf _ (sNewer:sOlder:ss) = 
+    let s' = jf sNewer sOlder in
+    s' `seq` (s' : ss)
+dropHLS _ _ ss = ss
 
 

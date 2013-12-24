@@ -66,10 +66,10 @@ type DictC = M.Map W ABC
 -- PROCESSING OF DICTIONARY --
 ------------------------------
 
--- | Compile a dictionary. This will report errors for cyclic 
--- definitions, which are then removed from the dictionary. 
+-- | Compile a dictionary (from AO to ABC). This will report errors
+-- for cyclic definitions, which are then removed from the dictionary. 
 -- If a definition uses an undefined word, this is also reported
--- as an error.
+-- as an error. 
 -- 
 -- At the moment, no typechecking is performed. The words are
 -- simply expanded to ABC. Each word is expanded only once.
