@@ -527,12 +527,12 @@ buildDict imps = (errors, dict) where
 --  frame information within the AO code. This can help with debugging.
 withFrame :: FS.FilePath -> Line -> W -> AO -> AO
 withFrame fp l w (AO actions) = AO (inFrame : (actions ++ [exFrame])) where 
-    inFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
-    exFrame = Prim $ ABC [Invoke $ frameText]
-    frameText = T.pack "&@" `T.append` w `T.snoc` ' ' 
-                `T.append` fptxt `T.snoc` ' ' 
+    exFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
+    inFrame = Prim $ ABC [Invoke $ frameText]
+    frameText = T.pack "&@" `T.append` w `T.snoc` '@' 
+                `T.append` fptxt `T.snoc` ':' 
                 `T.append` (T.pack (show l))
-    fptxt = either id id $ FS.toText fp
+    fptxt = either id id $ FS.toText $ FS.filename fp
        
 -- AO forbids recursive import lists and definitions. It is important
 -- that these errors be caught to avoid infinite expansions for any

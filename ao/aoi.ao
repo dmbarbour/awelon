@@ -74,4 +74,8 @@ std
 @doc.debugOut "val -- val; prints given value on stderr; returns it unchanged"
 @debugOut "debugOut" pf iomsg.aoi
 
+@+ .add
+@* .multiply
+@/ .invert
+@~ .negate
 

@@ -31,11 +31,14 @@ module AOI
 import Control.Monad
 import Control.Applicative
 import Control.Arrow (first)
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
 import qualified System.Environment as Env
 import qualified System.Random as R
 import qualified Crypto.Random.AESCtr as CR
+import qualified System.Console.Haskeline as HKL
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString as B
 import qualified Data.Text as T
@@ -59,9 +62,9 @@ data AOI_CONTEXT = AOI_CONTEXT
     , aoi_secret  :: Text   -- secret held by powerblock
     , aoi_power   :: M.Map Text (V -> AOI V) -- common powers
     , aoi_source  :: Either [Import] FS.FilePath -- for reloads
-    , aoi_frames  :: HLS [Text] -- stack frame history (for debugging)
-    , aoi_step    :: HLS (Integer,V) -- recovery values 
-    , aoi_ifn     :: IFN 
+    , aoi_frames  :: !(HLS [Text]) -- stack frame history (for debugging)
+    , aoi_step    :: !(HLS (Integer,V)) -- recovery values 
+    , aoi_ifn     :: !IFN 
     }
 
 type Error = Text
@@ -70,11 +73,29 @@ newtype AOI a = AOI { runAOI :: AOI_CONTEXT -> IO (AOI_CONTEXT, Either Error a) 
 instance Monad AOI where
     return a = AOI $ \ cx -> return (cx, (Right a))
     (>>=) m f = AOI $ \ cx ->
-        runAOI m cx >>= \ r ->
-        case snd r of
-            Left e -> return (fst r, Left e)
-            Right a -> runAOI (f a) (fst r) 
+        runAOI m cx >>= \ (cx',r) ->
+        cx' `seq`
+        case r of
+            Left e -> return (cx', Left e)
+            Right a -> runAOI (f a) cx' 
     fail msg = AOI $ \ cx -> return (cx, Left (T.pack msg))
+
+instance MonadIO AOI where
+    liftIO m = AOI $ \ cx ->
+        Err.tryIOError m >>= \ ea ->
+        case ea of
+            Left e -> return (cx, Left (T.pack (show e)))
+            Right a -> return (cx, Right a)
+
+-- MonadException is a Haskeline class for bracketed IO. The purpose
+-- isn't entirely clear to me, but Haskeline isn't something I want
+-- to spend much time learning.
+instance HKL.MonadException AOI where
+    -- I don't really grok the control flow here so I'm borrowing from 
+    -- source examples in System.Console.Haskeline.MonadException
+    controlIO f = AOI $ \ cx -> HKL.controlIO $ \(HKL.RunIO run) -> let
+        run' = HKL.RunIO (fmap (AOI . const) . run . flip runAOI cx) 
+        in fmap (flip runAOI cx) $ f run'
 
 -- AOI supports a reprogrammable interpreter to support bootstrap.
 -- The interpreter is really an incremental compiler of rough type:
@@ -85,7 +106,7 @@ instance Monad AOI where
 data IFN = IFN
     { ifn_action :: ABC
     , ifn_bt     :: BT
-    , ifn_eIC    :: V
+    , ifn_eIC    :: !V
     }
 
 defaultIFN :: IFN
@@ -98,15 +119,6 @@ instance ToABCV IFN where
 instance FromABCV IFN where
     fromABCV (P (B bt act) eIC) = Just $ IFN act bt eIC
     fromABCV _ = Nothing
-
-
--- run IO while catching IOError exceptions. 
-aoiIOAction :: IO a -> AOI a 
-aoiIOAction m = AOI $ \ cx ->
-    Err.tryIOError m >>= \ ea ->
-    case ea of
-        Left e -> return (cx, Left (T.pack (show e)))
-        Right a -> return (cx, Right a)
 
 aoiInvoker :: Text -> V -> AOI V
 aoiInvoker t v = 
@@ -188,26 +200,50 @@ aoiGetPowers = liftM aoi_power aoiGetContext
 aoiGetDict :: AOI DictC
 aoiGetDict = liftM aoi_dict aoiGetContext
 
+aoiGetIfn :: AOI IFN
+aoiGetIfn = liftM aoi_ifn aoiGetContext
+
+aoiPutIfn :: IFN -> AOI ()
+aoiPutIfn ifn = AOI $ \ cx ->
+    let cx' = cx { aoi_ifn = ifn } in 
+    return (cx', Right ())
+
+aoiGetStepCt :: AOI Integer
+aoiGetStepCt = liftM (fst . hls_state . aoi_step) aoiGetContext
+
+aoiGetStepV :: AOI V
+aoiGetStepV = liftM (snd . hls_state . aoi_step) aoiGetContext
+
+aoiPutStepV :: V -> AOI ()
+aoiPutStepV v = AOI $ \ cx ->
+    let hls = aoi_step cx in
+    let (n,_) = hls_state hls in
+    let n' = n + 1 in
+    n' `seq` v `seq`
+    let hls' = hls_put (n',v) hls in
+    let cx' = cx { aoi_step = hls' } in
+    return (cx', Right ())
+
 aoiGetFrames :: AOI [Text]
 aoiGetFrames = liftM (hls_state . aoi_frames) aoiGetContext
 
 aoiPutFrames :: [Text] -> AOI ()
-aoiPutFrames fs = 
-    aoiGetContext >>= \ cx -> 
+aoiPutFrames fs = AOI $ \ cx ->
     let s' = hls_put fs (aoi_frames cx) in
     let cx' = cx { aoi_frames = s' } in
-    s' `seq`
-    aoiPutContext cx'
+    s' `seq` return (cx', Right ())
 
 pushFrame :: Text -> AOI ()
-pushFrame text = aoiGetFrames >>= aoiPutFrames . (text :)
+pushFrame text = aoiGetFrames >>= aoiPutFrames . (text :) 
+    -- >> liftIO (putErrLn (T.unpack text))
 
 popFrame :: AOI ()
 popFrame =
     aoiGetFrames >>= \ fs ->
     case fs of
-        [] -> fail "debug frames underflow"
-        (_:fs) -> aoiPutFrames fs
+        [] -> fail "debug frame underflow!"
+        (f:fs) -> aoiPutFrames fs
+               -- >> liftIO (putErrLn (T.unpack ('-' `T.cons` f)))
     
 randomBytes :: Integer -> IO ByteString
 randomBytes n = liftM toBytes CR.makeSystem where 
@@ -235,7 +271,7 @@ aoiLoadDict src =
 aoiReload :: AOI ()
 aoiReload = source >>= load >>= set where
     source = liftM aoi_source aoiGetContext
-    load = aoiIOAction . aoiLoadDict 
+    load = liftIO . aoiLoadDict 
     set dc = AOI $ \ cx ->
         let cx' = cx { aoi_dict = dc } in
         return (cx', Right ())
@@ -294,18 +330,18 @@ lPowers =
     [("switchAOI", f1 switchAOI)
     ,("reloadDictionary", f1 (\ () -> aoiReload))
     ,("loadWord",  f1 loadWord)
-    ,("getOSEnv",  f1 (aoiIOAction . getOSEnv))
-    ,("loadRandomBytes", f1 (aoiIOAction . randomBytes))
+    ,("getOSEnv",  f1 (liftIO . getOSEnv))
+    ,("loadRandomBytes", f1 (liftIO . randomBytes))
     ,("destroy", const (return U))
-    -- debugger support
+    -- debugging support
     ,("debugOut", (\ v -> debugOut v >> return v))
     ,("pushFrame", f1 pushFrame)
     ,("popFrame",  f1 (\() -> popFrame))
     -- read and write files
-    ,("readFile", f1 (aoiIOAction . readFileT))
-    ,("writeFile", f1 (aoiIOAction . uncurry writeFileT))
-    ,("readFileB", f1 (aoiIOAction . readFileB))
-    ,("writeFileB", f1 (aoiIOAction . uncurry writeFileB))
+    ,("readFile", f1 (liftIO . readFileT))
+    ,("writeFile", f1 (liftIO . uncurry writeFileT))
+    ,("readFileB", f1 (liftIO . readFileB))
+    ,("writeFileB", f1 (liftIO . uncurry writeFileB))
     ]
 
 f1 :: (FromABCV arg, ToABCV res) => (arg -> AOI res) -> V -> AOI V
@@ -314,13 +350,13 @@ f1 action v = case fromABCV v of
     Just arg -> action arg >>= return . toABCV
 
 switchAOI :: IFN -> AOI IFN
-switchAOI ifn = AOI $ \ cx ->
-    let ifn0 = aoi_ifn cx in
-    let cx' = cx { aoi_ifn = ifn } in
-    return (cx', Right ifn0)
+switchAOI ifn = 
+    aoiGetIfn >>= \ ifn0 ->
+    aoiPutIfn ifn >>
+    return ifn0
 
 debugOut :: V -> AOI ()
-debugOut = aoiIOAction . putErrLn . show
+debugOut = liftIO . putErrLn . show
 
 loadWord :: Text -> AOI (Maybe V)
 loadWord w =
@@ -358,23 +394,150 @@ instance ToABCV FS.FilePath where
 instance FromABCV FS.FilePath where 
     fromABCV = liftM FS.fromText . fromABCV
 
+getHistoryFile :: IO (Maybe Sys.FilePath)
+getHistoryFile = tryIO $
+    FS.getAppDataDirectory (T.pack "aoi") >>= \ appDir ->
+    FS.createTree appDir >>
+    let fp = appDir FS.</> FS.fromText (T.pack "hist.haskeline") in
+    FS.appendFile fp B.empty >>
+    return (FS.encodeString fp)
 
 main :: IO ()
 main = 
     newDefaultContext >>= \ cx ->
-    putErrLn (T.unpack (aoi_secret cx)) >>
-    return ()
+    getHistoryFile >>= \ hfile ->
+    let hklSettings = HKL.Settings
+            { HKL.complete = aoiCompletion 
+            , HKL.historyFile = hfile
+            , HKL.autoAddHistory = True
+            }
+    in
+    let hkl = greet >> aoiHaskelineLoop in
+    recoveryLoop (HKL.runInputT hklSettings hkl) cx
+
+-- recovery loop will handle state errors (apart from parse errors)
+-- by reversing the ABC streaming state to the prior step. If this
+-- happens, a stack trace is also printed.
+recoveryLoop :: AOI () -> AOI_CONTEXT -> IO ()
+recoveryLoop aoi cx = 
+    runAOI aoi cx >>= \ (cx', r) ->
+    case r of
+        Right () -> return () -- clean exit
+        Left eTxt ->
+            putErrLn ("STATE ERROR: " ++ T.unpack eTxt) >>
+            reportContext (aoi_frames cx') >> -- STACK TRACE, VALUE, ETC.
+            putErrLn "\nRECOVERING!\n" >>
+            let cxClean = cx' { aoi_frames = hls_init [] } in
+            recoveryLoop aoi cxClean
+
+-- reportContext currently just prints a stack trace
+-- todo: print recent history of stacks, too. 
+reportContext :: HLS [Text] -> IO ()
+reportContext hls = stackTrace >> histTrace where
+    stack = hls_state hls
+    stackTrace = 
+        putErrLn "== CALL STACK ==" >>
+        mapM_ (putErrLn . T.unpack) stack
+    hist = L.map L.nub $ L.reverse (hls_getHist hls)
+    diffs = L.map snd $ L.scanl stackDiff ([],([],[])) hist 
+    histTrace = -- simplistic history trace
+        putStrLn "== INCOMPLETE STACK HISTORY ==" >>
+        mapM_ showStackDiff diffs
+    stackDiff (sPrev,_) sNew = 
+        let added = L.filter (`L.notElem` sPrev) sNew in
+        let removed = L.filter (`L.notElem` sNew) sPrev in
+        (sNew, (added, removed))
+    showStackDiff (lAdd, lRem) = 
+        showDiff "-- " lRem >> 
+        showDiff "++ " lAdd 
+    showDiff _ [] = return ()
+    showDiff s xs = putStrLn . (s ++) . T.unpack . T.unwords $ xs
 
 
+dictCompletions :: DictC -> String -> [HKL.Completion]
+dictCompletions dc str = 
+    if L.length str < 3 then [] else 
+    let ws = L.map T.unpack $ M.keys dc in
+    let wsF = L.filter (str `L.isPrefixOf`) ws in
+    L.map HKL.simpleCompletion wsF
+
+aoiCompletion :: HKL.CompletionFunc AOI
+aoiCompletion = 
+    HKL.completeQuotedWord Nothing "\"" HKL.listFiles $
+        HKL.completeWord Nothing " \n[](|)" aoiWords
+  where 
+    aoiWords str = 
+        aoiGetDict >>= \ dc ->
+        return (dictCompletions dc str)
+        
+
+-- fuzzyFind will return true for elements where the left input is
+-- an ordered subset of the right input.
+fuzzyFind :: (Eq a) => [a] -> [a] -> Bool
+fuzzyFind (a:as) (b:bs) | (a == b) = fuzzyFind as bs
+fuzzyFind [] _  = True
+fuzzyFind _  [] = False
+fuzzyFind as (b:bs) = fuzzyFind as bs
+
+greet :: HKL.InputT AOI ()
+greet = 
+    HKL.haveTerminalUI >>= \ bTerm ->
+    when bTerm (liftIO $ Sys.putStrLn greetMsg)
+  where 
+    greetMsg = "Welcome to aoi! ctrl+d to exit"
 
 
+aoiHaskelineLoop :: HKL.InputT AOI ()
+aoiHaskelineLoop =
+    lift aoiGetStepCt >>= \ n ->
+    let prompt = show (n + 1) ++ ": " in
+    HKL.getInputLine prompt >>= \ sInput ->
+    case sInput of
+        Nothing -> return ()
+        Just str -> 
+            lift (aoiStep (T.pack (' ':str))) >>
+            aoiHaskelineLoop
 
+-- clean up some debug info between steps
+aoiClearStepHist :: AOI ()
+aoiClearStepHist = AOI $ \ cx ->
+    let fr0 = (hls_state . aoi_frames) cx in
+    let cx' = cx { aoi_frames = hls_init fr0 } in
+    return (cx', Right ())
 
+-- the primary interpreter step for AOI
+aoiStep :: Text -> AOI ()
+aoiStep txt = 
+    aoiClearStepHist >> 
+    aoiGetIfn >>= \ ifn ->
+    let vInputIC = toABCV (txt, ifn_eIC ifn) in
+    runABC aoiInvoker vInputIC (ifn_action ifn) >>= \ vParsed ->
+    case fromABCV vParsed of
+        Just (Right (B _ abcAction, eIC')) -> 
+            let ifn' = ifn { ifn_eIC = eIC' } in
+            aoiPutIfn ifn' >>
+            aoiGetStepV >>= \ v0 ->
+            runABC aoiInvoker v0 abcAction >>= \ vf ->
+            aoiPutStepV vf >> 
+            liftIO (reportStepV vf) >>
+            liftIO (Sys.putStrLn "")
+        Just (Left errText) -> liftIO $ 
+            putErrLn ("READ ERROR: " ++ T.unpack errText) >>
+            putErrLn ("dropping this input...")
+        _ -> liftIO $
+            putErrLn ("READER TYPE ERROR; received: " ++ show vParsed) >>
+            putErrLn ("dropping this input...")
 
-
-
-
-
+-- for now, just print the values on the data stack.
+reportStepV :: V -> IO ()
+reportStepV (P s@(P _ _) _) = reportStack s where
+    reportStack U = Sys.putStrLn "\n------"
+    reportStack (P v s) = reportStack s >> Sys.putStrLn ("| " ++ show v)
+    reportStack v = Sys.putStrLn ("\n--(atypical stack)-- " ++ show v)
+reportStepV (P U _) = Sys.putStrLn "\n--(empty stack)--"
+reportStepV v = 
+    Sys.putStrLn "\n--(atypical environment)--" >>
+    Sys.putStrLn (show v)
 
 
 -- states with exponential decay of history
@@ -389,7 +552,7 @@ data HLS s = HLS
 -- defaults to a halflife of 100 steps.
 hls_init :: s -> HLS s
 hls_init s0 = s0 `seq` HLS
-    { hls_halflife = 100 -- arbitrary default halflife
+    { hls_halflife = 31.4159 -- arbitrary default halflife
     , hls_rgen = R.mkStdGen 60091 -- flight number of our galactic sun
     , hls_state = s0
     , hls_hist = []

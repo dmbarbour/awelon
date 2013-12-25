@@ -62,7 +62,7 @@
 @nip swap drop
 @nip2 unrot drop2
 @swap  %rwr      %wzw      %lwl
-@swapd %rwr %wzr %wzw %lzw %lwl
+@swapd %rw swap %wl
 @rot swapd swap
 @unrot swap swapd
 @spin swap swapd swap

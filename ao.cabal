@@ -45,7 +45,8 @@ Executable aoi
     , containers
     , bytestring
     , base64-bytestring (>= 1.0)
-    , haskeline (>= 0.7)
+    , haskeline (>= 0.7.1)
+    , transformers
     , ansi-terminal (>= 0.6)
     , random (>= 1.0)
     , cprng-aes (>= 0.5)
