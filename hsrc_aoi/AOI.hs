@@ -50,6 +50,7 @@ import qualified Filesystem as FS
 import qualified Text.Parsec as P
 import Data.Text (Text)
 import Data.ByteString (ByteString)
+import Data.Maybe (catMaybes)
 import AO
 import ABC
 
@@ -251,7 +252,7 @@ randomBytes n = liftM toBytes CR.makeSystem where
 
 -- AOI context secret (in case of open systems)
 newSecret :: IO Text
-newSecret = liftM toText (randomBytes 18) where
+newSecret = liftM toText (randomBytes 12) where
     toText = T.decodeUtf8 . B64.encode
 
 -- AOI powerblock from a secret
@@ -455,29 +456,21 @@ reportContext hls = stackTrace >> histTrace where
 
 
 dictCompletions :: DictC -> String -> [HKL.Completion]
+dictCompletions _ [] = []
+dictCompletions _ (_:[]) = []
 dictCompletions dc str = 
-    if L.length str < 3 then [] else 
     let ws = L.map T.unpack $ M.keys dc in
-    let wsF = L.filter (str `L.isPrefixOf`) ws in
-    L.map HKL.simpleCompletion wsF
-
+    let wsP = L.filter (str `L.isPrefixOf`) ws in
+    let basicCompletions = L.map HKL.simpleCompletion wsP in
+    basicCompletions
+  
+-- for now, using a trivial prefix search on dictionary. I would
+-- prefer a 'fuzzy find' but Haskeline doesn't support it
 aoiCompletion :: HKL.CompletionFunc AOI
-aoiCompletion = 
-    HKL.completeQuotedWord Nothing "\"" HKL.listFiles $
-        HKL.completeWord Nothing " \n[](|)" aoiWords
-  where 
-    aoiWords str = 
-        aoiGetDict >>= \ dc ->
-        return (dictCompletions dc str)
-        
-
--- fuzzyFind will return true for elements where the left input is
--- an ordered subset of the right input.
-fuzzyFind :: (Eq a) => [a] -> [a] -> Bool
-fuzzyFind (a:as) (b:bs) | (a == b) = fuzzyFind as bs
-fuzzyFind [] _  = True
-fuzzyFind _  [] = False
-fuzzyFind as (b:bs) = fuzzyFind as bs
+aoiCompletion = quotedFiles prefixedWords where
+    quotedFiles = HKL.completeQuotedWord Nothing "\"" HKL.listFiles
+    prefixedWords = HKL.completeWord Nothing " \n[](|)" findWords
+    findWords s = aoiGetDict >>= \ dc -> return (dictCompletions dc s)
 
 greet :: HKL.InputT AOI ()
 greet = 

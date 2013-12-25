@@ -210,8 +210,8 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
 -- All other invocations will be rejected by the parser.
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
-    parser = word P.<|> spaces P.<|> prim P.<|> text P.<|> 
-             number P.<|> block P.<|> amb
+    parser = number P.<|> text P.<|> spaces P.<|>
+             word P.<|> block P.<|> amb P.<|> prim
     prim = P.char '%' >> ((annotation P.<|> inlineABC) P.<?> "inline ABC")
     annotation =
         P.char '{' >> P.char '&' >>

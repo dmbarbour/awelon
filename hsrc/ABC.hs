@@ -60,6 +60,7 @@ data V -- ABC's structural types
     | P V V      -- product
     | B BT ABC   -- block
     | U          -- unit
+    deriving (Eq)
 data Op
     = Op Char  -- a normal operator
     | BL ABC  -- block literal
@@ -68,7 +69,7 @@ data Op
     | AMBC [ABC] -- AMBC extension to ABC; must be non-empty
     deriving (Eq) -- structural equality
 newtype ABC = ABC [Op] deriving (Eq)
-data BT = BT { bt_rel :: Bool, bt_aff :: Bool } 
+data BT = BT { bt_rel :: Bool, bt_aff :: Bool } deriving (Eq)
 
 -- single character opcodes; a subset are also used by AO
 -- for inline ABC, but distinguished here to avoid redundancy
@@ -488,18 +489,25 @@ instance (ToABCV a, ToABCV b) => ToABCV (Either a b) where
 instance (ToABCV a) => ToABCV (Maybe a) where
     toABCV = maybe (L U) (R . toABCV)
 instance (ToABCV a) => ToABCV [a] where
-    toABCV = toABCVL (N 0)
+    toABCV = toABCVL 0
 instance (ToABCV a, ToABCV b) => ToABCV (a,b) where
     toABCV (a,b) = P (toABCV a) (toABCV b)
-instance ToABCV Text where toABCV = toABCVL (N 3) . T.unpack
+instance ToABCV Text where toABCV = toABCVL 3 . T.unpack
 instance ToABCV Char where toABCV = N . fromIntegral . fromEnum
-instance ToABCV ByteString where toABCV = toABCVL (N 8) . B.unpack
+instance ToABCV ByteString where toABCV = toABCVL 8 . B.unpack
 instance ToABCV W.Word8 where toABCV = N . fromIntegral
 instance ToABCV () where toABCV () = U
 
-toABCVL :: (ToABCV a) => V -> [a] -> V
-toABCVL vf [] = vf
+-- generate list terminated by number
+toABCVL :: (ToABCV a) => Rational -> [a] -> V
+toABCVL vf [] = (N vf)
 toABCVL vf (v:vs) = toABCV v `P` toABCVL vf vs
+
+-- read list terminated by specific number
+fromABCVL :: (FromABCV a) => Rational -> V -> Maybe [a]
+fromABCVL rF (N rF') | rF == rF' = Just []
+fromABCVL rF (P a la) = (:) <$> fromABCV a <*> fromABCVL rF la
+fromABCVL _ _ = Nothing
 
 class FromABCV v where fromABCV :: V -> Maybe v
 instance FromABCV V where  fromABCV = Just
@@ -518,14 +526,12 @@ instance (FromABCV a) => FromABCV (Maybe a) where
     fromABCV (R a) = Just <$> fromABCV a
     fromABCV _ = Nothing
 instance (FromABCV a) => FromABCV [a] where
-    fromABCV (P a as) = (:) <$> fromABCV a <*> fromABCV as
-    fromABCV (N _) = return []
-    fromABCV _ = Nothing
+    fromABCV = fromABCVL 0
 instance (FromABCV a, FromABCV b) => FromABCV (a,b) where
     fromABCV (P a b) = (,) <$> fromABCV a <*> fromABCV b
     fromABCV _ = Nothing
 instance FromABCV Text where 
-    fromABCV l = T.pack <$> fromABCV l
+    fromABCV l = T.pack <$> fromABCVL 3 l
 instance FromABCV Char where
     fromABCV (N x) =
         if (1 /= denominator x) then Nothing else
@@ -534,7 +540,7 @@ instance FromABCV Char where
         Just ((toEnum . fromIntegral) n)
     fromABCV _ = Nothing
 instance FromABCV ByteString where 
-    fromABCV lst = B.pack <$> fromABCV lst
+    fromABCV l = B.pack <$> fromABCVL 8 l
 instance FromABCV W.Word8 where
     fromABCV (N x) =
         if (1 /= denominator x) then Nothing else
