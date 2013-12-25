@@ -481,15 +481,20 @@ greet =
 
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
-aoiHaskelineLoop =
+aoiHaskelineLoop = failOnInterrupt $ 
     lift aoiGetStepCt >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
     HKL.getInputLine prompt >>= \ sInput ->
     case sInput of
         Nothing -> return ()
-        Just str -> 
+        Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
             lift (aoiStep (T.pack (' ':str))) >>
             aoiHaskelineLoop
+
+failOnInterrupt :: HKL.InputT AOI a -> HKL.InputT AOI a
+failOnInterrupt action = HKL.withInterrupt $
+    HKL.handleInterrupt (fail "ctrl+c interrupt") $ 
+    action
 
 -- clean up some debug info between steps
 aoiClearStepHist :: AOI ()
