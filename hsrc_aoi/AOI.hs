@@ -413,7 +413,7 @@ main =
             , HKL.autoAddHistory = True
             }
     in
-    let hkl = greet >> aoiHaskelineLoop in
+    let hkl = greet >> failOnInterrupt aoiHaskelineLoop in
     recoveryLoop (HKL.runInputT hklSettings hkl) cx
 
 -- recovery loop will handle state errors (apart from parse errors)
@@ -481,7 +481,7 @@ greet =
 
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
-aoiHaskelineLoop = failOnInterrupt $ 
+aoiHaskelineLoop = 
     lift aoiGetStepCt >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
     HKL.getInputLine prompt >>= \ sInput ->
