@@ -65,7 +65,9 @@ A block contains a finite sequence of ABC code, and may be understood as a first
 
 Numbers use operator `# :: e → (N(0)*e)` to introduce a new zero, then each digit `0-9` has meaning of the form `3 :: N(x)*e → N(10x+3)*e`. Thus, numbers aren't literals, but natural numbers such as `#123` are close enough for legibility. Rational numbers are produced through operations on natural numbers, e.g. `#2#3/*` is two thirds.
 
-Text is shorthand for producing a list of small numbers between 0 and 1114111, the Unicode codepoints. *NOTE:* ABC has no support for binaries, but text can carry base-64 with reasonable efficiency.
+Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. 
+
+*NOTE:* ABC has no support for binary literals, but text can encode LZHAM compressed base-64 with reasonable efficiency.
 
 ### Capability Invocations
 
@@ -365,6 +367,8 @@ Development of ABCD shall be incremental and empirical, driven by actual data, w
 ABCD is intended to be used together with `{#secureHash}` sources. These techniques won't overlap much. ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, data and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced.
 
 Between these features, ABC can be minimal without concern for performance or parsimony.
+
+*NOTE:* Byte-stream compression below ABC is also feasible, e.g. using LZHAM (an algorithm with competitive compression and very fast decompression). This might effectively support stream-local patterns that ABCD and secure hash sources don't effectively address.
 
 ## Ambiguous Awelon Bytecode (AMBC)
 
