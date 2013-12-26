@@ -531,7 +531,7 @@ reportStepV :: V -> IO ()
 reportStepV (P s@(P _ _) _) = reportStack s where
     reportStack U = Sys.putStrLn "\n------"
     reportStack (P v s) = reportStack s >> Sys.putStrLn ("| " ++ show v)
-    reportStack v = Sys.putStrLn ("\n--(atypical stack)-- " ++ show v)
+    reportStack v = Sys.putStrLn ("\n--(atypical stack)-- \n~ " ++ show v)
 reportStepV (P U _) = Sys.putStrLn "\n--(empty stack)--"
 reportStepV v = 
     Sys.putStrLn "\n--(atypical environment)--" >>
