@@ -1,6 +1,10 @@
 
 @doc.import.std "one big starting point for AO systems"
 
+@doc.prefix.doc
+"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc' should add documentation to the stack in a common format - typically, adding text, but other structures are feasible so long as the words that process documentation know to expect them.
+~
+
 @doc.NamingConventions
 "The naming convention for AO places context to the right and type to the left. Example types include 'doc', 'test', and 'ioapp'. Type, in this sense, determines how the word is processed by the larger programming environment - e.g. 'test' results in automatic testing. Context provides extra information about where the word is needed or used. It may identify a project, user, DSL, framework, and so on. 
  
@@ -47,8 +51,6 @@
 @doc.roll "w x y z -- x y z w"
 @doc.unroll "x y z w -- w x y z"
 @doc.spin "x y z -- z y x"
-@doc.assocl "y x -- (x*y)"
-@doc.assocr "(x*y) -- y x"
 @doc.intro1 " -- Unit"
 @doc.elim1 "Unit -- "
 
@@ -68,8 +70,6 @@
 @spin swap swapd swap
 @roll %rw roll3 %wl swap
 @unroll swap %rw unrot %wl
-@assocl %rwrzwll
-@assocr %rrwzlwl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
 
@@ -84,12 +84,49 @@
 @doc.pf "y x -- (x*y)"
 @doc.ps "y x -- (y*x)"
 @pswap %rrwll
-@xf assocr
-@xs pswap assocr
-@pf assocl
-@ps assocl pswap
+@xf %rrwzlwl
+@xs pswap xf
+@pf %rwrzwll
+@ps pf pswap
 
-@doc.prefix.id "typeful identity functions for testing optimizers"
+@doc.prefix.eqv 
+"There are many cases where two different expressions should be equivalent. For example, we might want to say that `[f] map [g] map` is the same as `[f g] map`. 
+ 
+ Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests or provide hints for optimizers and refactoring tools. So prefix 'eqv' provides a way to suggest that two expressions should be equivalent.
+ 
+ The type of an 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
+ 
+ That is, developers should simply add two blocks to the current stack, which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. 
+ 
+ More specialized equivalencies are also available with the 'id', 'idempotent', and 'commutative' prefixes.  
+~
+@eqv.takeSwapPut.swapd [take swap put] [swapd]
+@eqv.swap.pfxs [pf xs] [swap]
+@eqv.swap.psxf [ps xf] [swap]
+
+@doc.prefix.commutative
+"Declare and assert two blocks `[f]` and `[g]` are commutative in the conventional sense that compose = `swap compose`. Like the 'eqv.' prefix, this should place two blocks on the stack.
+~
+
+@commutative.affine.relevant [affine] [relevant]
+
+@doc.prefix.idempotent
+"Use prefix 'idempotent.' to declare that an expression is (or should be) idempotent in the conventional sense that `f f = f`. Doing so makes the assertion available for testing, optimizers, and documentation.
+~
+
+@idempotent.linear   linear
+@idempotent.affine   affine 
+@idempotent.relevant relevant
+
+
+@doc.prefix.id 
+"There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
+  
+ The 'id' prefix is a specialized equivalence that also implies idempotence and commutativity. Look into the 'idempotent', 'commutative', and 'eqv' prefixes.
+ 
+ Use of prefix words to declare properties such as identity, idempotence, associativity, and commutativity is useful for documentation, automatic validation, and development of optimizers. Developers are encouraged to do so.
+~ 
+
 @id.swap swap swap
 @id.swapd swapd swapd
 @id.rot rot rot rot
@@ -99,8 +136,8 @@
 @id.spin spin spin
 @id.introElim intro1 elim1
 @id.elimIntro elim1 intro1
-@id.assoclr assocl assocr
-@id.assocrl assocr assocl
+@id.pfxf pf xf
+@id.xfpf xf pf
 @id.pswap pswap pswap
 @id.dupdrop dup drop
 @id.dupSwapDrop dup swap drop
@@ -109,6 +146,9 @@
 @id.quoteUnquote quote unquote
 @id.unquoteQuote unquote quote
 @id.textDrop "text" drop
+
+@id.pfxsswap pf xs swap
+@id.swappfxs swap pf xs
 
 @relevant %rkl
 @affine   %rfl
@@ -132,15 +172,9 @@
 @doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
 @doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
 @doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
-@dup2 assocl dup %rw 
-      assocr %wl
-      assocr
-@dup3 assocl assocl dup %rw 
-      assocr assocr %wl 
-      assocr assocr
-@dup4 assocl assocl assocl dup %rw 
-      assocr assocr assocr %wl 
-      assocr assocr assocr
+@dup2 pf dup %rw xf %wl xf
+@dup3 pf pf dup %rw xf xf %wl xf xf 
+@dup4 pf pf pf dup %rw xf xf xf %wl xf xf xf
 
 @doc.Quotable
 "Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location.
@@ -210,6 +244,7 @@
 @id.reifyRestoreHand reifyHand restoreHand
 @id.take3put3 take3 put3
 
+
 @doc.MakingWithBlocks
 "A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
  
@@ -224,7 +259,8 @@
  
  Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
  
-     o       :: [x→y] [y→z] -- [x→z]      (sequential)
+     compose :: [x→y] [y→z] -- [x→z]      (sequential)
+        'o' is another word for 'compose'
      .curry  :: x [(x*y)→z] -- [y→z]      (partial)
      .first  :: [x→x'] -- [(x*e)→(x'*e)]  (concurrent)
      .left   :: [x→x'] -- [(x+e)→(x'+e)]  (conditional)
@@ -246,16 +282,18 @@
      inline :: (apply block on stack as if written inline, i.e. hand is visible)
      dip    :: (hides hand and top items on stack)
      keep   :: copies top item on stack before apply, then replaces them.
-     top    :: apply block to top of stack in fresh environment... must have single value result
+     top    :: apply block to top stack element (fresh environment)
  
  The set of application words will undoubtedly evolve with experience.
 ~
 
-@o pf %rrol
+@compose pf %rrol
+@o compose
 @.apply pf %rr$l
 @.dip %rwrzwvrwr %$ %wlcl
 @apply reifyHand put .dip take restoreHand
 @inline %rvr$c
+@top pf take introE swapE put swap take xf apply put swap take swapE elimE put
 @dip  take  apply put
 @dip2 take2 apply put2
 @dip3 take3 apply put3
@@ -314,7 +352,6 @@
 @introE "" %r %vrvrwvrr %vrwlc %l
 @elimE  %r %vrwlc %llcwlclc %l drop
 @swapE %zrzwlz %vrwlc %zrwzl
-@top take2 introE swapE put2 rot take apply put swap take swapE elimE put
 
 @id.introElimE introE elimE
 @id.swapE swapE swapE
@@ -335,44 +372,6 @@
  AO's design philosophy is actually similar to Wolfram's - that code should have easy access to vast quantities of useful, maintainable data. AO provides this access in the form of words in a very large dictionary.
 ~
 
-@JUNK
-
-% Environment Manipulations
-%
-%  (todo) fix for new environment model... need to choose name for
-%  initial stack? Maybe "main"?
-%
-%  wrapE - wrap a value in a fresh environment; wrapped value becomes
-%    the only element in a fresh env's current stack. If `wrapE` is 
-%    called without a specific target, it captures the current 
-%    environment.
-%  wrapS - capture current stack as a value, which is afterwards the
-%    only value on the current stack. 
-%  unwrapE/unwrapS - reverse these manipulations.
-%
-% The normal block applicators will wrap a new environment around the
-% arguments before applying the block. This allows subprograms to use
-% the multi-stack and hands concept, but prevents accidental coupling
-% with the current environment. 
-%
-%wrapE = intro1 swap intro1 swap intro1 intro1 intro1 assocl swap
-%unwrapE = swap assocr elim1 elim1 elim1 swap elim1 swap elim1
-%wrapS = assocr intro1 rot3 pzip assocl rot2 assocl
-%unwrapS = swap rot3 assocr rot2 elim1 rot3 rot3 swap
-
-
-% Combinators: remove a block from top of the current stack, and 
-%   apply it to all or part of the environment.
-%
-%   apply: target whole environment (as if block is coded inline)
-%   appX: target top item on stack (without fresh environment)
-% 
-% Note that these do not wrap the input in a fresh environment, so
-% only `appE` is directly usable.
-%
-apply = assocr intro1 swap assocr first swap elim1
-appX = assocr rot2 assocr rot3 first assocl
-
 @doc.Zippers
 "The zipper data structure was described by Gérard Huet in 1997. It enables navigation and modification of tree-structured data in a purely functional context. At any time, the original tree structure can be recovered with the modifications. For Awelon project, zippers are widely useful for modeling navigation through scene graphs or documents, and document-like structures. They may also be used for raycasting and rendering.
  
@@ -385,47 +384,49 @@ appX = assocr rot2 assocr rot3 first assocl
  I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
 ~ 
 
-@JUNK
+@OLD-AO-ZIPPERS
 
-% 
-% In Awelon, zipper operations apply to top object on current stack. 
-%
-%    zwrap - prepare zipper; stack object is initial target
-%    zf - if target was (x*y), x is now target; undo with zuf
-%    zs - if target was (x*y), y is now target; undo with zus
-%    zu - undoes last zipper navigation (selects zuf or zus)
-%    zunwrap - fully exit and unwrap zipper, even if deep
-%    zunwrap_ - just unwrap zipper
-%
-% Knowing the representation of the zipper structure isn't essential,
-% but it might be interesting to some people. 
-%
-%    zwrap :: x <~> x*(1*1) :: zunwrap_ (on stack)
-%    zf    :: (x*y)*(l*r) <~> x*(1*(y*(l*r))) :: zuf
-%    zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
-%
-% The 'zu' and 'zunwrap' operations must perform introspection. 
-%
-% To manipulate the zipper target, developers will usually use an
-% operation such as:
-%   
-%    zswap - switch target of zipper (2nd) with object on stack (1st)
-%    zpop  - move target to top of stack (unit placeholder)
-%    zpush - undo zpop
-%
-zwrap = intro1 intro1 assocl rot2 pzip assocl  
-zunwrap_ = assocr pzip rot2 assocr elim1 elim1  
-zf = assocr xf intro1 assocl roll2 assocl 
-zuf = assocr roll2 assocr elim1 cf assocl
-zs = assocr xf roll3 cs roll2 assocl
-zus = assocr roll2 xf roll3 cs assocl
-zswap = cf assocr roll2 assocl xf
-zpop = intro1S zswap
-zpush = zswap elim1S
-% TODO: zu, zu*
-zu = % look at wrapper to decide step back
-zu* = % iterative zu
-zunwrap = zu* zunwrap_
+"
+ % 
+ % In Awelon, zipper operations apply to top object on current stack. 
+ %
+ %    zwrap - prepare zipper; stack object is initial target
+ %    zf - if target was (x*y), x is now target; undo with zuf
+ %    zs - if target was (x*y), y is now target; undo with zus
+ %    zu - undoes last zipper navigation (selects zuf or zus)
+ %    zunwrap - fully exit and unwrap zipper, even if deep
+ %    zunwrap_ - just unwrap zipper
+ %
+ % Knowing the representation of the zipper structure isn't essential,
+ % but it might be interesting to some people. 
+ %
+ %    zwrap :: x <~> x*(1*1) :: zunwrap_ (on stack)
+ %    zf    :: (x*y)*(l*r) <~> x*(1*(y*(l*r))) :: zuf
+ %    zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
+ %
+ % The 'zu' and 'zunwrap' operations must perform introspection. 
+ %
+ % To manipulate the zipper target, developers will usually use an
+ % operation such as:
+ %   
+ %    zswap - switch target of zipper (2nd) with object on stack (1st)
+ %    zpop  - move target to top of stack (unit placeholder)
+ %    zpush - undo zpop
+ %
+ zwrap = intro1 intro1 assocl rot2 pzip assocl  
+ zunwrap_ = assocr pzip rot2 assocr elim1 elim1  
+ zf = assocr xf intro1 assocl roll2 assocl 
+ zuf = assocr roll2 assocr elim1 cf assocl
+ zs = assocr xf roll3 cs roll2 assocl
+ zus = assocr roll2 xf roll3 cs assocl
+ zswap = cf assocr roll2 assocl xf
+ zpop = intro1S zswap
+ zpush = zswap elim1S
+ % TODO: zu, zu*
+ zu = % look at wrapper to decide step back
+ zu* = % iterative zu
+ zunwrap = zu* zunwrap_
+~
 
 @doc.rgb "usage: `1/3 5/7 4/5 rgb` in red-green-blue order"
 @rgb 1 rgba
@@ -434,11 +435,13 @@ zunwrap = zu* zunwrap_
     take2 fracOfOctet
     put   fracOfOctet
     put   fracOfOctet
-    rgba
+    rgb
 @fracOfOctet 1/255 .multiply
 @doc.fracOfOctet "divide by 255, such that numbers of range 0..255 result in a range 0 to 1 (inclusive)"
 
-@doc.color "Following Elm's example, I'm using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simpler names: red, orange, yellow, green, blue, purple, brown, gray, and charcoal - each with light and dark variations."
+@doc.color 
+"Following Elm's example, I'm using the [Tango](http://tango.freedesktop.org/Tango_Icon_Theme_Guidelines) pallette, with simpler names: red, orange, yellow, green, blue, purple, brown, gray, and charcoal - each with light and dark variations.
+~
 
 @color.lightRed      0xef 0x29 0x29 rgb/24
 @color.red           0xcc 0x00 0x00 rgb/24
@@ -473,10 +476,6 @@ zunwrap = zu* zunwrap_
 @color.gray      color.grey
 @color.lightGray color.lightGrey
 @color.darkGray  color.darkGrey
-
-@doc.prefix.` "prefix '`' is for units on numbers."
-@`g  1/1000 .multiply `kg
-@`km 1000 .multiply `m
 
 
 @doc.CompositionIsFirstPrinciple
