@@ -39,7 +39,6 @@ import qualified System.Environment as Env
 import qualified System.Random as R
 import qualified Crypto.Random.AESCtr as CR
 import qualified System.Console.Haskeline as HKL
-import qualified System.Console.ANSI as Term
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString as B
 import qualified Data.Text as T
@@ -51,7 +50,6 @@ import qualified Filesystem as FS
 import qualified Text.Parsec as P
 import Data.Text (Text)
 import Data.ByteString (ByteString)
-import Data.Maybe (catMaybes)
 import AO
 import ABC
 
@@ -190,8 +188,8 @@ aoiDispatch label msg =
 aoiGetContext :: AOI AOI_CONTEXT
 aoiGetContext = AOI $ \ cx -> return (cx, Right cx)
 
-aoiPutContext :: AOI_CONTEXT -> AOI ()
-aoiPutContext cx' = AOI $ \ _ -> return (cx', Right ())
+--aoiPutContext :: AOI_CONTEXT -> AOI ()
+--aoiPutContext cx' = AOI $ \ _ -> return (cx', Right ())
 
 aoiGetSecret :: AOI Text
 aoiGetSecret = liftM aoi_secret aoiGetContext
@@ -240,12 +238,9 @@ pushFrame text = aoiGetFrames >>= aoiPutFrames . (text :)
     -- >> liftIO (putErrLn (T.unpack text))
 
 popFrame :: AOI ()
-popFrame =
-    aoiGetFrames >>= \ fs ->
-    case fs of
-        [] -> fail "debug frame underflow!"
-        (f:fs) -> aoiPutFrames fs
-               -- >> liftIO (putErrLn (T.unpack ('-' `T.cons` f)))
+popFrame = aoiGetFrames >>= pop where
+    pop [] = fail "debug frame underflow!"
+    pop (_:fs) = aoiPutFrames fs
     
 randomBytes :: Integer -> IO ByteString
 randomBytes n = liftM toBytes CR.makeSystem where 
@@ -290,15 +285,6 @@ aoiSourceFromArgs =
             FS.canonicalizePath (FS.fromText f) >>= \ fc ->
             return (Right fc)
         _ -> fail ("args not understood: " ++ show args)
-
--- default interpreter for code in ABC is just [{i}]
--- this will invoke the AO to ABC compiler using the AO dictionary
--- (Developers cannot define new words; all edits must be performed
--- via the filesystem, using "reload" if needed.)
-defaultInterpreter :: V
-defaultInterpreter = B bt (ABC [invokeI]) where
-    bt = BT { bt_rel = True, bt_aff = False }
-    invokeI = Invoke (T.singleton 'i')
 
 -- 
 newDefaultContext :: IO AOI_CONTEXT
@@ -477,8 +463,7 @@ greet :: HKL.InputT AOI ()
 greet = 
     HKL.haveTerminalUI >>= \ bTerm ->
     when bTerm $
-        HKL.outputStrLn "Welcome to aoi! ctrl+d to exit" >>
-        liftIO (Term.setTitle "aoi")
+        HKL.outputStrLn "Welcome to aoi! ctrl+d to exit"
 
 fini :: HKL.InputT AOI ()
 fini = 
@@ -502,22 +487,20 @@ aoiHklPrint :: HKL.InputT AOI ()
 aoiHklPrint = printIfTerminalUI where
     printIfTerminalUI = 
         HKL.haveTerminalUI >>= \ bTerm ->
-        when bTerm print
-    print = 
-        HKL.outputStrLn "" >>
-        lift aoiGetStepV >>= printENV >>
-        HKL.outputStrLn ""
-    printENV env = maybe (atypical env) typical (fromABCV env)
+        when bTerm $
+            HKL.outputStrLn "" >>
+            lift aoiGetStepV >>= printENV >>
+            HKL.outputStrLn ""
+    printENV v = maybe (atypical v) typical (fromABCV v)
+    stackCount :: V -> Integer
     stackCount (P _ ss) = 1 + stackCount ss
     stackCount U = 0
     stackCount _ = 1
     atypical env =
         HKL.outputStrLn "--(atypical environment)--" >>
         HKL.outputStrLn (show env)
-    printLabelCount label count =
-        HKL.outputStrLn (T.unpack label ++ ":" ++ show count)
-    typical (s, (h, (IsBlock (_,pb), ((sn, rns), ex)))) =
-        printPower pb >>
+    typical (s, (h, (IsBlock (_,p), ((sn, rns), ex)))) =
+        printPower p >>
         printExtendedEnv ex >>
         printNamedStacks rns >>
         printHand h >>
@@ -539,6 +522,8 @@ aoiHklPrint = printIfTerminalUI where
     printNamedStacks (P s ss) = 
         printNamedStack s >> 
         printNamedStacks ss
+    printNamedStacks v =
+        HKL.outputStrLn ("(atypical rns term): " ++ show v)
     printNamedStack ns =
         case fromABCV ns of
             Just (name,stack) ->
@@ -546,14 +531,14 @@ aoiHklPrint = printIfTerminalUI where
                 let label = T.unpack name ++ ": " in
                 HKL.outputStrLn (label ++ show ct)
             Nothing -> 
-                HKL.outputStrLn ("(unrecognized): " ++ show ns)
+                HKL.outputStrLn ("(?): " ++ show ns)
     printExtendedEnv U = return ()
     printExtendedEnv ex =
         HKL.outputStrLn "--(extended environment)--" >>
         HKL.outputStrLn (show ex)
         
 -- to help translate block testing 
-newtype IsBlock = IsBlock { inBlock :: (BT,ABC) }
+newtype IsBlock = IsBlock { _inBlock :: (BT,ABC) }
 instance FromABCV IsBlock where
     fromABCV (B bt abc) = Just $ IsBlock $ (bt,abc)
     fromABCV _ = Nothing
@@ -626,8 +611,8 @@ hls_put s hls =
     h' `seq` s `seq`
     hls { hls_rgen = g', hls_state = s, hls_hist = h' }
 
-hls_modify :: (s -> s) -> HLS s -> HLS s
-hls_modify f hls = hls_put (f (hls_state hls)) hls 
+-- hls_modify :: (s -> s) -> HLS s -> HLS s
+-- hls_modify f hls = hls_put (f (hls_state hls)) hls 
 
 -- dropHLS will join two items in a list at the given position
 -- This operation is strict in the join function because it is
