@@ -39,6 +39,7 @@ import qualified System.Environment as Env
 import qualified System.Random as R
 import qualified Crypto.Random.AESCtr as CR
 import qualified System.Console.Haskeline as HKL
+import qualified System.Console.ANSI as Term
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString as B
 import qualified Data.Text as T
@@ -413,7 +414,7 @@ main =
             , HKL.autoAddHistory = True
             }
     in
-    let hkl = greet >> failOnInterrupt aoiHaskelineLoop in
+    let hkl = greet >> failOnInterrupt aoiHaskelineLoop >> fini in
     recoveryLoop (HKL.runInputT hklSettings hkl) cx
 
 -- recovery loop will handle state errors (apart from parse errors)
@@ -475,13 +476,18 @@ aoiCompletion = quotedFiles prefixedWords where
 greet :: HKL.InputT AOI ()
 greet = 
     HKL.haveTerminalUI >>= \ bTerm ->
-    when bTerm (liftIO $ Sys.putStrLn greetMsg)
-  where 
-    greetMsg = "Welcome to aoi! ctrl+d to exit"
+    when bTerm $
+        HKL.outputStrLn "Welcome to aoi! ctrl+d to exit" >>
+        liftIO (Term.setTitle "aoi")
 
+fini :: HKL.InputT AOI ()
+fini = 
+    HKL.haveTerminalUI >>= \ bTerm ->
+    when bTerm $ HKL.outputStrLn "\n\ngoodbye!"
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
 aoiHaskelineLoop = 
+    aoiHklPrint >>
     lift aoiGetStepCt >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
     HKL.getInputLine prompt >>= \ sInput ->
@@ -491,10 +497,74 @@ aoiHaskelineLoop =
             lift (aoiStep (T.pack (' ':str))) >>
             aoiHaskelineLoop
 
+-- a colorful printing function
+aoiHklPrint :: HKL.InputT AOI ()
+aoiHklPrint = printIfTerminalUI where
+    printIfTerminalUI = 
+        HKL.haveTerminalUI >>= \ bTerm ->
+        when bTerm print
+    print = 
+        HKL.outputStrLn "" >>
+        lift aoiGetStepV >>= printENV >>
+        HKL.outputStrLn ""
+    printENV env = maybe (atypical env) typical (fromABCV env)
+    stackCount (P _ ss) = 1 + stackCount ss
+    stackCount U = 0
+    stackCount _ = 1
+    atypical env =
+        HKL.outputStrLn "--(atypical environment)--" >>
+        HKL.outputStrLn (show env)
+    printLabelCount label count =
+        HKL.outputStrLn (T.unpack label ++ ":" ++ show count)
+    typical (s, (h, (IsBlock (_,pb), ((sn, rns), ex)))) =
+        printPower pb >>
+        printExtendedEnv ex >>
+        printNamedStacks rns >>
+        printHand h >>
+        printStack sn s
+    printStack sn U =
+        HKL.outputStrLn ("---" ++ T.unpack sn ++ "---")
+    printStack sn (P e ss) =
+        printStack sn ss >>
+        HKL.outputStrLn ("| " ++ show e)
+    printStack sn v =
+        printStack (sn `T.append` T.pack "(atypical)") U >>
+        HKL.outputStrLn ("$ " ++ show v)
+    printHand h =
+        let n = stackCount h in
+        when (n > 0) $
+            HKL.outputStrLn ("hand: " ++ show n)
+    printPower (ABC _) = return ()
+    printNamedStacks U = return ()
+    printNamedStacks (P s ss) = 
+        printNamedStack s >> 
+        printNamedStacks ss
+    printNamedStack ns =
+        case fromABCV ns of
+            Just (name,stack) ->
+                let ct = stackCount stack in
+                let label = T.unpack name ++ ": " in
+                HKL.outputStrLn (label ++ show ct)
+            Nothing -> 
+                HKL.outputStrLn ("(unrecognized): " ++ show ns)
+    printExtendedEnv U = return ()
+    printExtendedEnv ex =
+        HKL.outputStrLn "--(extended environment)--" >>
+        HKL.outputStrLn (show ex)
+        
+-- to help translate block testing 
+newtype IsBlock = IsBlock { inBlock :: (BT,ABC) }
+instance FromABCV IsBlock where
+    fromABCV (B bt abc) = Just $ IsBlock $ (bt,abc)
+    fromABCV _ = Nothing
+
 failOnInterrupt :: HKL.InputT AOI a -> HKL.InputT AOI a
 failOnInterrupt action = HKL.withInterrupt $
-    HKL.handleInterrupt (fail "ctrl+c interrupt") $ 
-    action
+    HKL.handleInterrupt failure $ action
+  where
+    failure = 
+        fail "ctrl+c interrupt" 
+        
 
 -- clean up some debug info between steps
 aoiClearStepHist :: AOI ()
@@ -516,26 +586,13 @@ aoiStep txt =
             aoiPutIfn ifn' >>
             aoiGetStepV >>= \ v0 ->
             runABC aoiInvoker v0 abcAction >>= \ vf ->
-            aoiPutStepV vf >> 
-            liftIO (reportStepV vf) >>
-            liftIO (Sys.putStrLn "")
+            aoiPutStepV vf
         Just (Left errText) -> liftIO $ 
             putErrLn ("READ ERROR: " ++ T.unpack errText) >>
             putErrLn ("dropping this input...")
         _ -> liftIO $
             putErrLn ("READER TYPE ERROR; received: " ++ show vParsed) >>
             putErrLn ("dropping this input...")
-
--- for now, just print the values on the data stack.
-reportStepV :: V -> IO ()
-reportStepV (P s@(P _ _) _) = reportStack s where
-    reportStack U = Sys.putStrLn "\n------"
-    reportStack (P v s) = reportStack s >> Sys.putStrLn ("| " ++ show v)
-    reportStack v = Sys.putStrLn ("\n--(atypical stack)-- \n~ " ++ show v)
-reportStepV (P U _) = Sys.putStrLn "\n--(empty stack)--"
-reportStepV v = 
-    Sys.putStrLn "\n--(atypical environment)--" >>
-    Sys.putStrLn (show v)
 
 
 -- states with exponential decay of history
