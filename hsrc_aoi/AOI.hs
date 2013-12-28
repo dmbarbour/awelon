@@ -291,7 +291,6 @@ newDefaultContext :: IO AOI_CONTEXT
 newDefaultContext =
     newSecret >>= \ secret ->
     aoiSourceFromArgs >>= \ source ->
-    aoiLoadDict source >>= \ dictC ->
     let s = U in -- initial stack
     let h = U in -- initial hand
     let p = pb secret in -- initial powerblock
@@ -299,7 +298,7 @@ newDefaultContext =
     let ex = U in -- extension area
     let eU0 = (s, (h, (p, (rns, ex)))) in
     let cx0 = AOI_CONTEXT 
-            { aoi_dict = dictC
+            { aoi_dict = M.empty -- loaded on init or ctrl+c
             , aoi_secret = secret
             , aoi_power = defaultPower
             , aoi_source = source
@@ -316,7 +315,6 @@ defaultPower = M.fromList $ map (first T.pack) lPowers where
 lPowers :: [(String, V -> AOI V)]
 lPowers = 
     [("switchAOI", f1 switchAOI)
-    ,("reloadDictionary", f1 (\ () -> aoiReload))
     ,("loadWord",  f1 loadWord)
     ,("getOSEnv",  f1 (liftIO . getOSEnv))
     ,("loadRandomBytes", f1 (liftIO . randomBytes))
@@ -400,21 +398,22 @@ main =
             , HKL.autoAddHistory = True
             }
     in
-    let hkl = greet >> failOnInterrupt aoiHaskelineLoop >> fini in
-    recoveryLoop (HKL.runInputT hklSettings hkl) cx
+    let hkl = initAOI >> aoiHaskelineLoop >> finiAOI in
+    let hklwi = HKL.withInterrupt hkl in
+    recoveryLoop (HKL.runInputT hklSettings hklwi) cx
 
 -- recovery loop will handle state errors (apart from parse errors)
 -- by reversing the ABC streaming state to the prior step. If this
 -- happens, a stack trace is also printed.
 recoveryLoop :: AOI () -> AOI_CONTEXT -> IO ()
-recoveryLoop aoi cx = 
-    runAOI aoi cx >>= \ (cx', r) ->
+recoveryLoop aoi cx0 = 
+    runAOI aoi cx0 >>= \ (cx', r) ->
     case r of
         Right () -> return () -- clean exit
         Left eTxt ->
-            putErrLn ("STATE ERROR: " ++ T.unpack eTxt) >>
+            putErrLn (T.unpack eTxt) >>
+            -- putErrLn (show (hls_state $ aoi_step $ cx')) >>
             reportContext (aoi_frames cx') >> -- STACK TRACE, VALUE, ETC.
-            putErrLn "\nRECOVERING!\n" >>
             let cxClean = cx' { aoi_frames = hls_init [] } in
             recoveryLoop aoi cxClean
 
@@ -423,12 +422,15 @@ recoveryLoop aoi cx =
 reportContext :: HLS [Text] -> IO ()
 reportContext hls = stackTrace >> histTrace where
     stack = hls_state hls
-    stackTrace = 
+    stackTrace = unless (L.null stack) $
         putErrLn "== CALL STACK ==" >>
-        mapM_ (putErrLn . T.unpack) stack
+        mapM_ (putErrLn . T.unpack) stack 
     hist = L.map L.nub $ L.reverse (hls_getHist hls)
-    diffs = L.map snd $ L.scanl stackDiff ([],([],[])) hist 
-    histTrace = -- simplistic history trace
+    diffs = L.filter hasDiff $ L.map snd $ 
+            L.scanl stackDiff ([],([],[])) hist 
+    hasDiff ([],[]) = False
+    hasDiff _ = True
+    histTrace = unless (L.null diffs) $ -- simplistic history trace
         putStrLn "== INCOMPLETE STACK HISTORY ==" >>
         mapM_ showStackDiff diffs
     stackDiff (sPrev,_) sNew = 
@@ -436,8 +438,8 @@ reportContext hls = stackTrace >> histTrace where
         let removed = L.filter (`L.notElem` sNew) sPrev in
         (sNew, (added, removed))
     showStackDiff (lAdd, lRem) = 
-        showDiff "-- " lRem >> 
-        showDiff "++ " lAdd 
+        showDiff "- " lRem >> 
+        showDiff "+ " (L.reverse lAdd) 
     showDiff _ [] = return ()
     showDiff s xs = putStrLn . (s ++) . T.unpack . T.unwords $ xs
 
@@ -459,28 +461,33 @@ aoiCompletion = quotedFiles prefixedWords where
     prefixedWords = HKL.completeWord Nothing " \n[](|)" findWords
     findWords s = aoiGetDict >>= \ dc -> return (dictCompletions dc s)
 
-greet :: HKL.InputT AOI ()
-greet = 
-    HKL.haveTerminalUI >>= \ bTerm ->
-    when bTerm $
-        HKL.outputStrLn "Welcome to aoi! ctrl+d to exit"
+initAOI :: HKL.InputT AOI ()
+initAOI = greet >> lift aoiReload where
+    greet =  
+        HKL.haveTerminalUI >>= \ bTerm ->
+        when bTerm $
+            HKL.outputStrLn "Welcome to aoi!" >>
+            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to abort & reload"
 
-fini :: HKL.InputT AOI ()
-fini = 
+finiAOI :: HKL.InputT AOI ()
+finiAOI = 
     HKL.haveTerminalUI >>= \ bTerm ->
-    when bTerm $ HKL.outputStrLn "\n\ngoodbye!"
+    when bTerm $ HKL.outputStrLn "goodbye!"
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
 aoiHaskelineLoop = 
     aoiHklPrint >>
     lift aoiGetStepCt >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
-    HKL.getInputLine prompt >>= \ sInput ->
+    foi (HKL.getInputLine prompt) >>= \ sInput ->
     case sInput of
         Nothing -> return ()
         Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
-            lift (aoiStep (T.pack (' ':str))) >>
+            foi (lift (aoiStep (T.pack (' ':str)))) >>
             aoiHaskelineLoop
+
+foi :: HKL.InputT AOI a -> HKL.InputT AOI a
+foi = HKL.handleInterrupt (fail "ctrl+c")
 
 -- a colorful printing function
 aoiHklPrint :: HKL.InputT AOI ()
@@ -543,13 +550,6 @@ instance FromABCV IsBlock where
     fromABCV (B bt abc) = Just $ IsBlock $ (bt,abc)
     fromABCV _ = Nothing
 
-failOnInterrupt :: HKL.InputT AOI a -> HKL.InputT AOI a
-failOnInterrupt action = HKL.withInterrupt $
-    HKL.handleInterrupt failure $ action
-  where
-    failure = 
-        fail "ctrl+c interrupt" 
-        
 
 -- clean up some debug info between steps
 aoiClearStepHist :: AOI ()
