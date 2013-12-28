@@ -266,7 +266,7 @@
  Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
  
      compose :: [x→y] [y→z] -- [x→z]      (sequential)
-        'o' is another word for 'compose'
+        'o' is synonomous with 'compose'
      .curry  :: x [(x*y)→z] -- [y→z]      (partial)
      .first  :: [x→x'] -- [(x*e)→(x'*e)]  (concurrent)
      .left   :: [x→x'] -- [(x+e)→(x'+e)]  (conditional)
@@ -296,6 +296,8 @@
 
 @compose pf %rrol
 @o compose
+@doc.lcomp "[y→z] [x→y] -- [x→z]; wrap input, or `swap compose`"
+@lcomp swap compose
 @.apply pf %rr$l
 @.dip %rwrzwvrwr %$ %wlcl
 @apply reifyHand put .dip take restoreHand
