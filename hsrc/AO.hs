@@ -505,6 +505,7 @@ buildDict imps = (errors, dict) where
     errors = importErrors -- ambiguous or missing imports
           ++ importCycleErrors -- cyclic imports
           ++ parseErrors -- bad parse entries
+          ++ dupWarnings -- warn whenever a word is defined twice
     impsD = map (uncurry distrib) imps
     importErrors = map (T.pack . show) $ lefts impsD
     goodImports = rights impsD -- [(Import, (FilePath, DictF))]
@@ -519,8 +520,20 @@ buildDict imps = (errors, dict) where
     showParseError (fp,(ln,err)) = T.pack (show (modErrPos (fixpos fp ln) err))
     modErrPos f e = P.setErrorPos (f (P.errorPos e)) e
     fixpos fp ln = (`P.setSourceName` (show fp)) . (`P.incSourceLine` (ln - 1))
-    dict = M.fromList (L.map toDictEnt (rights parseEnts))
-    toDictEnt (fp, (l, (w, ao))) = (w, withFrame fp l w ao)
+    -- list of words, including duplicates (value is non-empty list)
+    dictM = M.fromListWith (++) $ L.map toEntM (rights parseEnts)
+    toEntM x@(_, (_, (w, _))) = (w, [x])
+    dict = M.map (toDictEnt . L.head) dictM
+    toDictEnt (fp, (l, (w, ao))) = withFrame fp l w ao
+    dupWarnings = L.map toDupWarning $ M.toList $ M.filter hasDupDef dictM
+    hasDupDef (_:_:_) = True
+    hasDupDef _ = False
+    toDupWarning (w, defs) = 
+        T.pack "Word redefined: " `T.append` w `T.append` 
+        T.pack " @ " `T.append` T.unwords (L.map dupLoc $ L.reverse defs)
+    dupLoc (fp, (l, _)) =
+        (either id id . FS.toText . FS.filename) fp 
+        `T.snoc` ':' `T.append` (T.pack (show l))
 
 -- Add location annotations to the compiled entries.
 --  This adds two annotations: {&@word file line} and {&@-} to push and pop
