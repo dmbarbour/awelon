@@ -1,4 +1,4 @@
-std
+std euler
 
 @doc.aoi
 "aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
@@ -78,4 +78,7 @@ std
 @* .multiply
 @/ .invert
 @~ .negate
+
+
+
 
