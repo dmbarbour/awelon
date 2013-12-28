@@ -173,7 +173,9 @@ aoiCommand :: V -> AOI V
 aoiCommand msg = case fromABCV msg of
     Nothing -> fail ("unrecognized command: " ++ show msg)
     Just (label, message) -> 
+        pushFrame label >>
         aoiDispatch label message >>= \ response ->
+        popFrame >>
         aoiGetSecret >>= \ secret ->
         secret `seq` 
         return (pb secret `P` response)
@@ -317,13 +319,11 @@ lPowers =
     [("switchAOI", f1 switchAOI)
     ,("loadWord",  f1 loadWord)
     ,("getOSEnv",  f1 (liftIO . getOSEnv))
-    ,("loadRandomBytes", f1 (liftIO . randomBytes))
     ,("destroy", const (return U))
     -- debugging support
     ,("debugOut", (\ v -> debugOut v >> return v))
-    ,("pushFrame", f1 pushFrame)
-    ,("popFrame",  f1 (\() -> popFrame))
     -- read and write files
+    ,("randomBytes", f1 (liftIO . randomBytes))
     ,("readFile", f1 (liftIO . readFileT))
     ,("writeFile", f1 (liftIO . uncurry writeFileT))
     ,("readFileB", f1 (liftIO . readFileB))
