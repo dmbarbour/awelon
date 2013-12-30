@@ -208,9 +208,11 @@
  * copy an item from the stack into hand
  * paste an item in the hand onto the stack
  
- In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces. 
+ In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments.
  
- AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. The `apply` word enforces this policy by hiding the current hand when applying a block.
+ AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. 
+ 
+ Most words that apply blocks will hide the current hand. This is useful for security purposes, and also because the hand can hide loop variables and similar. 
 ~
 
 @take %rzlw
@@ -435,7 +437,7 @@
  
  Lists can be used for simple maps and fold operations.
  
- *Aside:* Lists are relatively simplistic. They are easy to work with, but they also have a large performance overhead for operations on the middle or end. An effective alternative to lists include finger-trees and ropes, albeit at cost of requiring more specialized code for comparison and update. 
+ *Aside:* Lists are simplistic, in the sense that they are often overly simple. AO's standard dictionaries should include other data structures more suitable for efficient ad-hoc manipulations. These will include finger-trees, ropes built on finger-trees, and zippers. 
 ~
 
 

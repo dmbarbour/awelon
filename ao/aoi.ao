@@ -11,11 +11,7 @@ std euler
 ~
 
 @doc.iomsg.aoi "invoke linear powerblock with message from stack"
-@iomsg.aoi.raw %zwl .apply xf %rwz
-@iomsg.aoi xf copy pf put pushFrame iomsg.aoi.raw popFrame
-
-@doc.reload "reload dictionary from filesystem (i.e. to see updates)"
-@reload intro1 "reloadDictionary" pf iomsg.aoi elim1
+@iomsg.aoi %zwl .apply xf %rwz
 
 @doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
 @loadWord  "loadWord" pf iomsg.aoi
@@ -35,23 +31,11 @@ std euler
 ~ 
 @switchAOI "switchAOI" pf iomsg.aoi
 
-@doc.frame.aoi 
-"The Haskell AO compiler adds annotations to help track call stack 
- locations for debugging purposes. AOI provides 'pushFrame' and 'popFrame'
- for similar reasons. The input to pushFrame must be simple text.
- 
- Be sure to keep popFrame balanced with pushFrame! 
-~
-@doc.pushFrame "frameText --; see @doc.frame.aoi"
-@doc.popFrame "--; see @doc.frame.aoi"
-@pushFrame "pushFrame" pf iomsg.aoi.raw elim1
-@popFrame intro1 "popFrame" pf iomsg.aoi.raw elim1
-
 @doc.getEnv.iomsg "varname -- text; environment variable or empty text"
 @getEnv "getOSEnv" pf iomsg.aoi
 
 @doc.randomBytes "count -- (list of octets); secure random source"
-@randomBytes "loadRandomBytes" pf iomsg.aoi
+@randomBytes "randomBytes" pf iomsg.aoi
 
 @doc.readFile "filename -- (1(err) + text)"
 @doc.readFile.binary "filename -- (1(err) + binary)"
@@ -68,9 +52,6 @@ std euler
 @doc.clear "clear the current environment (except hand and powerblock)"
 @clear introE swapE destroy
 
-@doc.reset "clear the environment then reload the dictionary"
-@reset clear reload
-
 @doc.debugOut "val -- val; prints given value on stderr; returns it unchanged"
 @debugOut "debugOut" pf iomsg.aoi
 
@@ -78,7 +59,5 @@ std euler
 @* .multiply
 @/ .invert
 @~ .negate
-
-
 
 

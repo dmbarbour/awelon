@@ -260,3 +260,11 @@ I also recommend that objects on the stack typically be composable structures (d
 
 The powerblock serves as the general-purpose entry point to observe or influence the real world. Specific capabilities can be extracted from a powerblock as required, and developers should use specific capabilities when deep enough know what *least authority* actually requires. Meanwhile, a powerblock may be forked such that a child - granted to an distrusted subprogram - is restricted based on upstream policies. 
 
+## Expression Problem and Policy Injection
+
+AO will be pursuing a new, experimental alternative to the configurations problem that supports default implementations, soft constraints, heuristic policy injection, and deep overrides. The idea is to leverage dependent types, partial evaluation, and staged constraint solvers to automate a lot of glue-code. 
+
+This is low priority at the moment, but it will eventually have a pervasive impact on the AO programming experience. Relevantly, it will serve roles similar to typeclasses and dependency injection frameworks.
+
+
+
