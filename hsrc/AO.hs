@@ -53,7 +53,7 @@ data Action
     = Word W        -- ref to dictionary
     | Num Rational  -- literal number
     | Lit Text      -- literal text
-    | Block AO      -- block of AO
+    | AOB AO        -- block of AO
     | Amb [AO]      -- ambiguous choice of AO (non-empty)
     | Prim ABC      -- inline ABC
     deriving Show
@@ -118,12 +118,12 @@ compileAction dc (Word w) =
     case M.lookup w dc of
         Nothing -> Left [w]
         Just abc -> Right abc
-compileAction _ (Num r) = Right $ ABC $ ((quoteNum r) ++ [Op 'l'])
-compileAction _ (Lit txt) = Right $ ABC $ [TL txt, Op 'l']
-compileAction dc (Block ao) =
+compileAction _ (Num r) = Right $ ABC $ [Qu (N r), Op 'l']
+compileAction _ (Lit txt) = Right $ ABC $ [Qu (toABCV txt), Op 'l']
+compileAction dc (AOB ao) =
     case compileAO dc ao of
         Left mws -> Left mws -- missing word in a block
-        Right abc -> Right $ ABC $ [BL abc, Op 'l']
+        Right abc -> Right $ ABC $ [Qu (B (block abc)), Op 'l']
 compileAction dc (Amb options) =
     let r0 = map (compileAO dc) options in
     case lefts r0 of
@@ -139,7 +139,7 @@ aoWords (AO ao) = L.concatMap actionWords ao
 
 actionWords :: Action -> [W] 
 actionWords (Word w) = [w]
-actionWords (Block ao) = aoWords ao
+actionWords (AOB ao) = aoWords ao
 actionWords (Amb opts) = L.concatMap aoWords opts
 actionWords _ = []
 
@@ -211,7 +211,7 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = number P.<|> text P.<|> spaces P.<|>
-             word P.<|> block P.<|> amb P.<|> prim
+             word P.<|> aoblock P.<|> amb P.<|> prim
     prim = P.char '%' >> ((annotation P.<|> inlineABC) P.<?> "inline ABC")
     annotation =
         P.char '{' >> P.char '&' >>
@@ -228,10 +228,10 @@ parseAction = parser P.<?> "word or primitive" where
     word = parseWord >>= return . Word
     text = (parseInlineText P.<|> parseMultiLineText) >>= return . Lit
     number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
-    block = 
+    aoblock = 
         P.char '[' >> 
         P.manyTill parseAction (P.char ']') >>= 
-        return . Block . AO
+        return . AOB . AO
     amb =
         P.char '(' >>
         P.sepBy1 (P.many parseAction) (P.char '|') >>= \ opts ->
@@ -351,8 +351,8 @@ isHexDigit c = isDigit c || smallAF || bigAF where
 -- words in AO are separated by spaces, [], (|). They also may not
 -- start the same as a number, %inlineABC, or an @word entry.
 isWordSep, isWordStart, isWordCont :: Char -> Bool
-isWordSep c = isSpace c || block || amb where
-    block = '[' == c || ']' == c
+isWordSep c = isSpace c || bracket || amb where
+    bracket = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
 isWordCont c = not (isWordSep c || isControl c || '"' == c)
 isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where

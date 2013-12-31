@@ -104,20 +104,18 @@ instance HKL.MonadException AOI where
 -- 
 -- This is probably very inefficient, but it's useful. The 
 data IFN = IFN
-    { ifn_action :: ABC
-    , ifn_bt     :: BT
+    { ifn_block  :: !Block
     , ifn_eIC    :: !V
     }
 
 defaultIFN :: IFN
-defaultIFN = IFN abc btRel U where
+defaultIFN = IFN (block abc) U where
     abc = ABC [Invoke (T.singleton 'i')]
-    btRel = BT { bt_rel = True, bt_aff = False }
 
 instance ToABCV IFN where 
-    toABCV ifn = B (ifn_bt ifn) (ifn_action ifn) `P` ifn_eIC ifn
+    toABCV ifn = (toABCV (ifn_block ifn)) `P` ifn_eIC ifn
 instance FromABCV IFN where
-    fromABCV (P (B bt act) eIC) = Just $ IFN act bt eIC
+    fromABCV (P (B b) eIC) = Just (IFN b eIC)
     fromABCV _ = Nothing
 
 aoiInvoker :: Text -> V -> AOI V
@@ -145,8 +143,7 @@ aoiAnno t =
 aoiInterpret :: Text -> V -> AOI (Either Error (V,V))
 aoiInterpret txt eIC = liftM tov (aoiInterpret' txt) where
     tov (Left e) = Left e
-    tov (Right abc) = Right (B bt0 abc, eIC)
-    bt0 = BT { bt_rel = False, bt_aff = False }
+    tov (Right abc) = Right (B (block abc), eIC)
 
 aoiInterpret' :: Text -> AOI (Either Error ABC)
 aoiInterpret' = either parseErr build . readAO where
@@ -255,7 +252,7 @@ newSecret = liftM toText (randomBytes 12) where
 
 -- AOI powerblock from a secret
 pb :: Text -> V
-pb secret = B (BT True True) (ABC [Invoke (T.cons '!' secret)])
+pb = B . block . ABC . (:[]) . Invoke . T.cons '!'
 
 -- load a specified dictionary, print errors and return whatever
 -- dictionary we manage to build.
@@ -346,9 +343,8 @@ debugOut = liftIO . putErrLn . show
 
 loadWord :: Text -> AOI (Maybe V)
 loadWord w =
-    let bt0 = BT { bt_rel = False, bt_aff = False } in
     aoiGetDict >>= \ dc ->
-    return (B bt0 <$> M.lookup w dc)
+    return ((B . block) <$> M.lookup w dc)
 
 getOSEnv :: Text -> IO Text
 getOSEnv = liftM tt . Env.lookupEnv . T.unpack where
@@ -506,8 +502,8 @@ aoiHklPrint = printIfTerminalUI where
     atypical env =
         HKL.outputStrLn "--(atypical environment)--" >>
         HKL.outputStrLn (show env)
-    typical (s, (h, (IsBlock (_,p), ((sn, rns), ex)))) =
-        printPower p >>
+    typical (s, (h, (p, ((sn, rns), ex)))) =
+        printPower (b_code p) >>
         printExtendedEnv ex >>
         printNamedStacks rns >>
         printHand h >>
@@ -543,13 +539,6 @@ aoiHklPrint = printIfTerminalUI where
     printExtendedEnv ex =
         HKL.outputStrLn "--(extended environment)--" >>
         HKL.outputStrLn (show ex)
-        
--- to help translate block testing 
-newtype IsBlock = IsBlock { _inBlock :: (BT,ABC) }
-instance FromABCV IsBlock where
-    fromABCV (B bt abc) = Just $ IsBlock $ (bt,abc)
-    fromABCV _ = Nothing
-
 
 -- clean up some debug info between steps
 aoiClearStepHist :: AOI ()
@@ -564,13 +553,13 @@ aoiStep txt =
     aoiClearStepHist >> 
     aoiGetIfn >>= \ ifn ->
     let vInputIC = toABCV (txt, ifn_eIC ifn) in
-    runABC aoiInvoker vInputIC (ifn_action ifn) >>= \ vParsed ->
+    runABC aoiInvoker vInputIC ((b_code . ifn_block) ifn) >>= \ vParsed ->
     case fromABCV vParsed of
-        Just (Right (B _ abcAction, eIC')) -> 
+        Just (Right (B b, eIC')) -> 
             let ifn' = ifn { ifn_eIC = eIC' } in
             aoiPutIfn ifn' >>
             aoiGetStepV >>= \ v0 ->
-            runABC aoiInvoker v0 abcAction >>= \ vf ->
+            runABC aoiInvoker v0 (b_code b) >>= \ vf ->
             aoiPutStepV vf
         Just (Left errText) -> liftIO $ 
             putErrLn ("READ ERROR: " ++ T.unpack errText) >>

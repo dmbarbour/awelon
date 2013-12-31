@@ -7,7 +7,12 @@
 -- sane types. Error messages are inadequate for complicated work.
 -- The API presented to users isn't very symmetric or elegant. 
 --
--- The reader for ABC and AMBC code are provided as Parsec parsers.
+-- There is one concession to performance, which is generic quotation
+-- of values - such that the quotation operator is cheap and does not
+-- interfere with laziness.
+--
+-- The reader for ABC code is provided as Parsec parsers. It will 
+-- handle AMBC code, too.
 --
 -- This implementation is not intended for much direct use. Rather,
 -- it is a step towards bootrapping AO, ABC, and Awelon project. This
@@ -20,14 +25,14 @@
 -- scheduling. However, it will be enough for a simplified app model.
 --
 module ABC
-    ( V(..), BT(..), ToABCV(..), toABCVL, FromABCV(..)
-    , Op(..), ABC(..)
+    ( V(..), Block(..), block, Op(..), ABC(..), inABC
+    , ToABCV(..), toABCVL, FromABCV(..)
     , runABC, runAMBC, runPureABC, runPureAMBC
     , parseABC, parseOp -- parse ABC or AMBC
     , readABC  -- parseABC on text
     , showABC  -- show ABC or AMBC
     , opCodeList, inlineOpCodeList
-    , quoteNum
+    , abcLit -- value to ABC text
     ) where
 
 import Control.Monad
@@ -58,18 +63,27 @@ data V -- ABC's structural types
     | R V        -- sum right
     | N Rational -- number
     | P V V      -- product
-    | B BT ABC   -- block
+    | B Block    -- block
     | U          -- unit
     deriving (Eq)
+data Block = Block 
+    { b_aff  :: Bool
+    , b_rel  :: Bool
+    , b_code :: ABC
+    } deriving (Eq)
 data Op
-    = Op Char  -- a normal operator
-    | BL ABC  -- block literal
-    | TL Text  -- text literal
+    = Op Char     -- a normal operator
+    | Qu V        -- quoted values and literals (e → v*e)
     | Invoke Text -- {invocation}
-    | AMBC [ABC] -- AMBC extension to ABC; must be non-empty
+    | AMBC [ABC]  -- AMBC extension, set of options
     deriving (Eq) -- structural equality
 newtype ABC = ABC [Op] deriving (Eq)
-data BT = BT { bt_rel :: Bool, bt_aff :: Bool } deriving (Eq)
+
+inABC :: ABC -> [Op]
+inABC (ABC ops) = ops
+
+block :: ABC -> Block 
+block abc = Block { b_aff = False, b_rel = False, b_code = abc }
 
 -- single character opcodes; a subset are also used by AO
 -- for inline ABC, but distinguished here to avoid redundancy
@@ -85,7 +99,8 @@ j = Just
 -- run pure operations; return Nothing if no rule applies
 -- (excludes invocation, amb, '$', and '?')
 runPureOp :: Op -> V -> Maybe V
-runPureOp (Op ' ') v = j v
+runPureOp (Qu v) e    = j (P v e)
+runPureOp (Op ' ') v  = j v
 runPureOp (Op '\n') v = j v
 runPureOp (Op 'l') (P a (P b c)) = j (P (P a b) c)
 runPureOp (Op 'r') (P (P a b) c) = j (P a (P b c))
@@ -101,28 +116,20 @@ runPureOp (Op 'V') (P s e) = j (P (L s) e)
 runPureOp (Op 'C') (P (L s) e) = j (P s e)
 runPureOp (Op '%') (P x e) | droppable x = j e
 runPureOp (Op '^') (P x e) | copyable x = j (P x (P x e))
-runPureOp (Op 'o') (P (B b1 (ABC yz)) (P (B b2 (ABC xy)) e)) = j (P b' e)
-    where b' = B bt' (ABC (xy ++ yz)) -- concatenation is composition!
-          bt' = BT { bt_aff = (bt_aff b1 || bt_aff b2)
-                   , bt_rel = (bt_rel b1 || bt_rel b2) }
-runPureOp (Op '\'') (P v e) = j (P (quote v) e)
-runPureOp (Op 'k') (P (B bt xy) e) = j (P b' e) 
-    where b' = B bt' xy
-          bt' = bt { bt_rel = True }
-runPureOp (Op 'f') (P (B bt xy) e) = j (P b' e)
-    where b' = B bt' xy
-          bt' = bt { bt_aff = True }
-runPureOp (Op '#') e = j (P (N 0) e)
-runPureOp (Op '0') (P (N x) e) = j (P (N (10*x + 0)) e)
-runPureOp (Op '1') (P (N x) e) = j (P (N (10*x + 1)) e)
-runPureOp (Op '2') (P (N x) e) = j (P (N (10*x + 2)) e)
-runPureOp (Op '3') (P (N x) e) = j (P (N (10*x + 3)) e)
-runPureOp (Op '4') (P (N x) e) = j (P (N (10*x + 4)) e)
-runPureOp (Op '5') (P (N x) e) = j (P (N (10*x + 5)) e)
-runPureOp (Op '6') (P (N x) e) = j (P (N (10*x + 6)) e)
-runPureOp (Op '7') (P (N x) e) = j (P (N (10*x + 7)) e)
-runPureOp (Op '8') (P (N x) e) = j (P (N (10*x + 8)) e)
-runPureOp (Op '9') (P (N x) e) = j (P (N (10*x + 9)) e)
+runPureOp (Op 'o') (P (B yz) (P (B xy) e)) = j (P (B xz) e)
+    where xz = Block { b_aff = aff, b_rel = rel, b_code = abc }
+          aff = b_aff xy || b_aff yz
+          rel = b_rel xy || b_rel yz
+          abc = ABC (inABC (b_code xy) ++ inABC (b_code yz))
+runPureOp (Op '\'') (P v e) = j (P (B qv) e)
+    where qv = Block { b_aff = aff, b_rel = rel, b_code = abc }
+          aff = (not . copyable) v
+          rel = (not . droppable) v
+          abc = ABC [Qu v, Op 'c']
+runPureOp (Op 'k') (P (B b) e) = j (P (B b') e) 
+    where b' = b { b_rel = True }
+runPureOp (Op 'f') (P (B b) e) = j (P (B b') e)
+    where b' = b { b_aff = True }
 runPureOp (Op '+') (P (N x) (P (N y) e)) = j (P (N (x + y)) e)
 runPureOp (Op '*') (P (N x) (P (N y) e)) = j (P (N (x * y)) e)
 runPureOp (Op '/') (P (N x) e) | (0 /= x) = j (P (N (recip x)) e)
@@ -146,9 +153,17 @@ runPureOp (Op '>') (P x (P y e)) =
         Nothing -> Nothing
         Just True -> j (P (R (P x y)) e)
         Just False -> j (P (L (P y x)) e)
-runPureOp (BL code) e = j (P (B bt0 code) e) 
-    where bt0 = BT { bt_rel = False, bt_aff = False }
-runPureOp (TL text) e = j (P (textToVal text) e)
+runPureOp (Op '#') e = j (P (N 0) e)
+runPureOp (Op '0') (P (N x) e) = j (P (N (10*x + 0)) e)
+runPureOp (Op '1') (P (N x) e) = j (P (N (10*x + 1)) e)
+runPureOp (Op '2') (P (N x) e) = j (P (N (10*x + 2)) e)
+runPureOp (Op '3') (P (N x) e) = j (P (N (10*x + 3)) e)
+runPureOp (Op '4') (P (N x) e) = j (P (N (10*x + 4)) e)
+runPureOp (Op '5') (P (N x) e) = j (P (N (10*x + 5)) e)
+runPureOp (Op '6') (P (N x) e) = j (P (N (10*x + 6)) e)
+runPureOp (Op '7') (P (N x) e) = j (P (N (10*x + 7)) e)
+runPureOp (Op '8') (P (N x) e) = j (P (N (10*x + 8)) e)
+runPureOp (Op '9') (P (N x) e) = j (P (N (10*x + 9)) e)
 runPureOp _ _ = Nothing -- no more rules!
 
 mbP :: Maybe V -> V -> Maybe V
@@ -225,13 +240,39 @@ showABC (ABC code) = T.concat $ map showOp code
 
 showOp :: Op -> Text
 showOp (Op c) = T.singleton c
-showOp (BL code) = '[' `T.cons` showABC code `T.snoc` ']'
-showOp (TL text) = '"' `T.cons` escapeLF text `T.snoc` '\n' `T.snoc` '~'
+showOp (Qu v) = abcLit v
 showOp (Invoke text) = '{' `T.cons` text `T.snoc` '}'
 showOp (AMBC opts) = 
     let opTexts = map showABC opts in
     let sepOpts = T.intercalate (T.singleton '|') opTexts in
     '(' `T.cons` sepOpts `T.snoc` ')'
+
+-- show a value as ABC code
+--   value v converted to ABC of type e → v*e
+abcLit :: V -> Text
+abcLit (N r) = T.pack $ quoteNum r
+abcLit U = T.pack "vvrwlc" -- intro1, not most efficient
+abcLit (B b) = 
+    let wk = if (b_rel b) then (`T.snoc` 'k') else id in
+    let wf = if (b_aff b) then (`T.snoc` 'f') else id in
+    let ctxt = showABC (b_code b) in
+    wf $ wk $ '[' `T.cons` ctxt `T.snoc` ']'
+abcLit (L v) = abcLit v `T.snoc` 'V'
+abcLit (R v) = abcLit v `T.append` intro0 where
+    intro0 = T.pack "VVRWLC"
+abcLit v@(P a b) =
+    case valToText v of
+        Just txt -> txtLit txt
+        Nothing -> 
+            abcLit a `T.append` abcLit b 
+            `T.snoc` 'w' `T.snoc` 'l'
+        
+
+txtLit :: Text -> Text
+txtLit = wrap . escapeLines . toLines where
+    toLines = T.splitOn (T.singleton '\n')
+    escapeLines = T.intercalate (T.pack "\n ")
+    wrap = (T.cons '"') . (`T.snoc` '~') . (`T.snoc` '\n')
 
 instance Show ABC where 
     show = T.unpack . showABC
@@ -240,18 +281,19 @@ instance Show Op where
     show op = show (ABC [op])
 
 instance Show V where 
+    -- show = T.unpack . abcLit
     show (N r) | (1 == denominator r) = show (numerator r)
     show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
     show p@(P a b) = 
         case valToText p of
-            Just txt -> show txt
+            Just txt -> (T.unpack . txtLit) txt
             Nothing -> "(" ++ show a ++ "*" ++ show b ++ ")"
     show (L a) = "(" ++ show a ++ "+_)"
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
-    show (B bt code) = "[" ++ show code ++ "]" ++ rel ++ aff
-        where rel = if bt_rel bt then "k" else ""
-              aff = if bt_aff bt then "f" else ""
+    show (B b) = "[" ++ show (b_code b) ++ "]" ++ rel ++ aff
+        where rel = if b_rel b then "k" else ""
+              aff = if b_aff b then "f" else ""
 
 valToText :: V -> Maybe Text
 valToText = fromABCV
@@ -259,14 +301,8 @@ valToText = fromABCV
 textToVal :: Text -> V
 textToVal = toABCV
 
--- add ABC's peculiar model for escaped text
---  each LF in text is followed by SP
-escapeLF :: Text -> Text
-escapeLF = T.intercalate lfsp . T.split (=='\n') 
-    where lfsp = T.pack "\n "
-
 -- can we drop this value?
-droppable (B bt _) = not (bt_rel bt)
+droppable (B b) = not (b_rel b)
 droppable (P a b) = droppable a && droppable b
 droppable (L v) = droppable v
 droppable (R v) = droppable v
@@ -274,7 +310,7 @@ droppable (N _) = True
 droppable U = True
 
 -- can we copy this value?
-copyable (B bt _) = not (bt_aff bt)
+copyable (B b) = not (b_aff b)
 copyable (P a b) = copyable a && copyable b
 copyable (L v) = copyable v
 copyable (R v) = copyable v
@@ -291,7 +327,7 @@ is_sum (L _) = True
 is_sum (R _) = True
 is_sum _ = False
 
-is_block (B _ _) = True
+is_block (B _) = True
 is_block _ = False
 
 is_number (N _) = True
@@ -300,54 +336,27 @@ is_number _ = False
 is_unit U = True
 is_unit _ = False
 
--- convert a value to a block of [1->val]
-quote :: V -> V
-quote v = B bt (ABC code) where
-    (bt,code) = quoteVal bt0 [Op 'c'] v
-    bt0 = BT { bt_rel = False, bt_aff = False }
-    -- todo: optimize and verify generated code
-
-quoteVal :: BT -> [Op] -> V -> (BT, [Op])
-quoteVal bt c U = (bt, intro1 ++ c)
-    where intro1 = [Op 'v', Op 'v', Op 'r', Op 'w', Op 'l', Op 'c']
-quoteVal bt c (L a) = quoteVal bt (Op 'V' : c) a
-quoteVal bt c (R b) = quoteVal bt (intro0 ++ c) b
-    where intro0 = [Op 'V', Op 'V', Op 'R', Op 'W', Op 'L', Op 'C']
-quoteVal bt c v@(P a b) =
-    case valToText v of
-        Just t -> (bt, TL t : c)
-        Nothing ->
-            let (btb,cb) = quoteVal bt (Op 'w' : Op 'l' : c) b in
-            quoteVal btb cb a
-quoteVal bt c (N r) = (bt, quoteNum r ++ c)
-quoteVal bt c (B btb code) = 
-    let fc = if (bt_aff btb) then (Op 'f' : c) else c in
-    let kfc = if (bt_rel btb) then (Op 'k' : fc) else fc in
-    let code' = BL code : kfc in
-    let bt' = BT { bt_rel = (bt_rel bt || bt_rel btb)
-                 , bt_aff = (bt_aff bt || bt_aff btb) } in
-    (bt',code')
-
 -- given a number, find code that generates it as a literal
-quoteNum :: Rational -> [Op]
+quoteNum :: Rational -> [Char]
 quoteNum r =
-    if (r < 0) then quoteNum (negate r) ++ [Op '-'] else
+    if (r < 0) then quoteNum (negate r) ++ "-" else
     let num = numerator r in
     let den = denominator r in
     if (1 == den) then (quoteNat [] num) else
-    if (1 == num) then (quoteNat [Op '/'] den) else
-    quoteNat (quoteNat [Op '/', Op '*'] den) num 
+    if (1 == num) then (quoteNat "/" den) else
+    quoteNat (quoteNat "/*" den) num 
 
--- build from right to left
-quoteNat :: [Op] -> Integer -> [Op]
+-- build from right to left (positive integer required)
+quoteNat :: [Char] -> Integer -> [Char]
 quoteNat code n =
-    if (0 == n) then (Op '#' : code) else
+    if (0 == n) then ('#' : code) else
     let (q,r) = n `divMod` 10 in
     quoteNat (iop r : code) q
 
-iop :: Integer -> Op 
-iop n | (0 <= n && n <= 9) = Op (toEnum (48 + fromIntegral n)) 
+iop :: Integer -> Char 
+iop n | (0 <= n && n <= 9) = (toEnum (48 + fromIntegral n)) 
       | otherwise = error "iop expects argument between 0 and 9"
+
 
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> ABC -> m V
 -- todo: consider modeling the call stacks more explicitly.
@@ -360,13 +369,13 @@ runABC invoke v0 (ABC (op:cc)) =
 -- run a single (possibly impure) ABC operation in CPS
 -- (note: `AMBC` code here will result in failure)
 runABC' :: (Monad m) => Invoker m -> ABC -> Op -> V -> m V
-runABC' invoke cc (Op '$') (P (B _ code) (P x e)) =
-    runABC invoke x code >>= \ x' ->
+runABC' invoke cc (Op '$') (P (B b) (P x e)) =
+    runABC invoke x (b_code b) >>= \ x' ->
     runABC invoke (P x' e) cc
-runABC' invoke cc (Op '?') (P (B bt code) (P (L x) e)) | not (bt_rel bt) =
-    runABC invoke x code >>= \ x' ->
+runABC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
+    runABC invoke x (b_code b) >>= \ x' ->
     runABC invoke (P (L x') e) cc
-runABC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
+runABC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runABC invoke (P (R x ) e) cc
 runABC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
@@ -393,13 +402,13 @@ runAMBC invoke v0 (ABC (op:cc)) =
         Nothing -> runAMBC' invoke (ABC cc) op v0
 
 runAMBC' :: (MonadPlus m) => Invoker m -> ABC -> Op -> V -> m V
-runAMBC' invoke cc (Op '$') (P (B _ code) (P x e)) =
-    runAMBC invoke x code >>= \ x' ->
+runAMBC' invoke cc (Op '$') (P (B b) (P x e)) =
+    runAMBC invoke x (b_code b) >>= \ x' ->
     runAMBC invoke (P x' e) cc
-runAMBC' invoke cc (Op '?') (P (B bt code) (P (L x) e)) | not (bt_rel bt) =
-    runAMBC invoke x code >>= \ x' ->
+runAMBC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
+    runAMBC invoke x (b_code b) >>= \ x' ->
     runAMBC invoke (P (L x') e) cc
-runAMBC' invoke cc (Op '?') (P (B bt _) (P (R x) e)) | not (bt_rel bt) =
+runAMBC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runAMBC invoke (P (R x ) e) cc
 runAMBC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
@@ -438,16 +447,15 @@ parseCharOp =
     return (Op c)
 
 parseBlockLit = 
-    P.char '[' >>
-    P.manyTill parseOp (P.char ']') >>= \ ops ->
-    return (BL (ABC ops))
+    P.char '[' >> P.manyTill parseOp (P.char ']') >>=
+    return . Qu . B . block . ABC
 
 parseTextLit =
     P.char '"' >>
     parseTextLine >>= \ firstLine ->
     P.manyTill contLine (P.char '~') >>= \ moreLines ->
     let finalText = T.intercalate (T.singleton '\n') (firstLine : moreLines) in 
-    return (TL finalText) 
+    return (Qu (textToVal finalText)) 
     where contLine = (P.char ' ' >> parseTextLine) P.<?> "continuing line of text"
 
 parseTextLine :: (P.Stream s m Char) => P.ParsecT s u m Text
@@ -497,6 +505,7 @@ instance ToABCV Char where toABCV = N . fromIntegral . fromEnum
 instance ToABCV ByteString where toABCV = toABCVL 8 . B.unpack
 instance ToABCV W.Word8 where toABCV = N . fromIntegral
 instance ToABCV () where toABCV () = U
+instance ToABCV Block where toABCV = B
 
 -- generate list terminated by number
 toABCVL :: (ToABCV a) => Rational -> [a] -> V
@@ -551,4 +560,8 @@ instance FromABCV W.Word8 where
 instance FromABCV () where
     fromABCV U = Just ()
     fromABCV _ = Nothing
+instance FromABCV Block where
+    fromABCV (B b) = Just b
+    fromABCV _ = Nothing
+
 
