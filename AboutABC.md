@@ -5,7 +5,7 @@ Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a str
 * **streamable** supports incremental processing; no sections or addressing
 * **securable** effects via invocation of unforgeable capability text
 * **typesafe** types can enforce many safety properties, and can be inferred
-* **tacit** no local variable or parameter names; ops appy to environment
+* **tacit** no local variable or parameter names; ops apply to environment
 * **concatenative** juxtaposition is composition; also trivial to decompose
 * **non-strict** no commitment to common evaluation orders; temporal control
 * **causally commutative** effect ordering is expressed by argument threading
