@@ -17,8 +17,8 @@ prim([A,[B,C]], l, [[A,B],C]).
 prim([[A,B],C], r, [A,[B,C]]).
 prim([A,[B,C]], w, [B,[A,C]]).
 prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
-%prim(A,v,[A,unit]).
-%prim([A,unit],c,A).
+prim(A,v,[A,unit]).
+prim([A,unit],c,A).
 
 lib(A,id,A,[]).
 
@@ -31,8 +31,15 @@ lib(A,id,A,[]).
 %lib(A, intro1, [unit,A], [v,vrwlc]). % intro1
 %lib([unit,A], elim1, A, [vrwlc,c]). % elim1
 
+wrapE_post(N) :- path([[pb,[sn,v]],unit], 
+                     [[v,unit],[unit,[pb,[[sn,unit],unit]]]], N).
+
+unwrapE_pre(N) :- path([[v,unit],[unit,[pb,[[sn,unit],unit]]]],
+                       [[pb,[sn,v]],unit], N).
+
 swapsn(N) :- path([[sn1,s],[h,[p,[[sn0,rns],e]]]],
                   [[sn0,s],[h,[p,[[sn1,rns],e]]]], N).
+swapH(N) :- path([[h1,s],[h0,e]], [[h0,s],[h1,e]], N).
 
 swapPower(N) :- path([[p1,s],[h,[p0,e]]], [[p0,s],[h,[p1,e]]], N).
 
