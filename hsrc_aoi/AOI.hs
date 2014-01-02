@@ -410,8 +410,7 @@ recoveryLoop aoi cx0 =
             putErrLn (T.unpack eTxt) >>
             -- putErrLn (show (hls_state $ aoi_step $ cx')) >>
             reportContext (aoi_frames cx') >> -- STACK TRACE, VALUE, ETC.
-            let cxClean = cx' { aoi_frames = hls_init [] } in
-            recoveryLoop aoi cxClean
+            recoveryLoop aoi cx'
 
 -- reportContext currently just prints a stack trace
 -- todo: print recent history of stacks, too. 
@@ -471,7 +470,8 @@ finiAOI =
     when bTerm $ HKL.outputStrLn "goodbye!"
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
-aoiHaskelineLoop = 
+aoiHaskelineLoop =
+    lift (aoiClearStepHist) >> 
     aoiHklPrint >>
     lift aoiGetStepCt >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
@@ -550,7 +550,6 @@ aoiClearStepHist = AOI $ \ cx ->
 -- the primary interpreter step for AOI
 aoiStep :: Text -> AOI ()
 aoiStep txt = 
-    aoiClearStepHist >> 
     aoiGetIfn >>= \ ifn ->
     let vInputIC = toABCV (txt, ifn_eIC ifn) in
     runABC aoiInvoker vInputIC ((b_code . ifn_block) ifn) >>= \ vParsed ->
