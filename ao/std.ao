@@ -1,20 +1,20 @@
 
 @doc.import.std "one big starting point for AO systems"
 
-@doc.prefix.doc
-"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc' should add documentation to the stack in a common format - typically, adding text, but other structures are feasible so long as the words that process documentation know to expect them.
+@doc.NamingConventions
+"AO makes heavy use of naming conventions. Common prefixes suggest automatic processing or type information. For example, 'doc.' indicates documentation for a word, and 'test.' indicates automatic testing in a mockup environment, and 'id.' indicates that a given expression should be equivalent to identity for all the types it accepts. Similarly, suffixes connote context. A suffix might identify a specific framework, project, or programmer.
+ 
+ Multi-part words unfortunately make AO verbose and difficult to read. 
+ 
+ The intention is to mitigate this issue in the editor. A set of rules (configurable per user or project) will translate common prefixes and suffixes into rendering with colors and styles. Also, fuzzy autocomplete mechanisms can eliminate need to fully write out large words.
 ~
 
-@doc.NamingConventions
-"The naming convention for AO places context to the right and type to the left. Example types include 'doc', 'test', and 'ioapp'. Type, in this sense, determines how the word is processed by the larger programming environment - e.g. 'test' results in automatic testing. Context provides extra information about where the word is needed or used. It may identify a project, user, DSL, framework, and so on. 
- 
- A good programming environment should replace structured suffixes or popular prefixes with style and color upon rendering. This feature improves parsimony and readability. It may also improve ability to recognize usage patterns in a zoomable view of a word's expansion. This replaces syntax highlighting, which isn't very relevant in AO.
- 
- There is a distinct naming convention for spreadsheet elements, of form `b3$foo` to indicate cell b3 in a spreadsheet called foo. The names for cells imply location in a spreadsheet.
+@doc.prefix.doc
+"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc' should add documentation in a common format, such as markdown text. If a word is too complicated to effectively document this way, consider factoring its definition into smaller pieces!
 ~
 
 @doc.StandardEnvironment
-"The required environment for AO is a pair: (s*e). Literals, such as blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea is that 's' represents the current stack, while 'e' is kept stable and represents the remainder of the environment.
+"The required environment for AO is a pair: (s*e). Literals in AO, such as blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea is that 's' represents the current stack, while 'e' is kept stable and represents the remainder of the environment.
  
  The standard environment elaborates 'e' with a structure designed for flexible workflows and dataflows, concurrency, and extensibility. The type is roughly:
  
@@ -208,11 +208,9 @@
  * copy an item from the stack into hand
  * paste an item in the hand onto the stack
  
- In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments.
+ In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments. Also, hands are hidden by some operations, such as `apply`.
  
- AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. 
- 
- Most words that apply blocks will hide the current hand. This is useful for security purposes, and also because the hand can hide loop variables and similar. 
+ AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. Some common words, such as `apply`, will hide the hand - making
 ~
 
 @take %rzlw
@@ -241,6 +239,8 @@
 @restoreHand %w restoreStack %w
 @doc.reifyHand "hand becomes single object in fresh hand"
 @doc.restoreHand "single object in hand becomes hand"
+@doc.swapHands "swap reified hand on stack with current hand"
+@swapHands %rwzwl
 
 @id.takePut take put
 @id.putTake put take
@@ -251,7 +251,6 @@
 @id.pasteDiscardTake paste discard take
 @id.reifyRestoreHand reifyHand restoreHand
 @id.take3put3 take3 put3
-
 
 @doc.MakingWithBlocks
 "A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
@@ -367,6 +366,11 @@
 @isBlock  %rBl
 @not      %rVRWLCl
 
+@doc.inR "b -- (0 + b); wrap 'b' in success, mark true"
+@doc.inL "a -- (a + 0); wrap 'a' in failure, mark false"
+@inR %rVVRWLCl
+@inL %rVl
+
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
  
@@ -403,10 +407,12 @@
 @id.introElimE introE elimE
 @id.swapE swapE swapE
 
+
 @doc.TODO
 "Much to do about AO
   * functions on lists, association lists, records
   *   binary to base64, binary to text, text to binary
+  * contraint models for staged dependency/policy/typeclass injection 
   * project euler?
   * optimizers and compilers for ABC, AMBC, and AO
   * simplified app type for quick integration with Haskell? (use plugins?)
@@ -420,12 +426,44 @@
  AO's design philosophy is actually similar to Wolfram's - that code should have easy access to vast quantities of useful, maintainable data. AO provides this access in the form of words in a very large dictionary.
 ~
 
+@doc.Loops
+"Loops in AO are modeled as words that repeatedly copy and apply a block until some halting condition is observed. Example loop words:
+ 
+ * each - apply block with each element in list
+ * repeat - inline block a given number of times
+ * while - process while condition is observed
+ 
+ These words are ultimately derived from fixpoint combinators, which are notoriously difficult to grok. Fortunately, it is not difficult to learn and use a loop word, nor to build new loop words above existing ones. Any loop variables, such as the block being applied, are hidden from the loop body (cf. `.dip`).
+ 
+ *Note:* Loops in AO are required to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
+~
+
+@doc.while1 "b [b -- (a + b)] -- a"
+@doc.until1 "a [a -- (a + b)] -- b"
+@doc.while  "(a + b) [b -- (a + b)] -- a"
+@doc.until  "(a + b) [a -- (a + b)] -- b"
+@doc.repeat "[] n --; inline block n times (for now, repeat 3 times)"
+@doc.enum   "[i --] n m --; repeat with index in range [n,m)"
+@doc.each   "a`L [a --] --; apply block to each element in list, left to right"
+@doc.map    "a`L [a -- b] -- b^L; process each element in list, left to right"
+
+@while1 swap inR swap while
+@until1 swap inL swap until
+@while [not] compose until
+@repeat drop take paste inline paste inline put inline
+@until
+
+@doc..dipCond "(a + b) c [a→d] -- (d + b) c; hides c during application"
+@.dipCond %rwrzwvrwr %? %wlcl
+
+
+
 @doc.Lists
 "Lists in AO consist of a sequence of pairs ending in a number. For example, a list of four values might have structure:
  
      (a * (b * (c * (d * N(x))))
  
- Lists are processed by asking of each element 'are you a pair?'. If so, the first item is an element in the list, and the second is the rest of the list. 
+ In type signatures, this structure might be abbreviated as a`L, for a list of a. Lists are processed by asking of each element 'are you a pair?'. If so, the first item is an element in the list, and the second is the rest of the list. 
  
  The terminating number is not part of the list, but AO makes use of small numbers to weakly indicate different types, e.g. to support rendering and optimization. A few common numbers:
  
@@ -549,7 +587,7 @@
 
 
 @doc.CompositionIsFirstPrinciple
-"Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically closed; they often combine two components into a third. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 
+"Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically or categorically closed; they combine two components into a third component. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 
  
  Composition is useful as a formal foundation for scalability and modularity. Compositional properties enable developers to reason about components without knowledge of the implementation details. Composition operators are also convenient due to their uniformity, i.e. we aren't forced to develop or learn a new language or interface for every object.
  
