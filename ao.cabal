@@ -6,17 +6,16 @@ Description:
   Awelon Object (AO) is a simple language that expands into Awelon
   Byte Code (ABC), or an ambiguous variation thereof (AMBC). AO is
   ultimately designed for Reactive Demand Programming (RDP) but is
-  suitable for procedural and functional programming. 
+  suitable for procedural and functional programming (depending on
+  the effects model, which is a parameter to the program).
   
-  An AO system is specified by a dictionary. This interpeter reads
-  a simple dictionary file format with the '.ao' extension. This
-  format is itself concatenative, patching a tacit dictionary. It
-  supports a simple model of imports.
- 
-  This Haskell program is an interpreter for a constrained subset of
-  AO. Ambiguity features are not enabled. All `.ao` files must be in
-  the same directory. This interpreter is intended for bootstrapping
-  of a proper AO implementation.
+  This project provides an 'aoi' REPL for most of AO - excluding 
+  ambiguity, and a simplified effects model. The AO_PATH environment 
+  variable determines search for '.ao' imports. If no '.ao' file is
+  provided on the command line, the 'aoi' dict is imported.
+  
+  Goal is to support bootstrap of AO compilers and development 
+  environments written in AO.
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
