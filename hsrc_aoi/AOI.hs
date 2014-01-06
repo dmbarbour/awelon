@@ -363,13 +363,17 @@ readFileT :: FS.FilePath -> IO (Maybe Text)
 readFileT = tryIO . FS.readTextFile
 
 writeFileT :: FS.FilePath -> Text -> IO (Maybe ())
-writeFileT fp txt = tryIO $ FS.writeTextFile fp txt
+writeFileT fp txt = tryIO $
+    FS.createTree (FS.directory fp) >>
+    FS.writeTextFile fp txt
  
 readFileB :: FS.FilePath -> IO (Maybe ByteString)
 readFileB = tryIO . FS.readFile
 
 writeFileB :: FS.FilePath -> ByteString -> IO (Maybe ())
-writeFileB fp bytes = tryIO $ FS.writeFile fp bytes
+writeFileB fp bytes = tryIO $
+    FS.createTree (FS.directory fp) >>
+    FS.writeFile fp bytes
 
 instance ToABCV FS.FilePath where 
     toABCV = toABCV . either id id . FS.toText 
