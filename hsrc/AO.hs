@@ -227,7 +227,9 @@ parseAction = parser P.<?> "word or primitive" where
         return ((Prim . ABC) (map Op ws))
     word = parseWord >>= return . Word
     text = (parseInlineText P.<|> parseMultiLineText) >>= return . Lit
-    number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
+    number = 
+        parseNumber >>= \ r -> 
+        expectWordSep >> return (Num r)
     aoblock = 
         P.char '[' >> 
         P.manyTill parseAction (P.char ']') >>= 
@@ -284,7 +286,7 @@ parseNumber = parser P.<?> "number" where
         parseUnsignedIntegral >>= \ n ->
         parseFragment n >>= \ r ->
         return (if bNeg then (negate r) else r)
-    parseUnsignedIntegral = zeroInt P.<|> posInt
+    parseUnsignedIntegral = (zeroInt P.<|> posInt) P.<?> "digits"
     zeroInt = P.char '0' >> return 0
     posInt = 
         P.satisfy isNZDigit >>= \ c1 ->
