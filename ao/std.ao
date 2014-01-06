@@ -28,9 +28,9 @@
    rns: record of (name*stack) pairs for workspaces and registers
    ex: unused, available for experimental extensions
  
- Remember, this isn't built into AO. It really is just a plain old value that happens to model a multi-stack programming environment, and AO could just as easily work in another environment (though it may require developing new data shuffling metaphors and vocabulary). Multiple stacks are very convenient when modeling multiple concurrent tasks and workflows. 
+ Remember, this isn't built into AO. It really is just a plain old value that happens to model a multi-stack programming environment, and AO could just as easily work in another environment (though it may require rebuilding much of the data shuffling vocabulary). Multiple stacks are very convenient when modeling multiple concurrent tasks and workflows. 
  
- Many basic stack manipulators are borrowed from Factor and FORTH. Also, operations on the stack are often documented using a simple notation for stack effects. "x y z -- y x z" means the top item on the stack (z) remains in place, and the two below it are swapped.
+ Many basic stack manipulators are borrowed from Factor and FORTH. Also, operations on the stack are often documented using a simple and succinct notation for stack effects. "x y z -- y x z" indicates that the top item on the stack (z) remains in place, and the two below it are swapped.
  
  This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
 ~
@@ -72,8 +72,6 @@
 @unroll swap %rw unrot %wl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
-
-@doc.roll{N} "synonyms for swap, rot, roll"
 @roll2 swap
 @roll3 rot
 @roll4 roll
@@ -103,9 +101,7 @@
 @id.swapPowerBlock swapPowerBlock swapPowerBlock
 
 @doc.prefix.eqv 
-"There are many cases where two different expressions should be equivalent. For example, we might want to say that `[f] map [g] map` is the same as `[f g] map`. 
- 
- Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests or provide hints for optimizers and refactoring tools. So prefix 'eqv' provides a way to suggest that two expressions should be equivalent.
+"There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests or provide hints for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two expressions should be equivalent.
  
  The type of an 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
  
@@ -295,10 +291,11 @@
  The set of application words will undoubtedly evolve with experience.
 ~
 
+@doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
+@doc.o "synonym for @compose"
+
 @compose pf %rrol
 @o compose
-@doc.lcomp "[y→z] [x→y] -- [x→z]; wrap input, or `swap compose`"
-@lcomp swap compose
 @.apply pf %rr$l
 @.dip %rwrzwvrwr %$ %wlcl
 @apply reifyHand put .dip take restoreHand
@@ -320,33 +317,43 @@
 @id.swap.compose [id] swap compose
 @id.inline.id [id] inline
 
+@doc..first "(a*b) [a→a'] -- (a'*b)"
+@doc..second "(a*b) [b→b'] -- (a*b')"
+@doc..applyP "(a*b) [a→a'] [b→b'] -- (a'*b')"
+@.first take xf put .apply pf
+@.second take pw put .first pw
+@.applyP take .first put .second
+
+@eqv.cca [.applyP] [swap take2 pw put2 .applyP pw]
+
 @doc.PrimitiveMath
 "The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
  
  More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
 ~
 
-@.multiply pf %rr*l
-@.add      pf %rr+l
-@.negate   %r-l
-@.invert   %r/l
-@.divMod   pf %rrQll xs
-@.subtract .negate .add
-@.divide   .invert .multiply
+@.mul pf %rr*l
+@.add pf %rr+l
+@.neg %r-l
+@.inv %r/l
+@.divMod pf %rrQll xs
+@.quot .divMod nip
+@.rem  .divMod drop
+@.sub .neg .add
+@.div .inv .mul
 
-@doc..multiply "N(b) N(a) -- N(a*b)"
+@doc..mul "N(b) N(a) -- N(a*b)"
 @doc..add "N(b) N(a) -- N(a+b)"
-@doc..negate "N(a) -- N(-a)"
-@doc..invert "N(a) -- N(1/a); a must be non-zero"
+@doc..neg "N(a) -- N(-a)"
+@doc..inv "N(a) -- N(1/a); a must be non-zero"
 @doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
-@doc..subtract "N(a) N(b) -- N(a-b)"
-@doc..divide "N(a) N(b) -- N(a/b)"
+@doc..sub "N(a) N(b) -- N(a-b)"
+@doc..div "N(a) N(b) -- N(a/b)"
 
-@id.mul1 1 .multiply
-@id.div1 1 .divide
+@id.mul1 1 .mul
+@id.div1 1 .div
 @id.add0 0 .add
-@id.sub0 0 .subtract
-
+@id.sub0 0 .sub
 
 @doc.ConditionalBehavior
 "Awelon expresses conditional behavior using sum types. 
@@ -366,10 +373,50 @@
 @isBlock  %rBl
 @not      %rVRWLCl
 
+@id.isPairMerge  isPair merge
+@id.isSumMerge   isSum merge
+@id.isNumMerge   isNumber merge
+@id.isBlockMerge isBlock merge
+@id.notnot       not not
+
 @doc.inR "b -- (0 + b); wrap 'b' in success, mark true"
 @doc.inL "a -- (a + 0); wrap 'a' in failure, mark false"
 @inR %rVVRWLCl
 @inL %rVl
+
+@doc.gt "a b -- ((a*b) + (b*a)); a > b?"
+@doc.lt "a b -- ((b*a) + (a*b)); a < b?"
+@doc.gte "a b -- ((a*b) + (b*a)); a >= b?"
+@doc.lte "a b -- ((b*a) + (a*b)); a =< b?"
+@gt  pf %rr>l
+@lt  swap gt
+@gte lt not
+@lte gt not
+
+@doc.compare "a b -- (((LT(a*b) + EQ(b*b)) + GT(b*a))"
+@compare gt [%vvl xs lt not %rcc] .left
+
+@doc.eq "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*b)"
+@eq compare %rRW
+
+@doc.factorp "((a*b)+(c*d)) -- (b + d) (a + c)"
+@doc.merge   "(a + a') -- a; a and a' must be future compatible"
+@doc.factor  "((a+b)+(a'+d)) -- (b+c) a"
+@factor_p %rFll xf
+@merge    %rMl
+@factor   factor_p merge
+
+@doc.distrib "(a + b) c -- ((c*a) + (c*b))"
+@distrib pf %rrDl
+
+@doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
+@doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
+@doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
+@.left pf %rr?l
+@.right take %rVWl put .left %rWCl
+@.either take .left put .right
+
+@eqv.cca+ [.either] [swap take2 not put2 .either not]
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
@@ -445,17 +492,13 @@
 @doc.repeat "[] n --; inline block n times (for now, repeat 3 times)"
 @doc.enum   "[i --] n m --; repeat with index in range [n,m)"
 @doc.each   "a`L [a --] --; apply block to each element in list, left to right"
-@doc.map    "a`L [a -- b] -- b^L; process each element in list, left to right"
+@doc.map    "a`L [a -- b] -- b`L; process each element in list, left to right"
 
 @while1 swap inR swap while
 @until1 swap inL swap until
 @while [not] compose until
 @repeat drop take paste inline paste inline put inline
 @until
-
-@doc..dipCond "(a + b) c [a→d] -- (d + b) c; hides c during application"
-@.dipCond %rwrzwvrwr %? %wlcl
-
 
 
 @doc.Lists
@@ -544,7 +587,7 @@
     put   fracOfOctet
     put   fracOfOctet
     rgb
-@fracOfOctet 1/255 .multiply
+@fracOfOctet 1/255 .mul
 @doc.fracOfOctet "divide by 255, such that numbers of range 0..255 result in a range 0 to 1 (inclusive)"
 
 @doc.color 

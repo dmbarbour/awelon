@@ -37,27 +37,33 @@ std euler
 @doc.randomBytes "count -- (list of octets); secure random source"
 @randomBytes "randomBytes" pf iomsg.aoi
 
-@doc.readFile "filename -- (1(err) + text)"
-@doc.readFile.binary "filename -- (1(err) + binary)"
-@doc.writeFile "text filename -- (1(err) + 1(ok))"
-@doc.writeFile.binary "binary filename -- (1(err) + 1(ok))"
+@doc.readFile "(io) filename -- (1(err) + text)"
+@doc.readFile.binary "(io) filename -- (1(err) + binary)"
+@doc.writeFile "(io) text filename -- (1(err) + 1(ok))"
+@doc.writeFile.binary "(io) binary filename -- (1(err) + 1(ok))"
 @readFile "readFile" pf iomsg.aoi
 @writeFile pf "writeFile" pf iomsg.aoi
 @readFile.binary "readFileB" pf iomsg.aoi
 @writeFile.binary pf "writeFileB" pf iomsg.aoi
 
-@doc.destroy "destroy will drop any input, including relevant blocks (unsafe)"
+@doc.destroy "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy "destroy" pf iomsg.aoi elim1
 
-@doc.clear "clear the current environment (except hand and powerblock)"
-@clear introE swapE destroy
+@doc.cle "(io) clear the current environment (except hand and powerblock)"
+@cle introE swapE destroy
 
-@doc.debugOut "val -- val; prints given value on stderr; returns it unchanged"
+@doc.cls "(io) clear the current stack"
+@cls reifyStack destroy
+
+@doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
 @debugOut "debugOut" pf iomsg.aoi
 
 @+ .add
-@* .multiply
-@/ .invert
-@~ .negate
-
+@* .mul
+@/ .inv
+@~ .neg
+@doc.− "This is unicode minus, U+2212. It is used for subtraction because '-' may not start a word in AO."
+@− .sub
+@doc.÷ "This is unicode division, U+F7. It is used just because."
+@÷ .div
 
