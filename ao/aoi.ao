@@ -1,9 +1,9 @@
 std euler
 
 @doc.aoi
-"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH). The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models and proper compilation.
+"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH) though a alternative root dictionary file may be specified on the command line. The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models, continuous/live updates, and proper compilation.
  
- The aoi application model is simplistic. The application starts in a standard environment that is empty except for a linear powerblock. The powerblock has type roughly `µP.[msg→(P*ans)]` where 'msg' is a (label * contents) pair. Use of `iomsg.aoi` will send an ad-hoc message to the powerblock and leave the answer on the stack. All implemented operations also have dedicated words like `readFile`.
+ The aoi application and effects model is simplistic. The application starts in a standard environment that is empty except for a linear powerblock. The powerblock has type roughly `µP.[msg→(P*ans)]` where 'msg' is a `(label * contents)` pair. Use of `iomsg.aoi` will send an ad-hoc message to the powerblock and leave the answer on the stack. However, a vocabulary of acceptable commands is also available through this aoi dictionary file.
  
  The aoi effects model is inadequate for safety, efficiency, scalability, and open system security. Because it is not safe, it also isn't compatible with ambiguity. It is not recommended in general. I would not use it even in aoi, if it were not for how trivial it is to implement as a bootstrap model.
  
@@ -36,6 +36,8 @@ std euler
 
 @doc.randomBytes "count -- (list of octets); secure random source"
 @randomBytes "randomBytes" pf iomsg.aoi
+
+@rand8 1 randomBytes xs drop
 
 @doc.readFile "(io) filename -- (1(err) + text)"
 @doc.readFile.binary "(io) filename -- (1(err) + binary)"

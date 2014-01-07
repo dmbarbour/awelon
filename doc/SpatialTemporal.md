@@ -288,5 +288,16 @@ Anyhow, sealed values greatly benefit from recognition by type systems and optim
 
 I plan to return to the issue of systematically modeling sealed values at a later time.
 
+# Thoughts (2014-01-07)
 
+Perhaps I could approach spatial coordinates in terms of 'visibility', similar to a (perhaps heirarchical) scoping model. 
 
+It seems that any spatial model is going to centre around "when can I apply a block". Perhaps the answer will be that a block may only accept parameters 'visible' from the block's scope.
+
+I still don't have a good answer for how literals will interact with temporal models, especially in context of 'expiration' for blocks. But the more I think about it, the more I believe that spatial-temporal types might be better treated as effects outside of ABC proper. 
+
+In that case, I might model delays and expirations as effects involving logical clocks. I could do this in a simplified manner: a clock delays a value to the time on the clock, if it is not already so delayed... and an expiration-clock is a specialized clock for operations on blocks (or values in general, wouldn't hurt). This way, I don't need to assign a time to literals, beyond the block or stream they are part of. 
+
+If time is modeled effectfully, then SO SHOULD BE SPACE, for symmetry reasons. This also has some nice characteristics - notably, that I'm not tying myself to any particular spatial model. 
+
+... okay! yay! I think it's settled now. Let's wait and see if it stays settled after bootstrap.

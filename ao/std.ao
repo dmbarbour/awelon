@@ -120,6 +120,7 @@
 @eqv.idempotent.linear [linear linear] [linear]
 @eqv.idempotent.affine [affine affine] [affine]
 @eqv.idempotent.relevant [relevant relevant] [relevant]
+@eqv.dupSwap [dup swap] [dup]
 
 @doc.prefix.id 
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
@@ -263,14 +264,11 @@
  Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
  
      compose :: [x→y] [y→z] -- [x→z]      (sequential)
-        'o' is synonomous with 'compose'
      .curry  :: x [(x*y)→z] -- [y→z]      (partial)
-     .first  :: [x→x'] -- [(x*e)→(x'*e)]  (concurrent)
-     .left   :: [x→x'] -- [(x+e)→(x'+e)]  (conditional)
+     .bfirst :: [x→y] -- [(x*e)→(y*e)]    (concurrent)
+     .bleft  :: [x→y] -- [(x+e)→(y+e)]    (conditional)
  
- Some readers might be familiar with the notions of 'first' and 'left' from John Hughes' arrow model, which was an important foundation for AO and RDP.
- 
- Above, I described primitive forms. The 'curry', 'first', and 'left' words must more generally be sensitive to the programming environment. (Unfortunately, I lack a good notation for effects on a multi-stack environment. I plan to rely on automatic visualization features to explain such things.)
+ Some readers might be familiar with the notions of 'first' and 'left' from John Hughes' arrow model, which was an important foundation for AO and RDP. The primitive forms of '.curry' and '.bfirst', etc.. aren't very useable in the standard environment, but derived forms will also be available. 
  
  In addition, blocks may be constructed by quotation of a value:
  
@@ -283,7 +281,7 @@
      .dip   :: (apply block to everything except top object on stack)
      apply  :: (apply block on stack to full environment, hiding current hand)
      inline :: (apply block on stack as if written inline, i.e. hand is visible)
-     dip    :: (hides hand and top items on stack)
+     dip    :: (hides hand and top item on stack)
      keep   :: copies top item on stack before apply, then replaces them.
      top    :: apply block to top stack element (fresh environment)
      applyP :: hide the powerblock in the hand during apply 
@@ -292,20 +290,18 @@
 ~
 
 @doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
-@doc.o "synonym for @compose"
 
 @compose pf %rrol
-@o compose
 @.apply pf %rr$l
 @.dip %rwrzwvrwr %$ %wlcl
 @apply reifyHand put .dip take restoreHand
 @applyP intro1 swapPowerBlock take apply put swapPowerBlock elim1
 @inline %rvr$c
 @top pf take introE swapE put swap take xf apply put swap take swapE elimE put
-@dip  take  apply put
-@dip2 take2 apply put2
-@dip3 take3 apply put3
-@dip4 take4 apply put4
+@dip   take take juggle2 put apply put
+@dip2  take pf take juggle2 put apply put xf
+@dip3  take pf pf take juggle2 put apply put xf xf
+@dip4  take pf pf pf take juggle2 put apply put xf xf xf
 @keep  take copy juggle2 put apply put
 @keep2 take pf copy xf juggle2 put apply put xf
 @keep3 take pf pf copy xf xf juggle2 put apply put xf xf
@@ -347,6 +343,8 @@
 @doc..neg "N(a) -- N(-a)"
 @doc..inv "N(a) -- N(1/a); a must be non-zero"
 @doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
+@doc..quot "just the quotient from .divMod"
+@doc..rem "just the remainder from .divMod"
 @doc..sub "N(a) N(b) -- N(a-b)"
 @doc..div "N(a) N(b) -- N(a/b)"
 
@@ -393,11 +391,12 @@
 @gte lt not
 @lte gt not
 
-@doc.compare "a b -- (((LT(a*b) + EQ(b*b)) + GT(b*a))"
-@compare gt [%vvl xs lt not %rcc] .left
-
-@doc.eq "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*b)"
-@eq compare %rRW
+@doc.compare "a b -- (((LT(a*b) + EQ(b*a)) + GT(b*a))"
+@doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a))"
+@doc.neq "a b -- (EQ(b*b) + (LT(a*b) + GT(b*a)))"
+@compare gt [%vv xs lt not %cc] .left
+@eq neq not
+@neq compare %rRWl
 
 @doc.factorp "((a*b)+(c*d)) -- (b + d) (a + c)"
 @doc.merge   "(a + a') -- a; a and a' must be future compatible"
@@ -423,12 +422,80 @@
  
      assert :: (a + b) -- b
  
- To clarify, `assert` is primarily intended for *static* analysis. It provides a means to express some preconditions, postconditions, and infer dependent types. These conditions should be accessible via partial evaluation. Developers should receive warnings if an asserted condition is unproven or errors if disproven. 
+ In addition, specialized asserts can be much easier to use. These operate as identity functions, but with a limited acceptance criteria.
+ 
+     assertPair, assertBlock, assertSum, assertNumber, assertUnit -- basic type
+     assertLT, assertLTE -- assert upper bounds for a comparable value
+     assertGT, assertGTE -- assert lower bounds for a comparable value
+ 
+ And common number assertions...
+ 
+     assertNumber, assertInteger -- assertions on number types
+     assertGTz, assertGTEz -- assert greater than or equal to zero
+     assertEQz, assertNEQz -- assert equal or not equal to zero
+     assertLTz, assertLTEz -- assert less than or equal to zero
+     assertNatural -- integer greater than or equal to zero
+     assertNatural+ -- integer greater than or equal to one
+     assertChar -- integer between 0 and 1114111 inclusive
+     assertProb -- rational number between 0 inclusive and 1 inclusive
+     assertUniform -- rational number between 0 inclusive and 1 exclusive
+ 
+ To clarify, `assert` is primarily intended for *static* analysis. It provides a means to express some preconditions, postconditions, and refinement types. These conditions should ideally be computable via partial evaluation, such that developers can receive compile time errors or warnings or errors based on whether an asserted condition is disproven or unproven.
  
  In an effectful program, some assertions may have dynamic nature. In that case, modulo use of capabilities designed to isolate failure, a dynamic assertion failure causes the whole program to be halted as quickly and cleanly as feasible.
 ~
 @assert   %rKl
 
+@assertLT   lt assert xs
+@assertLTE  lte assert xs
+@assertGT   gt assert xf
+@assertGTE  gte assert xf
+@assertEQ   eq assert xf
+@assertNEQ  neq assert [%vrwlc] .left merge xf
+
+@assertLTz  assertNumber 0 assertLT drop
+@assertLTEz assertNumber 0 assertLTE drop
+@assertGTz  assertNumber 0 assertGT drop
+@assertGTEz assertNumber 0 assertGTE drop
+@assertEQz  0 assertEQ drop
+@assertNEQz assertNumber 0 assertNEQ drop
+
+@assertPair   isPair assert
+@assertNumber isNumber assert
+@assertBlock  isBlock assert
+@assertSum    isSum assert
+@assertUnit   elim1 intro1
+
+@assertInteger  dup 1 .rem assertEQz drop
+@assertNatural  assertGTEz assertInteger
+@assertNatural+ assertGTz  assertInteger
+@assertChar     assertNatural 0x10ffff assertLTE drop
+@assertProb     assertGTEz 1 assertLTE drop
+@assertUniform  assertGTEz 1 assertLT drop
+
+@id.assertInR inR assert
+@id.assertPair assertPair
+@id.assertNumber assertNumber
+@id.assertBlock assertBlock
+@id.assertSum assertSum
+@id.assertUnit assertUnit
+@id.assertLT assertLT
+@id.assertLTE assertLTE
+@id.assertGT assertGT
+@id.assertGTE assertGTE
+@id.assertEQ assertEQ
+@id.assertNEQ assertNEQ
+@id.assertLTz assertLTz
+@id.assertGTz assertGTz
+@id.assertGTEz assertGTEz
+@id.assertLTEz assertLTEz
+@id.assertEQz assertEQz
+@id.assertInteger assertInteger
+@id.assertNatural assertNatural
+@id.assertNatural+ assertNatural+
+@id.assertChar assertChar
+@id.assertProb assertProb
+@id.assertUniform assertUniform
 
 @doc.EnvironmentManipulation
 "AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
@@ -496,7 +563,7 @@
 
 @while1 swap inR swap while
 @until1 swap inL swap until
-@while [not] compose until
+@while swap not swap [not] compose until
 @repeat drop take paste inline paste inline put inline
 @until
 

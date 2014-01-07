@@ -229,13 +229,11 @@ Each word in the AO dictionary has a global definition independent of local cont
 * opportunity for discovery, reuse, knowledge sharing
 * leads naturally towards dense namespace, terse code
 
-However, within a fresh project, framework, or DSL, we often wish to use words with minimal risk of conflict or collision. A flat namespace can be a disadvantage in this context. Developers will tend to use a prefix or suffix to distinguish the word, and this leads to increased verbosity, decreased readability.
+Flat namespaces have one great, classical and well known weakness. Risk-averse developers will tend to use long disambiguating words, i.e. including the name of the project, framework, library, or DSL. This leads to phrases such as `foo.projectQux bar.projectQux baz.projectQux` that are verbose and almost intolerable to read or write. 
 
-Fortunately, we can address this weakness in a modern programming environment. An AO editor can be configured to recognize a prefix or suffix, and replace it at render with color or style. This information may be combined with styling for type, ambiguity, and so on.
+Fortunately, we can mitigate *or even reverse* this weakness in context of a modern development environment. An AO editor can recognize common prefixes or suffixes and hide them on render, instead disambiguating by user-configurable styles and colors. Similarly, on edit, auto-complete features with fuzzy find can simplify discovery and use of long words.
 
-I believe this feature can increase readability while reducing verbosity. Dependencies, relationships, and interesting content can be highlighted while first order structure and data shuffling fade into the background. Autocomplete can also render options in colored form, and perhaps be more [sublime](http://www.sublimetext.com/) with regards to quickly reaching options. Type-driven autocomplete is also an interesting possibility in AO.
-
-Using a new prefix for each new project is okay. Do it. Refactor later.
+Developers are thus free to use a new suffix for each project or framework as a pseudo-namespace. When functionality proves to be more widely useful, it can later be refactored into a more generic space.
 
 ## Multi-Stack Environment
 
