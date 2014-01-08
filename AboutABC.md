@@ -265,7 +265,7 @@ ABC provides a simple operator for partiality, assertions, and contracts:
 
 This operator represents a form of divergence: if we're in the left, that's equivalent to a type error and we'll stop the program as quickly and cleanly as possible. Otherwise we're okay. However, ABC is not restricted to runtime detection of this error. Expressing partial functions with `K` enables ABC to infer dependent types and contracts. If `K` cannot be statically proven safe, the programming environment may issue a warning or raise an error.
 
-## ABC Assumptions
+## ABC Assumptions and Idioms
 
 This section discusses a few high level properties of ABC's design and context that cannot readily be inferred from the earlier operators or tacit concatenative streamable structure.
 
@@ -294,7 +294,7 @@ Spatial idempotence means that, if the same action is performed twice with the s
 
 ABC is designed primarily for reactive demand programming (RDP), which naturally has both spatial idempotence and causal commutativity. By requiring these properties, ABC code can be uniformly optimized without tracking usage context. 
 
-Fortunately, it is possible to achieve spatial idempotence and causal commutativity even for imperative programming. These properties can be enforced via the effects model, by careful design of capabilities. Affine or linear capabilities - representing threads or objects - renders spatial idempotence irrelevant (since you can't duplicate the expression). Causal commutativity results in minimal, promise-like synchronization with a natural DAG. If necessary, race condition indeterminism can be modeled by [oracle machine](http://en.wikipedia.org/wiki/Oracle_machine) capabilities.
+Fortunately, it is not difficult to enforce spatial idempotence and causal commutativity even for imperative programming styles. Primarily, one favors linear objects such that duplicate effects cannot be expressed and effects for each object are serialized. Where necessary, capability secure [oracle machine](http://en.wikipedia.org/wiki/Oracle_machine) idioms allow controlled expression of race conditions.
 
 Spatial idempotence and causal commutativity offer valuable properties for equational reasoning and optimizations. ABC programs can be manipulated in many ways similar to pure functions.
 
@@ -327,9 +327,9 @@ It also may give ABC a more dynamic feel, especially combined with dependently t
 
 ### Annotations as Capabilities
 
-Annotations are expressed as capability text using prefix `&` as in `{&par}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint, but not enforce any properties. Despite these limitations, annotations can be useful for many purposes:
+Annotations are expressed as capability text using prefix `&` as in `{&par}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint at performance attributes, but not enforce any properties. Despite these limitations, annotations are potentially useful for many ad-hoc purposes:
 
-* suggest blocks compute lazily
+* suggest a block compute lazily
 * suggest seq or par for potentially lazy value
 * suggest blocks be computed on GPU or FPGA
 * suggest use of memoization or caching
@@ -341,6 +341,63 @@ Annotations are expressed as capability text using prefix `&` as in `{&par}`. An
 * debugger support - breakpoints, location info, console traces
 
 When an ABC system doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Annotations may be removed when aggressively optimizing.
+
+### Spatial-Temporal Types and Capabilities
+
+ABC is designed for RDP, and RDP's design leverages a model of spatial-temporal types to support modeling of overlay networks, heterogeneous computation, and distributed systems. 
+
+A 'spatial' type is essentially a description of *where* a value is. This includes physical locations with varying precision - server, client, GPU, FPGA, specific threads. Additionally, virtual or logical locations may be modeled to simplify reasoning about interactions between subprograms, or to model staging or pipelines.
+
+A 'temporal' type is a description of *when* a value can be observed, and might be described as a rational number of seconds from program start. Temporal types are useful to control reactive feedback loops and to understand and manage latencies in distributed systems. Upper bounds - expirations - are also useful and interact in interesting ways with substructural types and as a control on distribution.
+
+Manipulations of spatial and temporal types are effectful and are performed through capabilities. Consequently, the exact model can be a matter of convention apart from ABC's definition. My current vision has the following characteristics:
+
+1. Adding two numbers, comparing two values, etc. typically requires they coexist in space-time. Some delay for adding or comparing numbers may be implicit, but movement is generally explicit. 
+2. Distribution of values (operator `D`) across a sum type are often constrained based on where the values are located or where the sum type may be observed. Conversely, location may contribute to compatibility of values on merge (operator `M`).
+3. Temporal manipulations use a monotonic 'temporal cursor' metaphor. This cursor is a non-linear capability that may be advanced incrementally then applied to various values, delaying them or dooming them to expire. There may also be a method to synchronize cursors.
+4. Spatial manipulations are specific and absolute, i.e. representing specific edges in a directed connectivity graph, not just 'goto location'. They may also be restricted on temporal coordinate. Constraints on connectivity are useful for staging, security, and modeling complex physical systems.
+5. Capabilities to manipulate spatial-temporal attributes are separate from capabilities to observe/introspect the same. This restriction on information is useful for security and portability reasons.
+
+The intention is that these capabilities are distributed *statically*, i.e. using partial evaluation or a staged model, such that the spatial-temporal information is available at compile-time. Also, while spatial-temporal types and capabilities are intended primarily for RDP, I expect they would be useful for imperative programming.
+
+*NOTE:* Spatial manipulations in distributed systems must admit the possibility of non-deterministic disruption. In many cases, it is useful to model a 'connection' or channel in order to better control how partial failures are observed. Appropriate protocols may be enforced by substructural types.
+
+*NOTE:* Physical resources are almost always location specific, and must be manipulated from the right location. Accessing the location can potentially be conflated with acquisition of the resource. 
+
+### Uniqueness Types and Capabilities
+
+Modeling creation of 'new' or 'unique' values requires special consideration in ABC. Due to spatial idempotence, two equivalent requests for a 'new' value must return the same result. Consequently, it is necessary to ensure that each request for a unique value is a unique request.
+
+Linear and affine types are useful in this endeavor. ABC systems can model a 'uniqueness source' - a unique capability that generates unique values on demand. While a uniqueness source cannot be copied (because it would no longer be unique!), it may be *forked* such that there are now two unique uniqueness sources. An operation to construct a unique value will consume the uniqueness source, so it becomes necessary to iterate between forking and construction. 
+
+New unique constructs will typically be one of:
+
+* a unique secure pseduo-random number generator
+* a unique sealer/unsealer pair (see Sealed Values, below)
+* exclusive capabilities to access a state resource
+
+Exclusive state capabilities correspond to conventional allocations, e.g. to `newIORef` in Haskell. For some state models (specifically, those that also respect *causal commutativity*, though this excludes most imperative state models) it may be permissible to share access to the state after obtaining the initially exclusive capabilities. 
+
+In many contexts - live programming, orthogonal persistence, open systems - it is useful to ensure *stability* of unique values. 
+
+Stability is readily achieved using a filepath/URL metaphor: when 'forking' a uniqueness source, we provide a unique identifier for the child. Uniqueness is then made commutative with regards to the construction of children, such that may reorganize the application without upsetting stable identity. Each child has a fresh namespace, so there is no risk of accidental interference between subprogram and superprogram. 
+
+### Value Sealing Types and Capabilities
+
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of these values is extremely constrained, informally:
+
+        {sealer u} :: a → Sealed u a
+        {unsealer u} :: Sealed u a → a
+
+Basic data plumbing features are available on a sealed value, i.e. inheriting from `a` with respect to operators `^%'D`. Other than that, the only operation on a sealed value is to unseal it with the corresponding unsealer. 
+
+Value sealing is useful for:
+
+* representation independence and implementation hiding 
+* enforce parametricity for distrusted data plumbing frameworks
+* integrity, confidentiality, authentication, rights amplification
+
+The actual implementation of sealed values can be very simple and efficient, and is potentially eliminated at compile-time. In some contexts - open distributed systems where a sealed value is temporarily hosted at a location that lacks the sealer - value sealing may also result in to automatic encryption at the sealed value granularity, orthogonal to the network layer.
 
 ### Capabilities for Structure Sharing and Separate Compilation
 
