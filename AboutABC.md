@@ -348,7 +348,7 @@ ABC is designed for RDP, and RDP's design leverages a model of spatial-temporal 
 
 A 'spatial' type is essentially a description of *where* a value is. This includes physical locations with varying precision - server, client, GPU, FPGA, specific threads. Additionally, virtual or logical locations may be modeled to simplify reasoning about interactions between subprograms, or to model staging or pipelines.
 
-A 'temporal' type is a description of *when* a value can be observed, and might be described as a rational number of seconds from program start. Temporal types are useful to control reactive feedback loops and to understand and manage latencies in distributed systems. Upper bounds - expirations - are also useful and interact in interesting ways with substructural types and as a control on distribution.
+A 'temporal' type is a description of *when* a value can be observed, and might be described as a rational number of seconds from program start. Temporal types are useful to control reactive feedback loops and to understand and manage latencies in distributed systems. Upper bounds - expirations - are also useful. They help model timeout protocols, control distribution, and interact in interesting ways with substructural types.
 
 Manipulations of spatial and temporal types are effectful and are performed through capabilities. Consequently, the exact model can be a matter of convention apart from ABC's definition. My current vision has the following characteristics:
 
@@ -372,32 +372,34 @@ Linear and affine types are useful in this endeavor. ABC systems can model a 'un
 
 New unique constructs will typically be one of:
 
-* a unique secure pseduo-random number generator
-* a unique sealer/unsealer pair (see Sealed Values, below)
+* a sealer/unsealer pair (see Value Sealing, below)
 * exclusive capabilities to access a state resource
+* a cryptographically secure pseduo-random number generator 
 
 Exclusive state capabilities correspond to conventional allocations, e.g. to `newIORef` in Haskell. For some state models (specifically, those that also respect *causal commutativity*, though this excludes most imperative state models) it may be permissible to share access to the state after obtaining the initially exclusive capabilities. 
 
 In many contexts - live programming, orthogonal persistence, open systems - it is useful to ensure *stability* of unique values. 
 
-Stability is readily achieved using a filepath/URL metaphor: when 'forking' a uniqueness source, we provide a unique identifier for the child. Uniqueness is then made commutative with regards to the construction of children, such that may reorganize the application without upsetting stable identity. Each child has a fresh namespace, so there is no risk of accidental interference between subprogram and superprogram. 
+Stability is readily achieved using a filepath/URL metaphor: when 'forking' a uniqueness source, we provide an identifier for the child that is unique within the parent. The order children are constructed does not affect identity. If used with a little discipline, significant restructuring of the source code becomes feasible without damaging persistence or relationships based on identity.
 
 ### Value Sealing Types and Capabilities
 
-Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of these values is extremely constrained, informally:
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of these values is extremely constrained. Informally:
 
         {sealer u} :: a → Sealed u a
         {unsealer u} :: Sealed u a → a
 
-Basic data plumbing features are available on a sealed value, i.e. inheriting from `a` with respect to operators `^%'D`. Other than that, the only operation on a sealed value is to unseal it with the corresponding unsealer. 
+Basic data plumbing features are available on the whole sealed value. For example, it inherits from `a` with regards to copy, drop, quotation, and distribution. However, to observe or modify a sealed value requires first unsealing it with the corresponding unsealer.
 
-Value sealing is useful for:
+Thus, it becomes simple to reason about sealed values by reasoning about distribution of unsealers. Value sealing is useful for:
 
 * representation independence and implementation hiding 
 * enforce parametricity for distrusted data plumbing frameworks
 * integrity, confidentiality, authentication, rights amplification
 
-The actual implementation of sealed values can be very simple and efficient, and is potentially eliminated at compile-time. In some contexts - open distributed systems where a sealed value is temporarily hosted at a location that lacks the sealer - value sealing may also result in to automatic encryption at the sealed value granularity, orthogonal to the network layer.
+and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
+
+The actual implementation of sealed values can be very simple and efficient, and may even be eliminated at compile-time (in some contexts). In some contexts - open distributed systems where a sealed value is temporarily hosted at a location that lacks the sealer - value sealing may also result in to automatic encryption at the sealed value granularity, orthogonal to the network layer.
 
 ### Capabilities for Structure Sharing and Separate Compilation
 
@@ -407,31 +409,35 @@ An alternative to repeating code is to name it. Then we can reuse large code by 
 
 ABC leverages its effects model to access these `{#secureHash}` sources. 
 
-Here, 'secureHash' will be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; typesafe), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
+Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; compute a type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
 
-To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required. Frequently used sources can be cached in precompiled form for performance. Thus, `{#secureHash}` sources serve as a foundation for separate compilation and linking in ABC. It works even for secure, streamable code.
+To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required. 
 
-Long term, I envision that global libraries of highly widely used sources will be developed and highly refined, such that there is much benefit to developing in terms of these higher level components, or using them for automatic factoring and compression of independent ABC code.
+Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. This works even in context of secure, streamable code.
 
 ## Awelon Bytecode Deflated (ABCD)
 
 I plan to develop a larger bytecode above ABC: ABC Deflated, or ABCD.
 
-ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, widely used sequences. ABC streams may then be compressed against this dictionary. But compression isn't the only desired characteristic for symbols in this dictionary: a carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, or operators for linear algebras and matrix manipulation.
+ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, correct, widely used sequences of ABC. ABC streams may then be compressed against this dictionary. But compression isn't the only desired characteristic.
 
-Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I imagine ABCD will never grow much beyond 1600 functions. Initial ABCD operators will be in the two octet range, which has almost 2000 elements. 
+A carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, and operators for linear algebras and matrix manipulation.
 
-ABCD is intended to be used together with `{#secureHash}` sources. These techniques won't overlap much. ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, data and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced.
+Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will never grow much beyond the two-octet UTF-8 space. 
 
-Between these features, ABC can be minimal without concern for performance or parsimony.
+ABCD is intended to be used together with `{#secureHash}` sources. 
 
-*NOTE:* Byte-stream compression below ABC is also feasible, e.g. using LZHAM (an algorithm with competitive compression and very fast decompression). This might effectively support stream-local patterns that ABCD and secure hash sources don't effectively address.
+ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced.
+
+Between these two features, ABC can be minimal without concern for performance or parsimony.
+
+*NOTE:* Byte-stream compression below ABC is also feasible at the transport and storage layers, and can mitigate slow development and adoption of the other techniques. I am contemplating [LZHAM](https://code.google.com/p/lzham/) for this purpose.
 
 ## Ambiguous Awelon Bytecode (AMBC)
 
 Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. 
 
-Essentially, ABC is extended with `(|)` characters, which operate exactly as they do in AO. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). In some contexts, ambiguity can become an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. However, ambiguity must be used with caution: it can be difficult to reason about and expensive to resolve. 
+Essentially, ABC is extended with `(|)` characters, which operate exactly as they do in AO. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). In some contexts, ambiguity can become an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. However, ambiguity must be used with caution: it can be difficult to reason about and expensive to resolve.
 
 In most use-cases, ambiguity should be resolved statically. Relevantly, if a block containing ambiguous code is copied, both copies should use the same meaning.
 
