@@ -18,10 +18,10 @@ Why not UIDs?
 
 The main issue I have with UIDs is the restriction to equality comparisons. 
 
-With this restriction, I must either provide a primitive `=` operator... or ensure a stable comparison between UIDs, which means I'll be computing their value anyway. The latter would make the UID concept quite pointless from a formal reasoning standpoint.
+Without this restriction, I must be deeply concerned with stability of UID comparisons, and the UIDs will carry information beyond identity (introducing risk of covert channels), and ordering is effectively non-deterministic (as far as the subprogram using the UIDs is concerned) which introduces its own challenges for testing and reasoning.
 
-I'm reluctant to provide the `=` operator for UIDs essentially because `=` based search is limited to linear structure, and I can't be smarter about it without losing determinism (in this case, deterministic orderings when serializing structure). 
+With the equality restriction, I must provide a primitive `=` operator and encourage linear-search behaviors. In this case, the ordering in a list will be 'deterministic', but will not be stable to reorganization of the application software (i.e. because insert order cannot commute). Further, a 'sufficiently smart compiler' cannot replace the linear search structure with a smart alternative because I end up preserving ordering information that isn't essential.
 
-With `>` I make `=` the path of greater resistance and push developers towards linear sorted structures. This is useful in context of a smart compiler because I can deterministically recover a linear sorted structure from a 'smart' native structure; alternatively, I might adjust code to directly model 'smart' sorted structures, and inject sequencing where needed. 
+If I can recognize sorted inserts and removals, and otherwise don't operate on the list, I presumably could recognize this pattern and replace it with a hashtable or similar. When necessary, I could recover the original sorted form. Ultimately it's taking advantage of simple, formal concepts like "information about insert order is lost". In lieu of a 'smart' compiler, this would be feasible with a 'dumb' compiler plus a few annotations.
 
-LSTs - linear sorted structures... and compiler awareness. Could be a powerful combo. By comparison, UIDs - which are really only usable as keys - seem much less useful.
+Linear sorted structures and compiler awareness... could be a powerful combo. By comparison, UIDs - which are really only usable as keys - seem much less useful in the broad range of contexts.
