@@ -1,8 +1,16 @@
 (Extracted from section on Unique Types in AboutABC)
 
+**Attempt 1:**
+
 * a conceptually unique UID
 
 By 'conceptually unique' I mean that the type system and developers can treat it as unique with respect to most reasoning purposes. A conceptually unique UID might only be cryptographically unique when serialized, i.e. using some construction like `"uniqueTextGoesHere\n~[{asUID}]$`. Valid operations on a UID include copy, drop, quotation, and equality comparison. 
+
+**Attempt 2:**
+
+* a conceptually and cryptographically unique identifier (UID) 
+
+A UID is essentially a large, securely random string such that the global probability of collision is negligible - e.g. encoding 192 bits. However, the value comes wrapped in an opaque UID type, such that the type system may be aware of its unforgeable, unique status.
 
 
 Why not UIDs?
