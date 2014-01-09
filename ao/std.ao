@@ -575,13 +575,13 @@
  
  In type signatures, this structure might be abbreviated as a`L, for a list of a. Lists are processed by asking of each element 'are you a pair?'. If so, the first item is an element in the list, and the second is the rest of the list. 
  
- The terminating number is not part of the list, but AO makes use of small numbers to weakly indicate different types, e.g. to support rendering and optimization. A few common numbers:
+ The terminating number is not part of the list, but a convention of AO is to make use of small numbers to weakly indicate different types, e.g. to support rendering and optimization. A few common numbers:
  
      0: generic list terminator
      3: text (list of integers between 0 and 0x10ffff)
      8: binary (list of integers between 0 and 255)
  
- Relevantly, ending with a different number does impact comparison functions, and asserting on the number might be useful with sufficiently precise static analysis.
+ Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents, but it is generally a bad idea to observe a terminal to decide type (though it might be a useful heuristic for rendering values in external debuggers or REPL loops).
  
  Lists can be used for simple maps and fold operations.
  
