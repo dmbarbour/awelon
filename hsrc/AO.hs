@@ -373,10 +373,10 @@ isInlineTextChar c = not ('"' == c || '\n' == c)
 -- obtain unique, canonicalized AO_PATHs
 getAO_PATH :: IO [FS.FilePath]
 getAO_PATH = 
-    Env.lookupEnv "AO_PATH" >>= \ aop ->
+    Err.tryIOError (Env.getEnv "AO_PATH") >>= \ aop ->
     case aop of
-        Nothing -> FS.getWorkingDirectory >>= return . (:[])
-        Just str ->
+        Left _ -> FS.getWorkingDirectory >>= return . (:[])
+        Right str ->
             let paths = splitPath str in
             mapM (Err.tryIOError . FS.canonicalizePath) paths >>= \ cps ->
             filterM FS.isDirectory (L.nub $ rights cps)

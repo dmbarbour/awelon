@@ -347,8 +347,8 @@ loadWord w =
     return ((B . block) <$> M.lookup w dc)
 
 getOSEnv :: Text -> IO Text
-getOSEnv = liftM tt . Env.lookupEnv . T.unpack where
-    tt = maybe T.empty T.pack
+getOSEnv = liftM tt . Err.tryIOError . Env.getEnv . T.unpack where
+    tt = either (const T.empty) T.pack
 
 -- tryIO returns error condition inline, but only as a minimal
 -- (1 + result). 
