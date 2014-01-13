@@ -438,11 +438,8 @@ reportContext hls = stackTrace >> histTrace where
         let removed = L.filter (`L.notElem` sNew) sPrev in
         (sNew, (added, removed))
     showStackDiff (lAdd, lRem) = 
-        showDiff "- " lRem >> 
-        showDiff "+ " (L.reverse lAdd) 
-    showDiff _ [] = return ()
-    showDiff s xs = putStrLn . (s ++) . T.unpack . T.unwords $ xs
-
+        mapM_ putStrLn (L.map (("- " ++) . T.unpack) lRem) >>
+        mapM_ putStrLn (L.map (("+ " ++) . T.unpack) (L.reverse lAdd))
 
 dictCompletions :: DictC -> String -> [HKL.Completion]
 dictCompletions _ [] = []
