@@ -435,13 +435,15 @@ Between these two features, ABC can be minimal without concern for performance o
 
 ## Ambiguous Awelon Bytecode (AMBC)
 
-Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. 
+Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. AMBC serves primarily as an intermediate language for AO.
 
-Essentially, ABC is extended with `(|)` characters, which operate exactly as they do in AO. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). In some contexts, ambiguity can become an asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. However, ambiguity must be used with caution: it can be difficult to reason about and expensive to resolve.
+AMBC extends ABC with with `(|)` characters, which represents a choice of subprograms separated by the `|` bar. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). The resolution of this ambiguous meaning is not deterministic, but is constrained by typeful context (i.e. meanings with obvious errors should be eliminated) and may further be guided by heuristics (i.e. weighted preferences or probabilities via annotations). 
 
-In most use-cases, ambiguity should be resolved statically. Relevantly, if a block containing ambiguous code is copied, both copies should use the same meaning.
+Ambiguity is a potential asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. Developers can represent a very *space* of programs or data structures in a small volume of code, and may further implicitly constrain this space by use of types and assertions. This space can feasibly be explored by a number of mechanisms - i.e. satisfiability solvers, genetic programming, iterative hill climbing. 
 
-The resolution of ambiguity is not deterministic, but is constrained by typeful context and guided by heuristics. The space of possible meanings is finite but potentially intractable. There are useful techniques for searching large spaces: hill climbing, repeated local search, genetic programming, etc.. AMBC never guarantees an 'optimal' choice of program, but should choose well enough if the heuristics are good and valid solutions are easy to find. In a live coding scenario, we might heuristically value 'stable' solutions that are similar to prior solutions.
+There is a tradeoff. Resolution is expensive. It is difficult to correctly resolve effectful meanings in a streaming context. 
 
-AMBC is unsuitable for streaming, but can be used with ABCD or `{#secureHash}` sources.
+These weaknesses can be mitigated. In a typical AO context, resolution is at compile-time, and thus search can become a dialog with the developer. A good IDE can expose active choices to the developer and encourage refactoring of stable subprograms into non-ambiguous components. Average expense could be further reduced by application of machine learning to efficiently identify good meanings in context. In a streaming context, one might resolve for a group of paragraphs at a time, or favor an effects model that delays commitment.
+
+AMBC can be used together with ABCD or `{#secureHash}` sources.
 
