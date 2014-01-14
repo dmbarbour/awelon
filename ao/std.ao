@@ -1,5 +1,5 @@
 
-@doc.import.std "one big starting point for AO systems"
+@doc.import.std "viable starting point for AO dictionaries"
 
 @doc.NamingConventions
 "AO makes heavy use of naming conventions. Common prefixes suggest automatic processing or type information. For example, 'doc.' indicates documentation for a word, and 'test.' indicates automatic testing in a mockup environment, and 'id.' indicates that a given expression should be equivalent to identity for all the types it accepts. Similarly, suffixes connote context. A suffix might identify a specific framework, project, or programmer.
@@ -86,6 +86,9 @@
 @xs pw xf
 @pf %rwrzwll
 @ps pf pw
+
+@doc..swap "(x*y)→(y*x); primitive swap"
+@.swap %vrwlc
 
 @doc.swapStackName "text -- text; replace name for current stack"
 @doc.setStackName "text -- ; set name for the current stack"
@@ -282,13 +285,11 @@
  
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
-     .apply :: x [x→y] -- y (apply block to just top object on stack)
-     .dip   :: (apply block to everything except top object on stack)
-     apply  :: (apply block on stack to full environment, hiding current hand)
-     inline :: (apply block on stack as if written inline, i.e. hand is visible)
-     dip    :: (hides hand and top item on stack)
-     keep   :: copies top item on stack before apply, then replaces them.
-     applyP :: hide the powerblock in the hand during apply 
+     .apply :: x [x→y] -- y ; apply block to just top object on stack
+     dip    :: h [] -- ; apply block to all except top element on stack
+     apply  :: [] -- ; apply block hiding current hand
+     inline :: [] -- ; apply block as if inline (hand is visible)
+     keep   :: x [x -- y] -- y x; copies element on stack
  
  The set of application words will undoubtedly evolve with experience.
 ~
@@ -299,21 +300,19 @@
 @compose pf %rrol
 @composel swap compose
 @.apply pf %rr$l
-@.dip %rwrzwvrwr %$ %wlcl
-@apply reifyHand put .dip take restoreHand
-@applyP intro1 swapPowerBlock take apply put swapPowerBlock elim1
+@dip %rwrzvrwr$wlcl
+@apply reifyHand putd dip take restoreHand
 @inline %rvr$c
-@dip   take take juggle2 put apply put
-@dip2  take pf take juggle2 put apply put xf
-@dip3  take pf pf take juggle2 put apply put xf xf
-@dip4  take pf pf pf take juggle2 put apply put xf xf xf
-@keep  take copy juggle2 put apply put
-@keep2 take pf copy xf juggle2 put apply put xf
-@keep3 take pf pf copy xf xf juggle2 put apply put xf xf
-@keep4 take pf pf pf copy xf xf xf juggle2 put apply put xf xf xf
+@keep dupd dip
+
+@dip2 take pf put dip xf
+@dip3 take pf pf put dip xf xf
+@dip4 take pf pf pf put dip xf xf xf
+@keep2 take dup2 put dip2
+@keep3 take dup3 put dip3
+@keep4 take dup4 put dip4
 
 @id.apply.id [id] apply
-@id.applyP.id [id] applyP
 @id.compose [id] compose
 @id.swap.compose [id] swap compose
 @id.inline.id [id] inline
@@ -376,6 +375,9 @@
 @isBlock  %rBl
 @not      %rVRWLCl
 
+@doc..mirror "(a+b)→(b+a)"
+@.mirror %VRWLC
+
 @id.isPairMerge  isPair merge
 @id.isSumMerge   isSum merge
 @id.isNumMerge   isNumber merge
@@ -422,28 +424,56 @@
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
 
-@doc..distribE
-"Distribute the environment minus the top element on the stack, using the condition expressed in the second item on the stack. This doesn't require a standard environment, beyond the current stack:
+@doc..dipDistribE
+"Distribute the environment across the condition expressed in the second item on the stack, holding only the item on the top of the stack. This doesn't require a standard environment:
  
-    (k*((a+b)*s)*e→(((a*s)*e)+((b*s)*e))*k
+    (k*((a+b)*s)*e → (((a*s)*e)+((b*s)*e))*(k*1)
  
- Note: this operation is not entirely parametric in context of spatial-temporal types. Relevantly, we cannot always distribute an observed condition (+) to a remote or heterogeneous partition.
+ Note: this operation is not entirely parametric in context of spatial-temporal types. It must be possible to observe the (+) condition across all values in s,e. 
 ~
-@.distribE 
-   %rvrwlc    "(((a+b)*s)*e)*k" drop
-   %rrwzlD    "(s*e)*((a+b)*k)" drop
-   %D         "(((s*e)*a)+((s*e)*b))*k" drop
-   [%vrwlcl] %r? %VRWLC
-   [%vrwlcl] %r? %VRWLC
+@.dipDistribE
+ %rvrw
+ %rrwzl
+ %D
+ [.swap %l] %r? .mirror
+ [.swap %l] %r? .mirror
    
+@doc..dipFactorE "reverses @.dipDistribE"
+@.dipFactorE 
+ [%r] %r? .mirror
+ [%r] %r? .mirror
+ %FwMwlwlcll xf
+
+@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); see @.dipDistribE"
+@.distribE
+ %rvrw
+ %D
+ [.swap %l] %r? .mirror
+ [.swap %l] %r? .mirror
+ %c
+
 @doc..factorE "reverses @.distribE"
+@.factorE
+ %v
+ [%r] %r? .mirror
+ [%r] %r? .mirror
+ %FwMwlcl
 
 @doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
 @doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
+@doc.eitherE "(a+b) [a -- a'] [b -- b'] -- (a'+b'); with full env"
 
-@leftE 
-pf reifyHand put swap take @TODO
+@leftE .dipDistribE %w?c .factorE
 @rightE take not put leftE not
+@eitherE
+ ps
+ .dipDistribE 
+ %wrz?
+ .mirror
+ %w?
+ .mirror
+ %c
+ .factorE
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
@@ -580,9 +610,9 @@ pf reifyHand put swap take @TODO
  *Note:* Loops in AO are required to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
 ~
 
-@doc..until "[a→b]*((a+b)*e)→(b*e)"
-@doc..map.list  "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
-@doc..each.list "[(a*e)→b']*(a`L*e)→e'"
+@doc..until "[a→(a+b)]*((a+b)*e)→(b*e)"
+@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
+@doc..each  "[(a*e)→b']*(a`L*e)→e'"
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
@@ -597,7 +627,7 @@ pf reifyHand put swap take @TODO
 @until1 swap inL swap until
 @while swap not swap [not] compose until
 @repeat drop take paste inline paste inline put inline
-@until
+@until .dipDistribE %w .until % 
 
 
 @doc.Lists

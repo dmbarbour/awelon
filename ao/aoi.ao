@@ -1,4 +1,5 @@
 std euler
+@doc.import.aoi "default import by aoi interpreter; see @doc.aoi"
 
 @doc.aoi
 "aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH) though a alternative root dictionary file may be specified on the command line. The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models, continuous/live updates, and proper compilation.

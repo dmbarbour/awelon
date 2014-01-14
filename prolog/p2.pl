@@ -37,6 +37,9 @@ wrapE_post(N) :- path([[pb,[sn,v]],unit],
 unwrapE_pre(N) :- path([[v,unit],[unit,[pb,[[sn,unit],unit]]]],
                        [[pb,[sn,v]],unit], N).
 
+dip_pre(N) :- path([[f,[x,s]],e],[f,[[s,e],[x,unit]]], N).
+dip_post(N) :- path([[s,e],[x,unit]],[[x,s],e], N).
+
 swapsn(N) :- path([[sn1,s],[h,[p,[[sn0,rns],e]]]],
                   [[sn0,s],[h,[p,[[sn1,rns],e]]]], N).
 swapH(N) :- path([[h1,s],[h0,e]], [[h0,s],[h1,e]], N).
