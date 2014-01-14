@@ -14,9 +14,9 @@
 ~
 
 @doc.StandardEnvironment
-"The required environment for AO is a pair: (s*e). Literals in AO, such as blocks, numbers, and text, are of type `(s*e) → ((L*s)*e)`. The idea is that 's' represents the current stack, while 'e' is kept stable and represents the remainder of the environment.
+"AO is not a stack-based programming language. One might better call it pair-based, but even that is somewhat misleading. AO is value-based. The value involved may be composed from six basic structural types: product (pair), sum, unit, void, number, and block (function). AO words will analyze and manipulate this tacit value.
  
- The standard environment elaborates 'e' with a structure designed for flexible workflows and dataflows, concurrency, and extensibility. The type is roughly:
+ However, by convention, the tacit value will model a stack-based programming environment plus extensibility features. Literals in AO have form `"foo" :: (s*e)→((Text*s)*e)`, effectively treating `s` as an implicit stack and `e` as a stable environment. The standard environment elaborates 'e' with structure for flexible workflows and dataflows, concurrency, and extensibility. Standard data shuffling words are designed assuming the standard environment. The type is roughly:
  
      (s * (h * (p * ((sn * rns) * ex))))
  
@@ -26,11 +26,11 @@
    p: a powerblock, to observe or influence real world
    sn: name of current stack, used when switching stacks
    rns: record of (name*stack) pairs for workspaces and registers
-   ex: unused, available for experimental extensions
+   ex: unused; available for experimental extensions
  
- Remember, this isn't built into AO. It really is just a plain old value that happens to model a multi-stack programming environment, and AO could just as easily work in another environment (though it may require rebuilding much of the data shuffling vocabulary). Multiple stacks are very convenient when modeling multiple concurrent tasks and workflows. 
+ As mentioned above, `s` is the primary active stack. That's where all stack shufflers apply, where all math is performed. However, AO is unlike most other stack-based languages, e.g. with respect to its capability-based effects and causal commutativity. As a consequence of these differences, AO can be very implicitly concurrent - i.e. by modeling different computations on different stacks. Non-deterministic concurrency can also be modeled, using oracle machine idioms.
  
- Many basic stack manipulators are borrowed from Factor and FORTH. Also, operations on the stack are often documented using a simple and succinct notation for stack effects. "x y z -- y x z" indicates that the top item on the stack (z) remains in place, and the two below it are swapped.
+ Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes. AO does not have any built-in support for type description, beyond assertions and merges.
  
  This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
 ~
@@ -198,7 +198,7 @@
  
  Developers can:
  
- * take top item from stack into hand
+ * take item from stack into hand
  * put top item from hand onto stack
  * juggle (rotate) a few items
  * discard a value from the hand
@@ -226,11 +226,16 @@
 @juggle3 %w roll3 %w
 @juggle4 %w roll4 %w
 
+@taked swap take
+@putd put swap
+
 @doc.take "move value at top of stack to top of hand"
 @doc.put "move value at top of hand to top of stack"
 @doc.discard "drop and destroy value in hand"
 @doc.copy "copy object from top of stack into hand (copy/paste metaphor)"
 @doc.paste "paste object from hand onto top of stack (copy/paste metaphor)"
+@doc.taked "take second item from stack"
+@doc.putd "put below first item on stack"
 
 @reifyHand %w reifyStack %w
 @restoreHand %w restoreStack %w
@@ -283,21 +288,21 @@
      inline :: (apply block on stack as if written inline, i.e. hand is visible)
      dip    :: (hides hand and top item on stack)
      keep   :: copies top item on stack before apply, then replaces them.
-     top    :: apply block to top stack element (fresh environment)
      applyP :: hide the powerblock in the hand during apply 
  
  The set of application words will undoubtedly evolve with experience.
 ~
 
 @doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
+@doc.composel "[y→z] [x→y] -- [x→z]; compose on left"
 
 @compose pf %rrol
+@composel swap compose
 @.apply pf %rr$l
 @.dip %rwrzwvrwr %$ %wlcl
 @apply reifyHand put .dip take restoreHand
 @applyP intro1 swapPowerBlock take apply put swapPowerBlock elim1
 @inline %rvr$c
-@top pf take introE swapE put swap take xf apply put swap take swapE elimE put
 @dip   take take juggle2 put apply put
 @dip2  take pf take juggle2 put apply put xf
 @dip3  take pf pf take juggle2 put apply put xf xf
@@ -412,10 +417,33 @@
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
 @doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
 @.left pf %rr?l
-@.right take %rVWl put .left %rWCl
+@.right take not put .left not
 @.either take .left put .right
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
+
+@doc..distribE
+"Distribute the environment minus the top element on the stack, using the condition expressed in the second item on the stack. This doesn't require a standard environment, beyond the current stack:
+ 
+    (k*((a+b)*s)*e→(((a*s)*e)+((b*s)*e))*k
+ 
+ Note: this operation is not entirely parametric in context of spatial-temporal types. Relevantly, we cannot always distribute an observed condition (+) to a remote or heterogeneous partition.
+~
+@.distribE 
+   %rvrwlc    "(((a+b)*s)*e)*k" drop
+   %rrwzlD    "(s*e)*((a+b)*k)" drop
+   %D         "(((s*e)*a)+((s*e)*b))*k" drop
+   [%vrwlcl] %r? %VRWLC
+   [%vrwlcl] %r? %VRWLC
+   
+@doc..factorE "reverses @.distribE"
+
+@doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
+@doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
+
+@leftE 
+pf reifyHand put swap take @TODO
+@rightE take not put leftE not
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
@@ -551,6 +579,10 @@
  
  *Note:* Loops in AO are required to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
 ~
+
+@doc..until "[a→b]*((a+b)*e)→(b*e)"
+@doc..map.list  "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
+@doc..each.list "[(a*e)→b']*(a`L*e)→e'"
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
