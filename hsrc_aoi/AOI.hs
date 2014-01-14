@@ -252,7 +252,11 @@ newSecret = liftM toText (randomBytes 12) where
 
 -- AOI powerblock from a secret
 pb :: Text -> V
-pb = B . block . ABC . (:[]) . Invoke . T.cons '!'
+pb = B . linearBlock . ABC . (:[]) . Invoke . T.cons '!'
+
+linearBlock :: ABC -> Block
+linearBlock abc = Block { b_aff = True, b_rel = True, b_code = abc }
+
 
 -- load a specified dictionary, print errors and return whatever
 -- dictionary we manage to build.
