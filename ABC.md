@@ -75,11 +75,13 @@ None yet!
 
 If I get stuck too long on a tricky function that hinders real progress on higher level development (bootstrapping, etc.), I can implement a temporary version as an ABC primitive. This is not a desirable condition, and should only be used for the most essential of functions.
 
-Currently, only a loop primitive is provided as temporary ABC:
+Currently, a loop primitive is provided as temporary ABC:
 
         ∞ :: [a→(a+b)]*(a*e)→(b*e)
           code is U+221E
           requires copyable, droppable block
         
 Loops, fixpoints, etc. are tricky to implement and understand. So far, I've only been able to implement one loop in ABC - i.e. `[dup inline] dup inline` in AO, and small variations. I've not figured how to add a useful payload or express terminating conditions. Anyhow, loops to process text and such are essential. If necessary, I might add a new primitive (hopefully more fine-grained than `∞`) to implement loops later
+
+Despite being temporary and outside the normal codepoint range for ABC, these are still first-class primitives with respect to compilation. 
 
