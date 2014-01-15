@@ -120,7 +120,8 @@ runPureOp (Op 'o') (P (B yz) (P (B xy) e)) = j (P (B xz) e)
     where xz = Block { b_aff = aff, b_rel = rel, b_code = abc }
           aff = b_aff xy || b_aff yz
           rel = b_rel xy || b_rel yz
-          abc = ABC (inABC (b_code xy) ++ inABC (b_code yz))
+          abc = ABC [AMBC [b_code xy], AMBC [b_code yz]]
+          -- (inABC (b_code xy) ++ inABC (b_code yz))
 runPureOp (Op '\'') (P v e) = j (P (B q) e)
     where q   = Block { b_aff = aff, b_rel = rel, b_code = abc }
           aff = (not . copyable) v
