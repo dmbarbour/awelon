@@ -66,3 +66,20 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, ABCD begins at U+00C0.
+
+## ABCD
+
+None yet!
+
+## TEMPORARY ABC
+
+If I get stuck too long on a tricky function that hinders real progress on higher level development (bootstrapping, etc.), I can implement a temporary version as an ABC primitive. This is not a desirable condition, and should only be used for the most essential of functions.
+
+Currently, only a loop primitive is provided as temporary ABC:
+
+        ∞ :: [a→(a+b)]*(a*e)→(b*e)
+          code is U+221E
+          requires copyable, droppable block
+        
+Loops, fixpoints, etc. are tricky to implement and understand. So far, I've only been able to implement one loop in ABC - i.e. `[dup inline] dup inline` in AO, and small variations. I've not figured how to add a useful payload or express terminating conditions. Anyhow, loops to process text and such are essential. If necessary, I might add a new primitive (hopefully more fine-grained than `∞`) to implement loops later
+

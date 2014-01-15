@@ -87,9 +87,10 @@ block abc = Block { b_aff = False, b_rel = False, b_code = abc }
 
 -- single character opcodes; a subset are also used by AO
 -- for inline ABC, but distinguished here to avoid redundancy
-opCodeList, inlineOpCodeList :: [Char]
+opCodeList, inlineOpCodeList, tempABC :: [Char]
 opCodeList = " \n0123456789#" ++ inlineOpCodeList
-inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
+inlineOpCodeList = tempABC ++ "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
+tempABC = "∞"
 
 -- to cut down on verbose code, and because the 
 -- syntax highlighting of 'Just' is distracting...
@@ -366,6 +367,19 @@ runABC invoke v0 (ABC (op:cc)) =
         Just vf -> runABC invoke vf (ABC cc)
         Nothing -> runABC' invoke (ABC cc) op v0
 
+loopUntil :: (Monad m) => (a -> m (Either a b)) -> a -> m b
+loopUntil body = loop where
+    loop a = body a >>= step
+    step (Left a) = loop a
+    step (Right b) = return b
+
+loopUntilABC :: (Monad m) => (V -> m V) -> V -> m V
+loopUntilABC body = loopUntil body' where
+    body' v = body v >>= unwrapEither
+    unwrapEither (L x) = return (Left x)
+    unwrapEither (R x) = return (Right x)
+    unwrapEither v = fail ("∞ (temp prim) expects sum; got " ++ show v)
+
 -- run a single (possibly impure) ABC operation in CPS
 -- (note: ambiguous code here will result in failure)
 runABC' :: (Monad m) => Invoker m -> ABC -> Op -> V -> m V
@@ -377,6 +391,9 @@ runABC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
     runABC invoke (P (L x') e) cc
 runABC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runABC invoke (P (R x ) e) cc
+runABC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
+    loopUntilABC (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
+    runABC invoke (P vf e) cc
 runABC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
     runABC invoke vf cc
@@ -413,6 +430,9 @@ runAMBC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
     runAMBC invoke (P (L x') e) cc
 runAMBC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runAMBC invoke (P (R x ) e) cc
+runAMBC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
+    loopUntilABC (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
+    runABC invoke (P vf e) cc
 runAMBC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
     runAMBC invoke vf cc
