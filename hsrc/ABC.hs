@@ -98,7 +98,7 @@ j :: v -> Maybe v
 j = Just 
 
 -- run pure operations; return Nothing if no rule applies
--- (excludes invocation, amb, '$', and '?')
+-- (excludes invocation, amb, '$', '?', and '∞')
 runPureOp :: Op -> V -> Maybe V
 runPureOp (Qu v) e    = j (P v e)
 runPureOp (Op ' ') v  = j v
