@@ -81,11 +81,26 @@
 @doc.xs "(x*y) -- x y"
 @doc.pf "y x -- (x*y)"
 @doc.ps "y x -- (y*x)"
+@doc.pr "((x*y)*z) -- (x*(y*z))"
+@doc.pl "(x*(y*z)) -- ((x*y)*z)"
+@doc.pz "((a*b)*(c*d))) -- ((a*c)*(b*d))"
 @pw %rrwll
 @xf %rrwzlwl
 @xs pw xf
 @pf %rwrzwll
 @ps pf pw
+@pl %rrwrzwlll
+@pr %rrrwzlwll
+@pz %rrwrzwrzlwzlwll
+
+@id.pwl^3 pw pl pw pl pw pl
+@id.wl^3 .swap %l .swap %l .swap %l
+@id.pwr^3 pw pr pw pr pw pr
+@id.wr^3 .swap %r .swap %r .swap %r
+@id.plw^3 pl pw pl pw pl pw
+@id.lw^3 %l .swap %l .swap %l .swap
+@id.prw^3 pr pw pr pw pr pw
+@id.rw^3 %r .swap %r .swap %r .swap
 
 @doc..swap "(x*y)→(y*x); primitive swap"
 @.swap %vrwlc
@@ -183,15 +198,15 @@
 @dup4 pf pf pf dup %rw xf xf xf %wl xf xf xf
 
 @doc.Quotable
-"Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location.
+"Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location. 
  
- A quotation is simply a block that reproduces a value. Quotations can be utilized together with composition for partial application.
+ A quotation is simply a block that reproduces a value. This typically has special support from the implementation (i.e. capturing the value rather than converting it to code), but will be serialized to code when necessary for display or networking.
  
  If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
 ~
 @doc.quote "(Quotable x) ⇒ x -- [1→x]"
 @doc.unquote "[1→x] -- x"
-@quote %r'l
+@quote %r'l [%c] compose
 @unquote intro1 swap .apply
 
 @doc.Hands
@@ -325,6 +340,22 @@
 @.applyP take .first put .second
 
 @eqv.cca [.applyP] [swap take2 pw put2 .applyP pw]
+
+@doc..curry "x [(x*y)→z] -- [y→z]; curry first pair input"
+@doc.curry  "x [((x*s)*e)→z] -- [(s*e)→z]; curry first stack input"
+@doc..bfirst "[x→x'] -- [(x*y)→(x'*y)]"
+@doc..bleft "[x→x'] -- [(x+y)→(x'+y)]"
+@doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
+@doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
+@.curry ps %rr'wol
+@curry swap %r'l [%l] compose composel
+
+@.bfirst %r'l [%$] compose
+@.bleft  %r'l [%vr?c] compose
+@.bsecond .bfirst [.swap] composel [.swap] compose
+@.bright .bleft [.mirror] composel [.mirror] compose
+
+
 
 @doc.PrimitiveMath
 "The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
@@ -610,10 +641,6 @@
  *Note:* Loops in AO are required to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
 ~
 
-@doc..until "[a→(a+b)]*((a+b)*e)→(b*e)"
-@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
-@doc..each  "[(a*e)→b']*(a`L*e)→e'"
-
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
 @doc.while  "(a + b) [b -- (a + b)] -- a"
@@ -623,11 +650,23 @@
 @doc.each   "a`L [a --] --; apply block to each element in list, left to right"
 @doc.map    "a`L [a -- b] -- b`L; process each element in list, left to right"
 
-@while1 swap inR swap while
-@until1 swap inL swap until
-@while swap not swap [not] compose until
-@repeat drop take paste inline paste inline put inline
-@until .dipDistribE %w .until % 
+@while [while1] rightE merge
+@until [until1] leftE merge
+@while1 [not] compose until1
+@until1 [.distribE] compose %rvr .until1 %c
+
+@repeat @TODO
+@each @TODO
+@map @TODO
+
+@doc..until1 "[a→(a+b)]*(a*e)→(b*e)"
+@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
+@doc..each  "[(a*e)→b']*(a`L*e)→e'"
+
+@.until1 %^z @todo
+
+@doc.FixPoint
+"To model loops in a combinatorial logic requires a fixpoint operation. This is unfortunately non-trivial, 
 
 
 @doc.Lists

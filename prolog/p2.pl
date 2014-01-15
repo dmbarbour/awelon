@@ -93,6 +93,17 @@ t0(N) :- path([[x,s],e], [s,[x,e]], N).
 p0(N) :- path([s,[x,e]], [[x,s],e], N).
 
 
+assocl_onStack(N) :- 
+    path([[ [x,[y,z]], s],e], 
+         [[ [[x,y],z], s],e], N).
+assocr_onStack(N) :- 
+    path([[ [[x,y],z], s],e], 
+         [[ [x,[y,z]], s],e], N).
+pzip_onStack(N) :-
+    path([[ [[a,b],[c,d]], s],e],
+         [[ [[a,c],[b,d]], s],e], N).
+
+
 %lib([[A,B],C], swapE, [[B,A],C], [r,w,l]).
 %lib(
 %lib([A,[B,[C,[D,E]]]], r4, [D,[A,[B,[C,E]]]], [l,w,c,w,r,w,c]).
