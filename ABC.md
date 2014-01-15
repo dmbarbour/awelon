@@ -18,9 +18,9 @@ See AboutABC for full explanations and design. This file just records each code,
 
         $ :: [x→x'] * (x * e) → (x' * e)
         o :: [y→z] * ([x→y] * e) → [x→z] * e
-        ' :: (Quotable x) ⇒ (x * e) → ([1→x] * e)
-        k :: ([x→y] * e) → ([x→y]' * e) -- keep, relevant, no drop
-        f :: ([x→y] * e) → ([x→y]' * e) -- affine, no copy
+        ' :: (Quotable x) ⇒ (x * e) → ([s→(x*s)] * e)
+        k :: ([x→y] * e) → ([x→y]k * e) -- keep, relevant, no drop
+        f :: ([x→y] * e) → ([x→y]f * e) -- affine, no copy
 
         # :: e → (N(0) * e)
         0 :: N(x) * e → N(10x+0) * e
@@ -66,6 +66,3 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 Text is modeled is a list of small natural numbers (in range 0 to 1114111) terminated by number 3. E.g. the word "Text" corresponds to `#3#116l#120l#101l#84l` (constructed back to front). 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, ABCD begins at U+00C0.
-
-
-

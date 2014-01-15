@@ -115,9 +115,9 @@ A block in ABC contains a finite sequence of ABC. Blocks may be constructed as l
         [vrwlc] :: e → ([(x * y) → (y * x)] * e)
         o :: [y→z] * ([x→y] * e) → ([x→z] * e)
             [abc][def]o = [abcdef]
-        ' :: x * e → [1→x] * e
-            #42' = [#42c]
-            [vrwlc]' = [[vrwlc]c]
+        ' :: x * e → [s→(x*s)] * e
+            #42' = [#42]
+            [vrwlc]' = [[vrwlc]]
 
 After construction, a block is applied with the `$` operator:
 
@@ -206,8 +206,8 @@ When blocks are quoted or composed, or a structure containing blocks is quoted, 
 
         [code]f [more]k o = [codemore]kf
         [code]f [more]  o = [codemore]f
-        [code]k [more]fl' = [[code]k[more]flc]kf
-        [code]f' = [[code]fc]f
+        [code]k [more]fl' = [[code]k[more]fl]kf
+        [code]f' = [[code]f]f
 
 When a relevant block is copied, both copies are relevant. (*Note:* Technically, only one of the two copies must be relevant. However, it is difficult to explain this in a type system, and difficult to track in a streaming scenario. For simplicity, both copies are relevant.)
 

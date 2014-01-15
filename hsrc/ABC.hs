@@ -121,11 +121,11 @@ runPureOp (Op 'o') (P (B yz) (P (B xy) e)) = j (P (B xz) e)
           aff = b_aff xy || b_aff yz
           rel = b_rel xy || b_rel yz
           abc = ABC (inABC (b_code xy) ++ inABC (b_code yz))
-runPureOp (Op '\'') (P v e) = j (P (B qv) e)
-    where qv = Block { b_aff = aff, b_rel = rel, b_code = abc }
+runPureOp (Op '\'') (P v e) = j (P (B q) e)
+    where q   = Block { b_aff = aff, b_rel = rel, b_code = abc }
           aff = (not . copyable) v
           rel = (not . droppable) v
-          abc = ABC [Qu v, Op 'c']
+          abc = ABC [Qu v]
 runPureOp (Op 'k') (P (B b) e) = j (P (B b') e) 
     where b' = b { b_rel = True }
 runPureOp (Op 'f') (P (B b) e) = j (P (B b') e)
@@ -367,7 +367,7 @@ runABC invoke v0 (ABC (op:cc)) =
         Nothing -> runABC' invoke (ABC cc) op v0
 
 -- run a single (possibly impure) ABC operation in CPS
--- (note: `AMBC` code here will result in failure)
+-- (note: ambiguous code here will result in failure)
 runABC' :: (Monad m) => Invoker m -> ABC -> Op -> V -> m V
 runABC' invoke cc (Op '$') (P (B b) (P x e)) =
     runABC invoke x (b_code b) >>= \ x' ->
@@ -379,6 +379,9 @@ runABC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runABC invoke (P (R x ) e) cc
 runABC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
+    runABC invoke vf cc
+runABC' invoke cc (AMBC [opt]) v0 = -- single option is okay
+    runABC invoke v0 opt >>= \ vf ->
     runABC invoke vf cc
 runABC' invoke _ op v0 =
     invoke (T.pack "&fail") v0 >>
