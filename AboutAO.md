@@ -149,11 +149,12 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
+* adverbs `\` (proposal, discussed later)
 
 Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
 
 * words may not start with `@`, `%`, `-`, or a digit
-* words may not contain `"`, `[`, `]`, `(`, `|`, `)`
+* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, or `\`
 * words may not contain C0 or C1 control characters, SP, or DEL.
 
 A specific programming environment might have a few extra constraints, e.g. so words can be used in URLs. We may also unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed, including UTF-8.
@@ -264,5 +265,28 @@ AO will be pursuing a new, experimental alternative to the configurations proble
 
 This is low priority at the moment, but it will eventually have a pervasive impact on the AO programming experience. Relevantly, it will serve roles similar to typeclasses and dependency injection frameworks.
 
+## Adverbs (EXPERIMENTAL!)
 
+In AO, we might decide to apply some word `foo` to each element of a list. We can easily express this as `[foo] each`, which would directly apply foo to each element of a list. If we further want to keep a copy of the list, we might modify this to `[[foo] each] keep`. If we also want to hide the first element on the stack, we might modify this to `[[[foo] each] keep] dip`.
+
+An 'adverb' is a word that modifies a verb. 
+
+Words such as `each`, `keep`, and `dip` aren't adverbs. They're too active. But they are at least *related* to adverbs. If we were instead to say `[foo] listwise`, we might expect as result a function - a verb - that, *when later applied to a list*, will apply `foo` to each element in the list. We could define `listwise` as simply `[each] curry`.
+
+Adverbs have a nice property: they operate on a closed set of verbs. This makes them very compositional in nature, and a good fit for concatenative PLs. We can meaningfully say `[foo] listwise barwise bazwise`, and we can readily refactor or abstract common sequences of adverbs. 
+
+Unfortunately, `[foo] each` is simply easier to write than `[foo] listwise inline`, even if we ignore the one-time cost to define `listwise`. At least with respect to this pattern, the path of least resistance guides developers to an inferior solution. What I propose here is syntactic sugar for adverbs in AO to shift parsimony in favor of adverbs. To get a sense of the proposed sugar: instead of `[[[foo] each] keep] dip`, we might write `foo\*kd`.
+
+For this sugar:
+
+* the character `\` is now reserved, may not be used in words
+* users define adverbs as special words of format `\k` or `\*`
+* each adverb is distinguished by only a single character
+* like inline ABC, `\adverbs` expands to `\a \d \v \e \r \b \s`.
+* adverbs often directly modify a word, such as `foo\adverbs`
+* `foo\adverbs` expands to `[foo] [\adverbs] .apply inline`
+
+A couple points: First, this sugar limits developers to a finite vocabulary of adverbs. In practice, this won't be a problem: a few dozen adverbs should cover the vast majority of use-cases. Also, the the desugared form is still available for uncommon adverbs. Second, adverbs are applied in a constrained environment. By `.apply` and `inline` I mean compiler-defined operations, but the idea is that adverbs should neither observe nor influence the context in which they are applied. 
+
+At the moment, the adverbs sugar is an experiment. But if they prove popular, they will be retained.
 
