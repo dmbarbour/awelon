@@ -61,6 +61,27 @@ dip_postStep(N) :- path([[s,e],[x,unit]], [[x,s],e], N).
 apply_preStep(N) :- path([[b,s],[h,e]],  [b, [[s,[unit,e]], [h,unit]]], N).
 apply_postStep(N) :- path([[s,[unit,e]],[h,unit]], [s,[h,e]], N).
 
+apply_adv_preStep(N) :- 
+    path([[adv,[f,s]],e],
+         [adv, [ [[f,unit],[unit,unit]], [[s,e],unit] ]], N).
+apply_adv_postStep(N) :-
+    path([ [[f,unit],[unit,unit]], [[s,e],unit] ],
+           [f, [[s,e],unit]], N).
+
+unquote_preStep(N) :-
+    path([[f,s],e], 
+         [f, [[unit,unit], [[s,e],unit]]], N).
+unquote_postStep(N) :-
+    path([[[x,unit],unit], [[s,e],unit]],
+         [[x,s],e], N).
+
+pushE(N) :-
+    path([[ [sE,eE],[x,sC] ],eC]
+        ,[[ [[x,sE],eE], sC], eC], N).
+popE(N) :-
+    path([[ [[x,sE],eE], sC], eC]
+        ,[[ [sE,eE],[x,sC] ],eC], N).
+
 inline_preStep(N) :- path([[b,s],e], [b, [[s,e],unit]], N).
 
 apply(N) :- path([[b,s],[h,e]], [b, [ [s,[unit,e]], h]], N).

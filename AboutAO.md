@@ -63,11 +63,12 @@ Block text in AO is similar to block text in ABC. Inline text is less flexible: 
 
 There is no concept of escaping text built into AO, though developers are certainly free to create text then statically post-process it. There are many use cases for inline text: labels, short captions, micro DSLs (e.g. for regular expressions), and so on. Inline text may not start immediately after a newline.
 
-Blocks in AO use square brackets and contain arbitrary AO code:
+Blocks in AO use square brackets and contain arbitrary AO code. The square brackets qualify as word separators, so it's okay to run them together:
 
         [12.3 :foo dup bloop flip trip]
+        [[[foo]each]keep]dip
 
-Blocks may freely cross multiple lines, be nested, and so on. Though, a large block should be considered for refactoring. The square brackets count as word separators.
+While large blocks are permitted, large or deep blocks should generally be understood as a *code smell* - if you see a lot of them, it's wise to refactor. Consider use of adverbs or staged programming idioms.
 
 AO literals have a slightly different type than ABC literals. 
 
@@ -277,16 +278,15 @@ Adverbs have a nice property: they operate on a closed set of verbs. This makes 
 
 Unfortunately, `[foo] each` is simply easier to write than `[foo] listwise inline`, even if we ignore the one-time cost to define `listwise`. At least with respect to this pattern, the path of least resistance guides developers to an inferior solution. What I propose here is syntactic sugar for adverbs in AO to shift parsimony in favor of adverbs. To get a sense of the proposed sugar: instead of `[[[foo] each] keep] dip`, we might write `foo\*kd`.
 
-For this sugar:
+Adverb sugar and desugaring:
 
-* the character `\` is now reserved, may not be used in words
-* users define adverbs as special words of format `\k` or `\*`
-* each adverb is distinguished by only a single character
-* like inline ABC, `\adverbs` expands to `\a \d \v \e \r \b \s`.
-* adverbs often directly modify a word, such as `foo\adverbs`
-* `foo\adverbs` expands to `[foo] [\adverbs] .apply inline`
+* character `\` is now reserved, may not be used in normal words
+* `foo\adverbs` rewrites in place to `[foo] [\adverbs] applyWithAdverbs`
+* like inline ABC, `\adverbs` expands to `\a \d \v \e \r \b \s`
+* users define special words `\a`, `\d`, etc. and `applyWithAdverbs`
 
-A couple points: First, this sugar limits developers to a finite vocabulary of adverbs. In practice, this won't be a problem: a few dozen adverbs should cover the vast majority of use-cases. Also, the the desugared form is still available for uncommon adverbs. Second, adverbs are applied in a constrained environment. By `.apply` and `inline` I mean compiler-defined operations, but the idea is that adverbs should neither observe nor influence the context in which they are applied. 
+Developers are limited to a small, finite vocabulary of adverbs - i.e. one per character, minus a few reserved characters. But unicode is big, the number of adverbs worth defining and learning is relatively small (in the range of a few dozens), and developers can fall back on literal blocks if necessary. Character per adverb seems advantageous for simplicity, uniformity, and parsimony.
 
-At the moment, the adverbs sugar is an experiment. But if they prove popular, they will be retained.
+The standard definition for `applyWithAdverbs` involves a two-stage process. First, adverbs are applied to the quoted word in a constrained environment. Second, the resulting block is applied inline. This two-stage model ensures that adverbs are purely functional and insensitive to context. 
 
+Sugar for adverbs currently has *experimental* status in AO. If it doesn't see much use after a few large projects, or if the benefits seem marginal, they'll be removed as unnecessary complexity. If they should be modified, they'll be modified.

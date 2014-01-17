@@ -204,10 +204,10 @@
  
  If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
 ~
-@doc.quote "(Quotable x) ⇒ x -- [1→x]"
-@doc.unquote "[1→x] -- x"
-@quote %r'l [%c] compose
-@unquote intro1 swap .apply
+@doc.quote "(Quotable x) ⇒ x -- [--x]"
+@doc.unquote "[--x] -- x"
+@quote %r'l [%l] compose
+@unquote %rvvrvrrz %$ %wlclcwlcl
 
 @doc.Hands
 "In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as a semantic clipboard for ad-hoc data shuffling.
@@ -295,8 +295,8 @@
  
  In addition, blocks may be constructed by quotation of a value:
  
-     quote   :: (Quotable x) ⇒ x -- [1→x]
-     unquote :: [1→x] -- x
+     quote   :: (Quotable x) ⇒ x -- [-- x]
+     unquote :: [-- x] -- x
  
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
@@ -341,21 +341,33 @@
 
 @eqv.cca [.applyP] [swap take2 pw put2 .applyP pw]
 
-@doc..curry "x [(x*y)→z] -- [y→z]; curry first pair input"
-@doc.curry  "x [((x*s)*e)→z] -- [(s*e)→z]; curry first stack input"
+@doc..capture "x [(x*y)→z] -- [y→z]; capture argument on pair"
+@doc.capture "x [((x*s)*e)→z] -- [(s*e)→z]; capture argument on stack"
+@doc..curry "[(x*y)→z] -- [x→[y→z]]; curry pair argument"
+@doc.curry "[((x*s)*e)→z] -- [x→[(s*e)→z]]; curry stack argument"
 @doc..bfirst "[x→x'] -- [(x*y)→(x'*y)]"
 @doc..bleft "[x→x'] -- [(x+y)→(x'+y)]"
 @doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
 @doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
-@.curry ps %rr'wol
-@curry swap %r'l [%l] compose composel
+@doc.bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]
+@.capture ps %rr'wol
+@capture swap %r'l [%l] compose composel
+
+@capture2 capture capture
+@capture3 capture capture capture
+@capture4 capture capture capture capture
+
+@.curry [.capture] capture
+@curry  [capture]  capture
+
+@curry2 [capture curry] capture
+@curry3 [capture curry2] capture
+@curry4 [capture curry3] capture
 
 @.bfirst %r'l [%$] compose
 @.bleft  %r'l [%vr?c] compose
-@.bsecond .bfirst [.swap] composel [.swap] compose
-@.bright .bleft [.mirror] composel [.mirror] compose
-
-
+@.bsecond .bfirst [.swap] compose [.swap] composel
+@.bright .bleft [.mirror] compose [.mirror] composel
 
 @doc.PrimitiveMath
 "The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
@@ -455,27 +467,27 @@
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
 
-@doc..dipDistribE
+@doc..distribdE
 "Distribute the environment across the condition expressed in the second item on the stack, holding only the item on the top of the stack. This doesn't require a standard environment:
  
-    (k*((a+b)*s)*e → (((a*s)*e)+((b*s)*e))*(k*1)
+    (k*((a+b)*s))*e → (((a*s)*e)+((b*s)*e))*(k*1)
  
  Note: this operation is not entirely parametric in context of spatial-temporal types. It must be possible to observe the (+) condition across all values in s,e. 
 ~
-@.dipDistribE
+@.distribdE
  %rvrw
  %rrwzl
  %D
  [.swap %l] %r? .mirror
  [.swap %l] %r? .mirror
    
-@doc..dipFactorE "reverses @.dipDistribE"
-@.dipFactorE 
+@doc..factorEd "reverses @.distribdE"
+@.factordE 
  [%r] %r? .mirror
  [%r] %r? .mirror
  %FwMwlwlcll xf
 
-@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); see @.dipDistribE"
+@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); cf @.distribdE"
 @.distribE
  %rvrw
  %D
@@ -494,17 +506,31 @@
 @doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
 @doc.eitherE "(a+b) [a -- a'] [b -- b'] -- (a'+b'); with full env"
 
-@leftE .dipDistribE %w?c .factorE
+@leftE .distribdE %w?c .factorE
 @rightE take not put leftE not
 @eitherE
  ps
- .dipDistribE 
+ .distribdE 
  %wrz?
  .mirror
  %w?
  .mirror
  %c
  .factorE
+
+@doc.leftdE "(a+b) d [a -- a'] -- (a'+b) h; leftE hiding element d"
+@doc.rightdE "(a+b) d [b -- b'] -- (a+b') h; rightE hiding element d"
+@doc.eitherdE "(a+b) d [a -- a'] [b -- b'] -- (a'+b') h; eitherE hiding d" 
+@leftdE pf .distribdE %wrz? .factordE
+@rightdE take2 not put2 leftdE take not put
+@eitherdE 
+ ps pf pr
+ .distribdE
+ %wrz?
+ .mirror
+ %wrz?
+ .mirror
+ .factordE
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
@@ -526,6 +552,7 @@
      assertNatural -- integer greater than or equal to zero
      assertNatural+ -- integer greater than or equal to one
      assertChar -- integer between 0 and 1114111 inclusive
+     assertOctet -- integer between 0 and 255 inclusive
      assertProb -- rational number between 0 inclusive and 1 inclusive
      assertUniform -- rational number between 0 inclusive and 1 exclusive
  
@@ -559,6 +586,7 @@
 @assertNatural  assertGTEz assertInteger
 @assertNatural+ assertGTz  assertInteger
 @assertChar     assertNatural 0x10ffff assertLTE drop
+@assertOctet    assertNatural 256 assertLT drop
 @assertProb     assertGTEz 1 assertLTE drop
 @assertUniform  assertGTEz 1 assertLT drop
 
@@ -594,7 +622,6 @@
  * create a fresh, empty environment on the stack (introE)
  * safely destroy an empty environment on the stack (elimE)
  * swap current environment with environment on stack (swapE)
- * apply function to top of stack in a fresh environment (top)
  
  When swapping environments, the current hand and powerblock will follow the user. Moving objects between environments involves use of the hand. A initial stack name for an environment is simply the empty string (which is equivalent to number 3). 
 ~
@@ -602,7 +629,8 @@
 @doc.introE "adds empty environment object to stack"
 @doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
 @doc.swapE "switch current environment with env on stack; keep hand and power"
-@doc.top "apply block of type [x -- y] in a fresh environment."
+@doc.pushE "x (s*e) -- ((x*s)*e)"
+@doc.popE  "((x*s)*e) -- x (s*e)"
 @introE "" %r %vrvrwvrr %vrwlc %l
 @elimE  %r %vrwlc %llcwlclc %l drop
 @swapE %zrzwlz %vrwlc %zrwzl
@@ -634,19 +662,21 @@
  
  * each - apply block with each element in list
  * repeat - inline block a given number of times
- * while - process while condition is observed
+ * while (or until) - loop while (or until) condition is observed
  
  These words are ultimately derived from fixpoint combinators, which are notoriously difficult to grok. Fortunately, it is not difficult to learn and use a loop word, nor to build new loop words above existing ones. Any loop variables, such as the block being applied, are hidden from the loop body (cf. `.dip`).
  
- *Note:* Loops in AO are required to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
+ *Note:* Loops in AO are required (or at least assumed) to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
+ 
+ *Note2:* Currently, I'm using a temporary ABC operator, `∞`, to implement a primitive loop. My long term goal is to re
 ~
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
 @doc.while  "(a + b) [b -- (a + b)] -- a"
 @doc.until  "(a + b) [a -- (a + b)] -- b"
-@doc.repeat "[] n --; inline block n times (for now, repeat 3 times)"
-@doc.enum   "[i --] n m --; repeat with index in range [n,m)"
+@doc.repeat "[] n --; inline block n times"
+@doc.enum   "[i --] n m --; integral m,n; m >= n; loop over range [n,m)"
 @doc.each   "a`L [a --] --; apply block to each element in list, left to right"
 @doc.map    "a`L [a -- b] -- b`L; process each element in list, left to right"
 
@@ -654,20 +684,42 @@
 @until [until1] leftE merge
 @while1 [not] compose until1
 @until1 [.distribE] compose %rvr .until1 %c
-
-@repeat @TODO
+@repeat swap [drop] composel swap 0 put enum
+@enum assertEnumRange [enumStep] %rvr .until1 %c
+@assertEnumRange
+ take assertInteger
+ put  assertInteger
+ assertGTE
 @each @TODO
 @map @TODO
 
-@doc..until1 "[a→(a+b)]*(a*e)→(b*e)"
+@doc..until1 "[a→(a+b)]*(a*e)→(b*e); TEMPORARY PRIMITIVE (wanted: fixpoint!)"
 @doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
 @doc..each  "[(a*e)→b']*(a`L*e)→e'"
 
-@.until1 %^z @todo
+@.until1 %∞
 
-@doc.FixPoint
-"To model loops in a combinatorial logic requires a fixpoint operation. This is unfortunately non-trivial, 
-
+@doc.fixpoint
+"Fixpoint combinators are one of those concepts I find both simple and difficult to grasp. It isn't entirely clear to me how to express strict fixpoint operations in AO/ABC. Not yet, anyway. 
+ 
+ A simple example of a strict fixpoint combinator from Daniel Yokomizo:
+ 
+     module Fix where
+     
+     left :: a -> (a -> c) -> (b -> c) -> c
+     left a l r = l a 
+     
+     right :: b -> (a -> c) -> (b -> c) -> c
+     right b l r = r b
+     
+     fix f a = f a (fix f) id
+ 
+ Example usage:
+ 
+     fix (\x -> if x > 0 then left (x - 1) else right True) 10
+ 
+ I wonder if this can be adapted for ABC. Regardless, it is low priority at the moment.
+~
 
 @doc.Lists
 "Lists in AO consist of a sequence of pairs ending in a number. For example, a list of four values might have structure:
@@ -681,6 +733,8 @@
      0: generic list terminator
      3: text (list of integers between 0 and 0x10ffff)
      8: binary (list of integers between 0 and 255)
+     16: base16 (integers in range 0..15)
+     64: base64 (integers in range 0..64)
  
  Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents, but it is generally a bad idea to observe a terminal to decide type (though it might be a useful heuristic for rendering values in external debuggers or REPL loops).
  
@@ -796,6 +850,63 @@
 @color.lightGray color.lightGrey
 @color.darkGray  color.darkGrey
 
+
+@doc.applyWithAdverbs
+"AO includes an experimental syntactic sugar for adverbs. This takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC. These words - called adverbs - may be defined by normal means, but are limited to a single distinguishing character. (Adverbs are intended for a relatively small vocabulary, but with a lot of use-case specific combinations.)
+ 
+ In general, `applyWithAdverbs` should first apply the adverbs to the main function in a controlled environment, then inline the modified/wrapped function. The two stage process is useful for ensuring adverbs aren't context sensitive, or at least controlling the context upon which adverbs may depend.
+ 
+ The current definition applies adverbs in an environment that pretty much has only a stack with the target function and an empty hand. This allows adverbs to be compatible with inline use to modify a block. 
+  
+     (([foo]*1)*(1*1)) - temporary environment when applying adverbs
+ 
+ Adverbs are potentially useful for minor data shuffling (dip, swap, first, left, deep applications), currying, quoting a word, collection-oriented programming (map, fold, etc.), quoting words without explicit blocks, and so on. It will take time to see whether this is a worthwhile feature to keep.
+ 
+ *NOTE:* Adverbs are experimental. They'll be removed if they don't prove widely useful in practice. If that happens, the dictionary can be systematically extended to include all the existing uses of adverbs as dedicated words.
+~
+@applyWithAdverbs %rwrzvrwvvrrvrrz %$ %wlcllccw %$c
+
+@doc.adverb.* "\* will map a function of type [x--y] across a list"
+@doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
+@doc.adverb.d "\d will skip the first item on the stack before applying"
+@doc.adverb.k "\k will copy the first item on the stack before applying"
+@doc.adverb.h "\h will hide the hand before applying"
+@doc.adverb.w "\w will swap the top two stack arguments before applying"
+@doc.adverb.r "\r will `rot` the top three stack arguments before applying"
+@doc.adverb.' 
+"\' will quote or reify the word, resulting in a block on the stack.
+ 
+     foo\xyz' = [foo\xyz]
+ 
+ This is only a minor syntactic convenience, but may result in a less noisy or more legible syntax. If used, quotation should usually be the last adverb.
+~
+
+@\* [map] capture
+@\f [each] capture
+@\d [dip] capture
+@\h [apply] capture
+@\w [swap] composel
+@\r [rot] composel
+@\k [keep] capture
+@\' %r'l [%l] compose 
+
+@doc.adverb.Numbers
+"Numbers in adverbs introduce literals that can be used by other adverbs - e.g. for exponentiation, or counting loops, or binding a value. These operate akin to numbers in ABC: `\#` introduces a new zero, then each digit `\0..\9` will multiply the current by ten then add the digit. A number must be used after construction.
+~
+@\# 0
+@\0 0 addDigit
+@\1 1 addDigit
+@\2 2 addDigit
+@\3 3 addDigit
+@\4 4 addDigit
+@\5 5 addDigit
+@\6 6 addDigit
+@\7 7 addDigit
+@\8 8 addDigit
+@\9 9 addDigit
+@addDigit swap 10 .mul .add
+
+@id.swapd_adverb swapd swap\d
 
 @doc.CompositionIsFirstPrinciple
 "Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically or categorically closed; they combine two components into a third component. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 

@@ -16,9 +16,12 @@ module AO
     -- LOADING AND PROCESSING AO
     , loadDict, loadDictC, importDict, importDictC
     , aoWords, compileDict, compileAO, compileAction
+    , applyWithAdverbs
 
     -- READERS/PARSERS
-    , readDictFile, parseEntry, parseWord, parseAction, parseNumber
+    , readDictFile, parseEntry
+    , parseEntryWord, parseBasicWord, parseFullWord
+    , parseAction, parseNumber
     , parseMultiLineText, parseInlineText
     ) where
 
@@ -48,19 +51,24 @@ type ParseEnt = Either P.ParseError (W,AO) -- one parsed entry (or error)
 type Import = Text -- name of dictionary file (minus '.ao' file extension)
 type Entry = Text  -- text of entry within a dictionary file
 type Line = Int    -- line number for an entry
-type W = Text
+type W = Text      -- basic word
+type ADV = Char    -- adverb
 data Action 
-    = Word W        -- ref to dictionary
+    = Word W [ADV]  -- word\adverbs
     | Num Rational  -- literal number
     | Lit Text      -- literal text
     | AOB AO        -- block of AO
     | Amb [AO]      -- ambiguous choice of AO (non-empty)
-    | Prim ABC      -- inline ABC
+    | Prim ABC      -- %inlineABC
+    | Adverbs [ADV] -- \adverbs
     deriving Show
 newtype AO = AO [Action] deriving Show
 type Error = Text
 type Dict = M.Map W AO
 type DictC = M.Map W ABC
+
+applyWithAdverbs :: W
+applyWithAdverbs = T.pack "applyWithAdverbs"
 
 ------------------------------
 -- PROCESSING OF DICTIONARY --
@@ -114,10 +122,26 @@ compileAO dc (AO actions) =
 -- compile a single action, given a precompiled dictionary 
 -- containing all required words... or report missing words
 compileAction :: DictC -> Action -> Either [W] ABC
-compileAction dc (Word w) =
-    case M.lookup w dc of
-        Nothing -> Left [w]
-        Just abc -> Right abc
+compileAction dc (Word w []) = compileWord dc w
+compileAction dc (Word w advs) =
+    -- foo\adv = [foo] [\adv] applyWithAdverbs
+    let cW = compileWord dc w in
+    let cAdvs = compileAction dc (Adverbs advs) in
+    let cAp = compileWord dc applyWithAdverbs in
+    let errs = either id (const []) in
+    case (cW,cAdvs,cAp) of
+        (Right abcW, Right abcAdv, Right abcAp) ->
+            Right $ ABC $
+            (Qu (B (block abcW)) : Op 'l' : 
+             Qu (B (block abcAdv)) : Op 'l' :
+             inABC abcAp)
+        _ -> Left $ errs cW ++ errs cAp ++ errs cAdvs
+compileAction dc (Adverbs advs) = 
+    -- \adverbs = \a \d \v \e \r \b \s (from dictionary)
+    let cAdvs = L.map (compileWord dc . adverbWord) advs in
+    case lefts cAdvs of
+        [] -> Right $ ABC $ L.concatMap inABC $ rights cAdvs
+        errors -> Left $ L.concat errors
 compileAction _ (Num r) = Right $ ABC $ [Qu (N r), Op 'l']
 compileAction _ (Lit txt) = Right $ ABC $ [Qu (toABCV txt), Op 'l']
 compileAction dc (AOB ao) =
@@ -131,6 +155,12 @@ compileAction dc (Amb options) =
         lw -> Left (L.concat lw)
 compileAction _ (Prim abc) = Right abc
 
+compileWord :: DictC -> W -> Either [W] ABC
+compileWord dc w = 
+    case M.lookup w dc of
+        Nothing -> Left [w]
+        Just abc -> Right abc
+
 -- extract words from a definition to help detect cycles or missing
 -- definitions. Most words in AO have small definitions, so extracting
 -- words from a definition is fairly cheap.
@@ -138,10 +168,21 @@ aoWords :: AO -> [W]
 aoWords (AO ao) = L.concatMap actionWords ao
 
 actionWords :: Action -> [W] 
-actionWords (Word w) = [w]
+actionWords (Word w advs) = w : adverbModWords advs
+actionWords (Adverbs advs) = map adverbWord advs 
 actionWords (AOB ao) = aoWords ao
 actionWords (Amb opts) = L.concatMap aoWords opts
 actionWords _ = []
+
+-- if we have any adverbs, we must also use word 
+--   applyWithAdverbs, otherwise there are none
+adverbModWords :: [ADV] -> [W]
+adverbModWords [] = []
+adverbModWords advs = applyWithAdverbs : map adverbWord advs
+
+-- each adverb is a two character word of form `\c`.
+adverbWord :: ADV -> W
+adverbWord = T.cons '\\' . T.singleton
 
 ---------------------------------------------
 -- READER / PARSER FOR AO DICTIONARY FILES --
@@ -188,16 +229,38 @@ splitImports t =
 -- parse entry after having separated entries.
 parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AO)
 parseEntry =
-    parseWord >>= \ w ->
+    parseEntryWord >>= \ w ->
+    expectWordSep >>
     P.manyTill parseAction P.eof >>= \ actions ->
     return (w, AO actions)
 
-parseWord :: (P.Stream s m Char) => P.ParsecT s u m W
-parseWord = 
+-- single word or adverb being defined
+parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
+parseEntryWord = (adverb P.<|> parseBasicWord) P.<?> "entry word or adverb" 
+    where adverb = P.char '\\' >> advChar >>= return . adverbWord
+
+parseBasicWord :: P.Stream s m Char => P.ParsecT s u m W
+parseBasicWord =
     (P.satisfy isWordStart P.<?> "start of word") >>= \ c1 ->
     P.many (P.satisfy isWordCont) >>= \ cs ->
-    (expectWordSep P.<?> "word separator or continuing word character") >> 
     return (T.pack (c1:cs))
+
+-- a full word has optional adverbs
+parseFullWord :: P.Stream s m Char => P.ParsecT s u m (W,[ADV])
+parseFullWord =
+    parseBasicWord >>= \ w ->
+    P.option [] actionAdverbs >>= \ advs ->
+    expectWordSep >>
+    return (w,advs)
+
+advChar :: P.Stream s m Char => P.ParsecT s u m ADV
+advChar = P.satisfy isWordCont
+
+-- adverbs are allowed as naked words, and operate similarly
+-- to inline ABC: `\adverb` expands to `\a \d \v \e \r \b`.
+-- The main difference is that these operations are user defined!
+actionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
+actionAdverbs = P.char '\\' >> (P.many1 advChar P.<?> "adverb")
 
 expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
 expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
@@ -211,7 +274,8 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = number P.<|> text P.<|> spaces P.<|>
-             word P.<|> aoblock P.<|> amb P.<|> prim
+             word P.<|> adverbs P.<|> prim P.<|>  
+             aoblock P.<|> amb
     prim = P.char '%' >> ((annotation P.<|> inlineABC) P.<?> "inline ABC")
     annotation =
         P.char '{' >> P.char '&' >>
@@ -222,14 +286,19 @@ parseAction = parser P.<?> "word or primitive" where
         P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
         (expectWordSep P.<?> "word separator or ABC code") >>
         return ((Prim . ABC) (map Op ops))
+    adverbs = 
+        actionAdverbs >>= \ advs ->
+        expectWordSep >>
+        return (Adverbs advs)
     spaces = -- spaces are preserved as inline ABC for now
         P.many1 (P.satisfy isSpace) >>= \ ws -> 
         return ((Prim . ABC) (map Op ws))
-    word = parseWord >>= return . Word
+    word = parseFullWord >>= \ (w,advs) -> return (Word w advs)
     text = (parseInlineText P.<|> parseMultiLineText) >>= return . Lit
     number = 
         parseNumber >>= \ r -> 
-        expectWordSep >> return (Num r)
+        expectWordSep >> 
+        return (Num r)
     aoblock = 
         P.char '[' >> 
         P.manyTill parseAction (P.char ']') >>= 
@@ -356,7 +425,7 @@ isWordSep, isWordStart, isWordCont :: Char -> Bool
 isWordSep c = isSpace c || bracket || amb where
     bracket = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
-isWordCont c = not (isWordSep c || isControl c || '"' == c)
+isWordCont c = not (isWordSep c || isControl c || '"' == c || '\\' == c)
 isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
     number = isDigit c || '-' == c
 
