@@ -301,8 +301,11 @@
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
      .apply :: x [x→y] -- y ; apply block to just top object on stack
+     apply  :: x [x--y] -- y; apply block to just top object on stack
+       this variation provides a fresh stack and empty hand
+       (but the powerblock, named stacks, etc. are hidden)
      dip    :: h [] -- ; apply block to all except top element on stack
-     apply  :: [] -- ; apply block hiding current hand
+     hdip   :: [] -- ; apply block hiding current hand 
      inline :: [] -- ; apply block as if inline (hand is visible)
      keep   :: x [x -- y] -- y x; copies element on stack
  
@@ -315,10 +318,12 @@
 @compose pf %rrol
 @composel swap compose
 @.apply pf %rr$l
+@apply %rwrzvrwvvrrvrrz %$ %wlcllccwlcl
 @dip %rwrzvrwr$wlcl
-@apply reifyHand putd dip take restoreHand
+@hdip reifyHand putd dip take restoreHand
 @inline %rvr$c
 @keep dupd dip
+
 
 @dip2 take pf put dip xf
 @dip3 take pf pf put dip xf xf
@@ -334,12 +339,12 @@
 
 @doc..first "(a*b) [a→a'] -- (a'*b)"
 @doc..second "(a*b) [b→b'] -- (a*b')"
-@doc..applyP "(a*b) [a→a'] [b→b'] -- (a'*b')"
+@doc..both "(a*b) [a→a'] [b→b'] -- (a'*b')"
 @.first take xf put .apply pf
 @.second take pw put .first pw
-@.applyP take .first put .second
+@.both take .first put .second
 
-@eqv.cca [.applyP] [swap take2 pw put2 .applyP pw]
+@eqv.cca [.both] [swap take2 pw put2 .both pw]
 
 @doc..capture "x [(x*y)→z] -- [y→z]; capture argument on pair"
 @doc.capture "x [((x*s)*e)→z] -- [(s*e)→z]; capture argument on stack"
@@ -349,7 +354,7 @@
 @doc..bleft "[x→x'] -- [(x+y)→(x'+y)]"
 @doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
 @doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
-@doc.bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]
+@doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
 @.capture ps %rr'wol
 @capture swap %r'l [%l] compose composel
 
@@ -368,6 +373,7 @@
 @.bleft  %r'l [%vr?c] compose
 @.bsecond .bfirst [.swap] compose [.swap] composel
 @.bright .bleft [.mirror] compose [.mirror] composel
+@.bapply [.apply] capture
 
 @doc.PrimitiveMath
 "The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
@@ -427,8 +433,8 @@
 @id.isBlockMerge isBlock merge
 @id.notnot       not not
 
-@doc.inR "b -- (0 + b); wrap 'b' in success, mark true"
-@doc.inL "a -- (a + 0); wrap 'a' in failure, mark false"
+@doc.inR "b -- (0 + b); wrap 'b' in success, mark true, in the right"
+@doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
 @inR %rVVRWLCl
 @inL %rVl
 
@@ -629,8 +635,6 @@
 @doc.introE "adds empty environment object to stack"
 @doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
 @doc.swapE "switch current environment with env on stack; keep hand and power"
-@doc.pushE "x (s*e) -- ((x*s)*e)"
-@doc.popE  "((x*s)*e) -- x (s*e)"
 @introE "" %r %vrvrwvrr %vrwlc %l
 @elimE  %r %vrwlc %llcwlclc %l drop
 @swapE %zrzwlz %vrwlc %zrwzl
@@ -685,24 +689,32 @@
 @while1 [not] compose until1
 @until1 [.distribE] compose %rvr .until1 %c
 @repeat swap [drop] composel swap 0 put enum
-@enum assertEnumRange [enumStep] %rvr .until1 %c
+
 @assertEnumRange
- take assertInteger
- put  assertInteger
+ swap assertInteger
+ swap assertInteger
  assertGTE
+@enum 
+ assertEnumRange
+ ps swap 
+ [enumStep] capture 
+ %rvr .until1 %c drop
+@doc.enumStep "(n*m) [action] -- ; "
+@enumStep @TODO
 @each @TODO
 @map @TODO
 
-@doc..until1 "[a→(a+b)]*(a*e)→(b*e); TEMPORARY PRIMITIVE (wanted: fixpoint!)"
-@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
+@inc 1 .add
+@incd swap inc swap
+
+@doc..until1 "[a→(a+b)]*(a*e)→(b*e); TEMPORARY PRIMITIVE"
 @doc..each  "[(a*e)→b']*(a`L*e)→e'"
+@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
 
 @.until1 %∞
 
 @doc.fixpoint
-"Fixpoint combinators are one of those concepts I find both simple and difficult to grasp. It isn't entirely clear to me how to express strict fixpoint operations in AO/ABC. Not yet, anyway. 
- 
- A simple example of a strict fixpoint combinator from Daniel Yokomizo:
+"Fixpoint combinators are one of those simple concepts that I find difficult to grasp. It isn't entirely clear to me how to express strict fixpoint operations in AO/ABC. Not yet, anyway. Daniel Yokomizo offered the following:
  
      module Fix where
      
@@ -718,7 +730,7 @@
  
      fix (\x -> if x > 0 then left (x - 1) else right True) 10
  
- I wonder if this can be adapted for ABC. Regardless, it is low priority at the moment.
+ I wonder if this can be adapted for ABC. A difficulty here is that 'fix' is defined recursively, but it might still be an easier target. Anyhow, since I decided to just bite the bullet and install a loop primitive (at least temporarily), figuring out fixpoints is a low priority for now.
 ~
 
 @doc.Lists
@@ -733,13 +745,11 @@
      0: generic list terminator
      3: text (list of integers between 0 and 0x10ffff)
      8: binary (list of integers between 0 and 255)
-     16: base16 (integers in range 0..15)
-     64: base64 (integers in range 0..64)
  
- Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents, but it is generally a bad idea to observe a terminal to decide type (though it might be a useful heuristic for rendering values in external debuggers or REPL loops).
+ Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents. It is a bad idea to observe a terminal to decide type in any formal sense, but it can be useful in heuristic contexts (e.g. rendering in a debugger). A significant consequence of using terminals is that most operations that construct lists should accept a terminating element as an additional argument.
  
- Lists can be used for simple maps and fold operations.
- 
+ Lists can be used for simple map and fold loops. 
+  
  *Aside:* Lists are simplistic, in the sense that they are often overly simple. AO's standard dictionaries should include other data structures more suitable for efficient ad-hoc manipulations. These will include finger-trees, ropes built on finger-trees, and zippers. 
 ~
 
@@ -852,27 +862,25 @@
 
 
 @doc.applyWithAdverbs
-"AO includes an experimental syntactic sugar for adverbs. This takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC. These words - called adverbs - may be defined by normal means, but are limited to a single distinguishing character. (Adverbs are intended for a relatively small vocabulary, but with a lot of use-case specific combinations.)
+"AO includes experimental syntactic sugar for inflection with user-defined adverbs. AO takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC - except these special words are user-defined. Inflection is limited to a single character per adverb, but this isn't a severe limitation. Inflection achieves utility through flexible, ad-hoc combination specific to the site of use. 
  
- In general, `applyWithAdverbs` should first apply the adverbs to the main function in a controlled environment, then inline the modified/wrapped function. The two stage process is useful for ensuring adverbs aren't context sensitive, or at least controlling the context upon which adverbs may depend.
+ The word `applyWithAdverbs` also defined via dictionary, enabling adaptation to non-standard environment models. The typical definition is `apply inline`, which will apply the adverbs in a pure, context-free environment then inline the word.
  
- The current definition applies adverbs in an environment that pretty much has only a stack with the target function and an empty hand. This allows adverbs to be compatible with inline use to modify a block. 
-  
-     (([foo]*1)*(1*1)) - temporary environment when applying adverbs
- 
- Adverbs are potentially useful for minor data shuffling (dip, swap, first, left, deep applications), currying, quoting a word, collection-oriented programming (map, fold, etc.), quoting words without explicit blocks, and so on. It will take time to see whether this is a worthwhile feature to keep.
- 
- *NOTE:* Adverbs are experimental. They'll be removed if they don't prove widely useful in practice. If that happens, the dictionary can be systematically extended to include all the existing uses of adverbs as dedicated words.
+ *NOTES:* Adverbs are potentially useful for minor data shuffling (dip, swap, first, left, deep applications), currying, quoting a word, collection-oriented programming (map, fold, etc.), quoting words without explicit blocks, and so on. It will take time to see whether this is a worthwhile feature to keep. As an experimental feature, adverbs may eventually be deemed not worth the small amount of complexity they add.
 ~
-@applyWithAdverbs %rwrzvrwvvrrvrrz %$ %wlcllccw %$c
+@applyWithAdverbs apply inline
 
 @doc.adverb.* "\* will map a function of type [x--y] across a list"
 @doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
-@doc.adverb.d "\d will skip the first item on the stack before applying"
 @doc.adverb.k "\k will copy the first item on the stack before applying"
-@doc.adverb.h "\h will hide the hand before applying"
+@doc.adverb.d "\d will hide first item on stack before applying"
+@doc.adverb.H "\H will enforce clean hands; hide hand before applying"
+@doc.adverb.P "\P will apply to a single argument in empty environment"
 @doc.adverb.w "\w will swap the top two stack arguments before applying"
 @doc.adverb.r "\r will `rot` the top three stack arguments before applying"
+@doc.adverb.y "\y will set the function to curry its first argument"
+@doc.adverb.! "\! will apply `not` to the first stack argument before applying"
+@doc.adverb.? "\? will apply only for a true condition, uses 'rightE'"
 @doc.adverb.' 
 "\' will quote or reify the word, resulting in a block on the stack.
  
@@ -883,12 +891,16 @@
 
 @\* [map] capture
 @\f [each] capture
+@\P [apply] capture
 @\d [dip] capture
-@\h [apply] capture
+@\H [hdip] capture
 @\w [swap] composel
 @\r [rot] composel
 @\k [keep] capture
-@\' %r'l [%l] compose 
+@\y curry
+@\' quote 
+@\! [not] composel
+@\? [leftE] capture
 
 @doc.adverb.Numbers
 "Numbers in adverbs introduce literals that can be used by other adverbs - e.g. for exponentiation, or counting loops, or binding a value. These operate akin to numbers in ABC: `\#` introduces a new zero, then each digit `\0..\9` will multiply the current by ten then add the digit. A number must be used after construction.

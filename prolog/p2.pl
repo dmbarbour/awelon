@@ -68,6 +68,11 @@ apply_adv_postStep(N) :-
     path([ [[f,unit],[unit,unit]], [[s,e],unit] ],
            [f, [[s,e],unit]], N).
 
+ap_postStep(N) :-
+    path([ [[y,unit],[unit,unit]], [[s,e],unit] ],
+           [[y,s],e], N).
+
+
 unquote_preStep(N) :-
     path([[f,s],e], 
          [f, [[unit,unit], [[s,e],unit]]], N).

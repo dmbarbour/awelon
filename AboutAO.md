@@ -266,27 +266,31 @@ AO will be pursuing a new, experimental alternative to the configurations proble
 
 This is low priority at the moment, but it will eventually have a pervasive impact on the AO programming experience. Relevantly, it will serve roles similar to typeclasses and dependency injection frameworks.
 
-## Adverbs (EXPERIMENTAL!)
+## Adverbs and Inflection (EXPERIMENTAL!)
 
 In AO, we might decide to apply some word `foo` to each element of a list. We can easily express this as `[foo] each`, which would directly apply foo to each element of a list. If we further want to keep a copy of the list, we might modify this to `[[foo] each] keep`. If we also want to hide the first element on the stack, we might modify this to `[[[foo] each] keep] dip`.
 
 An 'adverb' is a word that modifies a verb. 
 
-Words such as `each`, `keep`, and `dip` aren't adverbs. They're too active. But they are at least *related* to adverbs. If we were instead to say `[foo] listwise`, we might expect as result a function - a verb - that, *when later applied to a list*, will apply `foo` to each element in the list. We could define `listwise` as simply `[each] curry`.
+Words such as `each`, `keep`, and `dip` aren't adverbs. They're too active. But they are at least *related* to adverbs. If we were instead to say `[foo] listwise`, we might expect as result a function - a verb - that, *when later applied to a list*, will apply `foo` to each element in the list. We could define the adverb `listwise` as simply `[each] curry`. Currying relates higher order functions to adverbs. 
 
 Adverbs have a nice property: they operate on a closed set of verbs. This makes them very compositional in nature, and a good fit for concatenative PLs. We can meaningfully say `[foo] listwise barwise bazwise`, and we can readily refactor or abstract common sequences of adverbs. 
 
-Unfortunately, `[foo] each` is simply easier to write than `[foo] listwise inline`, even if we ignore the one-time cost to define `listwise`. At least with respect to this pattern, the path of least resistance guides developers to an inferior solution. What I propose here is syntactic sugar for adverbs in AO to shift parsimony in favor of adverbs. To get a sense of the proposed sugar: instead of `[[[foo] each] keep] dip`, we might write `foo\*kd`.
+Unfortunately, `[foo] each` is simply easier to write than `[foo] listwise inline` even if we ignore the one-time cost to define `listwise`. As the code graduates towards `[[[foo] each] keep] dip`, the structure becomes rigid and brittle - difficult to compose, refactor, and reuse - but each step is easy. The path of least resistance thus guides developers to an inferior design.
 
-Adverb sugar and desugaring:
+Proposed here: syntactic sugar for applying adverbs via [inflection](http://en.wikipedia.org/wiki/Inflection). 
+
+In AO, adverbs inflect words as a suffix, using a single character per adverb. This can lead to very parsimonious code. A subprogram of form `[[[foo] each] keep] dip` might be reduced to as `foo\*kd`. By making this pattern easier to use, I hope to encourage its use. The details:
 
 * character `\` is now reserved, may not be used in normal words
-* `foo\adverbs` rewrites in place to `[foo] [\adverbs] applyWithAdverbs`
-* like inline ABC, `\adverbs` expands to `\a \d \v \e \r \b \s`
-* users define special words `\a`, `\d`, etc. and `applyWithAdverbs`
+* `foo\*kd` rewrites in place to `[foo] [\*kd] applyWithAdverbs`
+* like inline ABC, code `\*kd` expands to words (adverbs) `\* \k \d`
+* users define words `\*`, `\k`, `\d` (etc.) and `applyWithAdverbs`
 
-Developers are limited to a small, finite vocabulary of adverbs - i.e. one per character, minus a few reserved characters. But unicode is big, the number of adverbs worth defining and learning is relatively small (in the range of a few dozens), and developers can fall back on literal blocks if necessary. Character per adverb seems advantageous for simplicity, uniformity, and parsimony.
+In practice, a single character per inflection adverb should be sufficient, simple, and parsimonious. Unicode is big. The number of adverbs worth defining, learning, and regularly using is relatively small. Adverbs and inflections achieve utility through flexible ad-hoc combination, not through enormous vocabulary. 
 
-The standard definition for `applyWithAdverbs` involves a two-stage process. First, adverbs are applied to the quoted word in a constrained environment. Second, the resulting block is applied inline. This two-stage model ensures that adverbs are purely functional and insensitive to context. 
+That said, it would not be difficult to model some adverb-words as introducing numerical arguments or selectors for subsequent adverbs. 
 
-Sugar for adverbs currently has *experimental* status in AO. If it doesn't see much use after a few large projects, or if the benefits seem marginal, they'll be removed as unnecessary complexity. If they should be modified, they'll be modified.
+The standard definition for `applyWithAdverbs` involves a two-stage process. First, adverbs are applied to the quoted word in a constrained environment. Second, the resulting block is applied inline. This two-stage model ensures that adverbs are purely functional, insensitive to context, and thus `foo\*kd` can really be understood as an independent word (with the same meaning every place it is used).
+
+Syntactic sugar for adverbs and inflection currently has *experimental* status in AO. If it doesn't see much use after a few large projects, or if the benefits seem marginal, they'll be removed as unnecessary complexity. If they should be modified, they'll be modified.

@@ -254,7 +254,7 @@ parseFullWord =
     return (w,advs)
 
 advChar :: P.Stream s m Char => P.ParsecT s u m ADV
-advChar = P.satisfy isWordCont
+advChar = P.satisfy isAdvChar
 
 -- adverbs are allowed as naked words, and operate similarly
 -- to inline ABC: `\adverb` expands to `\a \d \v \e \r \b`.
@@ -428,6 +428,10 @@ isWordSep c = isSpace c || bracket || amb where
 isWordCont c = not (isWordSep c || isControl c || '"' == c || '\\' == c)
 isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
     number = isDigit c || '-' == c
+
+-- adverb characters
+isAdvChar :: Char -> Bool
+isAdvChar c = isWordCont c 
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF.
