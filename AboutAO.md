@@ -93,15 +93,34 @@ AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#01234
 
 ## Proper Capability Security
 
-AO compilers should prohibit syntactic representation of semantic capabilities. That is, most interesting capabilities should not be "hard wired" into a program. Instead, they should be provided as arguments to the program, thus enabling secure reasoning about how authority is distributed to subprograms. 
+AO compilers generally prohibit syntactic representation of semantic capabilities. That is, interesting capabilities should not be "hard wired" into program source code. Instead, they should be provided as arguments to the program, thus enabling secure reasoning about how authority is distributed through subprograms. 
 
 Capabilities are usually shared via 'powerblock' - a block with a standard location in the environment, that can be asked for specific capabilities. This gives AO the feel of an ambient authority language, since full authority tends to be passed forward by default. AO programmers must instead be explicit about where they restrict authority, leveraging combinators that restrict authority in known ways:
 
         [trustMeHehHeh] runJailed
 
-With a little convention, security implications should at least be visible and obvious in code, which is sufficient to achieve the principle of least authority when it most matters. 
+With a little convention, security implications should at least be visible and obvious in code, which is sufficient to achieve the principle of least authority when it most matters.
 
-Annotations - by convention, capabilities with prefix `&` - are not semantic and may be hard-wired into an application. Annotations express hints for a compiler, optimizer, debugger, e.g. to support parallelism, laziness, breakpoints, better warning or error messages, and so on. For example, `%{&par}` might apply to a lazy thunk and indicate its value should be calculated in parallel.
+There are a few exceptions to the general rule. Developers are free to hard-code *annotations* and *discretionary sealers* using the inline ABC capability syntax. Some compilers might also accept secure hash sources.
+
+### Annotations
+
+Annotations potentially serve many roles - optimization, debugging, warnings, etc. (see [AboutABC](AboutABC.md)). The main restriction is that annotations cannot be *semantic* - i.e. they cannot impact formally observable behavior. If annotations are removed, performance characteristics might change but the formal results would not.
+
+Annotations are described via capabilities using prefix `&` for the token. For example, `%{&par}` would be an annotation, potentially suggesting parallelization of a computation. AO allows arbitrary annotations in code. A compiler or interpreter will generally ignore annotations it doesn't recognize. 
+
+### Discretionary Value Sealing
+
+Value sealing with sealer/unsealer pairs is useful for many security patterns (see [AboutABC](AboutABC.md)). Even an insecure sealer can guard against much *accidental* behavior. 
+
+Value sealing is a form of annotation in the sense that it doesn't have any observable semantics. That is, for a correct program, all sealer/unsealer pairs can be removed from the program without changing its behavior. Value sealing only causes some incorrect programs to fail or be rejected, and thus serves a role similar to 'newtype' in other languages.
+
+Sealers and unsealers are represented as capabilities using inline ABC:
+
+        %{$foo}       sealer 'foo' seals the value
+        %{/foo}       unseal value from sealer 'foo'
+
+In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
 ## Ambiguity and Program Search
 
@@ -118,11 +137,11 @@ The meaning of the above subprogram may be any one of:
         a c d e g
         a c d e h
 
-The choice of meanings in a given use case is left to the AO compiler. Formally, the choice is non-deterministic, but it is not random. Similar to ambiguity in natural language, ambiguity in AO is *resolved in context*.  Choices are eliminated if obviously not typesafe in context. The remaining choices may be searched based on a heuristic functions, which may evaluate options for performance, size, confidence of safety, stability (across versions of a program), and programmer attribute annotations.
+The choice of meanings in a given use case is left to the AO compiler. Formally, the choice is non-deterministic, but it is not random. Similar to ambiguity in natural language, ambiguity in AO is *resolved in context*.  Choices are eliminated if obviously not typesafe in context. 
 
-        %{&attrib} :: (Attribute x) => (x * e) -> (x * e)
+The remaining choices may be searched based on a heuristic functions, which may evaluate options for performance, size, confidence of safety, stability (across versions of a program), and programmer annotations. Through annotations and control of the heuristic function, programmers can effectively influence the compiler's choice, leading to a good solution. 
 
-Through attributes and control of the heuristic function, programmers can effectively influence the compiler's choice. However, there is never a guarantee that an optimum solution will be selected. It is not difficult to express programs with a hundred options for 2^100 meanings or more. With such large search spaces, non-exhaustive mechanisms must be used to select a 'good' program - e.g. hill climbing or genetic programming. 
+There is never a guarantee that an optimum (or even optimal) solution will be discovered. It is not difficult to express programs with a hundred options for 2^100 meanings or more. With such large search spaces, non-exhaustive mechanisms must be used to select a 'good' program - e.g. hill climbing or genetic programming. 
 
 The choice operator `|` is *commutative, associative, and idempotent*. The syntactic order in which choices are expressed must not contribute to heuristic evaluation of choices. This independence is important for refactoring ambiguous programs, and for optimizing search. It also means that, formally, we can understand ambiguity as expressing a *set* of programs. 
 

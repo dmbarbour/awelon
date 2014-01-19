@@ -50,7 +50,7 @@ parseABC :: (P.Stream s m Char) => P.ParsecT s u m ABC
 readABC :: Text -> Either Error ABC
 showABC :: ABC -> Text
 droppable, copyable, observable :: V -> Bool
-is_prod, is_sum, is_number, is_block, is_unit :: V -> Bool
+is_prod, is_sum, is_number, is_block :: V -> Bool
 runABC :: (Monad m) => Invoker m -> V -> ABC -> m V
 runPureABC :: V -> ABC -> V
 runAMBC :: (MonadPlus m) => Invoker m -> V -> ABC -> m V
@@ -65,6 +65,7 @@ data V -- ABC's structural types
     | P V V      -- product
     | B Block    -- block
     | U          -- unit
+    | S Text V   -- sealed value (via sealer capability)
     deriving (Eq)
 data Block = Block 
     { b_aff  :: Bool
@@ -91,6 +92,8 @@ opCodeList, inlineOpCodeList, tempABC :: [Char]
 opCodeList = " \n0123456789#" ++ inlineOpCodeList
 inlineOpCodeList = tempABC ++ "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
 tempABC = "∞"
+    -- ∞ U+221E is temp primitive for a .until1 loop; [a→(a+b)]*(a*e))→(b*e)
+    -- Σ U+03A3 is possible prim for .each loop; [(a*e)→e']*(a`L*e)→e'
 
 -- to cut down on verbose code, and because the 
 -- syntax highlighting of 'Just' is distracting...
@@ -98,7 +101,8 @@ j :: v -> Maybe v
 j = Just 
 
 -- run pure operations; return Nothing if no rule applies
--- (excludes invocation, amb, '$', '?', and '∞')
+-- (includes sealer/unsealer invocation {$foo} and {/foo}
+-- (excludes general invocation, amb, $, ?, ∞, Σ)
 runPureOp :: Op -> V -> Maybe V
 runPureOp (Qu v) e    = j (P v e)
 runPureOp (Op ' ') v  = j v
@@ -165,6 +169,8 @@ runPureOp (Op '6') (P (N x) e) = j (P (N (10*x + 6)) e)
 runPureOp (Op '7') (P (N x) e) = j (P (N (10*x + 7)) e)
 runPureOp (Op '8') (P (N x) e) = j (P (N (10*x + 8)) e)
 runPureOp (Op '9') (P (N x) e) = j (P (N (10*x + 9)) e)
+runPureOp (Invoke t) v | sealerCap t = j (S (T.tail t) v)
+runPureOp (Invoke t) (S tsv v) | unsealerCap t tsv = j v
 runPureOp _ _ = Nothing -- no more rules!
 
 mbP :: Maybe V -> V -> Maybe V
@@ -236,6 +242,20 @@ structGT (N _) x = is_sum x
 structGT (R _) (L _) = True
 structGT _ _ = False
 
+-- trivial sealer/unsealer model
+sealerCap :: Text -> Bool
+sealerCap tCap = 
+    case T.uncons tCap of
+        Just ('$', _) -> True
+        _ -> False
+
+unsealerCap :: Text -> Text -> Bool
+unsealerCap tCap tSV =
+    case T.uncons tCap of
+        Just ('/',tC') -> (tC' == tSV)
+        _ -> False
+
+
 -- showABC :: ABC -> Text
 showABC (ABC code) = T.concat $ map showOp code
 
@@ -261,6 +281,8 @@ abcLit (B b) =
 abcLit (L v) = abcLit v `T.snoc` 'V'
 abcLit (R v) = abcLit v `T.append` intro0 where
     intro0 = T.pack "VVRWLC"
+abcLit (S t v) = abcLit v `T.append` sealer where
+    sealer = '{' `T.cons` '$' `T.cons` t `T.snoc` '}'
 abcLit v@(P a b) =
     case valToText v of
         Just txt -> txtLit txt
@@ -292,6 +314,7 @@ instance Show V where
     show (L a) = "(" ++ show a ++ "+_)"
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
+    show (S t v) = show v ++ "{$" ++ T.unpack t ++ "}"
     show (B b) = "[" ++ show (b_code b) ++ "]" ++ rel ++ aff
         where rel = if b_rel b then "k" else ""
               aff = if b_aff b then "f" else ""
@@ -308,6 +331,7 @@ droppable (P a b) = droppable a && droppable b
 droppable (L v) = droppable v
 droppable (R v) = droppable v
 droppable (N _) = True
+droppable (S _ v) = droppable v
 droppable U = True
 
 -- can we copy this value?
@@ -316,10 +340,13 @@ copyable (P a b) = copyable a && copyable b
 copyable (L v) = copyable v
 copyable (R v) = copyable v
 copyable (N _) = True
+copyable (S _ v) = copyable v
 copyable U = True
 
 -- can we introspect the value's structure?
-observable = not . is_unit
+observable U = False
+observable (S _ _) = False
+observable _ = True
 
 is_prod (P _ _) = True
 is_prod _ = False
@@ -333,9 +360,6 @@ is_block _ = False
 
 is_number (N _) = True
 is_number _ = False
-
-is_unit U = True
-is_unit _ = False
 
 -- given a number, find code that generates it as a literal
 quoteNum :: Rational -> [Char]
@@ -358,6 +382,18 @@ iop :: Integer -> Char
 iop n | (0 <= n && n <= 9) = (toEnum (48 + fromIntegral n)) 
       | otherwise = error "iop expects argument between 0 and 9"
 
+loopUntil :: (Monad m) => (a -> m (Either a b)) -> a -> m b
+loopUntil body = loop where
+    loop a = body a >>= step
+    step (Left a) = loop a
+    step (Right b) = return b
+
+loopUntilV :: (Monad m) => (V -> m V) -> V -> m V
+loopUntilV body = loopUntil body' where
+    body' v = body v >>= unwrapEither
+    unwrapEither (L x) = return (Left x)
+    unwrapEither (R x) = return (Right x)
+    unwrapEither v = fail ("∞ (temp prim) expects sum; got " ++ show v)
 
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> ABC -> m V
 -- todo: consider modeling the call stacks more explicitly.
@@ -366,19 +402,6 @@ runABC invoke v0 (ABC (op:cc)) =
     case runPureOp op v0 of
         Just vf -> runABC invoke vf (ABC cc)
         Nothing -> runABC' invoke (ABC cc) op v0
-
-loopUntil :: (Monad m) => (a -> m (Either a b)) -> a -> m b
-loopUntil body = loop where
-    loop a = body a >>= step
-    step (Left a) = loop a
-    step (Right b) = return b
-
-loopUntilABC :: (Monad m) => (V -> m V) -> V -> m V
-loopUntilABC body = loopUntil body' where
-    body' v = body v >>= unwrapEither
-    unwrapEither (L x) = return (Left x)
-    unwrapEither (R x) = return (Right x)
-    unwrapEither v = fail ("∞ (temp prim) expects sum; got " ++ show v)
 
 -- run a single (possibly impure) ABC operation in CPS
 -- (note: ambiguous code here will result in failure)
@@ -392,7 +415,7 @@ runABC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
 runABC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runABC invoke (P (R x ) e) cc
 runABC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
-    loopUntilABC (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
+    loopUntilV (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
     runABC invoke (P vf e) cc
 runABC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
@@ -431,7 +454,7 @@ runAMBC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
 runAMBC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
     runAMBC invoke (P (R x ) e) cc
 runAMBC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
-    loopUntilABC (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
+    loopUntilV (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
     runABC invoke (P vf e) cc
 runAMBC' invoke cc (Invoke cap) v0 =
     invoke cap v0 >>= \ vf ->
@@ -586,5 +609,3 @@ instance FromABCV () where
 instance FromABCV Block where
     fromABCV (B b) = Just b
     fromABCV _ = Nothing
-
-

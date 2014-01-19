@@ -384,10 +384,10 @@ Stability is readily achieved using a filepath/URL metaphor: when 'forking' a un
 
 ### Value Sealing Types and Capabilities
 
-Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of these values is extremely constrained. Informally:
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of the resulting sealed valu is extremely constrained. Informally:
 
-        {sealer u} :: a → Sealed u a
-        {unsealer u} :: Sealed u a → a
+        {$u} :: a → Sealed u a        `$` for seal
+        {\u} :: Sealed u a → a        `\` for unseal
 
 Basic data plumbing features are available on the whole sealed value. For example, it inherits from `a` with regards to copy, drop, quotation, and distribution. However, to observe or modify a sealed value requires first unsealing it with the corresponding unsealer.
 

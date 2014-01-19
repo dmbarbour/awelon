@@ -276,9 +276,9 @@ parseAction = parser P.<?> "word or primitive" where
     parser = number P.<|> text P.<|> spaces P.<|>
              word P.<|> adverbs P.<|> prim P.<|>  
              aoblock P.<|> amb
-    prim = P.char '%' >> ((annotation P.<|> inlineABC) P.<?> "inline ABC")
-    annotation =
-        P.char '{' >> P.char '&' >>
+    prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
+    inlineTok = 
+        P.char '{' >> 
         P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
         expectWordSep >>
         return ((Prim . ABC) [Invoke (T.pack txt)])
@@ -434,7 +434,9 @@ isAdvChar :: Char -> Bool
 isAdvChar c = isWordCont c 
 
 -- tokens in AO are described with %{...}. They can have most
--- characters, except for {, }, and LF.
+-- characters, except for {, }, and LF. In general, developers
+-- are limited in what kind of capabilities they may hard-code
+-- into source, but the limit is enforced downstream.
 isTokenChar, isInlineTextChar :: Char -> Bool
 isTokenChar c = not ('{' == c || '\n' == c || '}' == c)
 isInlineTextChar c = not ('"' == c || '\n' == c)
