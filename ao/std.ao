@@ -63,6 +63,7 @@
 @drop %r%
 @nip swap drop
 @nip2 unrot drop2
+@dropd swap drop
 @swap  %rwr %wzw %lwl
 @swapd %rw swap %wl
 @rot swapd swap
@@ -92,6 +93,8 @@
 @pl %rrwrzwlll
 @pr %rrrwzlwll
 @pz %rrwrzwrzlwzlwll
+@pwd swap pw swap
+@xfd 
 
 @id.pwl^3 pw pl pw pl pw pl
 @id.wl^3 .swap %l .swap %l .swap %l
@@ -105,9 +108,9 @@
 @doc..swap "(x*y)→(y*x); primitive swap"
 @.swap %vrwlc
 
-@doc.swapStackName "text -- text; replace name for current stack"
-@doc.setStackName "text -- ; set name for the current stack"
-@doc.getStackName "-- text ; get name for current stack"
+@doc.swapStackName "newSN -- oldSN; replace name for current stack"
+@doc.setStackName "SN -- ; set name for the current stack"
+@doc.getStackName "-- SN ; get name for current stack"
 @swapStackName %lzrzrzwrwzwlwzlzlzr
 @setStackName swapStackName drop
 @getStackName intro1 swapStackName copy swapStackName elim1 put
@@ -303,13 +306,15 @@
      .apply :: x [x→y] -- y ; apply block to just top object on stack
      apply  :: x [x--y] -- y; apply block to just top object on stack
        this variation provides a fresh stack and empty hand
-       (but the powerblock, named stacks, etc. are hidden)
+       (powerblock, named stacks, etc. are hidden)
      dip    :: h [] -- ; apply block to all except top element on stack
      hdip   :: [] -- ; apply block hiding current hand 
      inline :: [] -- ; apply block as if inline (hand is visible)
      keep   :: x [x -- y] -- y x; copies element on stack
  
  The set of application words will undoubtedly evolve with experience.
+ 
+ Todo: add common bi/tri variants from Factor's vocabulary
 ~
 
 @doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
@@ -323,7 +328,6 @@
 @hdip reifyHand putd dip take restoreHand
 @inline %rvr$c
 @keep dupd dip
-
 
 @dip2 take pf put dip xf
 @dip3 take pf pf put dip xf xf
@@ -390,6 +394,9 @@
 @.rem  .divMod drop
 @.sub .neg .add
 @.div .inv .mul
+
+@inc 1 .add
+@incd swap inc swap
 
 @doc..mul "N(b) N(a) -- N(a*b)"
 @doc..add "N(b) N(a) -- N(a+b)"
@@ -493,7 +500,7 @@
  [%r] %r? .mirror
  %FwMwlwlcll xf
 
-@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); cf @.distribdE"
+@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); pf @.distribdE"
 @.distribE
  %rvrw
  %D
@@ -688,29 +695,26 @@
 @until [until1] leftE merge
 @while1 [not] compose until1
 @until1 [.distribE] compose %rvr .until1 %c
-@repeat swap [drop] composel swap 0 put enum
+@repeat swap [drop] composel swap 0 swap enum
 
 @assertEnumRange
  swap assertInteger
  swap assertInteger
- assertGTE
+ assertLTE
 @enum 
  assertEnumRange
- ps swap 
+ ps swap
+ [enumAction] capture
  [enumStep] capture 
  %rvr .until1 %c drop
-@doc.enumStep "(n*m) [action] -- ; "
-@enumStep @TODO
+@doc.enumAction "(N(n)*N(m)) [action] -- (N(n+1)*N(m)); ASSUMES n < m"
+@enumAction swap xs dupd incd ps rot dip
+@doc.enumStep "(n*m) [action] -- ; tests n < m"
+@enumStep swap xs gte swap .distribdE %w?c
 @each @TODO
 @map @TODO
 
-@inc 1 .add
-@incd swap inc swap
-
 @doc..until1 "[a→(a+b)]*(a*e)→(b*e); TEMPORARY PRIMITIVE"
-@doc..each  "[(a*e)→b']*(a`L*e)→e'"
-@doc..map   "[(a*e)→(b*e')]*(a`L*e)→(b`L)*e'"
-
 @.until1 %∞
 
 @doc.fixpoint
@@ -798,10 +802,10 @@
  zwrap = intro1 intro1 assocl rot2 pzip assocl  
  zunwrap_ = assocr pzip rot2 assocr elim1 elim1  
  zf = assocr xf intro1 assocl roll2 assocl 
- zuf = assocr roll2 assocr elim1 cf assocl
- zs = assocr xf roll3 cs roll2 assocl
- zus = assocr roll2 xf roll3 cs assocl
- zswap = cf assocr roll2 assocl xf
+ zuf = assocr roll2 assocr elim1 pf assocl
+ zs = assocr xf roll3 ps roll2 assocl
+ zus = assocr roll2 xf roll3 ps assocl
+ zswap = pf assocr roll2 assocl xf
  zpop = intro1S zswap
  zpush = zswap elim1S
  % TODO: zu, zu*
@@ -860,6 +864,25 @@
 @color.lightGray color.lightGrey
 @color.darkGray  color.darkGrey
 
+@doc.ValueSealing
+"AO allows seal/unseal actions to be hard-coded using inline ABC. These are represented as:
+ 
+     %{$foo}       seal value with sealer 'foo'
+     %{/foo}       unseal value from sealer 'foo'
+ 
+ The token 'foo' may be replaced by any arbitrary text. A sealed value cannot be observed or manipulated without first unsealing it with the same token. Of course, hard-coded tokens are not secure. (Secure value sealing involves construction of unique sealer/unsealer pairs.) To avoid even the illusion of security, and to simplify debugging, hard-coded sealers should favor simple, self-documenting tokens.
+ 
+ Despite being insecure, hard-coded sealers are useful. They simplify reasoning and search for which code can access a value. They help document that some intermediate structures from an API are intended to be private or opaque. Introducing a new token for a test can help developers enforce parametricity. Value sealing can guard against accidental bindings, similar to 'newtype' in some other languages.
+~
+
+@doc.prefix.seal "seal the first item on the stack"
+@doc.prefix.unseal "unseal the first item on the stack"
+
+@doc.seal "guard a value against accidental observation"
+@doc.unseal "unseal a value guarded by 'seal'"
+@seal [%{$0}] .apply
+@unseal [%{/0}] .apply
+ 
 
 @doc.applyWithAdverbs
 "AO includes experimental syntactic sugar for inflection with user-defined adverbs. AO takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC - except these special words are user-defined. Inflection is limited to a single character per adverb, but this isn't a severe limitation. Inflection achieves utility through flexible, ad-hoc combination specific to the site of use. 
@@ -876,10 +899,7 @@
 @doc.adverb.d "\d will hide first item on stack before applying"
 @doc.adverb.H "\H will enforce clean hands; hide hand before applying"
 @doc.adverb.P "\P will apply to a single argument in empty environment"
-@doc.adverb.w "\w will swap the top two stack arguments before applying"
-@doc.adverb.r "\r will `rot` the top three stack arguments before applying"
 @doc.adverb.y "\y will set the function to curry its first argument"
-@doc.adverb.! "\! will apply `not` to the first stack argument before applying"
 @doc.adverb.? "\? will apply only for a true condition, uses 'rightE'"
 @doc.adverb.' 
 "\' will quote or reify the word, resulting in a block on the stack.
@@ -894,29 +914,10 @@
 @\P [apply] capture
 @\d [dip] capture
 @\H [hdip] capture
-@\w [swap] composel
-@\r [rot] composel
 @\k [keep] capture
 @\y curry
 @\' quote 
-@\! [not] composel
 @\? [leftE] capture
-
-@doc.adverb.Numbers
-"Numbers in adverbs introduce literals that can be used by other adverbs - e.g. for exponentiation, or counting loops, or binding a value. These operate akin to numbers in ABC: `\#` introduces a new zero, then each digit `\0..\9` will multiply the current by ten then add the digit. A number must be used after construction.
-~
-@\# 0
-@\0 0 addDigit
-@\1 1 addDigit
-@\2 2 addDigit
-@\3 3 addDigit
-@\4 4 addDigit
-@\5 5 addDigit
-@\6 6 addDigit
-@\7 7 addDigit
-@\8 8 addDigit
-@\9 9 addDigit
-@addDigit swap 10 .mul .add
 
 @id.swapd_adverb swapd swap\d
 
