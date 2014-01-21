@@ -12,10 +12,10 @@ std euler
 ~
 
 @doc.iomsg.aoi "invoke linear powerblock with message from stack"
-@iomsg.aoi %zwl .apply xf %rwz
+@iomsg.aoi %zwl .apply x %rwz
 
 @doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
-@loadWord  "loadWord" pf iomsg.aoi
+@loadWord  "loadWord" p iomsg.aoi
 
 @doc.switchAOI 
 "The AOI reader incrementally compiles lines or paragraphs of user input (text) into a blocks that will be applied in the current user environment. Compilation may return error and fail, in which case no action is taken and the text is returned to the user for further editing. The incremental interpreter function has roughly type:
@@ -30,27 +30,27 @@ std euler
  
  This is coarse-grained at the level of lines and blocks. The new reader will be used to process the next block. The motivation for switchAOI is to simplify bootstrapping of an AO REPL or interactive mode from within AO.
 ~ 
-@switchAOI "switchAOI" pf iomsg.aoi
+@switchAOI "switchAOI" p iomsg.aoi
 
 @doc.getEnv.iomsg "varname -- text; environment variable or empty text"
-@getEnv "getOSEnv" pf iomsg.aoi
+@getEnv "getOSEnv" p iomsg.aoi
 
 @doc.randomBytes "count -- (list of octets); secure random source"
-@randomBytes "randomBytes" pf iomsg.aoi
+@randomBytes "randomBytes" p iomsg.aoi
 
-@rand8 1 randomBytes xs drop
+@rand8 1 randomBytes wx drop
 
 @doc.readFile "(io) filename -- (1(err) + text)"
 @doc.readFile.binary "(io) filename -- (1(err) + binary)"
 @doc.writeFile "(io) text filename -- (1(err) + 1(ok))"
 @doc.writeFile.binary "(io) binary filename -- (1(err) + 1(ok))"
-@readFile "readFile" pf iomsg.aoi
-@writeFile pf "writeFile" pf iomsg.aoi
-@readFile.binary "readFileB" pf iomsg.aoi
-@writeFile.binary pf "writeFileB" pf iomsg.aoi
+@readFile "readFile" p iomsg.aoi
+@writeFile p "writeFile" p iomsg.aoi
+@readFile.binary "readFileB" p iomsg.aoi
+@writeFile.binary p "writeFileB" p iomsg.aoi
 
 @doc.destroy "(io) destroy will drop any input, including relevant blocks (unsafe)"
-@destroy "destroy" pf iomsg.aoi elim1
+@destroy "destroy" p iomsg.aoi elim1
 
 @doc.cle "(io) clear the current environment (except hand and powerblock)"
 @cle introE swapE destroy
@@ -59,7 +59,7 @@ std euler
 @cls reifyStack destroy
 
 @doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
-@debugOut "debugOut" pf iomsg.aoi
+@debugOut "debugOut" p iomsg.aoi
 
 @+ .add
 @* .mul
