@@ -7,6 +7,9 @@
 -- sane types. Error messages are inadequate for complicated work.
 -- The API presented to users isn't very symmetric or elegant. 
 --
+-- TODO: add support for tail calls, to avoid stack overflows for
+-- processing large lists.
+--
 -- There is one concession to performance, which is generic quotation
 -- of values - such that the quotation operator is cheap and does not
 -- interfere with laziness.
@@ -88,12 +91,13 @@ block abc = Block { b_aff = False, b_rel = False, b_code = abc }
 
 -- single character opcodes; a subset are also used by AO
 -- for inline ABC, but distinguished here to avoid redundancy
-opCodeList, inlineOpCodeList, tempABC :: [Char]
+--
+-- todo: consider rewriting a few sequences for tail call optimizations:
+--    `?c`, `?Mc`, and `$c` or `$c` are good targets
+-- either this, or find some way to ensure tail calls from AO (trampoline?)
+opCodeList, inlineOpCodeList :: [Char]
 opCodeList = " \n0123456789#" ++ inlineOpCodeList
-inlineOpCodeList = tempABC ++ "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
-tempABC = "∞"
-    -- ∞ U+221E is temp primitive for a .until1 loop; [a→(a+b)]*(a*e))→(b*e)
-    -- Σ U+03A3 is possible prim for .each loop; [(a*e)→e']*(a`L*e)→e'
+inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
 
 -- to cut down on verbose code, and because the 
 -- syntax highlighting of 'Just' is distracting...
@@ -382,49 +386,39 @@ iop :: Integer -> Char
 iop n | (0 <= n && n <= 9) = (toEnum (48 + fromIntegral n)) 
       | otherwise = error "iop expects argument between 0 and 9"
 
-loopUntil :: (Monad m) => (a -> m (Either a b)) -> a -> m b
-loopUntil body = loop where
-    loop a = body a >>= step
-    step (Left a) = loop a
-    step (Right b) = return b
+-- a few common effects
+--  note: singleton options - i.e. (code) - are applied inline
+--     but other uses of AMBC need special consideration.
+runBlock :: (Monad m) => (V -> ABC -> m V) -> Op -> V -> Maybe (m V)
+runBlock run (Op '$') (P (B b) (P x e)) = Just $ 
+    run x (b_code b) >>= \ x' -> return (P x' e)
+runBlock run (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) = Just $
+    run x (b_code b) >>= \ x' -> return (P (L x') e)
+runBlock _ (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) = Just $
+    return (P (R x) e)
+runBlock run (AMBC [singletonOpt]) v0 = Just $ run v0 singletonOpt
+runBlock _ _ _ = Nothing
 
-loopUntilV :: (Monad m) => (V -> m V) -> V -> m V
-loopUntilV body = loopUntil body' where
-    body' v = body v >>= unwrapEither
-    unwrapEither (L x) = return (Left x)
-    unwrapEither (R x) = return (Right x)
-    unwrapEither v = fail ("∞ (temp prim) expects sum; got " ++ show v)
+runBasic :: (Monad m) => (V -> ABC -> m V) -> Op -> V -> Maybe (m V)
+runBasic run op v0 =
+    case runPureOp op v0 of
+        Just vf -> Just (return vf)
+        Nothing -> runBlock run op v0
 
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> ABC -> m V
 -- todo: consider modeling the call stacks more explicitly.
 runABC _ v0 (ABC []) = return v0 -- done!
-runABC invoke v0 (ABC (op:cc)) =
-    case runPureOp op v0 of
-        Just vf -> runABC invoke vf (ABC cc)
-        Nothing -> runABC' invoke (ABC cc) op v0
+runABC invoke v0 (ABC (op:cc)) = runOp >>= runCC where
+    run = runABC invoke
+    runOp = maybe (runABC' invoke op v0) id (runBasic run op v0)
+    runCC vf = run vf (ABC cc)
 
--- run a single (possibly impure) ABC operation in CPS
--- (note: ambiguous code here will result in failure)
-runABC' :: (Monad m) => Invoker m -> ABC -> Op -> V -> m V
-runABC' invoke cc (Op '$') (P (B b) (P x e)) =
-    runABC invoke x (b_code b) >>= \ x' ->
-    runABC invoke (P x' e) cc
-runABC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
-    runABC invoke x (b_code b) >>= \ x' ->
-    runABC invoke (P (L x') e) cc
-runABC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
-    runABC invoke (P (R x ) e) cc
-runABC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
-    loopUntilV (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
-    runABC invoke (P vf e) cc
-runABC' invoke cc (Invoke cap) v0 =
-    invoke cap v0 >>= \ vf ->
-    runABC invoke vf cc
-runABC' invoke cc (AMBC [opt]) v0 = -- single option is okay
-    runABC invoke v0 opt >>= \ vf ->
-    runABC invoke vf cc
-runABC' invoke _ op v0 =
-    invoke (T.pack "&fail") v0 >>
+-- run a single (possibly impure) ABC
+-- (note: ambiguous code here will result in failure).
+runABC' :: (Monad m) => Invoker m -> Op -> V -> m V
+runABC' invoke (Invoke cap) v0 = invoke cap v0 
+runABC' invoke op v0 =
+    invoke (T.pack "&fail") v0 >> -- for internal debugging purposes
     fail ("invalid ABC: " ++ (show op) ++ " @ " ++ (show v0))
 
 -- to avoid pain of ghci module name conflicts between mtl and monad-tf...
@@ -439,37 +433,29 @@ runPureABC v c = runId $ runABC inv v c where
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
 runAMBC _ v0 (ABC []) = return v0 -- done!
-runAMBC invoke v0 (ABC (op:cc)) =
-    case runPureOp op v0 of
-        Just vf -> runAMBC invoke vf (ABC cc)
-        Nothing -> runAMBC' invoke (ABC cc) op v0
+runAMBC invoke v0 (ABC (op:cc)) = runOp >>= runCC where
+    run = runAMBC invoke
+    runOp = maybe (runAMBC' invoke op v0) id (runBasic run op v0)
+    runCC vf = run vf (ABC cc)
 
-runAMBC' :: (MonadPlus m) => Invoker m -> ABC -> Op -> V -> m V
-runAMBC' invoke cc (Op '$') (P (B b) (P x e)) =
-    runAMBC invoke x (b_code b) >>= \ x' ->
-    runAMBC invoke (P x' e) cc
-runAMBC' invoke cc (Op '?') (P (B b) (P (L x) e)) | not (b_rel b) =
-    runAMBC invoke x (b_code b) >>= \ x' ->
-    runAMBC invoke (P (L x') e) cc
-runAMBC' invoke cc (Op '?') (P (B b) (P (R x) e)) | not (b_rel b) =
-    runAMBC invoke (P (R x ) e) cc
-runAMBC' invoke cc (Op '∞') (P (B b) (P v0 e)) | not (b_rel b || b_aff b) =
-    loopUntilV (\ v -> runABC invoke v (b_code b)) v0 >>= \ vf ->
-    runABC invoke (P vf e) cc
-runAMBC' invoke cc (Invoke cap) v0 =
-    invoke cap v0 >>= \ vf ->
-    runAMBC invoke vf cc
-runAMBC' invoke cc (AMBC opts) v0 =
-    msum (map (runAMBC invoke v0) opts) >>= \ vf ->
-    runAMBC invoke vf cc
-runAMBC' invoke _ _ v0 =
-    invoke (T.pack "&fail") v0 >> mzero
+runAMBC' :: (MonadPlus m) => Invoker m -> Op -> V -> m V
+runAMBC' invoke (Invoke cap) v0 = invoke cap v0
+runAMBC' invoke (AMBC opts) v0 = msum $ map (runAMBC invoke v0) opts
+runAMBC' invoke _ v0 = invoke (T.pack "&fail") v0 >> mzero
 
 runPureAMBC = runAMBC inv where
     inv txt v0 = 
        case T.uncons txt of
             Just ('&',_) -> return v0
             _ -> Nothing
+
+
+
+
+
+--------------------------------------
+-- PARSERS
+--------------------------------------
 
 
 -- parseABC :: (P.Stream s m t) => P.ParsecT s u m ABC

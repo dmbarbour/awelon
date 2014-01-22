@@ -475,12 +475,12 @@
 @eq neq not
 @neq compare %rRWl
 
-@doc.factorp "((a*b)+(c*d)) -- (b + d) (a + c)"
+@doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
 @doc.merge   "(a + a') -- a; a and a' must be future compatible"
-@doc.factor  "((a+b)+(a'+d)) -- (b+c) a"
-@factor_p %rFll x
-@merge    %rMl
-@factor   factor_p merge
+@doc.factor+  "((a+b)+(a'+d)) -- (b+c) a"
+@partialFactor %rFll x
+@merge %rMl
+@factor+ partialFactor merge
 
 @doc.distrib "(a + b) c -- ((c*a) + (c*b))"
 @distrib p %rrDl
@@ -751,14 +751,15 @@
 @doc..fixStep "[[G] .fixStep] [G] -- [[fixed.G] --]"
 @.fixStep swap dup bind composel
 
-@doc.factorial "mostly this is a test for fixpoint :)"
-@factorial assertNatural [.factorialStep] fixpoint apply
-@.factorialStep
+@doc.factorial.fp "mostly this is a test for fixpoint :)"
+@factorial.fp assertNatural [factorialStep.fp] fixpoint apply
+@factorialStep.fp
  take 2 lt
  [tail dup dec put apply .mul]
  [head discard]
  eitherE
  merge
+@test.factorial.fp 720 6 factorial.fp assertEQ
 
 @doc.Lists
 "Lists in AO consist of a sequence of pairs ending in a number. For example, a list of four values might have structure:

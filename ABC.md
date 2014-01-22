@@ -75,18 +75,12 @@ None yet!
 
 If I get stuck too long on a tricky function that hinders real progress on higher level development (bootstrapping, etc.), I can implement a temporary version as an ABC primitive. This is not a desirable condition, and should only be used for essential functions.
 
-Currently, a loop primitive is provided as temporary ABC. 
+At one point, I implemented the `.until1` function as a primitive:
 
         ∞ :: [a→(a+b)]*(a*e)→(b*e)              until1 primitive
           code is U+221E
           requires copyable, droppable block
 
-I'm tempted to also provide primitives for `each` or `map` on lists, in part because it's common and easy to reason about termination, and also likely to become an ABCD element anyway. Potential:
+However, I managed to grapple with fixpoint combinators and get a working loop without this. So it's gone, as intended. 
 
-        Σ :: [(a*e)→e']*(a`L*e)→e'              each primitive
-          code is U+03A3
-          requires copyable, droppable block
-
-Loops seem tricky to implement by fixpoint, in the absence of any primitives beyond copy and compose. So far, I've only been able to implement one loop in ABC - i.e. `[dup inline] dup inline` in AO, and small variations. I've not figured how to add a useful payload or express terminating conditions. Anyhow, loops to process text and such are essential. If necessary, I would introduce a new primitive to implement them.
-
-Despite being temporary and outside the normal codepoint range for ABC, these are still first-class primitives with respect to compilation. 
+At the moment, there is no temporary ABC.
