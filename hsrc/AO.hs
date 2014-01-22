@@ -266,11 +266,18 @@ expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
 expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
+-- I don't want to allow hard-coding of arbitrary capabilities in AO.
+-- Instead, certain tokens are allowed based on having non-operational
+-- meaning.
+--    prefix '&' for annotations
+--    prefix '$' for sealers
+--    prefix '/' for unsealers
+validToken :: String -> Bool
+validToken [] = False
+validToken (c:_) = ('&' == c) || ('$' == c) || ('/' == c)
+
 -- An AO action is word, text, number, block, amb, or inline ABC.
 -- Whitespace is preserved as inline ABC.
---
--- Note that, for invocations, currently only annotations are accepted.
--- All other invocations will be rejected by the parser.
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = number P.<|> text P.<|> spaces P.<|>
@@ -278,10 +285,13 @@ parseAction = parser P.<?> "word or primitive" where
              aoblock P.<|> amb
     prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
     inlineTok = 
-        P.char '{' >> 
+        P.char '{' >>
         P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
         expectWordSep >>
+        assertValidToken txt >>
         return ((Prim . ABC) [Invoke (T.pack txt)])
+    assertValidToken t = unless (validToken t) $ P.unexpected 
+        ("unrecognized token %{" ++ t ++ "}")
     inlineABC = 
         P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
         (expectWordSep P.<?> "word separator or ABC code") >>
