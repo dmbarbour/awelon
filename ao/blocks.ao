@@ -1,0 +1,129 @@
+@doc.MakingWithBlocks
+"A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
+ 
+ * representing loop behaviors by copying and applying blocks
+ * modeling conditional behavior, apply block on just one branch
+ * direct models of higher order programs and behavioral abstraction
+ * transporting access and authority to resources and side-effects
+ 
+ Best practices for use of blocks have not fully been established. Awelon project favors compositional abstractions to such an extent that use of ad-hoc parametric abstraction is discouraged. (See @doc.FirstPrincipleIsComposition.) My expectation is that blocks will be de-emphasized for behavioral abstraction in favor of indirect mechanisms - e.g. structured DSLs, symbolic expressions, free monads, staged programming. In this sense, AO discourages conventional 'functional programming' in favor of a more 'language oriented programming'.
+ 
+ Nonetheless, blocks remain essential for loops, effects, and conditions. Also, blocks make an effective compilation target, an alternative to interpretation, and they can help an embedded DSL model corner cases.
+ 
+ Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
+ 
+     compose :: [x→y] [y→z] -- [x→z]      (sequential)
+     .curry  :: x [(x*y)→z] -- [y→z]      (partial)
+     .bfirst :: [x→y] -- [(x*e)→(y*e)]    (concurrent)
+     .bleft  :: [x→y] -- [(x+e)→(y+e)]    (conditional)
+ 
+ Some readers might be familiar with the notions of 'first' and 'left' from John Hughes' arrow model, which was an important foundation for AO and RDP. The primitive forms of '.curry' and '.bfirst', etc.. aren't very useable in the standard environment, but derived forms will also be available. 
+ 
+ In addition, blocks may be constructed by quotation of a value:
+ 
+     quote   :: (Quotable x) ⇒ x -- [-- x]
+     unquote :: [-- x] -- x
+ 
+ After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
+ 
+     .apply :: x [x→y] -- y ; apply block to just top object on stack
+     apply  :: x [x--y] -- y; apply block to just top object on stack
+       this variation provides a fresh stack and empty hand
+       (powerblock, named stacks, etc. are hidden)
+     dip    :: h [] -- ; apply block to all except top element on stack
+     hdip   :: [] -- ; apply block hiding current hand 
+     inline :: [] -- ; apply block as if inline (hand is visible)
+     keep   :: x [x -- y] -- y x; copies element on stack
+ 
+ The set of application words will undoubtedly evolve with experience.
+ 
+ Todo: add common bi/tri variants from Factor's vocabulary
+~
+
+@doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
+@doc.composel "[y→z] [x→y] -- [x→z]; compose on left"
+
+@compose p %rrol
+@composel swap compose
+@.apply p %rr$l
+@apply %rwrzvrwvvrrvrrz %$ %wlcllccwlcl
+@dip %rwrzvrwr$wlcl
+@hdip reifyHand putd dip take restoreHand
+@inline %rvr$c
+@keep dupd dip
+
+@dip2 take p put dip x
+@dip3 take p p put dip x x
+@dip4 take p p p put dip x x x
+@keep2 take dup2 put dip2
+@keep3 take dup3 put dip3
+@keep4 take dup4 put dip4
+
+@id.apply.id [id] apply
+@id.compose [id] compose
+@id.swap.compose [id] swap compose
+@id.inline.id [id] inline
+
+@doc..first "(a*b) [a→a'] -- (a'*b)"
+@doc..second "(a*b) [b→b'] -- (a*b')"
+@doc..both "(a*b) [a→a'] [b→b'] -- (a'*b')"
+@.first take x put .apply p
+@.second take pw put .first pw
+@.both take .first put .second
+
+@eqv.cca [.both] [swap take2 pw put2 .both pw]
+
+@doc..bind "x [(x*y)→z] -- [y→z]; bind argument into pair"
+@doc.bind "x [((x*s)*e)→z] -- [(s*e)→z]; bind argument onto stack"
+@doc..curry "[(x*y)→z] -- [x→[y→z]]; curry pair argument"
+@doc.curry "[((x*s)*e)→z] -- [x→[(s*e)→z]]; curry stack argument"
+@doc..bfirst "[x→x'] -- [(x*y)→(x'*y)]"
+@doc..bleft "[x→x'] -- [(x+y)→(x'+y)]"
+@doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
+@doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
+@doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
+@.bind pw %rr'wol
+@bind swap %r'l [%l] compose composel
+
+@bind2 bind bind
+@bind3 bind bind bind
+@bind4 bind bind bind bind
+
+@.curry [.bind] bind
+@curry  [bind]  bind
+@curry2 [bind curry] bind
+@curry3 [bind curry2] bind
+@curry4 [bind curry3] bind
+
+@.bfirst %r'l [%$] compose
+@.bleft  %r'l [%vr?c] compose
+@.bsecond .bfirst [.swap] compose [.swap] composel
+@.bright .bleft [.mirror] compose [.mirror] composel
+@.bapply [.apply] bind
+
+@doc.Quotable
+"Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location. 
+ 
+ A quotation is simply a block that reproduces a value. This typically has special support from the implementation (i.e. capturing the value rather than converting it to code), but will be serialized to code when necessary for display or networking.
+ 
+ If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
+~
+@doc.quote "(Quotable x) ⇒ x -- [--x]"
+@doc.unquote "[--x] -- x"
+@quote %r'l [%l] compose
+@unquote %rvvrvrrz %$ %wlclcwlcl
+
+@test.quote  7 dup quote unquote assertEQ drop
+@id.quoteUnquote quote unquote
+@id.unquoteQuote unquote quote
+@id.textDrop "text" drop
+
+
+@relevant %rkl
+@affine   %rfl
+@linear   relevant affine
+@doc.relevant "mark block on stack as relevant (not Droppable)"
+@doc.affine "mark block on stack as affine (not Copyable)"
+@doc.linear "mark block on stack as linear (neither Copyable nor Droppable)"
+
+

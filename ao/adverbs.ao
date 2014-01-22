@@ -1,0 +1,37 @@
+@doc.applyWithAdverbs
+"AO includes experimental syntactic sugar for inflection with user-defined adverbs. AO takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC - except these special words are user-defined. Inflection is limited to a single character per adverb, but this isn't a severe limitation. Inflection achieves utility through flexible, ad-hoc combination specific to the site of use. 
+ 
+ The word `applyWithAdverbs` also defined via dictionary, enabling adaptation to non-standard environment models. The typical definition is `apply inline`, which will apply the adverbs in a pure, context-free environment then inline the word.
+ 
+ *NOTES:* Adverbs are potentially useful for minor data shuffling (dip, swap, first, left, deep applications), currying, quoting a word, collection-oriented programming (map, fold, etc.), quoting words without explicit blocks, and so on. It will take time to see whether this is a worthwhile feature to keep. As an experimental feature, adverbs may eventually be deemed not worth the small amount of complexity they add.
+~
+@applyWithAdverbs apply inline
+
+@doc.adverb.@ "\@ will fixpoint a function; see @doc.fixpoint"
+@doc.adverb.* "\* will map a function of type [x--y] across a list"
+@doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
+@doc.adverb.k "\k will copy the first item on the stack before applying"
+@doc.adverb.d "\d will hide first item on stack before applying"
+@doc.adverb.H "\H will enforce clean hands; hide hand before applying"
+@doc.adverb.P "\P will apply to a single argument in empty environment"
+@doc.adverb.y "\y will set the function to curry its first argument"
+@doc.adverb.' 
+"\' will quote or reify the word, resulting in a block on the stack.
+ 
+     foo\xyz' = [foo\xyz]
+ 
+ This is only a minor syntactic convenience, but may result in a less noisy or more legible syntax. If used, quotation should usually be the last adverb.
+~
+
+@\@ fixpoint
+@\* [map] bind
+@\f [each] bind
+@\P [apply] bind
+@\d [dip] bind
+@\H [hdip] bind
+@\k [keep] bind
+@\y curry
+@\' quote 
+
+@id.swapd_adverb swapd swap\d
+

@@ -1,0 +1,129 @@
+
+@doc.id " -- "
+@doc.dup "(Copyable x) ⇒ x -- x x"
+@doc.dupd "(Copyable x) ⇒ x y -- x x y"
+@doc.over "(Copyable x) ⇒ x y -- x y x"
+@doc.tuck "(Copyable y) ⇒ x y -- y x y"
+@doc.pick "(Copyable x) ⇒ x y z -- x y z x"
+@doc.drop "(Droppable x) ⇒ x -- "
+@doc.nip  "(Droppable x) ⇒ x y -- y"
+@doc.nip2 "(Droppable x,y) ⇒ x y z -- z"
+@doc.swap "y x -- x y"
+@doc.swapd "x y z -- y x z"
+@doc.rot "x y z -- y z x"
+@doc.unrot "y z x -- x y z"
+@doc.roll "w x y z -- x y z w"
+@doc.unroll "x y z w -- w x y z"
+@doc.spin "x y z -- z y x"
+@doc.intro1 " -- Unit"
+@doc.elim1 "Unit -- "
+
+@id 
+@dup %r^wzlwl
+@dupd swap dup rot
+@over dupd swap
+@tuck swap over
+@pick %rw over %wl swap
+@drop %r%
+@nip swap drop
+@nip2 unrot drop2
+@dropd swap drop
+@swap  %rwr %wzw %lwl
+@swapd %rw swap %wl
+@rot swapd swap
+@unrot swap swapd
+@spin swap swapd swap
+@roll %rw rot %wl swap
+@unroll swap %rw unrot %wl
+@intro1 %vvrwlcl
+@elim1 %rvrwlcc
+@roll2 swap
+@roll3 rot
+@roll4 roll
+
+@doc.drop2 "(Droppable x,y) ⇒ x y -- "
+@doc.drop3 "(Droppable x,y,z) ⇒ x y z -- "
+@doc.drop4 "(Droppable w,x,y,z) ⇒ w x y z -- "
+@drop2 drop drop
+@drop3 drop drop drop
+@drop4 drop drop drop drop
+
+@doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
+@doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
+@doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
+@dup2 p dup %rw x %wl x
+@dup3 p p dup %rw x x %wl x x 
+@dup4 p p p dup %rw x x x %wl x x x
+
+@doc.ShorthandDataShuffling
+"This dictionary defines a few single character data shufflers for an object on the stack, to compactly support simple manipulations. These operations include:
+ 
+     p :: y x -- (x*y)
+     x :: (x*y) -- y x
+     w :: (x*y) -- (y*x)
+     z :: ((a*b)*(c*d)) -- ((a*c)*(b*d))
+     l :: (a*(b*c)) -- ((a*b)*c)
+     r :: ((a*b)*c) -- (a*(b*c))
+ 
+  Common combinations are also defined, such as `pw` and `wx`, which pair or extract the second element. The meanings here aren't quite the same as in ABC under the hood, but they are sometimes useful.
+~
+@doc.p "y x -- (x*y)"
+@doc.x "(x*y) -- y x"
+@doc.w "(x*y) -- (y*x)"
+@doc.l "(x*(y*z)) -- ((x*y)*z)"
+@doc.r "((x*y)*z) -- (x*(y*z))"
+@p %rwrzwll
+@x %rrwzlwl
+@w %rrwll
+@l %rrwrzwlll
+@r %rrrwzlwll
+@pw p w
+@wx w x
+@pwx p w x
+
+@doc..swap "(x*y)→(y*x); primitive swap"
+@.swap %vrwlc
+
+@doc.head "(x*y) -- x"
+@doc.tail "(x*y) -- y"
+@head wx drop
+@tail x drop
+
+@id.wl³ w l w l w l
+@id..wl³ .swap %l .swap %l .swap %l
+@id.wr³ w r w r w r
+@id..wr³ .swap %r .swap %r .swap %r
+@id.lw³ l w l w l w
+@id..lw³ %l .swap %l .swap %l .swap
+@id.rw³ r w r w r w
+@id..rw³ %r .swap %r .swap %r .swap
+@id.lr l r
+@id.rl r l
+
+@id.swap swap swap
+@id.swapd swapd swapd
+@id.rot rot rot rot
+@id.unrot unrot unrot unrot
+@id.roll roll roll roll roll
+@id.unroll unroll unroll unroll unroll
+@id.spin spin spin
+@id.introElim intro1 elim1
+@id.elimIntro elim1 intro1
+@id.px p x
+@id.xp x p
+@id.ww w w
+@id.pwxswap p w x swap
+@id.swappwx swap p w x
+@id.dupdrop dup drop
+@id.dupSwapDrop dup swap drop
+@id.dupSwapdDropSwap dup swapd drop swap
+@id.dup2drop2 dup2 drop2
+
+
+@eqv.swap.pwx [p w x] [swap]
+@eqv.p1drop2 [p drop] [drop2]
+@eqv.p2drop3 [p p drop] [drop3]
+@eqv.p3drop4 [p p p drop] [drop4]
+@eqv.pw2drop3 [pw pw drop] [drop3]
+@eqv.dupSwap [dup swap] [dup]
+

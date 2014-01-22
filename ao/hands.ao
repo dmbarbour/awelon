@@ -1,0 +1,64 @@
+@doc.Hands
+"In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as a semantic clipboard for ad-hoc data shuffling.
+ 
+     (currentStack * (hand * ... ))
+ 
+ Developers can:
+ 
+ * take item from stack into hand
+ * put top item from hand onto stack
+ * juggle (rotate) a few items
+ * discard a value from the hand
+ * copy an item from the stack into hand
+ * paste an item in the hand onto the stack
+ 
+ In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments. Also, hands are hidden by some operations, such as `apply`.
+ 
+ AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. Some common words, such as `apply`, will hide the hand - making
+~
+
+@take %rzlw
+@put  %wrzl
+@discard put drop
+@copy dup take
+@paste put copy
+
+@take2 take take
+@take3 take take take
+@take4 take take take take
+@put2  put  put
+@put3  put  put  put
+@put4  put  put  put  put
+@juggle2 %w roll2 %w
+@juggle3 %w roll3 %w
+@juggle4 %w roll4 %w
+
+@taked swap take
+@putd put swap
+
+@doc.take "move value at top of stack to top of hand"
+@doc.put "move value at top of hand to top of stack"
+@doc.discard "drop and destroy value in hand"
+@doc.copy "copy object from top of stack into hand (copy/paste metaphor)"
+@doc.paste "paste object from hand onto top of stack (copy/paste metaphor)"
+@doc.taked "take second item from stack"
+@doc.putd "put below first item on stack"
+
+@reifyHand %w reifyStack %w
+@restoreHand %w restoreStack %w
+@doc.reifyHand "hand becomes single object in fresh hand"
+@doc.restoreHand "single object in hand becomes hand"
+@doc.swapHands "swap reified hand on stack with current hand"
+@swapHands %rwzwl
+
+@id.takePut take put
+@id.putTake put take
+@id.juggle3 juggle3 juggle3 juggle3
+@id.takeJugglePutSwap take2 juggle2 put2 swap
+@id.takeSwapPutSwapd take swap put swapd
+@id.copyDiscard copy discard
+@id.pasteDiscardTake paste discard take
+@id.reifyRestoreHand reifyHand restoreHand
+@id.take3put3 take3 put3
+
+@eqv.takeSwapPut.swapd [take swap put] [swapd]

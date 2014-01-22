@@ -1,0 +1,63 @@
+@doc.StandardEnvironment
+"AO is not a stack-based programming language. One might better call it pair-based, but even that is somewhat misleading. AO is value-based. The value involved may be composed from six basic structural types: product (pair), sum, unit, void, number, and block (function). AO words will analyze and manipulate this tacit value.
+ 
+ However, by convention, the tacit value will model a stack-based programming environment plus extensibility features. Literals in AO have form `"foo" :: (s*e)→((Text*s)*e)`, effectively treating `s` as an implicit stack and `e` as a stable environment. The standard environment elaborates 'e' with structure for flexible workflows and dataflows, concurrency, and extensibility. Standard data shuffling words are designed assuming the standard environment. The type is roughly:
+ 
+     (s * (h * (p * ((sn * rns) * ex))))
+ 
+ Where:
+   s: the current stack, where most operations apply
+   h: the hand, temporary store and semantic clipboard
+   p: a powerblock, to observe or influence real world
+   sn: name of current stack, used when switching stacks
+   rns: record of (name*stack) pairs for workspaces and registers
+   ex: unused; available for experimental extensions
+ 
+ As mentioned above, `s` is the primary active stack. That's where all stack shufflers apply, where all math is performed. However, AO is unlike most other stack-based languages, e.g. with respect to its capability-based effects and causal commutativity. As a consequence of these differences, AO can be very implicitly concurrent - i.e. by modeling different computations on different stacks. Non-deterministic concurrency can also be modeled, using oracle machine idioms.
+ 
+ Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes. AO does not have any built-in support for type description, beyond assertions and merges.
+ 
+ This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
+~
+
+@reifyStack intro1 %rwl
+@restoreStack %rwl elim1
+@doc.reifyStack "(s*e)→((s*Unit)*e) : stack becomes object on fresh stack"
+@doc.restoreStack "((s*Unit)*e)→(s*e) : single object on stack becomes stack"
+
+@doc.swapStackName "newSN -- oldSN; replace name for current stack"
+@doc.setStackName "SN -- ; set name for the current stack"
+@doc.getStackName "-- SN ; get name for current stack"
+@swapStackName %lzrzrzwrwzwlwzlzlzr
+@setStackName swapStackName drop
+@getStackName intro1 swapStackName copy swapStackName elim1 put
+@id.swapStackName swapStackName swapStackName
+@id.getSetStackName getStackName setStackName
+
+@doc.swapPowerBlock "power -- power; replace powerblock in standard env"
+@swapPowerBlock %zrwzwlz
+@id.swapPowerBlock swapPowerBlock swapPowerBlock
+
+@doc.EnvironmentManipulation
+"AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
+ 
+ Developers can:
+ 
+ * create a fresh, empty environment on the stack (introE)
+ * safely destroy an empty environment on the stack (elimE)
+ * swap current environment with environment on stack (swapE)
+ 
+ When swapping environments, the current hand and powerblock will follow the user. Moving objects between environments involves use of the hand. A initial stack name for an environment is simply the empty string (which is equivalent to number 3). 
+~
+
+@doc.introE "adds empty environment object to stack"
+@doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
+@doc.swapE "switch current environment with env on stack; keep hand and power"
+@introE "" %r %vrvrwvrr %vrwlc %l
+@elimE  %r %vrwlc %llcwlclc %l drop
+@swapE %zrzwlz %vrwlc %zrwzl
+
+@id.introElimE introE elimE
+@id.swapE swapE swapE
+
+

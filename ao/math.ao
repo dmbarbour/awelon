@@ -1,0 +1,35 @@
+@doc.PrimitiveMath
+"The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
+ 
+ More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
+~
+
+@.mul p %rr*l
+@.add p %rr+l
+@.neg %r-l
+@.inv %r/l
+@.divMod p %rrQll wx
+@.quot .divMod nip
+@.rem  .divMod drop
+@.sub .neg .add
+@.div .inv .mul
+
+@inc 1 .add
+@incd swap inc swap
+@dec 1 .sub
+@decd swap dec swap
+
+@doc..mul "N(b) N(a) -- N(a*b)"
+@doc..add "N(b) N(a) -- N(a+b)"
+@doc..neg "N(a) -- N(-a)"
+@doc..inv "N(a) -- N(1/a); a must be non-zero"
+@doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
+@doc..quot "just the quotient from .divMod"
+@doc..rem "just the remainder from .divMod"
+@doc..sub "N(a) N(b) -- N(a-b)"
+@doc..div "N(a) N(b) -- N(a/b)"
+
+@id.mul1 1 .mul
+@id.div1 1 .div
+@id.add0 0 .add
+@id.sub0 0 .sub

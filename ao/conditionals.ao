@@ -1,0 +1,224 @@
+
+@doc.ConditionalBehavior
+"Awelon expresses conditional behavior using sum types. 
+ 
+ A sum type, `(a + b)`, indicates a value that is either left in `a` or right in `b`. A boolean, having two values, could be modeled as `(1 + 1)` where 1 is the unit type (having one value). However, AO does not heavily use booleans. For example, the output of comparing two values will initially contain the compared values, such that no information is lost. 
+ 
+ In AO, a sum type is the result of an *observation*. For primitive observations, one may ask whether a value (other than unit) is a pair, sum, number, or block. Numbers and complex products or sums of numbers may also be compared, e.g. to test whether one number is greater than another. Unit may only be compared against unit. (The limitations against observing unit help developers model static structure.)
+ 
+ By convention, when observing a binary condition `(a + b)`, the right answer `b` indicates truth or success. The left answer `a` indicates falsehood or failure. Standard words are developed using this convention. AO's variation of the 'not' word simply mirrors left and right, i.e. `not :: (a + b) -- (b + a)`.
+ 
+ Conditional behavior is expressed by applying a block on just one condition. The block must be droppable (because it might not apply). Compared to most languages, ABC is unusually precise regarding distribution of data across a condition. However, coarse-grained if/then/else or Haskell-like 'either' idioms may be expressed.
+~
+
+@isPair   %rPl
+@isSum    %rSl
+@isNumber %rNl
+@isBlock  %rBl
+@not      %rVRWLCl
+
+@doc..mirror "(a+b)→(b+a)"
+@.mirror %VRWLC
+
+@id.isPairMerge  isPair merge
+@id.isSumMerge   isSum merge
+@id.isNumMerge   isNumber merge
+@id.isBlockMerge isBlock merge
+@id.notnot       not not
+
+@doc.inR "b -- (0 + b); wrap 'b' in success, mark true, in the right"
+@doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
+@inR %rVVRWLCl
+@inL %rVl
+
+@doc.gt "a b -- ((a*b) + (b*a)); a > b?"
+@doc.lt "a b -- ((b*a) + (a*b)); a < b?"
+@doc.gte "a b -- ((a*b) + (b*a)); a >= b?"
+@doc.lte "a b -- ((b*a) + (a*b)); a =< b?"
+@gt  p %rr>l
+@lt  swap gt
+@gte lt not
+@lte gt not
+
+@doc.compare "a b -- (((LT(a*b) + EQ(b*a)) + GT(b*a))"
+@doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a))"
+@doc.neq "a b -- (EQ(b*b) + (LT(a*b) + GT(b*a)))"
+@compare gt [%vv wx lt not %cc] .left
+@eq neq not
+@neq compare %rRWl
+
+@doc.distrib "(a + b) c -- ((c*a) + (c*b))"
+@doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
+@doc.merge   "(a + a') -- a; a and a' must be future compatible"
+@doc.fullFactor "((a+b)+(a'+d)) -- (b+c) a"
+@distrib p %rrDl
+@partialFactor %rFll x
+@merge %rMl
+@fullFactor partialFactor merge
+
+@doc.condSwap "conditional swap; swap top two arguments if third in right"
+@doc.ifk "keep one of two values based on condition; keep conditional"
+@doc.if "keep one of two values based on condition; drop conditional"
+@doc.if! "apply if to select a block, then apply the block inline"
+@condSwap p distrib [%rwl] .left fullFactor wx
+@ifk condSwap drop
+@if ifk dropd
+@if! if inline
+
+@doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
+@doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
+@doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
+@.left p %rr?l
+@.right take not put .left not
+@.either take .left put .right
+
+@eqv.cca+ [.either] [swap take2 not put2 .either not]
+
+
+@doc..distribdE
+"Distribute the environment across the condition expressed in the second item on the stack, holding only the item on the top of the stack. This doesn't require a standard environment:
+ 
+    (k*((a+b)*s))*e → (((a*s)*e)+((b*s)*e))*(k*1)
+ 
+ Note: this operation is not entirely parametric in context of spatial-temporal types. It must be possible to observe the (+) condition across all values in s,e. 
+~
+@.distribdE
+ %rvrw
+ %rrwzl
+ %D
+ [.swap %l] %r? .mirror
+ [.swap %l] %r? .mirror
+   
+@doc..factorEd "reverses @.distribdE"
+@.factordE 
+ [%r] %r? .mirror
+ [%r] %r? .mirror
+ %FwMwlwlcll x
+
+@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); p @.distribdE"
+@.distribE
+ %rvrw
+ %D
+ [.swap %l] %r? .mirror
+ [.swap %l] %r? .mirror
+ %c
+
+@doc..factorE "reverses @.distribE"
+@.factorE
+ %v
+ [%r] %r? .mirror
+ [%r] %r? .mirror
+ %FwMwlcl
+
+@doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
+@doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
+@doc.eitherE "(a+b) [a -- a'] [b -- b'] -- (a'+b'); with full env"
+
+@leftE .distribdE %w?c .factorE
+@rightE take not put leftE not
+@eitherE
+ pw
+ .distribdE 
+ %wrz?
+ .mirror
+ %w?
+ .mirror
+ %c
+ .factorE
+
+@doc.leftdE "(a+b) d [a -- a'] -- (a'+b) h; leftE hiding element d"
+@doc.rightdE "(a+b) d [b -- b'] -- (a+b') h; rightE hiding element d"
+@doc.eitherdE "(a+b) d [a -- a'] [b -- b'] -- (a'+b') h; eitherE hiding d" 
+@leftdE p .distribdE %wrz? .factordE
+@rightdE take2 not put2 leftdE take not put
+@eitherdE 
+ pw p r
+ .distribdE
+ %wrz?
+ .mirror
+ %wrz?
+ .mirror
+ .factordE
+
+@doc.assert 
+"AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
+ 
+     assert :: (a + b) -- b
+ 
+ In addition, specialized asserts can be much easier to use. These operate as identity functions, but with a limited acceptance criteria.
+ 
+     assertPair, assertBlock, assertSum, assertNumber, assertUnit -- basic type
+     assertLT, assertLTE -- assert upper bounds for a comparable value
+     assertGT, assertGTE -- assert lower bounds for a comparable value
+ 
+ And common number assertions...
+ 
+     assertNumber, assertInteger -- assertions on number types
+     assertGTz, assertGTEz -- assert greater than or equal to zero
+     assertEQz, assertNEQz -- assert equal or not equal to zero
+     assertLTz, assertLTEz -- assert less than or equal to zero
+     assertNatural -- integer greater than or equal to zero
+     assertNatural+ -- integer greater than or equal to one
+     assertChar -- integer between 0 and 1114111 inclusive
+     assertOctet -- integer between 0 and 255 inclusive
+     assertProb -- rational number between 0 inclusive and 1 inclusive
+     assertUniform -- rational number between 0 inclusive and 1 exclusive
+ 
+ To clarify, `assert` is primarily intended for *static* analysis. It provides a means to express some preconditions, postconditions, and refinement types. These conditions should ideally be computable via partial evaluation, such that developers can receive compile time errors or warnings or errors based on whether an asserted condition is disproven or unproven.
+ 
+ In an effectful program, some assertions may have dynamic nature. In that case, modulo use of capabilities designed to isolate failure, a dynamic assertion failure causes the whole program to be halted as quickly and cleanly as feasible.
+~
+@assert   %rKl
+
+@assertLT   lt assert wx
+@assertLTE  lte assert wx
+@assertGT   gt assert x
+@assertGTE  gte assert x
+@assertEQ   eq assert x
+@assertNEQ  neq assert [%vrwlc] .left merge x
+
+@assertLTz  assertNumber 0 assertLT drop
+@assertLTEz assertNumber 0 assertLTE drop
+@assertGTz  assertNumber 0 assertGT drop
+@assertGTEz assertNumber 0 assertGTE drop
+@assertEQz  0 assertEQ drop
+@assertNEQz assertNumber 0 assertNEQ drop
+
+@assertPair   isPair assert
+@assertNumber isNumber assert
+@assertBlock  isBlock assert
+@assertSum    isSum assert
+@assertUnit   elim1 intro1
+
+@assertInteger  dup 1 .rem assertEQz drop
+@assertNatural  assertGTEz assertInteger
+@assertNatural+ assertGTz  assertInteger
+@assertChar     assertNatural 0x10ffff assertLTE drop
+@assertOctet    assertNatural 256 assertLT drop
+@assertProb     assertGTEz 1 assertLTE drop
+@assertUniform  assertGTEz 1 assertLT drop
+
+@id.assertInR inR assert
+@id.assertPair assertPair
+@id.assertNumber assertNumber
+@id.assertBlock assertBlock
+@id.assertSum assertSum
+@id.assertUnit assertUnit
+@id.assertLT assertLT
+@id.assertLTE assertLTE
+@id.assertGT assertGT
+@id.assertGTE assertGTE
+@id.assertEQ assertEQ
+@id.assertNEQ assertNEQ
+@id.assertLTz assertLTz
+@id.assertGTz assertGTz
+@id.assertGTEz assertGTEz
+@id.assertLTEz assertLTEz
+@id.assertEQz assertEQz
+@id.assertInteger assertInteger
+@id.assertNatural assertNatural
+@id.assertNatural+ assertNatural+
+@id.assertChar assertChar
+@id.assertProb assertProb
+@id.assertUniform assertUniform
+
