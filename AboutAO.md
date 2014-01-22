@@ -19,7 +19,7 @@ Words in AO additionally have *informal* semantics based on naming conventions. 
 
 Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. 
 
-A good AO programming environment can augment AO or mitigate its weaknesses:
+A good AO programming environment can augment AO and mitigate its weaknesses:
 
 * style and color should replace rendering of common prefixes or suffixes
 * hyperlinking or zooming to quickly access definitions and documentation
@@ -28,8 +28,9 @@ A good AO programming environment can augment AO or mitigate its weaknesses:
 * automatic animation highlighting changes in structure across words in def
 * support for automatic word completion, sensitive to type and context
 * automated refactoring support; discover similar code in other projects
+* live programming; continuous feedback of value over change in definition
 
-AO is envisioned with these features in a wiki-based programming environment. However, a simple **.ao** dictionary file format with imports has been defined for a more conventional filesystem and text-editor programming environment. Working without automatic visualization has a steep learning curve that can intimidate potential programmers, so I do not wish to promote the **.ao** dictionary format much beyond its intended use for bootstrapping.
+AO is envisioned with these features in a wiki-based integrated development environment. However, a simple **.ao** dictionary file format with imports has been defined for a more conventional filesystem and text-editor programming environment. Working without automatic visualization has a steep learning curve that can intimidate potential programmers, so I do not wish to promote the **.ao** dictionary format much beyond its intended use for bootstrapping.
 
 ## Literals: Numbers, Text, Blocks
 

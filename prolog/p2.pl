@@ -119,12 +119,16 @@ t0(N) :- path([[x,s],e], [s,[x,e]], N).
 p0(N) :- path([s,[x,e]], [[x,s],e], N).
 
 
-assocl_onStack(N) :- 
+l_onStack(N) :- 
     path([[ [x,[y,z]], s],e], 
          [[ [[x,y],z], s],e], N).
-assocr_onStack(N) :- 
+r_onStack(N) :- 
     path([[ [[x,y],z], s],e], 
          [[ [x,[y,z]], s],e], N).
+z_onStack(N) :-
+    path([[ [a,[b,[c,d]]], s],e],
+         [[ [a,[c,[b,d]]], s],e], N).
+
 pzip_onStack(N) :-
     path([[ [[a,b],[c,d]], s],e],
          [[ [[a,c],[b,d]], s],e], N).
