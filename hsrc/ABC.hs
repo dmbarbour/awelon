@@ -7,8 +7,8 @@
 -- sane types. Error messages are inadequate for complicated work.
 -- The API presented to users isn't very symmetric or elegant. 
 --
--- TODO: add support for tail calls, to avoid stack overflows for
--- processing large lists.
+-- TODO: develop support for tail calls, to avoid stack overflows and 
+-- reduce memory overheads for large lists.
 --
 -- There is one concession to performance, which is generic quotation
 -- of values - such that the quotation operator is cheap and does not
@@ -408,6 +408,8 @@ runBasic run op v0 =
 -- runABC :: (Monad m) => (Text -> V -> m V) -> V -> ABC -> m V
 -- todo: consider modeling the call stacks more explicitly.
 runABC _ v0 (ABC []) = return v0 -- done!
+runABC invoke (P (B b) (P x U)) (ABC (Op '$' : Op 'c' : cc)) =
+    runABC invoke x (ABC $ inABC (b_code b) ++ cc)
 runABC invoke v0 (ABC (op:cc)) = runOp >>= runCC where
     run = runABC invoke
     runOp = maybe (runABC' invoke op v0) id (runBasic run op v0)
@@ -433,6 +435,8 @@ runPureABC v c = runId $ runABC inv v c where
 
 -- runAMBC :: (MonadPlus m) => (Text -> V -> m V) -> V -> ABC -> m V
 runAMBC _ v0 (ABC []) = return v0 -- done!
+runAMBC invoke (P (B b) (P x U)) (ABC (Op '$' : Op 'c' : cc)) =
+    runAMBC invoke x (ABC $ inABC (b_code b) ++ cc)
 runAMBC invoke v0 (ABC (op:cc)) = runOp >>= runCC where
     run = runAMBC invoke
     runOp = maybe (runAMBC' invoke op v0) id (runBasic run op v0)
