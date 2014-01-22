@@ -10,7 +10,7 @@
 ~
 
 @doc.prefix.doc
-"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc' should add documentation in a common format, such as markdown text. If a word is too complicated to effectively document this way, consider factoring its definition into smaller pieces!
+"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc.' should introduce documentation in a common format. If a word is too complicated to effectively document this way, consider factoring its definition into smaller pieces!
 ~
 
 @doc.StandardEnvironment
@@ -33,6 +33,14 @@
  Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes. AO does not have any built-in support for type description, beyond assertions and merges.
  
  This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
+~
+
+@doc.prefix.test
+"Automated testing is an effective means to maintain software quality. Tests cannot discover every problem, but they can resist errors, prevent regressions, and generally improve confidence in code. In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words.
+ 
+ Tests are systematically executed in a standard environment with a confined powerblock. A test is said to fail if there are any type errors, assertion failures, or explicit failures (reported via powerblock). In addition, developers can issue warnings through the powerblock. Unless otherwise indicated, a test passes and (in many cases) developers are free to examine the test output.
+ 
+ In addition to conventional tests, AO developers can express desire for symbolic analysis using 'eqv.' and 'id.' prefixes.
 ~
 
 @doc.id " -- "
@@ -223,6 +231,8 @@
 @doc.unquote "[--x] -- x"
 @quote %r'l [%l] compose
 @unquote %rvvrvrrz %$ %wlclcwlcl
+
+@test.quote  7 dup quote unquote assertEQ drop
 
 @doc.Hands
 "In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as a semantic clipboard for ad-hoc data shuffling.
@@ -475,15 +485,23 @@
 @eq neq not
 @neq compare %rRWl
 
+@doc.distrib "(a + b) c -- ((c*a) + (c*b))"
 @doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
 @doc.merge   "(a + a') -- a; a and a' must be future compatible"
-@doc.factor+  "((a+b)+(a'+d)) -- (b+c) a"
+@doc.fullFactor "((a+b)+(a'+d)) -- (b+c) a"
+@distrib p %rrDl
 @partialFactor %rFll x
 @merge %rMl
-@factor+ partialFactor merge
+@fullFactor partialFactor merge
 
-@doc.distrib "(a + b) c -- ((c*a) + (c*b))"
-@distrib p %rrDl
+@doc.condSwap "conditional swap; swap top two arguments if third in right"
+@doc.ifk "keep one of two values based on condition; keep conditional"
+@doc.if "keep one of two values based on condition; drop conditional"
+@doc.if! "apply if to select a block, then apply the block inline"
+@condSwap p distrib [%rwl] .left fullFactor wx
+@ifk condSwap drop
+@if ifk dropd
+@if! if inline
 
 @doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
@@ -687,69 +705,76 @@
  
  * each - apply block with each element in list
  * repeat - inline block a given number of times
+ * enum - like repeat, but with an index
  * while (or until) - loop while (or until) condition is observed
  
  These words are ultimately derived from fixpoint combinators, which are notoriously difficult to grok. Fortunately, it is not difficult to learn and use a loop word, nor to build new loop words above existing ones. Any loop variables, such as the block being applied, are hidden from the loop body (cf. `.dip`).
  
- *Note:* Loops in AO are required (or at least assumed) to terminate. Static analysis may raise an error if a loop provably does not terminate, or a warning if a loop cannot be proven to terminate. Long running behaviors in AO are not modeled by explicit loops. Instead, long-running behavior should be represented using workflows, incremental processes (µP.[a→(P*b)]), or reactive models. Each incremental step should be guaranteed to terminate. This property is very useful for control, abstraction, composition, and extension of processes.
+ *Note:* Loops in AO are assumed and required to terminate. In general, this condition cannot be proven statically, so it is the responsibility of developers to reason about termination properties or favor idioms that simplify static analysis. AO programs will often be subject to static analysis for termination properties, with a warning being issued if termination could not be decided. 
  
- *Note2:* Currently, I'm using a temporary ABC operator, `∞`, to implement a primitive loop. My long term goal is to re
+ Long-running behaviors in AO are not expressed as loops. Instead, a long-running application is expressed using an incremental process model or a continuous reactive behavior, within an *implicit* top-level loop (depending on the application model). This design ensures an open-loop, subject to process control, abstraction, composition, and extension.
 ~
+
+@doc.repeat "[] n --; inline block n times"
+@doc.enum   "[i --] n m --; loop with integral index in range [n,m)."
+@doc.enumI  "enum in range [n,m] (i.e. including m)"
+
+@test.repeat 4 7 [incd] 3 repeat assertEQ
+@repeat assertNatural swap [repeat.step] bind fixpoint inline
+@doc.repeat.step "n [continue] [action] -- ; n counting down"
+@repeat.step
+ rot dup 1 lt
+ [rot p swap dip x decd inline]
+ [drop3]
+ if!
+
+@test.enum 15 0 [.add] 1 5 enumI assertEQ
+@enumI inc enum
+@enum assertEnumRange pw swap [enum.step] bind fixpoint inline
+@assertEnumRange swap assertInteger swap assertInteger assertLTE
+@doc.enum.step "(n*m) [continue] [action] -- "
+@enum.step
+ pick x gt
+ [drop3]
+ [enum.action]
+ if!
+@enum.action
+ pick x dropd swap
+ roll roll p swap
+ dip
+ wx x inc p swap
+ inline
+
+@doc.each "a`L [a --] --; apply block to each element in list, left to right"
+@doc.map "a`L [a -- b] -- b`L; process each element in list, left to right"
+
+@each [each.step] fixpoint inline
+@each.step
+ 
+
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
 @doc.while  "(a + b) [b -- (a + b)] -- a"
 @doc.until  "(a + b) [a -- (a + b)] -- b"
-@doc.repeat "[] n --; inline block n times"
-@doc.enum   "[i --] n m --; integral m,n; m >= n; loop over range [n,m)"
-@doc.each   "a`L [a --] --; apply block to each element in list, left to right"
-@doc.map    "a`L [a -- b] -- b`L; process each element in list, left to right"
 
 @while [while1] rightE merge
 @until [until1] leftE merge
 @while1 [not] compose until1
 @until1 [.distribE] compose %rvr .until1 %c
-@repeat swap [drop] composel swap 0 swap enum
-
-@assertEnumRange
- swap assertInteger
- swap assertInteger
- assertLTE
-@enum 
- assertEnumRange
- pw swap
- [.enumAction] bind
- [.enumStep] bind 
- %rvr .until1 %c drop
-@doc..enumAction "(N(n)*N(m)) [action] -- (N(n+1)*N(m)); ASSUMES n < m"
-@.enumAction swap wx dupd incd pw rot dip
-@doc..enumStep "(n*m) [action] -- ; tests n < m"
-@.enumStep swap wx gte swap .distribdE %w?c
-
-@each
- [.eachAction] bind
- [.eachStep] bind
- 
-@map @TODO
-
-@doc..until1 "[a→(a+b)]*(a*e)→(b*e); TEMPORARY PRIMITIVE"
-@.until1 %∞
 
 @doc.fixpoint
-"The strict fixpoint combinator (Z combinator) binds a function to take itself (in bound fixpoint form) as an argument. This function, along with conditional application on the other arguments, serves as a foundation for expressing loops in AO. Fixpoints are somewhat difficult to grok, but the convention in AO is to abstract specific loops (e.g. map or fold over a list) as needed.
+"This strict fixpoint combinator (Z combinator) binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint can express cyclic behavior.
  
- From Wikipedia: 
+     [foo] fixpoint
+         is equivalent to
+     [[foo] fixpoint foo]
  
-     Z g v = g (Z g) v
+ Naturally, if a fixpoint function unconditionally applies itself, the program will diverge. Thus, any fixpoint function should have conditional behavior and a termination condition.
  
-     λf.(λx.f (λv.((x x) v))) 
-        (λx.f (λv.((x x) v)))
- 
- AO must express the fixpoint combinator without any primitive support for recursion. 
+ Fixpoint is one of those patterns that people find difficult to comprehend until they've used it many times. I encourage developers to use, learn, and understand it. But in practice it may often be easier to express most behavior in terms of a few loops (map, each, enum, repeat, until, while, etc.) built above fixpoint.
 ~
-@fixpoint [.fixStep] bind dup apply
-@doc..fixStep "[[G] .fixStep] [G] -- [[fixed.G] --]"
-@.fixStep swap dup bind composel
+@fixpoint [swap dup bind composel] bind dup apply
 
 @doc.factorial.fp "mostly this is a test for fixpoint :)"
 @factorial.fp assertNatural [factorialStep.fp] fixpoint apply
