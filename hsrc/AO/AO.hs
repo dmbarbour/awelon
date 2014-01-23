@@ -9,7 +9,7 @@
 --
 -- See AboutAO.md for details on the dictionary file and AO
 --
-module AO
+module AO.AO
     ( Action(..), AO(..)
     , Dict, DictC, Import
 
@@ -44,7 +44,7 @@ import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import qualified System.IO as Sys
-import ABC
+import AO.ABC
 
 type DictF = ([Import],[(Line, ParseEnt)]) -- one dictionary file
 type ParseEnt = Either P.ParseError (W,AO) -- one parsed entry (or error)

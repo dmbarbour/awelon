@@ -27,7 +27,7 @@
 -- described here is inadequate for implicit parallelism and flexible
 -- scheduling. However, it will be enough for a simplified app model.
 --
-module ABC
+module AO.ABC
     ( V(..), Block(..), block, Op(..), ABC(..), inABC
     , ToABCV(..), toABCVL, FromABCV(..)
     , runABC, runAMBC, runPureABC, runPureAMBC

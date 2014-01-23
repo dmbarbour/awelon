@@ -19,7 +19,7 @@
 -- is compiled to a single file, which imports AORT for the ABC
 -- definitions.
 --
-module AORT
+module AO.AORT
     ( (:*), (:+), Void, Unit(..), Sealed(..)
     , abc_l, abc_r, abc_w, abc_z, abc_v, abc_c
     , abc_L, abc_R, abc_W, abc_Z, abc_V, abc_C

@@ -3,6 +3,6 @@
 --
 -- While the translation is trivial, it will report missing
 -- words. 
-module AOC
+module AO.AOC
     (
     ) where

@@ -50,8 +50,8 @@ import qualified Filesystem as FS
 import qualified Text.Parsec as P
 import Data.Text (Text)
 import Data.ByteString (ByteString)
-import AO
-import ABC
+import AO.AO
+import AO.ABC
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
