@@ -15,23 +15,23 @@ import qualified Data.Text as T
 import qualified Data.Word as W
 
 data V -- ABC's structural types
-    = L V        -- sum left
-    | R V        -- sum right
-    | N Rational -- number
-    | P V V      -- product
-    | B Block    -- block
-    | U          -- unit
-    | S Text V   -- sealed value (via sealer capability)
+    = L !V        -- sum left
+    | R !V        -- sum right
+    | N !Rational -- number
+    | P !V !V     -- product
+    | B !Block    -- block
+    | U           -- unit
+    | S !Text !V  -- sealed value (via sealer capability)
     deriving (Eq)
 data Block = Block 
-    { b_aff  :: Bool
-    , b_rel  :: Bool
-    , b_code :: ABC
+    { b_aff  :: !Bool
+    , b_rel  :: !Bool
+    , b_code :: !ABC
     } deriving (Eq)
 data Op
-    = Op Char     -- a normal operator
-    | Qu V        -- quoted values and literals (e → v*e)
-    | Invoke Text -- {invocation}
+    = Op {-# UNPACK #-} !Char     -- a normal operator
+    | Qu !V        -- quoted values and literals (e → v*e)
+    | Invoke !Text -- {invocation}
     | AMBC [ABC]  -- AMBC extension, set of options
     deriving (Eq) -- structural equality
 newtype ABC = ABC [Op] deriving (Eq)
