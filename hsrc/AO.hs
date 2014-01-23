@@ -74,28 +74,21 @@ applyWithAdverbs = T.pack "applyWithAdverbs"
 -- PROCESSING OF DICTIONARY --
 ------------------------------
 
--- | Compile a dictionary (from AO to ABC). This will report errors
--- for cyclic definitions, which are then removed from the dictionary. 
--- If a definition uses an undefined word, this is also reported
--- as an error. 
+-- | Compile an acyclic dictionary (from AO to ABC). 
 -- 
 -- At the moment, no typechecking is performed. The words are
 -- simply expanded to ABC. Each word is expanded only once.
+--
+-- Errors may be reported if a word is missing.
 compileDict :: Dict -> ([Error], DictC)
 compileDict dict = (errors, dictC) where
-    cycles = (detectCycles . M.toList . M.map aoWords) dict
-    cycleErrors = map showCycleError cycles
-    showCycleError cyc =
-        T.pack "ERROR: cycle among definitions: " `T.append`
-        T.intercalate (T.pack " \x2192 ") cyc
-    dict' = L.foldr M.delete dict (L.concat cycles) -- dict without cycles
-    (dictMW,dictC) = L.foldl compileW (M.empty, M.empty) (M.toList dict')
+    (dictMW,dictC) = L.foldl compileW (M.empty, M.empty) (M.toList dict)
     missingErrors = L.map mwError $ M.toList dictMW
     mwError (w,mws) = 
         T.pack "ERROR: word " `T.append` w `T.append` 
         T.pack " requires definitions for: " `T.append` T.unwords mws
-    errors = cycleErrors ++ missingErrors
-    loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict'
+    errors = missingErrors
+    loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict
     compileW r (w,def) = case (M.lookup w (snd r), M.lookup w (fst r)) of
         (Just _, _) -> r -- word has already been compiled
         (_, Just _) -> r -- word cannot be compiled (missing words)
@@ -585,14 +578,20 @@ deeplyImport (imp:imps) impsDone =
             deeplyImport (impsDeep ++ imps) ((imp,impR):impsDone)
 
 -- buildDict centralizes a lot of processing
--- it builds a raw (possibly cyclic) dictionary from file imports
--- it pushes through errors, but also records them.
+-- reports many errors, and removes cyclic definitions
 buildDict :: [(Import,ImpR)] -> ([Error],Dict)
-buildDict imps = (errors, dict) where
+buildDict imps = (errors, dictCycleFree) where
     errors = importErrors -- ambiguous or missing imports
           ++ importCycleErrors -- cyclic imports
           ++ parseErrors -- bad parse entries
           ++ dupWarnings -- warn whenever a word is defined twice
+          ++ defCycleErrors
+    defCycles = (detectCycles . M.toList . M.map aoWords) dict
+    defCycleErrors = map showCycleError defCycles
+    showCycleError cyc =
+        T.pack "ERROR: cycle among definitions: " `T.append`
+        T.intercalate (T.pack " \x2192 ") cyc
+    dictCycleFree = L.foldr M.delete dict (L.concat defCycles) -- dict without cycles
     impsD = map (uncurry distrib) imps
     importErrors = map (T.pack . show) $ lefts impsD
     goodImports = rights impsD -- [(Import, (FilePath, DictF))]
