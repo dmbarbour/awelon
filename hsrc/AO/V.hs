@@ -1,81 +1,98 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 -- dynamic AO/ABC values
 module AO.V
-    ( V(..), Block(..), block, Op(..), ABC(..), inABC
-    , ToABCV(..), toABCVL, FromABCV(..), fromABCVL
-    , valToText, textToVal, abcLit, quoteNum
+    ( V(..), prod, Op(..), ABC(..), KF(..), kf0
+    , copyable, droppable, observable
+    -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
+    , valToText, textToVal
+    , abcQuote, abcLit
+    , quoteNum, quoteNat
     ) where
 
 import Control.Applicative
+import Data.Function (on)
 import Data.Ratio
-import Data.ByteString (ByteString)
-import qualified Data.ByteString as B
+--import Data.ByteString (ByteString)
+--import qualified Data.ByteString as B
+--import qualified Data.Word as W
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Word as W
+import qualified Data.Sequence as S
+import qualified Data.Foldable as S
+import qualified Data.List as L
 
-data V -- ABC's structural types
-    = L !V        -- sum left
-    | R !V        -- sum right
-    | N !Rational -- number
-    | P !V !V     -- product
-    | B !Block    -- block
-    | U           -- unit
-    | S !Text !V  -- sealed value (via sealer capability)
+data V c -- ABC's structural types in context c
+    = L !(V c)    -- sum left
+    | R !(V c)    -- sum right
+    | N {-# UNPACK #-} !Rational -- number
+    | P !KF !(V c) (V c) -- product; tracks copy/drop allowance
+    | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
+    | U -- unit
+    | S !Text !(V c)  -- sealed value (via sealer capability)
     deriving (Eq)
-data Block = Block 
-    { b_aff  :: !Bool
-    , b_rel  :: !Bool
-    , b_code :: !ABC
-    } deriving (Eq)
+
+-- track affine and relevant properties
+-- (these are tracked for blocks and products)
+data KF = KF { may_copy :: Bool, may_drop :: Bool }
+    deriving (Eq)
+kf0 :: KF
+kf0 = KF True True
+
+-- a block operates in a monadic context c
+data ABC c = ABC
+    { abc_code :: !(S.Seq Op) -- code for show, structural equality
+    , abc_comp :: !(V c -> c (V c)) -- compiled form
+    }
+instance Eq (ABC c) where (==) = (==) `on` abc_code 
+
+-- Ops no longer carry values directly. This is the bare
+-- minimum for ABC. A compiler may target any category.
 data Op
     = Op {-# UNPACK #-} !Char     -- a normal operator
-    | Qu !V        -- quoted values and literals (e → v*e)
+    | TL !Text -- text literal
+    | BL !(S.Seq Op) -- block literal
     | Invoke !Text -- {invocation}
-    | AMBC [ABC]  -- AMBC extension, set of options
+    | AMBC ![S.Seq Op]  -- AMBC extension, set of options
     deriving (Eq) -- structural equality
-newtype ABC = ABC [Op] deriving (Eq)
-
-inABC :: ABC -> [Op]
-inABC (ABC ops) = ops
-
-block :: ABC -> Block 
-block abc = Block { b_aff = False, b_rel = False, b_code = abc }
 
 -- showABC :: ABC -> Text
-showABC :: ABC -> Text
-showABC (ABC code) = T.concat $ map showOp code
+showABC :: ABC c -> Text
+showABC = showOps . abc_code
+
+showOps :: S.Seq Op -> Text
+showOps = T.concat . L.map showOp . S.toList
 
 showOp :: Op -> Text
 showOp (Op c) = T.singleton c
-showOp (Qu v) = abcLit v
+showOp (TL text) = txtLit text
+showOp (BL ops) = '[' `T.cons` (showOps ops) `T.snoc` ']'
 showOp (Invoke text) = '{' `T.cons` text `T.snoc` '}'
-showOp (AMBC opts) = 
-    let opTexts = map showABC opts in
-    let sepOpts = T.intercalate (T.singleton '|') opTexts in
-    '(' `T.cons` sepOpts `T.snoc` ')'
+showOp (AMBC options) = 
+    let opTexts = map showOps options in
+    let joinedTexts = T.intercalate (T.singleton '|') opTexts in
+    '(' `T.cons` joinedTexts `T.snoc` ')'
 
--- show a value as ABC code
---   value v converted to ABC of type e → v*e
-abcLit :: V -> Text
-abcLit (N r) = T.pack $ quoteNum r
-abcLit U = T.pack "vvrwlc" -- intro1, not most efficient
-abcLit (B b) = 
-    let wk = if (b_rel b) then (`T.snoc` 'k') else id in
-    let wf = if (b_aff b) then (`T.snoc` 'f') else id in
-    let ctxt = showABC (b_code b) in
-    wf $ wk $ '[' `T.cons` ctxt `T.snoc` ']'
-abcLit (L v) = abcLit v `T.snoc` 'V'
-abcLit (R v) = abcLit v `T.append` intro0 where
-    intro0 = T.pack "VVRWLC"
-abcLit (S t v) = abcLit v `T.append` sealer where
-    sealer = '{' `T.cons` '$' `T.cons` t `T.snoc` '}'
-abcLit v@(P a b) =
+abcQuote :: V c -> S.Seq Op
+abcQuote (N r) = quoteNum r
+abcQuote U = S.fromList intro1 where
+    intro1 = (Op 'v' : Op 'v' : Op 'r' : Op 'w' : Op 'l' : Op 'c' : [])
+abcQuote (B kf abc) = (addk . addf) bb  where
+    bb = (S.singleton . BL . abc_code) abc
+    addk = if (not . may_drop) kf then (S.|> (Op 'k')) else id
+    addf = if (not . may_copy) kf then (S.|> (Op 'f')) else id
+abcQuote (L v) = abcQuote v S.|> (Op 'V')
+abcQuote (R v) = abcQuote v S.>< S.fromList intro0 where
+    intro0 = (Op 'V' : Op 'V' : Op 'R' : Op 'W' : Op 'L' : Op 'C' : [])
+abcQuote (S tok v) = abcQuote v S.|> Invoke ('$' `T.cons` tok)
+abcQuote v@(P _ a b) = 
     case valToText v of
-        Just txt -> txtLit txt
+        Just txt -> S.singleton (TL txt)
         Nothing -> 
-            abcLit a `T.append` abcLit b 
-            `T.snoc` 'w' `T.snoc` 'l'
+            abcQuote a S.>< 
+            (abcQuote b S.|> Op 'w' S.|> Op 'l')
+
+abcLit :: V c -> Text
+abcLit = showOps . abcQuote
 
 txtLit :: Text -> Text
 txtLit = wrap . escapeLines . toLines where
@@ -83,35 +100,90 @@ txtLit = wrap . escapeLines . toLines where
     escapeLines = T.intercalate (T.pack "\n ")
     wrap = (T.cons '"') . (`T.snoc` '~') . (`T.snoc` '\n')
 
--- given a number, find code that generates it as a literal
-quoteNum :: Rational -> [Char]
+quoteNum :: Rational -> S.Seq Op
 quoteNum r =
-    if (r < 0) then quoteNum (negate r) ++ "-" else
+    if (r < 0) then quoteNum (negate r) S.|> Op '-' else
     let num = numerator r in
     let den = denominator r in
-    if (1 == den) then (quoteNat [] num) else
-    if (1 == num) then (quoteNat "/" den) else
-    quoteNat (quoteNat "/*" den) num 
+    if (1 == den) then quoteNat num else
+    if (1 == num) then quoteNat den S.|> Op '/' else
+    quoteNat num S.>< (quoteNat den S.|> Op '/' S.|> Op '*')
 
--- build from right to left (positive integer required)
-quoteNat :: [Char] -> Integer -> [Char]
-quoteNat code n =
-    if (0 == n) then ('#' : code) else
+quoteNat :: Integer -> S.Seq Op
+quoteNat n | (0 < n) =
     let (q,r) = n `divMod` 10 in
-    quoteNat (iop r : code) q
+    let digit = toEnum (48 + fromIntegral r) in
+    quoteNat q S.|> Op digit
+quoteNat n | (0 == n) = S.singleton (Op '#')
+           | otherwise = quoteNat (negate n) S.|> Op '-'
 
-iop :: Integer -> Char 
-iop n | (0 <= n && n <= 9) = (toEnum (48 + fromIntegral n)) 
-      | otherwise = error "iop expects argument between 0 and 9"
+-- smart constructor for products (lazily tracks copyable and droppable)
+prod :: V c -> V c -> V c
+prod a b = P kf a b where
+    kf = KF { may_copy = (copyable a && copyable b)
+            , may_drop = (droppable a && droppable b)
+            }
 
+droppable, copyable, observable :: V c -> Bool
+
+-- may we drop this value?
+droppable (B kf _) = may_drop kf
+droppable (P kf _ _) = may_drop kf
+droppable (L v) = droppable v
+droppable (R v) = droppable v
+droppable (N _) = True
+droppable (S _ v) = droppable v
+droppable U = True
+
+-- may we copy this value?
+copyable (B kf _) = may_copy kf
+copyable (P kf _ _) = may_copy kf
+copyable (L v) = copyable v
+copyable (R v) = copyable v
+copyable (N _) = True
+copyable (S _ v) = copyable v
+copyable U = True
+
+-- may we introspect the value's structure?
+observable U = False
+observable (S _ _) = False
+observable _ = True
+
+-- parse text from a sequence of numbers
+valToText :: V c -> Maybe Text
+valToText (N r) | (3 == r) = Just T.empty
+valToText (P kf (N r) b) | nonLinear kf && validChar r  =
+    (((toEnum . fromInteger . numerator) r) `T.cons`) <$> 
+    valToText b
+valToText _ = Nothing
+
+textToVal :: Text -> V c
+textToVal t =
+    case T.uncons t of
+        Nothing -> N 3
+        Just (c, t') -> 
+            let r = (fromIntegral . fromEnum) c in
+            P kf0 (N r) (textToVal t')
+
+nonLinear :: KF -> Bool
+nonLinear kf = may_copy kf && may_drop kf
+
+validChar :: Rational -> Bool
+validChar r = 
+    let n = numerator r in
+    let d = denominator r in
+    (1 == d) && (0 <= n) && (n <= 0x10ffff)
+
+
+
+{-
 --
 -- HASKELL / ABC INTEGRATION
 --
 -- (a) conversion functions for values (ToABCV, FromABCV)
 -- (b) need a useful invoker for bootstrap purposes
 --
-class ToABCV v where toABCV :: v -> V
-instance ToABCV V where toABCV = id
+class ToABCV v where toABCV :: v -> V c
 instance ToABCV (Ratio Integer) where toABCV = N 
 instance ToABCV Integer where toABCV = N . fromInteger
 instance (ToABCV a, ToABCV b) => ToABCV (Either a b) where 
@@ -127,21 +199,19 @@ instance ToABCV Char where toABCV = N . fromIntegral . fromEnum
 instance ToABCV ByteString where toABCV = toABCVL 8 . B.unpack
 instance ToABCV W.Word8 where toABCV = N . fromIntegral
 instance ToABCV () where toABCV () = U
-instance ToABCV Block where toABCV = B
 
 -- generate list terminated by number
-toABCVL :: (ToABCV a) => Rational -> [a] -> V
+toABCVL :: (ToABCV a) => Rational -> [a] -> V c
 toABCVL vf [] = (N vf)
 toABCVL vf (v:vs) = toABCV v `P` toABCVL vf vs
 
 -- read list terminated by specific number
-fromABCVL :: (FromABCV a) => Rational -> V -> Maybe [a]
+fromABCVL :: (FromABCV a) => Rational -> V c -> Maybe [a]
 fromABCVL rF (N rF') | rF == rF' = Just []
 fromABCVL rF (P a la) = (:) <$> fromABCV a <*> fromABCVL rF la
 fromABCVL _ _ = Nothing
 
-class FromABCV v where fromABCV :: V -> Maybe v
-instance FromABCV V where  fromABCV = Just
+class FromABCV v where fromABCV :: V c -> Maybe v
 instance FromABCV Integer where
     fromABCV (N r) | (1 == denominator r) = Just (numerator r)
     fromABCV _ = Nothing
@@ -182,21 +252,19 @@ instance FromABCV W.Word8 where
 instance FromABCV () where
     fromABCV U = Just ()
     fromABCV _ = Nothing
-instance FromABCV Block where
-    fromABCV (B b) = Just b
-    fromABCV _ = Nothing
+-}
 
-instance Show ABC where 
+instance Show (ABC c) where 
     show = T.unpack . showABC
 
 instance Show Op where 
-    show op = show (ABC [op])
+    show = T.unpack . showOp
 
-instance Show V where 
+instance Show (V c) where 
     -- show = T.unpack . abcLit
     show (N r) | (1 == denominator r) = show (numerator r)
     show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
-    show p@(P a b) = 
+    show p@(P _ a b) = 
         case valToText p of
             Just txt -> (T.unpack . txtLit) txt
             Nothing -> "(" ++ show a ++ "*" ++ show b ++ ")"
@@ -204,13 +272,7 @@ instance Show V where
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
     show (S t v) = show v ++ "{$" ++ T.unpack t ++ "}"
-    show (B b) = "[" ++ show (b_code b) ++ "]" ++ rel ++ aff
-        where rel = if b_rel b then "k" else ""
-              aff = if b_aff b then "f" else ""
+    show (B kf abc) = "[" ++ show abc ++ "]" ++ rel ++ aff
+        where rel = if may_copy kf then "" else "k"
+              aff = if may_drop kf then "" else "f"
 
-
-valToText :: V -> Maybe Text
-valToText = fromABCV
-
-textToVal :: Text -> V
-textToVal = toABCV

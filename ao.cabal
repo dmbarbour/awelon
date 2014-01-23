@@ -63,6 +63,7 @@ Library
 
   Exposed-Modules:
     AO.V
+    AO.Op
     AO.AO
     AO.ABC
 
