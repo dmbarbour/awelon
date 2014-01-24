@@ -70,17 +70,3 @@ Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It
 ## ABCD
 
 None yet!
-
-## TEMPORARY ABC
-
-If I get stuck too long on a tricky function that hinders real progress on higher level development (bootstrapping, etc.), I can implement a temporary version as an ABC primitive. This is not a desirable condition, and should only be used for essential functions.
-
-At one point, I implemented the `.until1` function as a primitive:
-
-        ∞ :: [a→(a+b)]*(a*e)→(b*e)              until1 primitive
-          code is U+221E
-          requires copyable, droppable block
-
-However, I managed to grapple with fixpoint combinators and get a working loop without this. So it's gone, as intended. 
-
-At the moment, there is no temporary ABC.

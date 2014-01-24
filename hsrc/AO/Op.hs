@@ -272,4 +272,3 @@ op_invoke_unseal t (S t' v) | (t == t') = return v
 op_invoke_unseal t v = fail $
     "{/" ++ T.unpack t ++ "} @ " ++ show v
 
-

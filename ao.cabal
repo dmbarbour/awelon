@@ -64,10 +64,12 @@ Library
   Exposed-Modules:
     AO.V
     AO.Op
-    AO.AO
     AO.ABC
+    AO.AOTypes
+    AO.ParseAO
+    AO.LoadAO
+    AO.AO
 
-  Extensions: CPP
   ghc-options: -Wall -auto-all
 
   if os(windows)
