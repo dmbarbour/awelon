@@ -19,6 +19,7 @@
 --
 module AO.ABC
     ( parseABC, parseOp, runABC
+    , Invoker
     , module AO.V
     ) where
 

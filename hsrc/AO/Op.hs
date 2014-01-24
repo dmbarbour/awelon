@@ -20,11 +20,9 @@ module AO.Op
     , op_invoke_seal, op_invoke_unseal
     ) where
 
-import Control.Monad ((>=>))
 import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Sequence as S
 import AO.V
 
 -- using 'fail' to report errors, rather than in value V
@@ -164,8 +162,7 @@ op_compose (P _ (B kyz cyz) (P _ (B kxy cxy) e)) = return (p bxz e)
   where bxz = B kxz cxz
         kxz = KF { may_copy = (may_copy kyz && may_copy kxy)
                  , may_drop = (may_drop kyz && may_drop kxy) }
-        cxz = ABC { abc_code = (abc_code cxy S.>< abc_code cyz)
-                  , abc_comp = (abc_comp cxy >=> abc_comp cyz) }
+        cxz = abcCompose cxy cyz
 op_compose v = opFail 'o' v
 
 op_quote :: (Monad c) => V c -> c (V c)

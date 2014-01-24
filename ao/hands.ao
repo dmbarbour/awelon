@@ -18,7 +18,7 @@
 ~
 
 @take %rzlw
-@put  %wrzl
+@put %wrzl
 @discard put drop
 @copy dup take
 @paste put copy

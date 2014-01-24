@@ -1,182 +1,122 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards, CPP #-}
 
--- | Code to work with AO files...
+-- | This is the main module for working with AO. The functions here
+-- are organized around loading dictionaries and working with them
+-- wholistically. 
 --
--- Developers can load a complete dictionary,
+-- Developers can load a full dictionary, and process it to eliminate
+-- bad words (those possessing cyclic or referencing missing words).
+-- From there, they can compile it one of two ways:
 --
+--    compile each word to ABC (lazily)
+--    compile the AO dictionary to a Haskell text file
+--
+-- The intention, here, is to 
+-- 
+-- The latter option 
 module AO.AO
-    ( loadDictionary
+    ( loadDictionary, cleanupDictionary -- load and cleanup
+    , DictC, compileDictionary, aoToABC -- compilers
     , module AO.V
     , module AO.AOTypes
     ) where
 
-{-
-
-import Control.Monad
-import Control.Exception (assert)
-import Control.Arrow (second)
-import Data.Ratio ((%))
 import Data.Text (Text)
-import Data.Function (on)
-import qualified Data.Map as M
-import qualified Data.List as L
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Text.Parsec as P
-import qualified Text.Parsec.Error as P
-import Text.Parsec.Text()
-import AO.ABC
+import qualified Data.Map.Strict as M
+import qualified Data.Sequence as S
+import qualified Data.Foldable as S
+import Data.Set (Set)
+import qualified Data.Set as Set
+import qualified Data.List as L
+import qualified System.IO as Sys
+import AO.V
+import AO.AOTypes
+import AO.LoadAO
 
-------------------------------
--- PROCESSING OF DICTIONARY --
-------------------------------
+type DictC = M.Map W (S.Seq Op) -- ABC compiled dictionary
+type ErrorText = Text
 
--- | Compile an acyclic dictionary (from AO to ABC). 
--- 
--- At the moment, no typechecking is performed. The words are
--- simply expanded to ABC. Each word is expanded only once.
+reportError :: String -> IO ()
+reportError [] = return ()
+reportError s = Sys.hPutStrLn Sys.stderr s
+
+-- | load dictionary from filesystem
 --
--- Errors may be reported if a word is missing.
-compileDict :: Dict -> ([Error], DictC)
-compileDict dict = (errors, dictC) where
-    (dictMW,dictC) = L.foldl compileW (M.empty, M.empty) (M.toList dict)
-    missingErrors = L.map mwError $ M.toList dictMW
-    mwError (w,mws) = 
-        T.pack "ERROR: word " `T.append` w `T.append` 
-        T.pack " requires definitions for: " `T.append` T.unwords mws
-    errors = missingErrors
-    loadW w = distrib w $ maybe (Left ()) Right $ M.lookup w dict
-    compileW r (w,def) = case (M.lookup w (snd r), M.lookup w (fst r)) of
-        (Just _, _) -> r -- word has already been compiled
-        (_, Just _) -> r -- word cannot be compiled (missing words)
-        (Nothing, Nothing) -> -- attempt to compile this word
-            -- first compile words used by this def into dictionary
-            let reqWords = rights $ map loadW $ aoWords def in 
-            let (dmw,dc) = L.foldl compileW r reqWords in
-            -- compile the provided definition; use updated dictionary
-            case compileAO dc def of
-                Left mws -> (M.insert w (L.nub mws) dmw , dc)
-                Right abcdef -> (dmw , M.insert w abcdef dc)
+-- Reports errors or warnings to stderr, but continues through them.
+-- Will remove words with cyclic or incomplete definitions, so the
+-- resulting dictionary is clean of those issues (though type errors
+-- will remain). 
+loadDictionary :: Import -> IO Dictionary
+loadDictionary imp0 =
+    importDictFiles imp0 >>= \ dfs ->
+    let (issues, dict) = buildDictionary dfs in
+    S.mapM_ (reportError . T.unpack) issues >>
+    return dict
 
--- compile AO code given a dictionary containing the required
--- word definitions. If words are missing, it will return a 
--- list of those, instead.
-compileAO :: DictC -> AO -> Either [W] ABC
-compileAO dc (AO actions) = 
-    let r0 = map (compileAction dc) actions in
-    let abcOps (ABC ops) = ops in
-    case lefts r0 of
-        [] -> Right $ ABC $ L.concat $ map abcOps $ rights r0
-        lw -> Left (L.concat lw)
+-- glue a raw dictionary together, then remove cycles and incomplete
+-- words, resulting in a complete and acyclic subset of the dictionary.
+buildDictionary :: [(Import,DictFile)] -> (S.Seq ErrorText, Dictionary)
+buildDictionary dfs = 
+    let (e1, rawDict) = buildRawDictionary dfs in
+    let (e2, cleanDict) = cleanupDictionary rawDict in
+    (e1 S.>< e2, cleanDict)
 
--- compile a single action, given a precompiled dictionary 
--- containing all required words... or report missing words
-compileAction :: DictC -> Action -> Either [W] ABC
-compileAction dc (Word w []) = compileWord dc w
-compileAction dc (Word w advs) =
-    -- foo\adv = [foo] [\adv] applyWithAdverbs
-    let cW = compileWord dc w in
-    let cAdvs = compileAction dc (Adverbs advs) in
-    let cAp = compileWord dc applyWithAdverbs in
-    let errs = either id (const []) in
-    case (cW,cAdvs,cAp) of
-        (Right abcW, Right abcAdv, Right abcAp) ->
-            Right $ ABC $
-            (Qu (B (block abcW)) : Op 'l' : 
-             Qu (B (block abcAdv)) : Op 'l' :
-             inABC abcAp)
-        _ -> Left $ errs cW ++ errs cAp ++ errs cAdvs
-compileAction dc (Adverbs advs) = 
-    -- \adverbs = \a \d \v \e \r \b \s (from dictionary)
-    let cAdvs = L.map (compileWord dc . adverbWord) advs in
-    case lefts cAdvs of
-        [] -> Right $ ABC $ L.concatMap inABC $ rights cAdvs
-        errors -> Left $ L.concat errors
-compileAction _ (Num r) = Right $ ABC $ [Qu (N r), Op 'l']
-compileAction _ (Lit txt) = Right $ ABC $ [Qu (toABCV txt), Op 'l']
-compileAction dc (AOB ao) =
-    case compileAO dc ao of
-        Left mws -> Left mws -- missing word in a block
-        Right abc -> Right $ ABC $ [Qu (B (block abc)), Op 'l']
-compileAction dc (Amb options) =
-    let r0 = map (compileAO dc) options in
-    case lefts r0 of
-        [] -> Right $ ABC $ [AMBC (rights r0)]
-        lw -> Left (L.concat lw)
-compileAction _ (Prim abc) = Right abc
+-- raw dictionary from files; warns for parse errors and overrides
+buildRawDictionary :: [(Import, DictFile)] -> (S.Seq ErrorText, Dictionary)
+buildRawDictionary dfs = (errors, rawDict) where
+    errors = parseErrors S.>< overrideWarnings
+    dfsErrorTexts = map (S.fromList . map snd . df_errors . snd) dfs
+    parseErrors = foldr (S.><) S.empty dfsErrorTexts
+    miniDict (imp,df) = M.map (S.singleton . withLoc imp) (df_words df)
+    withLoc imp (ln,def) = ((imp,ln),def)
+    multiDict = M.unionsWith (S.><) $ map miniDict dfs
+    overrides = M.toList (M.filter ((> 1) . S.length) multiDict)
+    overrideWarnings = S.fromList (map warningOnOverride overrides)
+    rawDict = M.mapMaybe lastElem multiDict 
 
-compileWord :: DictC -> W -> Either [W] ABC
-compileWord dc w = 
-    case M.lookup w dc of
-        Nothing -> Left [w]
-        Just abc -> Right abc
+-- last element from a sequence
+lastElem :: S.Seq a -> Maybe a
+lastElem s =
+    case S.viewr s of
+        S.EmptyR -> Nothing
+        (_ S.:> e) -> Just e 
+
+warningOnOverride :: (W, S.Seq (Locator, AODef)) -> ErrorText
+warningOnOverride (w,defs) = 
+    let locations = S.toList $ fmap (locatorText . fst) defs in
+    w `T.append` T.pack " redefined @ " `T.append`
+    T.unwords locations
 
 
--- buildDict centralizes a lot of processing
--- reports many errors, and removes cyclic definitions
-buildDict :: [(Import,ImpR)] -> ([Error],Dict)
-buildDict imps = (errors, dictCycleFree) where
-    errors = importErrors -- ambiguous or missing imports
-          ++ importCycleErrors -- cyclic imports
-          ++ parseErrors -- bad parse entries
-          ++ dupWarnings -- warn whenever a word is defined twice
-          ++ defCycleErrors
-    defCycles = (detectCycles . M.toList . M.map aoWords) dict
-    defCycleErrors = map showCycleError defCycles
-    showCycleError cyc =
-        T.pack "ERROR: cycle among definitions: " `T.append`
-        T.intercalate (T.pack " \x2192 ") cyc
-    dictCycleFree = L.foldr M.delete dict (L.concat defCycles) -- dict without cycles
-    impsD = map (uncurry distrib) imps
-    importErrors = map (T.pack . show) $ lefts impsD
-    goodImports = rights impsD -- [(Import, (FilePath, DictF))]
-    importCycleErrors = map cycToErr $ detectCycles $ map impAdj goodImports
-    impAdj (imp,(_,(impList,_))) = (imp,impList)
-    cycToErr cyc = 
-        T.pack "Import cycle: " `T.append` 
-        T.intercalate (T.pack " \x2192 ") cyc
-    parseEnts = L.concatMap parseEnt goodImports -- [Either (FP,(L,P.Err)) (FP, (L, (W, AO)))] 
-    parseEnt (_, (fp, (_, ents))) = map (distrib fp . uncurry distrib) ents
-    parseErrors = map showParseError (lefts parseEnts)
-    showParseError (fp,(ln,err)) = T.pack (show (modErrPos (fixpos fp ln) err))
-    modErrPos f e = P.setErrorPos (f (P.errorPos e)) e
-    fixpos fp ln = (`P.setSourceName` (show fp)) . (`P.incSourceLine` (ln - 1))
-    -- list of words, including duplicates (value is non-empty list)
-    dictM = M.fromListWith (++) $ L.map toEntM (rights parseEnts)
-    toEntM x@(_, (_, (w, _))) = (w, [x])
-    dict = M.map (toDictEnt . L.head) dictM
-    toDictEnt (fp, (l, (w, ao))) = withFrame fp l w ao
-    dupWarnings = L.map toDupWarning $ M.toList $ M.filter hasDupDef dictM
-    hasDupDef (_:_:_) = True
-    hasDupDef _ = False
-    toDupWarning (w, defs) = 
-        T.pack "Word redefined: " `T.append` w `T.append` 
-        T.pack " @ " `T.append` T.unwords (L.map dupLoc $ L.reverse defs)
-    dupLoc (fp, (l, _)) =
-        (either id id . FS.toText . FS.filename) fp 
-        `T.snoc` ':' `T.append` (T.pack (show l))
+-- | cleanup dictionary to remove all words whose definitions are 
+-- incomplete or part of a cycle. Also returns warnings for cycles
+-- or incomplete definitions.
+cleanupDictionary :: Dictionary -> (S.Seq ErrorText, Dictionary)
+cleanupDictionary rawDict = (errors, cleanDict) where
+    errors = cycleErrors S.>< missingWordErrors
+    abstractGraph = M.map (aoWordsRequired . snd) rawDict
+    cyclesDetected = detectCycles abstractGraph
+    cycleErrors = S.fromList (map errorOnCycle cyclesDetected)
+    cycleFreeDict = L.foldr M.delete rawDict (L.concat cyclesDetected)
+    missingWordMap = incompleteWords $ M.map (aoWordsRequired . snd) cycleFreeDict
+    missingWordErrors = S.fromList $ map errorOnMissing $ M.toList missingWordMap 
+    cleanDict = L.foldr M.delete cycleFreeDict (M.keys missingWordMap)
 
--- Add location annotations to the compiled entries.
---  This adds two annotations: {&@word file line} and {&@- } to push and pop
---  frame information within the AO code. This can help with debugging.
-withFrame :: FS.FilePath -> Line -> W -> AO -> AO
-withFrame fp l w (AO actions) = AO (inFrame : (actions ++ [exFrame])) where 
-    exFrame = Prim $ ABC [Invoke $ T.pack "&@-"]
-    inFrame = Prim $ ABC [Invoke $ frameText]
-    frameText = T.pack "&@" `T.append` w `T.snoc` '@' 
-                `T.append` fptxt `T.snoc` ':' 
-                `T.append` (T.pack (show l))
-    fptxt = either id id $ FS.toText $ FS.filename fp
-       
--- AO forbids recursive import lists and definitions. It is important
--- that these errors be caught to avoid infinite expansions for any
--- definitions.
---
--- This function reports cycles based on a depth first search on an
--- adjacency list. Cycles are reported as lists of linked elements, 
--- with the last item implicitly linked to the first. 
-detectCycles :: (Ord v) => [(v,[v])] -> [[v]]
-detectCycles = deforest . M.map (L.sort . L.nub) . M.fromListWith (++) where
+errorOnCycle :: [W] -> ErrorText
+errorOnCycle wordsInCycle = 
+    T.pack "Error: cyclic definitions: " `T.append`
+    T.unwords wordsInCycle
+
+errorOnMissing :: (W, Set W) -> ErrorText
+errorOnMissing (w,mw) =
+    T.pack "Error: word " `T.append` w `T.append` 
+    T.pack " needs definitions for: " `T.append`
+    T.unwords (Set.toList mw)
+
+-- detect cycles in an abstract directed graph 
+detectCycles :: (Ord v) => M.Map v (Set v) -> [[v]]
+detectCycles = deforest . M.map (Set.toList) where
     deforest g = case M.minViewWithKey g of
         Nothing -> []
         Just ((v0,vs),_) -> 
@@ -192,10 +132,63 @@ detectCycles = deforest . M.map (L.sort . L.nub) . M.fromListWith (++) where
                 let (cxw,cycw) = dfs g cxd p vs in
                 (cxw, cycd ++ cycw)
             Just n -> -- loop found; 'v' necessarily has been visited 
-                assert (L.elem v cx) $ -- assert visited v
                 let cyc0 = L.reverse (L.take (n + 1) p) in
                 let (cxw,cycw) = dfs g cx p vs in
                 (cxw,(cyc0:cycw))
     edgesFrom g v = maybe [] id $ M.lookup v g
 
--}
+-- find incomplete words based on missing transitive dependencies
+-- the result is a map of word -> missing words.
+incompleteWords :: (Ord w) => M.Map w (Set w) -> M.Map w (Set w)
+incompleteWords dict = dictMW where
+    (dictMW, _) = L.foldl cw (M.empty, Set.empty) (M.keys dict)
+    cw r w = 
+        if (M.member w (fst r) || Set.member w (snd r)) then r else
+        let deps = M.findWithDefault Set.empty w dict in
+        let (dmw, dok) = L.foldl cw r (Set.toList deps) in
+        let mdeps = Set.filter (`Set.notMember` dok) deps in
+        if Set.null mdeps 
+            then (dmw, Set.insert w dok) 
+            else (M.insert w mdeps dmw, dok)
+
+-- compile a clean (acyclic, fully defined) dictionary to ABC.
+-- This is achieved by progressive inlining. 
+--
+-- This will also wrap each word in the dictionary with locators.
+compileDictionary :: Dictionary -> DictC
+compileDictionary aoDict = abcDict where
+    abcDict = L.foldl cw M.empty (M.keys aoDict)
+    cw dc w =
+        if M.member w dc then dc else
+        maybe dc (cwd dc w) (M.lookup w aoDict)
+    cwd dc w (loc,def) =
+        let deps = aoWordsRequired def in
+        let dc' = L.foldl cw dc (Set.toList deps) in
+        let def' = frameWrap (wordLocatorText w loc) def in
+        let abc = aoToABC dc' def' in
+        M.insert w abc dc'
+
+frameWrap :: Text -> S.Seq Action -> S.Seq Action
+frameWrap txt actions = enterFrame S.<| (actions S.|> exitFrame) where
+    annoLoc = Prim . S.singleton . Invoke . T.cons '&' . T.cons '@'
+    enterFrame = annoLoc txt
+    exitFrame = annoLoc (T.singleton '-') 
+
+-- | compile a definition to ABC, given a dictionary that
+-- already contains the necessary words. Any missing words will
+-- result in an annotation `{&~word}`, but it's probably better
+-- to avoid the situation and test for missing words in advance.
+aoToABC :: DictC -> S.Seq Action -> S.Seq Op
+aoToABC dc = S.foldr (S.><) S.empty . fmap (actionToABC dc)
+
+actionToABC :: DictC -> Action -> S.Seq Op
+actionToABC dc (Word w) = maybe (annoMW w) id (M.lookup w dc)
+actionToABC _ (Num r) = quoteNum r S.|> Op 'l'
+actionToABC _ (Lit txt) = S.empty S.|> TL txt S.|> Op 'l'
+actionToABC dc (BAO aoDef) = S.empty S.|> BL (aoToABC dc aoDef) S.|> Op 'l'
+actionToABC _ (Prim ops) = ops
+actionToABC dc (Amb [onlyOption]) = aoToABC dc onlyOption
+actionToABC dc (Amb options) = S.singleton $ AMBC $ map (aoToABC dc) options
+
+annoMW :: W -> S.Seq Op
+annoMW = S.singleton . Invoke . T.cons '&' . T.cons '~'

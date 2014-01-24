@@ -48,6 +48,18 @@
  Use of prefix words to declare properties such as identity, idempotence, associativity, and commutativity is useful for documentation, automatic validation, and development of optimizers. Developers are encouraged to do so.
 ~ 
 
+@testSyntaxError  [
+
+@testRedef
+@testRedef
+@testRedef
+
+@testCycle1 testCycle2
+@testCycle2 testCycle3
+@testCycle3 testCycle1
+
+@testMissingWords ii3u993y5i3ut9j
+
 @doc.TODO
 "Much to do about AO
   * functions on lists, association lists, records

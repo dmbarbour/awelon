@@ -5,12 +5,13 @@ module AO.V
     , copyable, droppable, observable
     -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
     , valToText, textToVal
-    , abcQuote, abcLit
+    , abcQuote, abcLit, abcCompose
     , quoteNum, quoteNat
     , opCodeList, inlineOpCodeList
     ) where
 
 import Control.Applicative
+import Control.Monad ((>=>))
 import Data.Function (on)
 import Data.Ratio
 --import Data.ByteString (ByteString)
@@ -42,9 +43,14 @@ kf0 = KF True True
 -- a block operates in a monadic context c
 data ABC c = ABC
     { abc_code :: (S.Seq Op) -- code for show, structural equality
-    , abc_comp :: !(V c -> c (V c)) -- compiled form
+    , abc_comp :: (V c -> c (V c)) -- compiled form
     }
 instance Eq (ABC c) where (==) = (==) `on` abc_code 
+
+abcCompose :: (Monad c) => ABC c -> ABC c -> ABC c
+abcCompose xy yz = xz where
+    xz = ABC { abc_code = (abc_code xy S.>< abc_code yz) 
+             , abc_comp = (abc_comp xy >=> abc_comp yz)  }
 
 -- Ops no longer carry values directly. This is the bare
 -- minimum for ABC. A compiler may target any category.
