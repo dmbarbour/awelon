@@ -2,8 +2,12 @@
 
 -- | Code to work with AO files...
 --
+-- Developers can load a complete dictionary,
+--
 module AO.AO
-    (
+    ( loadDictionary
+    , module AO.V
+    , module AO.AOTypes
     ) where
 
 {-
@@ -11,7 +15,6 @@ module AO.AO
 import Control.Monad
 import Control.Exception (assert)
 import Control.Arrow (second)
-import Data.Either (rights, lefts)
 import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Function (on)
@@ -22,11 +25,6 @@ import qualified Data.Text.Encoding as T
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Error as P
 import Text.Parsec.Text()
-import qualified Filesystem as FS
-import qualified Filesystem.Path.CurrentOS as FS
-import qualified System.Environment as Env
-import qualified System.IO.Error as Err
-import qualified System.IO as Sys
 import AO.ABC
 
 ------------------------------

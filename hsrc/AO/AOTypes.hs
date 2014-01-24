@@ -1,8 +1,9 @@
 
 -- basic data types, abstract syntax, simple processing for AO
 module AO.AOTypes 
-    ( W, ADV, Action(..)
-    , Locator, AODef, Dictionary
+    ( W, ADV, Action(..), Import
+    , AODef, Dictionary
+    , Line, Locator, DictFile(..)
     , applyWithAdverbs
     , aoWordsRequired
     ) where
@@ -11,7 +12,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import AO.V
@@ -24,10 +25,19 @@ data Action
     | Lit Text -- text literal (inline or multi-line)
     | BAO AODef -- block of AO code
     | Prim (S.Seq Op) -- %inlineABC
-    | Amb [AODef] -- ambiguous choice or inlined singleton
-type Locator = (Text,Int) -- (file,line) 
+    | Amb [AODef] -- ambiguous choice, or maybe just one choice
+type Line = Int
+type Locator = (Text,Line) -- (file,line) 
 type AODef = S.Seq Action
 type Dictionary = M.Map W (Locator, AODef)
+type Import = Text
+
+-- a parsed dictionary file
+data DictFile = DictFile
+    { df_imports :: [Import]
+    , df_words   :: M.Map W (Line,AODef)
+    , df_errors  :: [(Line,Text)]
+    }
 
 -- applyWithAdverbs is a word that is used by the syntactic sugar
 -- for inflection in AO. A word of the form `foo\*kd` is expanded
@@ -39,9 +49,12 @@ type Dictionary = M.Map W (Locator, AODef)
 applyWithAdverbs :: W
 applyWithAdverbs = T.pack "applyWithAdverbs"
 
+
+-- | find the words required for a given word
 aoWordsRequired :: AODef -> Set W
 aoWordsRequired = Set.unions . S.toList . fmap actionWordsRequired
 
+-- words needed for a single action
 actionWordsRequired :: Action -> Set W
 actionWordsRequired (Word w) = Set.singleton w
 actionWordsRequired (BAO actions) = aoWordsRequired actions

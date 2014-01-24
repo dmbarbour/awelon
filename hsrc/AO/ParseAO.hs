@@ -4,9 +4,7 @@
 -- (Which is to say, it does not detect cycles, missing words,
 -- or other problems.) It also doesn't load imports recursively.
 module AO.ParseAO
-    ( DictFile, Import, Entry
-    -- PARSERS and READERS
-    , readDictFileText, parseEntry
+    ( readDictFileText, parseEntry
     , parseAODef, parseAction
     , parseFullWord, parseNumber
     , parseMultiLineText, parseInlineText
@@ -17,21 +15,14 @@ import Control.Arrow (second)
 import Control.Monad
 import Data.Ratio
 import Data.Text (Text)
+import Data.Either (partitionEithers)
+import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Sequence as S
 import qualified Text.Parsec as P
+import qualified Text.Parsec.Error as P
 import AO.AOTypes
 import AO.V
-
--- a dictionary file consists of a header (which names imports)
--- followed by a sequence of definition entries. 
---
--- Note that, at this point, any errors are reported relative to
--- entry start. However, the entry's line number is recorded. 
-type DictFile = (S.Seq Import, S.Seq (Line, Entry))
-type Line = Int
-type Import = Text
-type Entry = Either (P.ParseError) (W, AODef) -- (entry after parse)
 
 readDictFileText :: Text -> DictFile
 readDictFileText = readDictFileE . splitEntries . dropBOM
@@ -59,10 +50,23 @@ lnum n (e:es) = (n,e) : lnum n' es where
 
 -- first entry is imports, other entries are definitions
 readDictFileE :: [(Line,Text)] -> DictFile
-readDictFileE [] = (S.empty, S.empty)
-readDictFileE (imps:defs) = (S.fromList impL, S.fromList defL) where
-    impL = splitImports (snd imps)
-    defL = map (second (P.parse parseEntry "")) defs
+readDictFileE [] = DictFile [] M.empty []
+readDictFileE (impEnt:defEnts) = DictFile imps defs errs where
+    imps = splitImports (snd impEnt)
+    (errL,defL) = (partitionEithers . map readEnt) defEnts
+    readEnt = distrib . second (P.parse parseEntry "")
+    errs = map etext errL
+    defs = M.fromList (map swizzle defL)
+    swizzle (ln,(w,aodef)) = (w,(ln,aodef))
+    etext (ln,pe) =
+        let pos = P.errorPos pe in
+        let pos' = P.incSourceLine pos (ln - 1) in
+        let pe' = P.setErrorPos pos' pe in
+        (ln, T.pack (show pe'))
+
+distrib :: (a,Either b c) -> Either (a,b) (a,c)
+distrib (a,Left b) = Left (a,b)
+distrib (a,Right c) = Right (a,c)
 
 -- imports simply whitespace separated
 splitImports :: Text -> [Import]

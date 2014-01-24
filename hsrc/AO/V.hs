@@ -26,7 +26,7 @@ data V c -- ABC's structural types in context c
     = L !(V c)    -- sum left
     | R !(V c)    -- sum right
     | N {-# UNPACK #-} !Rational -- number
-    | P !KF !(V c) (V c) -- product; tracks copy/drop allowance
+    | P !KF !(V c) !(V c) -- product; tracks copy/drop allowance
     | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
     | U -- unit
     | S !Text !(V c)  -- sealed value (via sealer capability)
@@ -41,7 +41,7 @@ kf0 = KF True True
 
 -- a block operates in a monadic context c
 data ABC c = ABC
-    { abc_code :: !(S.Seq Op) -- code for show, structural equality
+    { abc_code :: (S.Seq Op) -- code for show, structural equality
     , abc_comp :: !(V c -> c (V c)) -- compiled form
     }
 instance Eq (ABC c) where (==) = (==) `on` abc_code 
