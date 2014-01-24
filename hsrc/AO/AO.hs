@@ -8,12 +8,12 @@
 -- bad words (those possessing cyclic or referencing missing words).
 -- From there, they can compile it one of two ways:
 --
---    compile each word to ABC (lazily)
+--    compile each word to ABC
 --    compile the AO dictionary to a Haskell text file
 --
--- The intention, here, is to 
--- 
--- The latter option 
+-- Or, at least that's the intention. Currently, only the compile to
+-- ABC is performed. 
+--
 module AO.AO
     ( loadDictionary, cleanupDictionary -- load and cleanup
     , DictC, compileDictionary, aoToABC -- compilers
