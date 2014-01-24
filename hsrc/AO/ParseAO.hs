@@ -1,54 +1,315 @@
-
+{-# LANGUAGE FlexibleContexts #-}
 -- This file provides the main AST and parsers for an AO
 -- dictionary file. It does not process AO, beyond parsing it.
 -- (Which is to say, it does not detect cycles, missing words,
 -- or other problems.) It also doesn't load imports recursively.
 module AO.ParseAO
-    ( readDictFileText
-    -- PARSERS
-    , parseImportEntry, parseDefEntry, parseAOCode
-    , parseWord, parseFullWord
-    , parseNumber, parseAction
+    ( DictFile, Import, Entry
+    -- PARSERS and READERS
+    , readDictFileText, parseEntry
+    , parseAODef, parseAction
+    , parseFullWord, parseNumber
     , parseMultiLineText, parseInlineText
-    -- ABSTRACT SYNTAX
-    , DictFile(..), Action(..), Import(..), Entry(..)
     ) where
 
+import Control.Applicative
+import Control.Arrow (second)
+import Control.Monad
 import Data.Ratio
+import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Sequence as S
+import qualified Text.Parsec as P
+import AO.AOTypes
+import AO.V
 
-type W = Text
-type M = Char
-data Action 
-    = Word W [M] -- 'word' or 'word\adverbs' (allowing inflection)
-    | Adverbs [M] -- '\adverbs' expands to '\a \d \v \e \r \b \s'
-    | Num Rational -- literal number, many formats accepted
-    | Lit Text -- text literal (inline or multi-line)
-    | BAO (S.Seq Action) -- block of AO code
-    | Prim (S.Seq Op) -- %inlineABC
-    | 
-    
+-- a dictionary file consists of a header (which names imports)
+-- followed by a sequence of definition entries. 
+--
+-- Note that, at this point, any errors are reported relative to
+-- entry start. However, the entry's line number is recorded. 
+type DictFile = (S.Seq Import, S.Seq (Line, Entry))
+type Line = Int
+type Import = Text
+type Entry = Either (P.ParseError) (W, AODef) -- (entry after parse)
+
+readDictFileText :: Text -> DictFile
+readDictFileText = readDictFileE . splitEntries . dropBOM
+
+-- ignore a leading byte order mark (added by some text editors)
+dropBOM :: Text -> Text
+dropBOM t = case T.uncons t of { Just ('\xfeff', t') -> t' ; _ -> t }
+
+-- entries are separated by "\n@". Exceptional case if the first
+-- character is '@', so handle that.
+splitEntries :: Text -> [(Line,Text)]
+splitEntries t = 
+    case T.uncons t of 
+        Just ('@', t') -> (0, T.empty) : lnum 1 (T.splitOn eSep t') 
+        _ -> lnum 1 (T.splitOn eSep t)
+    where eSep = T.pack "\n@"
+
+-- recover line numbers for each entry
+lnum :: Line -> [Text] -> [(Line,Text)]
+lnum _ [] = []
+lnum n (e:es) = (n,e) : lnum n' es where
+    n' = T.foldl accumLF (1 + n) e
+    accumLF ct '\n' = 1 + ct
+    accumLF ct _ = ct
+
+-- first entry is imports, other entries are definitions
+readDictFileE :: [(Line,Text)] -> DictFile
+readDictFileE [] = (S.empty, S.empty)
+readDictFileE (imps:defs) = (S.fromList impL, S.fromList defL) where
+    impL = splitImports (snd imps)
+    defL = map (second (P.parse parseEntry "")) defs
+
+-- imports simply whitespace separated
+splitImports :: Text -> [Import]
+splitImports t =
+    let tAfterWS = T.dropWhile isSpace t in
+    if T.null tAfterWS then [] else
+    let (imp,t') = T.break isSpace tAfterWS in
+    imp : splitImports t'
+
+-- | Each entry consists of: 'word definition'. The '@' separating
+-- entries has already been removed. The initial word is followed
+-- by any word separator - usually a space or newline.
+parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AODef)
+parseEntry =
+    parseEntryWord >>= \ w ->
+    expectWordSep >>
+    parseAODef >>= \ def ->
+    return (w,def)
+
+-- enforce word separator without consuming anything
+expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
+expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
+    wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
+
+-- initial word or adverb at start of entry
+parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
+parseEntryWord = (adverb P.<|> parseBasicWord) P.<?> "entry word or adverb" 
+    where adverb = P.char '\\' >> advChar >>= return . adverbWord
+
+advChar :: P.Stream s m Char => P.ParsecT s u m ADV
+advChar = P.satisfy isAdvChar
+
+-- AO adverb is a two character word of form `\c`
+adverbWord :: ADV -> W
+adverbWord = T.cons '\\' . T.singleton
+
+-- basic word without inflection
+parseBasicWord :: P.Stream s m Char => P.ParsecT s u m W
+parseBasicWord =
+    P.satisfy isWordStart >>= \ c1 ->
+    P.many (P.satisfy isWordCont) >>= \ cs ->
+    return (T.pack (c1:cs))
+
+-- | a definition is trivially a sequence of AO actions
+parseAODef :: P.Stream s m Char => P.ParsecT s u m AODef
+parseAODef = S.fromList <$> P.manyTill parseAction P.eof
+
+-- | a full word consists of a basic word with potential inflection
+-- by adverbs, e.g. `foo` or `foo\adverbs`.
+parseFullWord :: P.Stream s m Char => P.ParsecT s u m (W,[ADV])
+parseFullWord =
+    parseBasicWord >>= \ w ->
+    P.option [] actionAdverbs >>= \ advs ->
+    expectWordSep >>
+    return (w,advs)
+
+-- adverbs are allowed as naked words, and operate similarly
+-- to inline ABC: `\adverb` expands to `\a \d \v \e \r \b`.
+-- The main difference is that these operations are user defined!
+actionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
+actionAdverbs = P.char '\\' >> P.many1 advChar
+
+-- translate a full word into an action
+-- will immediately expand the inflection sugar
+fullWordAction :: (W,[ADV]) -> Action
+fullWordAction (w,[]) = Word w
+fullWordAction (w,advs) = Amb [singleton] where
+    singleton = S.fromList [bw, ba, Word applyWithAdverbs]
+    bw = (BAO . S.singleton . Word) w
+    ba = (BAO . adverbActions) advs 
+
+adverbActions :: [ADV] -> S.Seq Action
+adverbActions = S.fromList . map (Word . adverbWord)
+
+-- I don't want to allow hard-coding of arbitrary capabilities in AO,
+-- so I'll do a little filtering at parse time. A few capabilities are
+-- allowed:
+--    prefix '&' for annotations
+--    prefix '$' for sealers
+--    prefix '/' for unsealers
+validToken :: String -> Bool
+validToken [] = False
+validToken (c:_) = ('&' == c) || ('$' == c) || ('/' == c)
+
+-- An AO action is word, text, number, block, amb, or inline ABC.
+-- Whitespace is preserved as inline ABC.
+parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
+parseAction = parser P.<?> "word or primitive" where
+    parser = word P.<|> spaces P.<|> aoblock P.<|> amb P.<|>
+             number P.<|> text P.<|> prim P.<|> adverbs 
+    word = fullWordAction <$> parseFullWord
+    text = Lit <$> (parseInlineText P.<|> parseMultiLineText)
+    spaces = (Prim . S.fromList . map Op) <$> P.many1 (P.satisfy isSpace)
+    prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
+    inlineTok = 
+        P.char '{' >> 
+        P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
+        expectWordSep >> assertValidToken txt >> 
+        return ((Prim . S.singleton . Invoke . T.pack) txt)
+    assertValidToken t = unless (validToken t) $ P.unexpected 
+        ("unrecognized token %{" ++ t ++ "}")
+    inlineABC = 
+        P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
+        (expectWordSep P.<?> "word separator or ABC code") >>
+        return ((Prim . S.fromList . map Op) ops)
+    adverbs =  
+        actionAdverbs >>= \ advs -> expectWordSep >>
+        return ((Amb . (:[]) . adverbActions) advs)
+    number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
+    aoblock = 
+        P.char '[' >> P.manyTill parseAction (P.char ']') >>= 
+        return . BAO . S.fromList
+    amb =
+        P.char '(' >>
+        P.sepBy1 (P.many parseAction) (P.char '|') >>= \ options ->
+        P.char ')' >>
+        return ((Amb . (map S.fromList)) options)
+
+-- AO is sensitive to line starts for multi-line vs. inline text.
+atLineStart, notAtLineStart :: (Monad m) => P.ParsecT s u m ()
+atLineStart = P.getPosition >>= \ pos -> when (P.sourceColumn pos > 1) mzero
+notAtLineStart = P.getPosition >>= \ pos -> unless (P.sourceColumn pos > 1) mzero 
+        
+parseMultiLineText, lineOfText, parseInlineText 
+    :: (P.Stream s m Char) => P.ParsecT s u m Text
+parseMultiLineText = 
+    atLineStart >> P.char '"' >> 
+    lineOfText >>= \ firstLine ->
+    P.manyTill (P.char ' ' >> lineOfText) (P.char '~') >>= \ moreLines ->
+    expectWordSep >> -- require word separator after ~
+    return (T.intercalate (T.singleton '\n') (firstLine : moreLines))
+
+lineOfText = T.pack <$> P.manyTill P.anyChar (P.char '\n')
+
+parseInlineText = 
+    notAtLineStart >> P.char '"' >> 
+    P.manyTill (P.satisfy isInlineTextChar) (P.char '"') >>= \ txt ->
+    expectWordSep >> -- require word separator after end quote
+    return (T.pack txt)
+
+-- Numbers in AO are intended to be convenient for human users. The
+-- cost is that there are many formats to parse. The following
+-- formats are supported:
+--   integral (e.g. 42)
+--   decimal  (e.g. 12.3)
+--   fractional (e.g. 2/3)
+--   scientific (e.g. 3.4e5)
+--   percentile (e.g. 98.7%)
+--   hexadecimal (e.g. 0x221E; natural numbers only)
+-- These are similar to some extent. This parser attempts to 
+-- reuse partial matches. All numbers are converted to exact
+-- rationals in the end.
+parseNumber :: P.Stream s m Char => P.ParsecT s u m Rational
+parseNumber = parser P.<?> "number" where
+    parser = (P.try parseHexadecimal) P.<|> parseDecimal
+    parseHexadecimal =
+        P.char '0' >> P.char 'x' >> 
+        P.many1 (P.satisfy isHexDigit) >>=
+        return . fromIntegral . hexToNum
+    parseDecimal = 
+        P.option False (P.char '-' >> return True) >>= \ bNeg ->
+        parseUnsignedIntegral >>= \ n ->
+        parseFragment n >>= \ r ->
+        return (if bNeg then (negate r) else r)
+    parseUnsignedIntegral = (zeroInt P.<|> posInt) P.<?> "digits"
+    zeroInt = P.char '0' >> return 0
+    posInt = 
+        P.satisfy isNZDigit >>= \ c1 ->
+        P.many (P.satisfy isDigit) >>= \ cs ->
+        return (decToNum (c1:cs))
+    parseFragment n =
+        (P.char '/' >> fractional n) P.<|>
+        (P.char '.' >> decimalDot n) P.<|>
+        (postDecFragment (fromIntegral n))
+    fractional num = posInt >>= \ den -> return (num % den)
+    decimalDot n = 
+        P.many1 (P.satisfy isDigit) >>= \ ds ->
+        let fNum = decToNum ds in
+        let fDen = 10 ^ length ds in
+        let f = fNum % fDen in
+        let r = f + fromIntegral n in
+        postDecFragment r
+    postDecFragment r =
+        (P.char '%' >> return (r * (1 % 100))) P.<|>
+        (P.char 'e' >> scientific r) P.<|>
+        (return r)
+    scientific r =
+        P.option False (P.char '-' >> return True) >>= \ bNeg ->
+        parseUnsignedIntegral >>= \ n ->
+        let factor = 10 ^ n in
+        if bNeg then return (r * (1 % factor))
+                else return (r * fromInteger factor)
+
+hexToNum :: [Char] -> Integer
+hexToNum = foldl addHexDigit 0 where
+    addHexDigit n c = 16*n + (fromIntegral (h2i c))
+    h2i c | (('0' <= c) && (c <= '9')) = fromEnum c - fromEnum '0'
+          | (('a' <= c) && (c <= 'f')) = 10 + fromEnum c - fromEnum 'a'
+          | (('A' <= c) && (c <= 'F')) = 10 + fromEnum c - fromEnum 'A'
+          | otherwise = error "illegal hex digit"
+
+decToNum :: [Char] -> Integer
+decToNum = foldl addDecDigit 0 where
+    addDecDigit n c = 10 * n + (fromIntegral (d2i c))
+    d2i c | (('0' <= c) && (c <= '9')) = fromEnum c - fromEnum '0'
+          | otherwise = error "illegal decimal digit"
+
+----------------------------------
+-- Character Predicates for AO
+----------------------------------
+
+-- AO recognizes only two kinds of whitespace - SP and LF
+-- 
+-- I have several character predicates to support parsing that might
+-- be slightly distinct from Data.Char.
+isSpace, isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
+isSpace c = (' ' == c) || ('\n' == c)
+isControl c = isC0 || isC1orDEL where
+    n = fromEnum c
+    isC0 = n <= 0x1F
+    isC1orDEL = n >= 0x7F && n <= 0x9F
+isDigit c = ('0' <= c) && (c <= '9')
+isNZDigit c = isDigit c && not ('0' == c)
+isHexDigit c = isDigit c || smallAF || bigAF where
+    smallAF = ('a' <= c) && (c <= 'f')
+    bigAF = ('A' <= c) && (c <= 'F')
+
+-- words in AO are separated by spaces, [], (|). They also may not
+-- start the same as a number, %inlineABC, or an @word entry.
+isWordSep, isWordStart, isWordCont :: Char -> Bool
+isWordSep c = isSpace c || bracket || amb where
+    bracket = '[' == c || ']' == c
+    amb = '(' == c || '|' == c || ')' == c
+isWordCont c = not (isWordSep c || isControl c || '"' == c || '\\' == c)
+isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
+    number = isDigit c || '-' == c
+
+-- adverb characters
+isAdvChar :: Char -> Bool
+isAdvChar c = isWordCont c 
+
+-- tokens in AO are described with %{...}. They can have most
+-- characters, except for {, }, and LF. In general, developers
+-- are limited in what kind of capabilities they may hard-code
+-- into source, but the limit is enforced downstream.
+isTokenChar, isInlineTextChar :: Char -> Bool
+isTokenChar c = not ('{' == c || '\n' == c || '}' == c)
+isInlineTextChar c = not ('"' == c || '\n' == c)
 
 
-
-
-type DictF = ([Import],[(Line, ParseEnt)]) -- one dictionary file
-type ParseEnt = Either P.ParseError (W,AO) -- one parsed entry (or error)
-type Import = Text -- name of dictionary file (minus '.ao' file extension)
-type Entry = Text  -- text of entry within a dictionary file
-type Line = Int    -- line number for an entry
-type W = Text      -- basic word
-type ADV = Char    -- adverb
-data Action 
-    = Word W [ADV]  -- word\adverbs
-    | Num Rational  -- literal number
-    | Lit Text      -- literal text
-    | AOB AO        -- block of AO
-    | Amb [AO]      -- ambiguous choice of AO (non-empty)
-    | Prim ABC      -- %inlineABC
-    | Adverbs [ADV] -- \adverbs
-    deriving Show
-newtype AO = AO [Action] deriving Show
-type Error = Text
-type Dict = M.Map W AO
-type DictC = M.Map W ABC

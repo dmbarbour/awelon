@@ -7,6 +7,7 @@ module AO.V
     , valToText, textToVal
     , abcQuote, abcLit
     , quoteNum, quoteNat
+    , opCodeList, inlineOpCodeList
     ) where
 
 import Control.Applicative
@@ -54,6 +55,11 @@ data Op
     | Invoke !Text -- {invocation}
     | AMBC ![S.Seq Op]  -- AMBC extension, set of options
     deriving (Eq) -- structural equality
+
+-- ABC CODES
+opCodeList, inlineOpCodeList :: [Char]
+opCodeList = " \n0123456789#" ++ inlineOpCodeList
+inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
 
 -- showABC :: ABC -> Text
 showABC :: ABC c -> Text

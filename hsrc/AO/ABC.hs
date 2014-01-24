@@ -18,9 +18,7 @@
 -- (to leverage GHC's optimizer).
 --
 module AO.ABC
-    ( parseABC, parseOp
-    , runABC
-    , opCodeList, inlineOpCodeList
+    ( parseABC, parseOp, runABC
     , module AO.V
     ) where
 
@@ -47,11 +45,6 @@ parseABC :: (P.Stream s m Char) => P.ParsecT s u m (S.Seq Op)
 type Invoker m = Text -> V m -> m (V m)
 runOp :: (Monad m) => Invoker m -> Op -> (V m -> m (V m))
 runABC :: (Monad m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
-
--- ABC CODES
-opCodeList, inlineOpCodeList :: [Char]
-opCodeList = " \n0123456789#" ++ inlineOpCodeList
-inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
 
 -- compile/run a single op
 runOp _ (Op c) = runOpC c

@@ -15,7 +15,7 @@ isPathSep = (== ';') -- flag defined if os(windows) in cabal file
 isPathSep = (== ':') -- suitable for most *nix systems and Mac
 #endif
 
-
+{-
 ------------------------
 -- FILESYSTEM LOADERS --
 ------------------------
@@ -142,3 +142,4 @@ deeplyImport (imp:imps) impsDone =
             let impsDeep = either (const []) (L.reverse . fst . snd) impR in
             deeplyImport (impsDeep ++ imps) ((imp,impR):impsDone)
 
+-}
