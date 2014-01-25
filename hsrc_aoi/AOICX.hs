@@ -3,12 +3,12 @@
 -- data structures and context for AOI
 module AOICX
     ( AOI_CONTEXT(..), IFN(..), AOI, runAOI
-    , Error, Frame
+    , Error(..), Frame, FrameHist
     , compileActions
-    , getCX, putCX
+    , getCX, putCX, modCX
     , pushFrame, popFrame, popFrame', getFrameHist
     , setFrameHist, resetFrameHist, initialFrameHist
-    , defaultIFN
+    , defaultIFN, aoiGetIfn, aoiPutIfn
     , aoiGetStep, aoiPushStep
     , aoiReload
     ) where
@@ -35,12 +35,12 @@ import AO.AO
 import AO.ABC
 import HLS
 
-type Error = Text
+newtype Error = E Text
 type Frame = Text
 type StepState = (Integer, V AOI)
 type FrameHist = HLS [Frame]
 
-instance MT.Error Text where strMsg = T.pack 
+instance MT.Error Error where strMsg = E . T.pack 
 
 type AOI_STATE = MT.StateT AOI_CONTEXT IO
 type AOI = MT.ErrorT Error AOI_STATE
@@ -56,6 +56,9 @@ getCX = liftCX MT.get
 
 putCX :: AOI_CONTEXT -> AOI ()
 putCX = liftCX . MT.put
+
+modCX :: (AOI_CONTEXT -> AOI_CONTEXT) -> AOI ()
+modCX = liftCX . MT.modify
 
 
 -- AOI_CONTEXT holds the state for running AO.
@@ -85,6 +88,13 @@ data IFN = IFN
     , ifn_eIC :: !(V AOI)
     }
 
+aoiGetIfn :: AOI IFN
+aoiGetIfn = aoi_ifn <$> getCX
+
+aoiPutIfn :: IFN -> AOI ()
+aoiPutIfn ifn = modCX put where
+    put cx = cx { aoi_ifn = ifn }
+
 defaultIFN :: IFN
 defaultIFN = IFN abc U where
     abc = ABC { abc_code = falseCode, abc_comp = defaultI }
@@ -108,7 +118,7 @@ typeErrI :: V AOI -> AOI error
 typeErrI v = fail $ msg ++ show v where
     msg = "interpreter expects (text * U); got: "
 
-compileActions :: AODef -> AOI (Either Error (ABC AOI))
+compileActions :: AODef -> AOI (Either Text (ABC AOI))
 compileActions actions = 
     (aoi_dict <$> getCX) >>= \ dc -> 
     let wNeed = aoWordsRequired actions in
@@ -188,7 +198,7 @@ setFrameHist hist =
 resetFrameHist :: AOI () 
 resetFrameHist = setFrameHist initialFrameHist
 
-initialFrameHist :: HLS [Frame]
+initialFrameHist :: FrameHist
 initialFrameHist = hls_init []
 
 -- manipulate step values
@@ -196,18 +206,17 @@ aoiGetStep :: AOI StepState
 aoiGetStep = (hls_get . aoi_step <$> getCX) 
 
 aoiPushStep :: V AOI -> AOI ()
-aoiPushStep v =
-    getCX >>= \ cx ->
-    let hls = aoi_step cx in
-    let stepCt = fst (hls_get hls) in
-    let stepCt' = 1 + stepCt in
-    stepCt' `seq` 
-    let hls' = hls_put (stepCt', v) hls in
-    let cx' = cx { aoi_step = hls' } in
-    putCX cx'
+aoiPushStep v = modCX put where
+    put cx = 
+        let hls = aoi_step cx in
+        let stepCt = fst (hls_get hls) in
+        let stepCt' = 1 + stepCt in
+        stepCt' `seq` v `seq` 
+        let hls' = hls_put (stepCt', v) hls in
+        cx { aoi_step = hls' }
 
 aoiReload :: AOI ()
-aoiReload =
+aoiReload = 
     getCX >>= \ cx ->
     liftIO (loadDictionary (aoi_source cx)) >>= \ dictAO ->
     let dc = compileDictionary dictAO in

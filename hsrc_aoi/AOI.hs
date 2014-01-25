@@ -31,8 +31,9 @@ module AOI
     ( main
     -- stuff that should probably be in separate modules
     , newDefaultContext
-    , makePowerBlock, defaultPowers
-    , randomBytes, newSecret
+    , makePowerBlock
+    , defaultPowers
+    , randomBytes
     ) where
 
 import Control.Monad
@@ -48,26 +49,125 @@ import qualified System.Environment as Env
 import qualified System.Random as R
 import qualified Crypto.Random.AESCtr as CR
 import qualified System.Console.Haskeline as HKL
---import qualified Data.ByteString.Base64.URL as B64
 import Data.Ratio
 import qualified Data.ByteString as B
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.Sequence as S
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified Filesystem as FS
---import qualified Text.Parsec as P
 import Data.Text (Text)
 import Data.ByteString (ByteString)
 
 import AO.AO
-import AO.ABC
 import HLS
 import AOICX
 
+
+main :: IO ()
+main = 
+    newDefaultContext >>= \ cx ->
+    getHistoryFile >>= \ hfile ->
+    let hklSettings = HKL.Settings
+            { HKL.complete = aoiCompletion 
+            , HKL.historyFile = hfile
+            , HKL.autoAddHistory = True
+            }
+    in
+    let hkl = initAOI >> aoiHaskelineLoop >> finiAOI in
+    let hklwi = HKL.withInterrupt hkl in
+    recoveryLoop (HKL.runInputT hklSettings hklwi) cx
+
+-- recovery loop will handle state errors (apart from parse errors)
+-- by reversing the ABC streaming state to the prior step. If this
+-- happens, a stack trace is also printed.
+recoveryLoop :: AOI () -> AOI_CONTEXT -> IO ()
+recoveryLoop aoi cx0 = 
+    runAOI aoi cx0 >>= \ (r, cx') ->
+    case r of
+        Right () -> return () -- clean exit
+        Left (E eTxt) ->
+            putErrLn (T.unpack eTxt) >>
+            readIORef (aoi_frames cx') >>= \ stack ->
+            reportContext stack >> -- STACK TRACE, VALUE, ETC.
+            recoveryLoop aoi cx' -- continue the loop
+
+initAOI :: HKL.InputT AOI ()
+initAOI = greet >> lift aoiReload where
+    greet =  
+        HKL.haveTerminalUI >>= \ bTerm ->
+        when bTerm $
+            HKL.outputStrLn "Welcome to aoi!" >>
+            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload"
+
+finiAOI :: HKL.InputT AOI ()
+finiAOI = 
+    HKL.haveTerminalUI >>= \ bTerm ->
+    when bTerm $ HKL.outputStrLn "goodbye!"
+
+-- initial AOI_CONTEXT
+newDefaultContext :: IO AOI_CONTEXT
+newDefaultContext = 
+    selectSource >>= \ source ->
+    newIORef initialFrameHist >>= \ frames ->
+    return (defaultContext source frames) 
+
+defaultContext :: Import -> IORef FrameHist -> AOI_CONTEXT
+defaultContext source frames = cx where
+    s = U -- initial stack
+    h = U -- initial hand
+    p = defaultPowerBlock -- access to power/effects
+    rns = prod (N 3) U -- named stacks
+    ex = U -- extensions 
+    env = (prod s (prod h (prod p (prod rns ex))))
+    cx = AOI_CONTEXT
+        { aoi_dict = M.empty -- loads on init or ctrl+c
+        , aoi_source = source
+        , aoi_frames = frames
+        , aoi_step = hls_init (0, env) 
+        , aoi_ifn = defaultIFN
+        }
+
+aoiHaskelineLoop :: HKL.InputT AOI ()
+aoiHaskelineLoop =
+    aoiHklPrint >>
+    lift resetFrameHist >> -- debug history per paragraph
+    (fst <$> lift aoiGetStep) >>= \ n ->
+    let prompt = show (n + 1) ++ ": " in
+    foi (HKL.getInputLine prompt) >>= \ sInput ->
+    case sInput of
+        Nothing -> return ()
+        Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
+            foi (lift (aoiStep (T.pack (' ':str)))) >>
+            aoiHaskelineLoop
+
+-- fail on interrupt
+foi :: HKL.InputT AOI a -> HKL.InputT AOI a
+foi = HKL.handleInterrupt (fail "ctrl+c")
+
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
+
+-- The primary interpreter step for AOI
+--
+-- In each step we receive some text and process it through the
+-- current interpreter. The result is a block value, which may
+-- then be executed on the current environment. 
+aoiStep :: Text -> AOI ()
+aoiStep txt = 
+    aoiGetIfn >>= \ ifn ->
+    let vIn = (prod (textToVal txt) (ifn_eIC ifn)) in
+    abc_comp (ifn_op ifn) vIn >>= \ vParsed ->
+    case vParsed of
+        (R (P _ (B _ action) eIC')) ->
+            let ifn' = ifn { ifn_eIC = eIC' } in
+            (snd <$> aoiGetStep) >>= \ v0 ->
+            abc_comp action v0 >>= \ vf ->
+            aoiPutIfn ifn' >>
+            aoiPushStep vf
+        (L vErr) -> liftIO $ putErrLn ("read error: " ++ show vErr)
+        v -> liftIO $ putErrLn ("read type error: " ++ show v)
 
 -- create a powerblock given a map of powers
 --
@@ -81,16 +181,16 @@ makePowerBlock powerMap = powerBlock where
     powerBlock = B kfLinear abc where
     kfLinear = KF False False
     abc = ABC { abc_code = falseCode, abc_comp = power }
-    falseCode = (Prim . Invoke . T.pack) "*power*" -- never invoked
+    falseCode = (S.singleton . Invoke . T.pack) "*power*" -- never invoked
     run frame action = 
         pushFrame frame >> -- simplify error discovery
         action >>= \ result ->
         popFrame' frame >>
         return (P kfLinear powerBlock result)
-    power v@(P _ label message) =
-        case valToText label of
+    power v@(P _ vLabel message) =
+        case valToText vLabel of
             Nothing -> powerFail v
-            Just txt -> case M.lookup txt powerMap of
+            Just label -> case M.lookup label powerMap of
                 Nothing -> powerFail v
                 Just op -> run label (op message)
     power v = powerFail v
@@ -114,7 +214,7 @@ defaultPowers = M.fromList $ map (first T.pack) $
 defaultPowerBlock :: V AOI
 defaultPowerBlock = makePowerBlock defaultPowers
 
-switchAOI :: V -> AOI V
+switchAOI :: V AOI -> AOI (V AOI)
 switchAOI (P _ (B kf abc) eIC) | may_copy kf && may_drop kf = 
     getCX >>= \ cx ->
     let ifnOld = aoi_ifn cx in
@@ -157,15 +257,15 @@ aoiGetOSEnv v =
 getOSEnv :: Text -> IO Text
 getOSEnv = liftM (maybe T.empty T.pack) . tryIO . Env.getEnv . T.unpack
 
-aoiReadFile :: (MonadIO c) => V c -> c (V c)
+aoiReadFile :: (MonadIO c, Functor c) => V c -> c (V c)
 aoiReadFile fileName =
     case valToText fileName of
         Nothing -> fail $ ("readFile @ " ++ show fileName)
         Just fntxt -> 
             let op = FS.readTextFile $ FS.fromText fntxt in
-            maybe (L U) (R . valToText) <$> liftIO (tryIO op)
+            maybe (L U) (R . textToVal) <$> liftIO (tryIO op)
 
-aoiWriteFile :: (MonadIO c) => V c -> c (V c)
+aoiWriteFile :: (MonadIO c, Functor c) => V c -> c (V c)
 aoiWriteFile v@(P _ fn ftext) =
     case (,) <$> valToText fn <*> valToText ftext of
         Nothing -> fail $ ("writeFile @ " ++ show v)
@@ -175,6 +275,7 @@ aoiWriteFile v@(P _ fn ftext) =
                      FS.writeTextFile fp fdata 
             in
             maybe (L U) (const (R U)) <$> liftIO (tryIO op)
+aoiWriteFile v = fail $ ("writeFile @ " ++ show v)
 
 selectSource :: IO Import
 selectSource = sfa <$> Env.getArgs where
@@ -184,27 +285,8 @@ selectSource = sfa <$> Env.getArgs where
             Nothing -> sfa args
             Just foo -> (T.pack foo)
 
--- initial AOI_CONTEXT
-newDefaultContext :: IO AOI_CONTEXT
-newDefaultContext =
-    selectSource >>= \ source ->
-    let s = U in -- initial stack
-    let h = U in -- initial hand
-    let p = defaultPowerBlock in -- initial powerblock
-    let rns = (prod (N 3) U) in -- initial named stacks
-    let ex = U in -- initial extension area
-    let eU0 = (prod s (prod h (prod p (prod rns ex)))) in
-    let cx0 = AOI_CONTEXT 
-            { aoi_dict = M.empty -- loaded on init or ctrl+c
-            , aoi_source = source
-            , aoi_frames = hls_init []
-            , aoi_step = hls_init (0, eU0) 
-            , aoi_ifn = defaultIFN
-            }
-    in
-    return cx0
 
-tryIO :: IO a -> Maybe (IO a)
+tryIO :: IO a -> IO (Maybe a)
 tryIO = liftM (either (const Nothing) (Just)) . Err.tryIOError
 
 getHistoryFile :: IO (Maybe Sys.FilePath)
@@ -215,38 +297,8 @@ getHistoryFile = tryIO $
     FS.appendFile fp B.empty >>
     return (FS.encodeString fp)
 
-main :: IO ()
-main = 
-    newDefaultContext >>= \ cx ->
-    getHistoryFile >>= \ hfile ->
-    let hklSettings = HKL.Settings
-            { HKL.complete = aoiCompletion 
-            , HKL.historyFile = hfile
-            , HKL.autoAddHistory = True
-            }
-    in
-    let hkl = initAOI >> aoiHaskelineLoop >> finiAOI in
-    let hklwi = HKL.withInterrupt hkl in
-    recoveryLoop (HKL.runInputT hklSettings hklwi) cx
-
--- recovery loop will handle state errors (apart from parse errors)
--- by reversing the ABC streaming state to the prior step. If this
--- happens, a stack trace is also printed.
-recoveryLoop :: AOI () -> AOI_CONTEXT -> IO ()
-recoveryLoop aoi cx0 = 
-    runAOI aoi cx0 >>= \ (cx', r) ->
-    case r of
-        Right () -> return () -- clean exit
-        Left eTxt ->
-            putErrLn (T.unpack eTxt) >>
-            readIORef (aoi_frames cx') >>= \ stack ->
-            writeIORef (aoi_frames cx') 
-            reportContext stack >> -- STACK TRACE, VALUE, ETC.
-            let cxcln = cx' { aoi_frames = hls_init [] } in
-            recoveryLoop aoi cxcln
-
--- reportContext currently just prints a stack trace
--- todo: print recent history of stacks, too. 
+-- reportContext prints a stack trace and an incomplete stack history
+-- (the stack history is based on state with a halflife)
 reportContext :: HLS [Text] -> IO ()
 reportContext hls = stackTrace >> histTrace where
     stack = hls_get hls
@@ -288,35 +340,6 @@ aoiCompletion = quotedFiles prefixedWords where
         (aoi_dict <$> getCX) >>= \ dc ->
         return (dictCompletions dc s)
 
-initAOI :: HKL.InputT AOI ()
-initAOI = greet >> lift aoiReload where
-    greet =  
-        HKL.haveTerminalUI >>= \ bTerm ->
-        when bTerm $
-            HKL.outputStrLn "Welcome to aoi!" >>
-            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to abort & reload"
-
-finiAOI :: HKL.InputT AOI ()
-finiAOI = 
-    HKL.haveTerminalUI >>= \ bTerm ->
-    when bTerm $ HKL.outputStrLn "goodbye!"
-
-aoiHaskelineLoop :: HKL.InputT AOI ()
-aoiHaskelineLoop =
-    aoiHklPrint >>
-    lift resetFrameHist >>
-    (fst <$> lift aoiGetStep) >>= \ n ->
-    let prompt = show (n + 1) ++ ": " in
-    foi (HKL.getInputLine prompt) >>= \ sInput ->
-    case sInput of
-        Nothing -> return ()
-        Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
-            foi (lift (aoiStep (T.pack (' ':str)))) >>
-            aoiHaskelineLoop
-
-foi :: HKL.InputT AOI a -> HKL.InputT AOI a
-foi = HKL.handleInterrupt (fail "ctrl+c")
-
 -- a colorful printing function
 aoiHklPrint :: HKL.InputT AOI ()
 aoiHklPrint = printIfTerminalUI where
@@ -324,72 +347,83 @@ aoiHklPrint = printIfTerminalUI where
         HKL.haveTerminalUI >>= \ bTerm ->
         when bTerm $
             HKL.outputStrLn "" >>
-            lift (snd <$> aoiGetStep) >>= printENV >>
+            lift (snd <$> aoiGetStep) >>= 
+            printENV >>
             HKL.outputStrLn ""
-    printENV v = maybe (atypical v) typical (fromABCV v)
-    stackCount :: V -> Integer
-    stackCount (P _ ss) = 1 + stackCount ss
-    stackCount U = 0
-    stackCount _ = 1
-    atypical env =
-        HKL.outputStrLn "--(atypical environment)--" >>
-        HKL.outputStrLn (show env)
-    typical (s, (h, (p, ((sn, rns), ex)))) =
-        printPower (b_code p) >>
-        printExtendedEnv ex >>
-        printNamedStacks rns >>
-        printHand h >>
-        printStack sn s
-    printStack sn U =
-        HKL.outputStrLn ("---" ++ T.unpack sn ++ "---")
-    printStack sn (P e ss) =
-        printStack sn ss >>
-        HKL.outputStrLn ("| " ++ show e)
-    printStack sn v =
-        printStack (sn `T.append` T.pack "(atypical)") U >>
-        HKL.outputStrLn ("$ " ++ show v)
-    printHand h =
-        let n = stackCount h in
-        when (n > 0) $
-            HKL.outputStrLn ("hand: " ++ show n)
-    printPower (ABC _) = return ()
-    printNamedStacks U = return ()
-    printNamedStacks (P s ss) = 
-        printNamedStack s >> 
-        printNamedStacks ss
-    printNamedStacks v =
-        HKL.outputStrLn ("(atypical rns term): " ++ show v)
-    printNamedStack ns =
-        case fromABCV ns of
-            Just (name,stack) ->
-                let ct = stackCount stack in
-                let label = T.unpack name ++ ": " in
-                HKL.outputStrLn (label ++ show ct)
-            Nothing -> 
-                HKL.outputStrLn ("(?): " ++ show ns)
-    printExtendedEnv U = return ()
-    printExtendedEnv ex =
-        HKL.outputStrLn "--(extended environment)--" >>
-        HKL.outputStrLn (show ex)
 
--- the primary interpreter step for AOI
-aoiStep :: Text -> AOI ()
-aoiStep txt = 
-    aoiGetIfn >>= \ ifn ->
-    let vInputIC = toABCV (txt, ifn_eIC ifn) in
-    runABC aoiInvoker vInputIC ((b_code . ifn_block) ifn) >>= \ vParsed ->
-    case fromABCV vParsed of
-        Just (Right (B b, eIC')) -> 
-            let ifn' = ifn { ifn_eIC = eIC' } in
-            aoiPutIfn ifn' >>
-            aoiGetStepV >>= \ v0 ->
-            runABC aoiInvoker v0 (b_code b) >>= \ vf ->
-            aoiPutStepV vf
-        Just (Left errText) -> liftIO $ 
-            putErrLn ("READ ERROR: " ++ T.unpack errText) >>
-            putErrLn ("dropping this input...")
-        _ -> liftIO $
-            putErrLn ("READER TYPE ERROR; received: " ++ show vParsed) >>
-            putErrLn ("dropping this input...")
+
+-- print the typical environment
+--   print up to 7 items on current stack, and stack name
+--   print count of items in hand, named stacks
+--   print ex if not U
+printENV :: V AOI -> HKL.InputT AOI ()
+printENV (P _ s (P _ h (P _ (B _ p) (P _ (P _ sn ns) ex)))) =
+    printPower p >>
+    printExt ex >>
+    printNS ns >>
+    printHand h >>
+    printStackHdr sn >>
+    printStack 7 s
+printENV env =  -- print atypical environment value
+    HKL.outputStrLn "--(atypical environment)--" >>
+    HKL.outputStrLn (show env)
+
+-- currently not printing powerblock
+printPower :: ABC AOI -> HKL.InputT AOI ()
+printPower = const $ return ()
+
+printExt :: V AOI -> HKL.InputT AOI ()
+printExt U = return ()
+printExt ex =
+    HKL.outputStrLn "--(extended environment)--" >>
+    HKL.outputStrLn (show ex)
+
+-- count items in a stack
+stackCount :: V c -> Integer
+stackCount (P _ _ s) = 1 + stackCount s
+stackCount U = 0
+stackCount _ = 1
+
+printNS :: V c -> HKL.InputT AOI ()
+printNS U = return ()
+printNS (P _ s ss) =
+    printNamedStack s >>
+    printNS ss
+printNS v = 
+    HKL.outputStrLn "--(atypical named stacks)--" >>
+    HKL.outputStrLn (show v)
+
+printNamedStack :: V c -> HKL.InputT AOI ()
+printNamedStack v@(P _ sn ss) =
+    case valToText sn of
+        Just label ->
+            let ct = stackCount ss in
+            HKL.outputStrLn (T.unpack label ++ ": " ++ show ct)
+        Nothing ->
+            HKL.outputStrLn ("(?): " ++ show v)
+printNamedStack v = HKL.outputStrLn ("(?): " ++ show v)
+
+printHand :: V c -> HKL.InputT AOI ()
+printHand h =
+    let n = stackCount h in
+    when (n > 0) $
+        HKL.outputStrLn ("hand: " ++ show n)
+
+printStackHdr :: V c -> HKL.InputT AOI ()
+printStackHdr sn =
+    case valToText sn of
+        Just txt -> HKL.outputStrLn ("---" ++ T.unpack txt ++ "---")
+        Nothing -> HKL.outputStrLn ("---" ++ show sn ++ "---")
+
+printStack :: Int -> V c -> HKL.InputT AOI ()
+printStack _ U = return ()
+printStack n v | n < 1 =
+    let ct = stackCount v in
+    when (ct > 0) $
+        HKL.outputStrLn ("(" ++ show ct ++ " more)")
+printStack n (P _ v ss) =
+    printStack (n-1) ss >>
+    HKL.outputStrLn ("| " ++ show v) 
+printStack _ v = HKL.outputStrLn ("~ " ++ show v)
 
 
