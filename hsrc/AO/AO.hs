@@ -143,12 +143,14 @@ incompleteWords dict = dictMW where
     (dictMW, _) = L.foldl cw (M.empty, Set.empty) (M.keys dict)
     cw r w = 
         if (M.member w (fst r) || Set.member w (snd r)) then r else
-        let deps = M.findWithDefault Set.empty w dict in
-        let (dmw, dok) = L.foldl cw r (Set.toList deps) in
-        let mdeps = Set.filter (`Set.notMember` dok) deps in
-        if Set.null mdeps 
-            then (dmw, Set.insert w dok) 
-            else (M.insert w mdeps dmw, dok)
+        case M.lookup w dict of
+            Nothing -> r -- word without a definition
+            Just deps ->
+                let (dmw, dok) = L.foldl cw r (Set.toList deps) in
+                let mdeps = Set.filter (`Set.notMember` dok) deps in
+                if Set.null mdeps 
+                    then (dmw, Set.insert w dok) 
+                    else (M.insert w mdeps dmw, dok)
 
 -- compile a clean (acyclic, fully defined) dictionary to ABC.
 -- This is achieved by progressive inlining. 
