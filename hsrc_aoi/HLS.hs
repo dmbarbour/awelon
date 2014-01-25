@@ -22,7 +22,7 @@ import qualified System.Random as R
 
 -- states with exponential decay of history
 data HLS s = HLS 
-    { hls_halflife :: !Double 
+    { hls_halflife :: {-# UNPACK #-} !Double 
     , hls_rgen     :: !R.StdGen
     , hls_state    :: !s
     , hls_hist     :: !(S.Seq s)

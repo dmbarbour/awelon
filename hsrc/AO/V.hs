@@ -164,7 +164,7 @@ observable _ = True
 -- parse text from a sequence of numbers
 valToText :: V c -> Maybe Text
 valToText (N r) | (3 == r) = Just T.empty
-valToText (P kf (N r) b) | nonLinear kf && validChar r  =
+valToText (P _ (N r) b) | validChar r =
     (((toEnum . fromInteger . numerator) r) `T.cons`) <$> 
     valToText b
 valToText _ = Nothing
@@ -177,15 +177,11 @@ textToVal t =
             let r = (fromIntegral . fromEnum) c in
             P kf0 (N r) (textToVal t')
 
-nonLinear :: KF -> Bool
-nonLinear kf = may_copy kf && may_drop kf
-
 validChar :: Rational -> Bool
 validChar r = 
     let n = numerator r in
     let d = denominator r in
     (1 == d) && (0 <= n) && (n <= 0x10ffff)
-
 
 
 {-

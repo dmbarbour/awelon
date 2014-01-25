@@ -14,9 +14,6 @@ std euler
 @doc.iomsg.aoi "invoke linear powerblock with message from stack"
 @iomsg.aoi %zwl .apply x %rwz
 
-@doc.loadWord "text -- (1 + [x→y]); load word (if it exists) from AOI dictionary"
-@loadWord  "loadWord" p iomsg.aoi
-
 @doc.switchAOI 
 "The AOI reader incrementally compiles lines or paragraphs of user input (text) into a blocks that will be applied in the current user environment. Compilation may return error and fail, in which case no action is taken and the text is returned to the user for further editing. The incremental interpreter function has roughly type:
  
@@ -41,13 +38,9 @@ std euler
 @rand8 1 randomBytes wx drop
 
 @doc.readFile "(io) filename -- (1(err) + text)"
-@doc.readFile.binary "(io) filename -- (1(err) + binary)"
 @doc.writeFile "(io) text filename -- (1(err) + 1(ok))"
-@doc.writeFile.binary "(io) binary filename -- (1(err) + 1(ok))"
 @readFile "readFile" p iomsg.aoi
 @writeFile p "writeFile" p iomsg.aoi
-@readFile.binary "readFileB" p iomsg.aoi
-@writeFile.binary p "writeFileB" p iomsg.aoi
 
 @doc.destroy "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy "destroy" p iomsg.aoi elim1
