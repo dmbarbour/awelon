@@ -24,7 +24,6 @@
 module AOI
     ( main
     -- stuff that should probably be in separate modules
-    , HLS(..), hls_init, hls_put
     , randomBytes, newSecret
     ) where
 
@@ -33,6 +32,8 @@ import Control.Applicative
 import Control.Arrow (first)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
+import Data.IORef
+
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
 import qualified System.Environment as Env
@@ -52,6 +53,7 @@ import Data.Text (Text)
 import Data.ByteString (ByteString)
 import AO.AO
 import AO.ABC
+import HLS
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
@@ -62,13 +64,16 @@ data AOI_CONTEXT = AOI_CONTEXT
     , aoi_secret  :: Text   -- secret held by powerblock
     , aoi_power   :: M.Map Text (V -> AOI V) -- common powers
     , aoi_source  :: Either [Import] FS.FilePath -- for reloads
-    , aoi_frames  :: !(HLS [Text]) -- stack frame history (for debugging)
+    , aoi_frames  :: !(IORef (HLS [Text])) -- stack frame history (for debugging)
     , aoi_step    :: !(HLS (Integer,V)) -- recovery values 
     , aoi_ifn     :: !IFN 
     }
 
 type Error = Text
-newtype AOI a = AOI { runAOI :: AOI_CONTEXT -> IO (AOI_CONTEXT, Either Error a) }
+
+type AOI a = 
+
+newtype AOI a = AOI { runAOI :: AOI_CONTEXT -> IO (# AOI_CONTEXT, Either Error a) }
 
 instance Monad AOI where
     return a = AOI $ \ cx -> return (cx, (Right a))
@@ -572,52 +577,5 @@ aoiStep txt =
         _ -> liftIO $
             putErrLn ("READER TYPE ERROR; received: " ++ show vParsed) >>
             putErrLn ("dropping this input...")
-
-
--- states with exponential decay of history
-data HLS s = HLS 
-    { hls_halflife :: Double 
-    , hls_rgen     :: R.StdGen
-    , hls_state    :: s
-    , hls_hist     :: [s]
-    , hls_join     :: s {-newer-} -> s {-older-} -> s {-joined-}
-    }
-
--- defaults to a halflife of 100 steps.
-hls_init :: s -> HLS s
-hls_init s0 = s0 `seq` HLS
-    { hls_halflife = 31.4159 -- arbitrary default halflife
-    , hls_rgen = R.mkStdGen 60091 -- flight number of our galactic sun
-    , hls_state = s0
-    , hls_hist = []
-    , hls_join = const
-    }
-
-hls_getHist :: HLS s -> [s]
-hls_getHist hls = hls_state hls : hls_hist hls
-
--- hls_put is strict in state and history
-hls_put :: s -> HLS s -> HLS s
-hls_put s hls =
-    let (r,g') = R.random (hls_rgen hls) in
-    let n = negate $ round $ log (1.0 - r) * hls_halflife hls in
-    let h' = dropHLS (hls_join hls) n (hls_state hls : hls_hist hls) in
-    h' `seq` s `seq`
-    hls { hls_rgen = g', hls_state = s, hls_hist = h' }
-
--- hls_modify :: (s -> s) -> HLS s -> HLS s
--- hls_modify f hls = hls_put (f (hls_state hls)) hls 
-
--- dropHLS will join two items in a list at the given position
--- This operation is strict in the join function because it is
--- important to avoid a memory leak. 
-dropHLS :: (s -> s -> s) -> Integer -> [s] -> [s]
-dropHLS jf n (s:ss) | (n > 0) = 
-    let ss' = dropHLS jf (n - 1) ss in
-    ss' `seq` (s : ss')
-dropHLS jf _ (sNewer:sOlder:ss) = 
-    let s' = jf sNewer sOlder in
-    s' `seq` (s' : ss)
-dropHLS _ _ ss = ss
 
 
