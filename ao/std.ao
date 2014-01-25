@@ -17,7 +17,6 @@
 "AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc.' should introduce documentation in a common format. If a word is too complicated to effectively document this way, consider factoring its definition into smaller pieces!
 ~
 
-
 @doc.prefix.test
 "Automated testing is an effective means to maintain software quality. Tests cannot discover every problem, but they can resist errors, prevent regressions, and generally improve confidence in code. In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words.
  
@@ -35,10 +34,7 @@
  
  A more specialized equivalency is also available with prefix 'id'. Eventually, there may be specialized prefixes for for idempotence (`f f = f`) and commutativity (`f g = g f`), and similar properties (plus associativity) for binary functions. However, for now, these may be expressed by eqv.
 ~
-@eqv.commutative.affine&relevant [affine relevant] [relevant affine]
-@eqv.idempotent.linear [linear linear] [linear]
-@eqv.idempotent.affine [affine affine] [affine]
-@eqv.idempotent.relevant [relevant relevant] [relevant]
+
 
 @doc.prefix.id 
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
@@ -47,16 +43,6 @@
  
  Use of prefix words to declare properties such as identity, idempotence, associativity, and commutativity is useful for documentation, automatic validation, and development of optimizers. Developers are encouraged to do so.
 ~ 
-
-@testSyntaxError  [
-
-@testRedef
-@testRedef
-@testRedef
-
-@testCycle1 testCycle2
-@testCycle2 testCycle3
-@testCycle3 testCycle1
 
 @testMissingWords ii3u993y5i3ut9j
 
@@ -173,7 +159,6 @@
 @doc.unseal "unseal a value guarded by 'seal'"
 @seal [%{$0}] .apply
 @unseal [%{/0}] .apply
-
 
 @doc.CompositionIsFirstPrinciple
 "Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically or categorically closed; they combine two components into a third component. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 

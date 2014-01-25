@@ -16,7 +16,6 @@ import Control.Monad
 import Data.Ratio
 import Data.Text (Text)
 import Data.Either (partitionEithers)
-import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Sequence as S
 import qualified Text.Parsec as P
@@ -50,13 +49,13 @@ lnum n (e:es) = (n,e) : lnum n' es where
 
 -- first entry is imports, other entries are definitions
 readDictFileE :: [(Line,Text)] -> DictFile
-readDictFileE [] = DictFile [] M.empty []
+readDictFileE [] = DictFile [] [] []
 readDictFileE (impEnt:defEnts) = DictFile imps defs errs where
     imps = splitImports (snd impEnt)
     (errL,defL) = (partitionEithers . map readEnt) defEnts
     readEnt = distrib . second (P.parse parseEntry "")
     errs = map etext errL
-    defs = M.fromList (map swizzle defL)
+    defs = map swizzle defL
     swizzle (ln,(w,aodef)) = (w,(ln,aodef))
     etext (ln,pe) =
         let pos = P.errorPos pe in

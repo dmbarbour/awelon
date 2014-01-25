@@ -7,7 +7,7 @@
 ~
 @applyWithAdverbs apply inline
 
-@doc.adverb.@ "\@ will fixpoint a function; see @doc.fixpoint"
+@doc.adverb.Z "\Z will fixpoint a function (Z combinator); see @doc.fixpoint"
 @doc.adverb.* "\* will map a function of type [x--y] across a list"
 @doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
 @doc.adverb.k "\k will copy the first item on the stack before applying"
@@ -23,7 +23,7 @@
  This is only a minor syntactic convenience, but may result in a less noisy or more legible syntax. If used, quotation should usually be the last adverb.
 ~
 
-@\@ fixpoint
+@\Z fixpoint
 @\* [map] bind
 @\f [each] bind
 @\P [apply] bind

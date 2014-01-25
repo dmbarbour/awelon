@@ -119,11 +119,14 @@
 @id.textDrop "text" drop
 
 
-@relevant %rkl
-@affine   %rfl
-@linear   relevant affine
 @doc.relevant "mark block on stack as relevant (not Droppable)"
 @doc.affine "mark block on stack as affine (not Copyable)"
 @doc.linear "mark block on stack as linear (neither Copyable nor Droppable)"
+@relevant %rkl
+@affine   %rfl
+@linear   relevant affine
 
-
+@eqv.commutative.affine&relevant [affine relevant] [relevant affine]
+@eqv.idempotent.linear [linear linear] [linear]
+@eqv.idempotent.affine [affine affine] [affine]
+@eqv.idempotent.relevant [relevant relevant] [relevant]

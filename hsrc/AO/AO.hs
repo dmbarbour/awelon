@@ -38,7 +38,6 @@ type DictC = M.Map W (S.Seq Op) -- ABC compiled dictionary
 type ErrorText = Text
 
 reportError :: String -> IO ()
-reportError [] = return ()
 reportError s = Sys.hPutStrLn Sys.stderr s
 
 -- | load dictionary from filesystem
@@ -65,11 +64,11 @@ buildDictionary dfs =
 -- raw dictionary from files; warns for parse errors and overrides
 buildRawDictionary :: [(Import, DictFile)] -> (S.Seq ErrorText, Dictionary)
 buildRawDictionary dfs = (errors, rawDict) where
-    errors = parseErrors S.>< overrideWarnings
+    errors = parseErrors S.>< overrideWarnings 
     dfsErrorTexts = map (S.fromList . map snd . df_errors . snd) dfs
     parseErrors = foldr (S.><) S.empty dfsErrorTexts
-    miniDict (imp,df) = M.map (S.singleton . withLoc imp) (df_words df)
-    withLoc imp (ln,def) = ((imp,ln),def)
+    miniDict (imp,df) = M.fromListWith (flip (S.><)) $ map (ent imp) (df_words df)
+    ent imp (w,(ln,def)) = (w, S.singleton ((imp,ln),def))
     multiDict = M.unionsWith (S.><) $ map miniDict dfs
     overrides = M.toList (M.filter ((> 1) . S.length) multiDict)
     overrideWarnings = S.fromList (map warningOnOverride overrides)

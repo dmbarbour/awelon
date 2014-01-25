@@ -37,7 +37,7 @@ type Dictionary = M.Map W (Locator, AODef)
 -- a parsed dictionary file
 data DictFile = DictFile
     { df_imports :: [Import]
-    , df_words   :: M.Map W (Line,AODef)
+    , df_words   :: [(W,(Line,AODef))]
     , df_errors  :: [(Line,Text)]
     }
 
