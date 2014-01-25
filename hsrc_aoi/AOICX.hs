@@ -4,7 +4,7 @@
 module AOICX
     ( AOI_CONTEXT(..), IFN(..), AOI, runAOI
     , Error(..), Frame, FrameHist
-    , compileActions
+    , CompilerConfig(..), compileActions
     , getCX, putCX, modCX
     , pushFrame, popFrame, popFrame', getFrameHist
     , setFrameHist, resetFrameHist, initialFrameHist
@@ -25,6 +25,7 @@ import qualified Data.Map as M
 --import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Sequence as S
+import qualified Data.List as L
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 
@@ -70,11 +71,16 @@ modCX = liftCX . MT.modify
 data AOI_CONTEXT = AOI_CONTEXT 
     { aoi_dict    :: !DictC  -- loaded and compiled dictionary
     , aoi_source  :: !Import -- for reloading
-    -- , aoi_power   :: !(M.Map Text Power) -- common powers
+    , aoi_cconf   :: !CompilerConfig
     , aoi_frames  :: !(IORef FrameHist) -- stack frames + history
     , aoi_step    :: !(HLS StepState) -- recovery values 
     , aoi_ifn     :: !IFN 
     }
+
+data CompilerConfig = CompilerConfig
+    { cc_frame_enable :: Bool
+    }
+
 
 -- AOI supports a reprogrammable interpreter to support bootstrap.
 -- The interpreter is really an incremental compiler of rough type:
@@ -120,17 +126,19 @@ typeErrI v = fail $ msg ++ show v where
 
 compileActions :: AODef -> AOI (Either Text (ABC AOI))
 compileActions actions = 
-    (aoi_dict <$> getCX) >>= \ dc -> 
+    getCX >>= \ cx -> 
+    let dc = aoi_dict cx in
+    let cc = aoi_cconf cx in
     let wNeed = aoWordsRequired actions in
     let wMissed = Set.filter (`M.notMember` dc) wNeed in
     if Set.null wMissed
-        then return $ Right $ compileABC $ aoToABC dc actions
+        then return $ Right $ compileABC cc $ aoToABC dc actions
         else return $ Left $ 
             T.pack "undefined words: " `T.append` 
             T.unwords (Set.toList wMissed)
 
-compileABC :: S.Seq Op -> ABC AOI
-compileABC ops = 
+compileABC :: CompilerConfig -> S.Seq Op -> ABC AOI
+compileABC _ ops = 
     ABC { abc_code = ops
         , abc_comp = runABC invokeAOI ops } 
 
@@ -218,8 +226,63 @@ aoiPushStep v = modCX put where
 aoiReload :: AOI ()
 aoiReload = 
     getCX >>= \ cx ->
-    liftIO (loadDictionary (aoi_source cx)) >>= \ dictAO ->
-    let dc = compileDictionary dictAO in
-    let cx' = cx { aoi_dict = dc } in
+    let cc = aoi_cconf cx in
+    liftIO (loadDictionary (aoi_source cx)) >>= \ dictAO_pre ->
+    let dictAO = preCompile cc dictAO_pre in
+    let dc0 = compileDictionary dictAO in
+    let dcf = postCompile cc dc0 in
+    let cx' = cx { aoi_dict = dcf } in
     putCX cx'
+
+-- OPPORTUNITY FOR OPTIMIZATIONS
+
+-- preCompile operates on the AO code.
+preCompile :: CompilerConfig -> Dictionary -> Dictionary
+preCompile cc dict0 = dictf where
+    framedDict = autoFrame dict0
+    autoFrame | not (cc_frame_enable cc) = id
+              | otherwise = M.mapWithKey (frameWrap cc)  
+    dictf = framedDict 
+
+postCompile :: CompilerConfig -> DictC -> DictC
+postCompile _ = M.map simplifyABC 
+
+-- for now, wrap a word unless it consists of pure data shuffling
+-- around other words. 
+frameWrap :: CompilerConfig -> W -> (Locator, AODef) -> (Locator, AODef)
+frameWrap _ w (loc,def) = (loc,framedDef) where
+    locTxt = wordLocatorText w loc
+    annoLoc = Prim . S.singleton . Invoke . T.cons '&' . T.cons '@'
+    enterFrame = annoLoc locTxt
+    exitFrame = annoLoc (T.singleton '-')
+    framedDef = 
+        if shuffleDef def then def else 
+        enterFrame S.<| (def S.|> exitFrame)
+
+-- pure data shuffling is not framed because it costs too much
+-- (and hinders too many downstream optimizations!)
+shuffleDef :: S.Seq Action -> Bool
+shuffleDef = S.null . S.dropWhileL shuffleAction
+
+shuffleAction :: Action -> Bool
+shuffleAction (Word _) = True
+shuffleAction (Num _) = True
+shuffleAction (Lit _) = True
+shuffleAction (BAO _) = True
+shuffleAction (Prim ops) = shuffleABC ops
+shuffleAction (Amb options) = all shuffleDef options
+
+shuffleABC :: S.Seq Op -> Bool
+shuffleABC = S.null . S.dropWhileL shuffleOp
+
+shuffleOp :: Op -> Bool
+shuffleOp (Op c) = L.elem c " \nlrwzvc^%'"
+shuffleOp (TL _) = True
+shuffleOp (BL _) = True
+shuffleOp (Invoke text) =
+    case T.uncons text of 
+        Just ('&', _) -> True
+        _ -> False
+shuffleOp (AMBC options) = all shuffleABC options
+
 

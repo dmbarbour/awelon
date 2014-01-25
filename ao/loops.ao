@@ -77,12 +77,12 @@
 ~
 @fixpoint [swap dup bind composel] bind dup apply
 
-@doc.factorial.fp "mostly this is a test for fixpoint :)"
-@factorial.fp assertNatural [factorialStep.fp] fixpoint apply
-@factorialStep.fp
+@doc.factorial.naive "mostly this is a test for fixpoint :)"
+@factorial.naive assertNatural [factorialStep.naive] fixpoint apply
+@factorialStep.naive
  take 2 lt
  [tail dup dec put apply .mul]
  [head discard]
  eitherE
  merge
-@test.factorial.fp 720 6 factorial.fp assertEQ
+@test.factorial.naive 720 6 factorial.naive assertEQ

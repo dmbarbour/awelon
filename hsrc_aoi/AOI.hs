@@ -110,11 +110,12 @@ finiAOI =
 newDefaultContext :: IO AOI_CONTEXT
 newDefaultContext = 
     selectSource >>= \ source ->
+    getCompilerConfig >>= \ cconf ->
     newIORef initialFrameHist >>= \ frames ->
-    return (defaultContext source frames) 
+    return (defaultContext source cconf frames) 
 
-defaultContext :: Import -> IORef FrameHist -> AOI_CONTEXT
-defaultContext source frames = cx where
+defaultContext :: Import -> CompilerConfig -> IORef FrameHist -> AOI_CONTEXT
+defaultContext source cconf frames = cx where
     s = U -- initial stack
     h = U -- initial hand
     p = defaultPowerBlock -- access to power/effects
@@ -124,6 +125,7 @@ defaultContext source frames = cx where
     cx = AOI_CONTEXT
         { aoi_dict = M.empty -- loads on init or ctrl+c
         , aoi_source = source
+        , aoi_cconf = cconf
         , aoi_frames = frames
         , aoi_step = hls_init (0, env) 
         , aoi_ifn = defaultIFN
@@ -283,6 +285,15 @@ selectSource = sfa <$> Env.getArgs where
         case L.stripPrefix "-dict=" arg of
             Nothing -> sfa args
             Just foo -> (T.pack foo)
+
+
+getCompilerConfig :: IO CompilerConfig
+getCompilerConfig = L.foldl withArg cc0 <$> Env.getArgs where
+    cc0 = CompilerConfig 
+            { cc_frame_enable = True
+            }
+    withArg cc "-frames=no"  = cc { cc_frame_enable = False }
+    withArg cc _ = cc
 
 
 tryIO :: IO a -> IO (Maybe a)

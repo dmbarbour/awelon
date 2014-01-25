@@ -20,6 +20,7 @@
 module AO.ABC
     ( parseABC, parseOp, runABC
     , Invoker
+    , simplifyABC
     , module AO.V
     ) where
 
@@ -116,6 +117,43 @@ runOpC c = const $ fail (c : " is not a valid ABC operator")
 runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke)
 
 --------------------------------------
+-- SIMPLIFICATION
+--------------------------------------
+
+simplifyABC :: S.Seq Op -> S.Seq Op
+simplifyABC = S.fromList . simpl . S.toList . simplifyBlocks
+
+simplifyBlocks :: S.Seq Op -> S.Seq Op 
+simplifyBlocks = fmap simplifyBlock where
+    simplifyBlock (BL ops) = BL (simplifyABC ops)
+    simplifyBlock op = op
+
+-- a rather simplistic simplifier...
+-- I really should reify the patterns to 
+-- handle more (like number swapping).
+-- But this will be enough for now.
+--
+-- 
+simpl :: [Op] -> [Op] 
+simpl [] = []
+simpl (Op ' ' : ops) = simpl ops
+simpl (Op '\n' : ops) = simpl ops
+simpl (Op 'l' : Op 'r' : ops) = simpl ops
+simpl (Op 'r' : Op 'l' : ops) = simpl ops
+simpl (Op 'w' : Op 'w' : ops) = simpl ops
+simpl (Op 'z' : Op 'z' : ops) = simpl ops
+simpl (Op 'v' : Op 'c' : ops) = simpl ops 
+simpl (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'z' : Op 'w' : simpl ops)
+simpl (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = simpl (Op 'w' : Op 'z' : simpl ops)
+-- inline block
+simpl ((BL blockOps) : Op 'v' : Op 'r' : Op '$' : Op 'c' : ops) = 
+    simpl (S.toList blockOps ++ ops)
+simpl (op : ops) = 
+    let ops' = simpl ops in
+    if (ops == ops') then op : ops' else
+    simpl (op : ops')
+
+--------------------------------------
 -- PARSERS
 --------------------------------------
 
@@ -157,4 +195,9 @@ parseAmb =
 -- invocation tokens may not contain '{', '}', or LF ('\n')
 isTokenChar :: Char -> Bool
 isTokenChar c = not (('{' == c) || ('}' == c) || ('\n' == c))
+
+
+
+
+
 

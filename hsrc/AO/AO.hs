@@ -154,8 +154,6 @@ incompleteWords dict = dictMW where
 
 -- compile a clean (acyclic, fully defined) dictionary to ABC.
 -- This is achieved by progressive inlining. 
---
--- This will also wrap each word in the dictionary with locators.
 compileDictionary :: Dictionary -> DictC
 compileDictionary aoDict = abcDict where
     abcDict = L.foldl cw M.empty (M.keys aoDict)
@@ -165,15 +163,8 @@ compileDictionary aoDict = abcDict where
     cwd dc w (loc,def) =
         let deps = aoWordsRequired def in
         let dc' = L.foldl cw dc (Set.toList deps) in
-        let def' = frameWrap (wordLocatorText w loc) def in
-        let abc = aoToABC dc' def' in
+        let abc = aoToABC dc' def in
         M.insert w abc dc'
-
-frameWrap :: Text -> S.Seq Action -> S.Seq Action
-frameWrap txt actions = enterFrame S.<| (actions S.|> exitFrame) where
-    annoLoc = Prim . S.singleton . Invoke . T.cons '&' . T.cons '@'
-    enterFrame = annoLoc txt
-    exitFrame = annoLoc (T.singleton '-') 
 
 -- | compile a definition to ABC, given a dictionary that
 -- already contains the necessary words. Any missing words will

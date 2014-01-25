@@ -35,6 +35,8 @@ std euler
 @doc.randomBytes "count -- (list of octets); secure random source"
 @randomBytes "randomBytes" p iomsg.aoi
 
+@foo [] inline
+
 @rand8 1 randomBytes wx drop
 
 @doc.readFile "(io) filename -- (1(err) + text)"
