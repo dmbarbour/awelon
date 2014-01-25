@@ -49,13 +49,13 @@ runABC :: (Monad m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
 
 -- compile/run a single op
 runOp _ (Op c) = runOpC c
-runOp _ (TL text) = return . prod (textToVal text)
+runOp _ (TL text) = return . P (textToVal text)
 runOp invoke (Invoke tok) =
     case T.uncons tok of
         Just ('$', seal) -> op_invoke_seal seal
         Just ('/', seal) -> op_invoke_unseal seal
         _ -> invoke tok
-runOp invoke (BL ops) = return . prod bb where
+runOp invoke (BL ops) = return . P bb where
     bb = B kf0 abc
     abc = ABC { abc_code = ops, abc_comp = runABC invoke ops }
 runOp invoke (AMBC [singleton]) = runABC invoke singleton

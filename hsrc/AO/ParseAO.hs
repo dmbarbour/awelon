@@ -20,6 +20,7 @@ import qualified Data.Text as T
 import qualified Data.Sequence as S
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Error as P
+import Text.Parsec.Text()
 import AO.AOTypes
 import AO.V
 

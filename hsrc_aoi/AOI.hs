@@ -118,9 +118,9 @@ defaultContext source frames = cx where
     s = U -- initial stack
     h = U -- initial hand
     p = defaultPowerBlock -- access to power/effects
-    rns = prod (N 3) U -- named stacks
+    rns = P (N 3) U -- named stacks
     ex = U -- extensions 
-    env = (prod s (prod h (prod p (prod rns ex))))
+    env = (P s (P h (P p (P rns ex))))
     cx = AOI_CONTEXT
         { aoi_dict = M.empty -- loads on init or ctrl+c
         , aoi_source = source
@@ -157,10 +157,10 @@ putErrLn = Sys.hPutStrLn Sys.stderr
 aoiStep :: Text -> AOI ()
 aoiStep txt = 
     aoiGetIfn >>= \ ifn ->
-    let vIn = (prod (textToVal txt) (ifn_eIC ifn)) in
+    let vIn = (P (textToVal txt) (ifn_eIC ifn)) in
     abc_comp (ifn_op ifn) vIn >>= \ vParsed ->
     case vParsed of
-        (R (P _ (B _ action) eIC')) ->
+        (R (P (B _ action) eIC')) ->
             let ifn' = ifn { ifn_eIC = eIC' } in
             (snd <$> aoiGetStep) >>= \ v0 ->
             abc_comp action v0 >>= \ vf ->
@@ -178,16 +178,15 @@ aoiStep txt =
 type Power = V AOI -> AOI (V AOI)
 makePowerBlock :: M.Map Text Power -> V AOI
 makePowerBlock powerMap = powerBlock where
-    powerBlock = B kfLinear abc where
-    kfLinear = KF False False
+    powerBlock = B (KF False False) abc where
     abc = ABC { abc_code = falseCode, abc_comp = power }
     falseCode = (S.singleton . Invoke . T.pack) "*power*" -- never invoked
     run frame action = 
         pushFrame frame >> -- simplify error discovery
         action >>= \ result ->
         popFrame' frame >>
-        return (P kfLinear powerBlock result)
-    power v@(P _ vLabel message) =
+        return (P powerBlock result)
+    power v@(P vLabel message) =
         case valToText vLabel of
             Nothing -> powerFail v
             Just label -> case M.lookup label powerMap of
@@ -215,12 +214,12 @@ defaultPowerBlock :: V AOI
 defaultPowerBlock = makePowerBlock defaultPowers
 
 switchAOI :: V AOI -> AOI (V AOI)
-switchAOI (P _ (B kf abc) eIC) | may_copy kf && may_drop kf = 
+switchAOI (P (B kf abc) eIC) | may_copy kf && may_drop kf = 
     getCX >>= \ cx ->
     let ifnOld = aoi_ifn cx in
     let cx' = cx { aoi_ifn = IFN abc eIC } in
     putCX cx' >>
-    return (prod (B kf0 (ifn_op ifnOld)) (ifn_eIC ifnOld))
+    return (P (B kf0 (ifn_op ifnOld)) (ifn_eIC ifnOld))
 switchAOI v = fail ("switchAOI @ " ++ show v)
 
 debugOut :: (MonadIO c) => V c -> c ()
@@ -244,7 +243,7 @@ bytesToVal :: ByteString -> V c
 bytesToVal bs =
     case B.uncons bs of
         Nothing -> N 8
-        Just (w, bs') -> P kf0 (N $ fromIntegral w) (bytesToVal bs')
+        Just (w, bs') -> P (N $ fromIntegral w) (bytesToVal bs')
 
 aoiGetOSEnv :: (MonadIO c) => V c -> c (V c)
 aoiGetOSEnv v = 
@@ -266,7 +265,7 @@ aoiReadFile fileName =
             maybe (L U) (R . textToVal) <$> liftIO (tryIO op)
 
 aoiWriteFile :: (MonadIO c, Functor c) => V c -> c (V c)
-aoiWriteFile v@(P _ fn ftext) =
+aoiWriteFile v@(P fn ftext) =
     case (,) <$> valToText fn <*> valToText ftext of
         Nothing -> fail $ ("writeFile @ " ++ show v)
         Just (file, fdata) ->
@@ -357,7 +356,7 @@ aoiHklPrint = printIfTerminalUI where
 --   print count of items in hand, named stacks
 --   print ex if not U
 printENV :: V AOI -> HKL.InputT AOI ()
-printENV (P _ s (P _ h (P _ (B _ p) (P _ (P _ sn ns) ex)))) =
+printENV (P s (P h (P (B _ p) (P (P sn ns) ex)))) =
     printPower p >>
     printExt ex >>
     printNS ns >>
@@ -380,13 +379,13 @@ printExt ex =
 
 -- count items in a stack
 stackCount :: V c -> Integer
-stackCount (P _ _ s) = 1 + stackCount s
+stackCount (P _ s) = 1 + stackCount s
 stackCount U = 0
 stackCount _ = 1
 
 printNS :: V c -> HKL.InputT AOI ()
 printNS U = return ()
-printNS (P _ s ss) =
+printNS (P s ss) =
     printNamedStack s >>
     printNS ss
 printNS v = 
@@ -394,7 +393,7 @@ printNS v =
     HKL.outputStrLn (show v)
 
 printNamedStack :: V c -> HKL.InputT AOI ()
-printNamedStack v@(P _ sn ss) =
+printNamedStack v@(P sn ss) =
     case valToText sn of
         Just label ->
             let ct = stackCount ss in
@@ -421,7 +420,7 @@ printStack n v | n < 1 =
     let ct = stackCount v in
     when (ct > 0) $
         HKL.outputStrLn ("(" ++ show ct ++ " more)")
-printStack n (P _ v ss) =
+printStack n (P v ss) =
     printStack (n-1) ss >>
     HKL.outputStrLn ("| " ++ show v) 
 printStack _ v = HKL.outputStrLn ("~ " ++ show v)

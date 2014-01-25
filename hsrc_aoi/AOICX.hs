@@ -101,7 +101,7 @@ defaultIFN = IFN abc U where
     falseCode = (S.singleton . Invoke . T.pack) "defaultInterpreter"
 
 defaultI :: V AOI -> AOI (V AOI)
-defaultI v@(P _ userInput eIC) =
+defaultI v@(P userInput eIC) =
     case valToText userInput of
         Nothing -> typeErrI v
         Just txt -> case P.parse parseAODef "" txt of
@@ -110,7 +110,7 @@ defaultI v@(P _ userInput eIC) =
                 compileActions actions >>= \ result ->
                 case result of
                     Left err -> return (L (textToVal err))
-                    Right abc -> return (R (prod (B kf0 abc) eIC))
+                    Right abc -> return (R (P (B kf0 abc) eIC))
 -- fail for any other input                    
 defaultI v = typeErrI v
 

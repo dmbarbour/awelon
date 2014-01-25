@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 -- dynamic AO/ABC values
 module AO.V
-    ( V(..), prod, Op(..), ABC(..), KF(..), kf0
+    ( V(..), Op(..), ABC(..), KF(..), kf0
     , copyable, droppable, observable
     -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
     , valToText, textToVal
@@ -27,15 +27,15 @@ data V c -- ABC's structural types in context c
     = L !(V c)    -- sum left
     | R !(V c)    -- sum right
     | N {-# UNPACK #-} !Rational -- number
-    | P !KF !(V c) !(V c) -- product; tracks copy/drop allowance
-    | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
+    | P !(V c) (V c) -- product; tracks copy/drop allowance
+    | B KF (ABC c) -- block
     | U -- unit
     | S !Text !(V c)  -- sealed value (via sealer capability)
     deriving (Eq)
 
 -- track affine and relevant properties
 -- (these are tracked for blocks and products)
-data KF = KF { may_copy :: Bool, may_drop :: Bool }
+data KF = KF { may_copy :: !Bool, may_drop :: !Bool }
     deriving (Eq)
 kf0 :: KF
 kf0 = KF True True
@@ -43,7 +43,7 @@ kf0 = KF True True
 -- a block operates in a monadic context c
 data ABC c = ABC
     { abc_code :: (S.Seq Op) -- code for show, structural equality
-    , abc_comp :: (V c -> c (V c)) -- compiled form
+    , abc_comp :: !(V c -> c (V c)) -- compiled form
     }
 instance Eq (ABC c) where (==) = (==) `on` abc_code 
 
@@ -96,7 +96,7 @@ abcQuote (L v) = abcQuote v S.|> (Op 'V')
 abcQuote (R v) = abcQuote v S.>< S.fromList intro0 where
     intro0 = (Op 'V' : Op 'V' : Op 'R' : Op 'W' : Op 'L' : Op 'C' : [])
 abcQuote (S tok v) = abcQuote v S.|> Invoke ('$' `T.cons` tok)
-abcQuote v@(P _ a b) = 
+abcQuote v@(P a b) = 
     case valToText v of
         Just txt -> S.singleton (TL txt)
         Nothing -> 
@@ -129,18 +129,11 @@ quoteNat n | (0 < n) =
 quoteNat n | (0 == n) = S.singleton (Op '#')
            | otherwise = quoteNat (negate n) S.|> Op '-'
 
--- smart constructor for products (lazily tracks copyable and droppable)
-prod :: V c -> V c -> V c
-prod a b = P kf a b where
-    kf = KF { may_copy = (copyable a && copyable b)
-            , may_drop = (droppable a && droppable b)
-            }
-
 droppable, copyable, observable :: V c -> Bool
 
 -- may we drop this value?
 droppable (B kf _) = may_drop kf
-droppable (P kf _ _) = may_drop kf
+droppable (P a b) = droppable a && droppable b
 droppable (L v) = droppable v
 droppable (R v) = droppable v
 droppable (N _) = True
@@ -149,7 +142,7 @@ droppable U = True
 
 -- may we copy this value?
 copyable (B kf _) = may_copy kf
-copyable (P kf _ _) = may_copy kf
+copyable (P a b) = copyable a && copyable b
 copyable (L v) = copyable v
 copyable (R v) = copyable v
 copyable (N _) = True
@@ -164,7 +157,7 @@ observable _ = True
 -- parse text from a sequence of numbers
 valToText :: V c -> Maybe Text
 valToText (N r) | (3 == r) = Just T.empty
-valToText (P _ (N r) b) | validChar r =
+valToText (P (N r) b) | validChar r =
     (((toEnum . fromInteger . numerator) r) `T.cons`) <$> 
     valToText b
 valToText _ = Nothing
@@ -175,92 +168,13 @@ textToVal t =
         Nothing -> N 3
         Just (c, t') -> 
             let r = (fromIntegral . fromEnum) c in
-            P kf0 (N r) (textToVal t')
+            P (N r) (textToVal t')
 
 validChar :: Rational -> Bool
 validChar r = 
     let n = numerator r in
     let d = denominator r in
     (1 == d) && (0 <= n) && (n <= 0x10ffff)
-
-
-{-
---
--- HASKELL / ABC INTEGRATION
---
--- (a) conversion functions for values (ToABCV, FromABCV)
--- (b) need a useful invoker for bootstrap purposes
---
-class ToABCV v where toABCV :: v -> V c
-instance ToABCV (Ratio Integer) where toABCV = N 
-instance ToABCV Integer where toABCV = N . fromInteger
-instance (ToABCV a, ToABCV b) => ToABCV (Either a b) where 
-    toABCV = either (L . toABCV) (R . toABCV)
-instance (ToABCV a) => ToABCV (Maybe a) where
-    toABCV = maybe (L U) (R . toABCV)
-instance (ToABCV a) => ToABCV [a] where
-    toABCV = toABCVL 0
-instance (ToABCV a, ToABCV b) => ToABCV (a,b) where
-    toABCV (a,b) = P (toABCV a) (toABCV b)
-instance ToABCV Text where toABCV = toABCVL 3 . T.unpack
-instance ToABCV Char where toABCV = N . fromIntegral . fromEnum
-instance ToABCV ByteString where toABCV = toABCVL 8 . B.unpack
-instance ToABCV W.Word8 where toABCV = N . fromIntegral
-instance ToABCV () where toABCV () = U
-
--- generate list terminated by number
-toABCVL :: (ToABCV a) => Rational -> [a] -> V c
-toABCVL vf [] = (N vf)
-toABCVL vf (v:vs) = toABCV v `P` toABCVL vf vs
-
--- read list terminated by specific number
-fromABCVL :: (FromABCV a) => Rational -> V c -> Maybe [a]
-fromABCVL rF (N rF') | rF == rF' = Just []
-fromABCVL rF (P a la) = (:) <$> fromABCV a <*> fromABCVL rF la
-fromABCVL _ _ = Nothing
-
-class FromABCV v where fromABCV :: V c -> Maybe v
-instance FromABCV Integer where
-    fromABCV (N r) | (1 == denominator r) = Just (numerator r)
-    fromABCV _ = Nothing
-instance FromABCV (Ratio Integer) where
-    fromABCV (N r) = Just r
-    fromABCV _ = Nothing
-instance (FromABCV a, FromABCV b) => FromABCV (Either a b) where
-    fromABCV (L a) = Left <$> fromABCV a 
-    fromABCV (R b) = Right <$> fromABCV b
-    fromABCV _ = Nothing
-instance (FromABCV a) => FromABCV (Maybe a) where
-    fromABCV (L U) = Just Nothing
-    fromABCV (R a) = Just <$> fromABCV a
-    fromABCV _ = Nothing
-instance (FromABCV a) => FromABCV [a] where
-    fromABCV = fromABCVL 0
-instance (FromABCV a, FromABCV b) => FromABCV (a,b) where
-    fromABCV (P a b) = (,) <$> fromABCV a <*> fromABCV b
-    fromABCV _ = Nothing
-instance FromABCV Text where 
-    fromABCV l = T.pack <$> fromABCVL 3 l
-instance FromABCV Char where
-    fromABCV (N x) =
-        if (1 /= denominator x) then Nothing else
-        let n = numerator x in
-        if (n < 0 || n > 0x10ffff) then Nothing else
-        Just ((toEnum . fromIntegral) n)
-    fromABCV _ = Nothing
-instance FromABCV ByteString where 
-    fromABCV l = B.pack <$> fromABCVL 8 l
-instance FromABCV W.Word8 where
-    fromABCV (N x) =
-        if (1 /= denominator x) then Nothing else
-        let n = numerator x in
-        if (n < 0 || n > 255) then Nothing else
-        Just (fromIntegral n)
-    fromABCV _ = Nothing
-instance FromABCV () where
-    fromABCV U = Just ()
-    fromABCV _ = Nothing
--}
 
 instance Show (ABC c) where 
     show = T.unpack . showABC
@@ -272,7 +186,7 @@ instance Show (V c) where
     -- show = T.unpack . abcLit
     show (N r) | (1 == denominator r) = show (numerator r)
     show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
-    show p@(P _ a b) = 
+    show p@(P a b) = 
         case valToText p of
             Just txt -> (T.unpack . txtLit) txt
             Nothing -> "(" ++ show a ++ "*" ++ show b ++ ")"
