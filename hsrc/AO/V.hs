@@ -88,14 +88,16 @@ abcQuote :: V c -> S.Seq Op
 abcQuote (N r) = quoteNum r
 abcQuote U = S.fromList intro1 where
     intro1 = (Op 'v' : Op 'v' : Op 'r' : Op 'w' : Op 'l' : Op 'c' : [])
-abcQuote (B kf abc) = (addk . addf) bb  where
+abcQuote (B kf abc) = (addf . addk) bb  where
     bb = (S.singleton . BL . abc_code) abc
     addk = if (not . may_drop) kf then (S.|> (Op 'k')) else id
     addf = if (not . may_copy) kf then (S.|> (Op 'f')) else id
 abcQuote (L v) = abcQuote v S.|> (Op 'V')
 abcQuote (R v) = abcQuote v S.>< S.fromList intro0 where
     intro0 = (Op 'V' : Op 'V' : Op 'R' : Op 'W' : Op 'L' : Op 'C' : [])
-abcQuote (S tok v) = abcQuote v S.|> Invoke ('$' `T.cons` tok)
+abcQuote (S tok v) = abcQuote v S.|> reifySeal S.|> applySeal where
+    reifySeal = (BL . S.singleton . Invoke . T.cons '$') tok
+    applySeal = Op '$'
 abcQuote v@(P a b) = 
     case valToText v of
         Just txt -> S.singleton (TL txt)
@@ -195,6 +197,6 @@ instance Show (V c) where
     show U     = "u"
     show (S t v) = show v ++ "{$" ++ T.unpack t ++ "}"
     show (B kf abc) = "[" ++ show abc ++ "]" ++ rel ++ aff
-        where rel = if may_copy kf then "" else "k"
-              aff = if may_drop kf then "" else "f"
-
+        where rel = if may_drop kf then "" else "k"
+              aff = if may_copy kf then "" else "f"
+              

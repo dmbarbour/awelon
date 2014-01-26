@@ -20,7 +20,6 @@
 module AO.ABC
     ( parseABC, parseOp, runABC
     , Invoker
-    , simplifyABC
     , module AO.V
     ) where
 
@@ -116,12 +115,13 @@ runOpC c = const $ fail (c : " is not a valid ABC operator")
 -- run all ops
 runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke)
 
+{-
 --------------------------------------
 -- SIMPLIFICATION
 --------------------------------------
 
-simplifyABC :: S.Seq Op -> S.Seq Op
-simplifyABC = S.fromList . simpl . S.toList . simplifyBlocks
+simplifyABC :: S.Seq Op -> [Op]
+simplifyABC = S.fromList . simpl .  simplifyBlocks
 
 simplifyBlocks :: S.Seq Op -> S.Seq Op 
 simplifyBlocks = fmap simplifyBlock where
@@ -143,6 +143,7 @@ simpl (Op 'r' : Op 'l' : ops) = simpl ops
 simpl (Op 'w' : Op 'w' : ops) = simpl ops
 simpl (Op 'z' : Op 'z' : ops) = simpl ops
 simpl (Op 'v' : Op 'c' : ops) = simpl ops 
+-- from wzw = zwz
 simpl (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'z' : Op 'w' : simpl ops)
 simpl (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = simpl (Op 'w' : Op 'z' : simpl ops)
 -- inline block
@@ -152,6 +153,8 @@ simpl (op : ops) =
     let ops' = simpl ops in
     if (ops == ops') then op : ops' else
     simpl (op : ops')
+
+-}
 
 --------------------------------------
 -- PARSERS

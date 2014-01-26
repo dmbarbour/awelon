@@ -17,17 +17,19 @@ prim([A,[B,C]], l, [[A,B],C]).
 prim([[A,B],C], r, [A,[B,C]]).
 prim([A,[B,C]], w, [B,[A,C]]).
 prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
-prim(A,v,[A,unit]).
-prim([A,unit],c,A).
+%prim(A,v,[A,unit]).
+%prim([A,unit],c,A).
 
-lib(A,id,A,[]).
+%lib(A,id,A,[]).
 
 %lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx
 %lib([[A,B],C], rwl, [[B,A],C], [r,w,l]). % swapE
 %lib([[A,B],[C,D]], rzl, [[A,C], [B,D]], [r,z,l]). % zip2
 %lib([A,[B,[C,[D,E]]]], lzr, [A,[B,[D,[C,E]]]], [l,z,r]).
-%lib([[A,[B,C]],E], assocl, [[[A,B],C],E], [r,w,r,z,w,l,l]).
-%lib([[[A,B],C],E], assocr, [[A,[B,C]],E], [r,r,w,z,l,w,l]).
+%lib([[A,[B,C]],E], rwrzwll, [[[A,B],C],E], [r,w,r,z,w,l,l]).
+%lib([[[A,B],C],E], rrwzlwl, [[A,[B,C]],E], [r,r,w,z,l,w,l]).
+%lib([[[A,B],S],E], rrwll, [[[B,A],S],E], [r,r,w,l,l]).
+
 %lib(A, intro1, [unit,A], [v,vrwlc]). % intro1
 %lib([unit,A], elim1, A, [vrwlc,c]). % elim1
 
@@ -202,9 +204,21 @@ zswap(N) :-
 
 onStack([X,opaqueEnv],X).
 
-
 % closed (cyclic) paths, i.e. find identity functions
 cpath(X,N) :- uPath(X,X,N,[],P),length(P,NL),write(P),write(NL).
+
+env8([[[a,b],[c,d]], [[e,f],[g,h]]]).
+
+env16([[[[a,b],[c,d]], [[e,f],[g,h]]],[[[i,j],[k,l]], [[m,n],[o,p]]]]).
+
+env32( 
+  [[[[[a,b],[c,d]], [[e,f],[g,h]]],[[[i,j],[k,l]], [[m,n],[o,p]]]],
+   [[[[q,r],[s,t]], [[u,v],[w,x]]],[[[y,z],[2,3]], [[4,5],[6,7]]]]] ).
+
+cpath8(N) :- env8(E),!,cpath(E,N).
+cpath16(N) :- env16(E),!,cpath(E,N).
+cpath32(N) :- env32(E),!,cpath(E,N).
+
 
 
 
@@ -213,7 +227,7 @@ path(X,Y,N) :- uPath(X,Y,N,[X],P),length(P,NL),write(P),write(NL).
 % add primitive
 uPath(X,Y,N,H,[OP|P]) :- (N > 0),prim(X,OP,S),not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
 % add library function
-uPath(X,Y,N,H,[W|P]) :- (N > 0),lib(X,W,S,_),not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
+%uPath(X,Y,N,H,[W|P]) :- (N > 0),lib(X,W,S,_),not(member(S,H)),uPath(S,Y,(N-1),[S|H],P).
 % function found!
 uPath(X,X,N,_,[]) :- (N >= 0).
 
@@ -224,19 +238,21 @@ testLib(W,X) :-
     write(' :: '), write(X), write(' -> '), writeln(Z),
     smallSteps(X,Z,P).
 
-testPath(P,X) :-  smallSteps(X,_,P).
+testPath(P,X) :- 
+    write('\t\t'),writeln(X),
+    smallSteps(X,_,P).
 
 smallSteps(X,X,[]) :- writeln('DONE!').
 smallSteps(X,Z,[W|P]) :- 
     prim(X,W,Y),
     write(W), write('\t\t'),writeln(Y),
     smallSteps(Y,Z,P).
-smallSteps(X,Z,[W|P]) :-
-    lib(X,W,Y,DEF),
-    write('#'),write(W),writeln('{'),
-    smallSteps(X,Y,DEF),!,
-    write('}#'),writeln(W),
-    smallSteps(Y,Z,P).
+%smallSteps(X,Z,[W|P]) :-
+%    lib(X,W,Y,DEF),
+%    write('#'),write(W),writeln('{'),
+%    smallSteps(X,Y,DEF),!,
+%    write('}#'),writeln(W),
+%    smallSteps(Y,Z,P).
 
 
 

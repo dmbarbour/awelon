@@ -160,7 +160,7 @@ compileDictionary aoDict = abcDict where
     cw dc w =
         if M.member w dc then dc else
         maybe dc (cwd dc w) (M.lookup w aoDict)
-    cwd dc w (loc,def) =
+    cwd dc w (_,def) =
         let deps = aoWordsRequired def in
         let dc' = L.foldl cw dc (Set.toList deps) in
         let abc = aoToABC dc' def in

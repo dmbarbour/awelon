@@ -25,7 +25,7 @@ import qualified Data.Map as M
 --import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Sequence as S
-import qualified Data.List as L
+--import qualified Data.List as L
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 
@@ -235,7 +235,14 @@ aoiReload =
     putCX cx'
 
 -- OPPORTUNITY FOR OPTIMIZATIONS
+preCompile :: CompilerConfig -> Dictionary -> Dictionary
+preCompile = const id
 
+postCompile :: CompilerConfig -> DictC -> DictC
+postCompile = const id
+
+
+{-
 -- preCompile operates on the AO code.
 preCompile :: CompilerConfig -> Dictionary -> Dictionary
 preCompile cc dict0 = dictf where
@@ -244,8 +251,6 @@ preCompile cc dict0 = dictf where
               | otherwise = M.mapWithKey (frameWrap cc)  
     dictf = framedDict 
 
-postCompile :: CompilerConfig -> DictC -> DictC
-postCompile _ = M.map simplifyABC 
 
 -- for now, wrap a word unless it consists of pure data shuffling
 -- around other words. 
@@ -260,6 +265,8 @@ frameWrap _ w (loc,def) = (loc,framedDef) where
         enterFrame S.<| (def S.|> exitFrame)
 
 -- pure data shuffling is not framed because it costs too much
+-- by 'pure data shuffling' I'm basically going to include everything
+-- that is part of the 'fixpoint' function.
 -- (and hinders too many downstream optimizations!)
 shuffleDef :: S.Seq Action -> Bool
 shuffleDef = S.null . S.dropWhileL shuffleAction
@@ -275,8 +282,9 @@ shuffleAction (Amb options) = all shuffleDef options
 shuffleABC :: S.Seq Op -> Bool
 shuffleABC = S.null . S.dropWhileL shuffleOp
 
+
 shuffleOp :: Op -> Bool
-shuffleOp (Op c) = L.elem c " \nlrwzvc^%'"
+shuffleOp (Op c) = L.elem c " \nlrwzvc^%'$o"
 shuffleOp (TL _) = True
 shuffleOp (BL _) = True
 shuffleOp (Invoke text) =
@@ -284,5 +292,5 @@ shuffleOp (Invoke text) =
         Just ('&', _) -> True
         _ -> False
 shuffleOp (AMBC options) = all shuffleABC options
-
+-}
 
