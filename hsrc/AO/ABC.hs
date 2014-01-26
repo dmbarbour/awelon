@@ -113,20 +113,19 @@ runOpC c = const $ fail (c : " is not a valid ABC operator")
 
 
 -- run all ops
-runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke)
+runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke) . simplABC
 
-{-
 --------------------------------------
 -- SIMPLIFICATION
 --------------------------------------
 
-simplifyABC :: S.Seq Op -> [Op]
-simplifyABC = S.fromList . simpl .  simplifyBlocks
+simplABC :: S.Seq Op -> S.Seq Op
+simplABC = S.fromList . fmap simplB . simpl .  S.toList
 
-simplifyBlocks :: S.Seq Op -> S.Seq Op 
-simplifyBlocks = fmap simplifyBlock where
-    simplifyBlock (BL ops) = BL (simplifyABC ops)
-    simplifyBlock op = op
+simplB :: Op -> Op
+simplB (BL ops) = BL (simplABC ops)
+simplB (AMBC options) = AMBC $ fmap simplABC options
+simplB op = op
 
 -- a rather simplistic simplifier...
 -- I really should reify the patterns to 
@@ -146,15 +145,17 @@ simpl (Op 'v' : Op 'c' : ops) = simpl ops
 -- from wzw = zwz
 simpl (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'z' : Op 'w' : simpl ops)
 simpl (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = simpl (Op 'w' : Op 'z' : simpl ops)
--- inline block
-simpl ((BL blockOps) : Op 'v' : Op 'r' : Op '$' : Op 'c' : ops) = 
-    simpl (S.toList blockOps ++ ops)
 simpl (op : ops) = 
+    let k = simplWindow in
     let ops' = simpl ops in
-    if (ops == ops') then op : ops' else
-    simpl (op : ops')
+    let kOps = take k ops in
+    let (kOps', dOps') = splitAt k ops' in
+    if (kOps == kOps') then (op : ops') else
+    simpl (op : kOps') ++ dOps'
 
--}
+-- limit window for simplification 
+simplWindow :: Int
+simplWindow = 12 
 
 --------------------------------------
 -- PARSERS
