@@ -12,11 +12,7 @@ module AO.V
 
 import Control.Applicative
 import Control.Monad ((>=>))
-import Data.Function (on)
 import Data.Ratio
---import Data.ByteString (ByteString)
---import qualified Data.ByteString as B
---import qualified Data.Word as W
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Sequence as S
@@ -31,21 +27,19 @@ data V c -- ABC's structural types in context c
     | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
     | U -- unit
     | S !Text (V c)  -- sealed value (via sealer capability)
-    deriving (Eq)
 
 -- track affine and relevant properties
 -- (these are tracked for blocks and products)
 data KF = KF { may_copy :: !Bool, may_drop :: !Bool }
-    deriving (Eq)
+
 kf0 :: KF
 kf0 = KF True True
 
 -- a block operates in a monadic context c
 data ABC c = ABC
-    { abc_code :: (S.Seq Op) -- code for show, structural equality
+    { abc_code :: !(S.Seq Op) -- code for show, structural equality
     , abc_comp :: !(V c -> c (V c)) -- compiled form
     }
-instance Eq (ABC c) where (==) = (==) `on` abc_code 
 
 abcCompose :: (Monad c) => ABC c -> ABC c -> ABC c
 abcCompose xy yz = xz where
