@@ -28,7 +28,7 @@
 @nip swap drop
 @nip2 unrot drop2
 @dropd swap drop
-@swap  %rwr %wzw %lwl
+@swap  %rwrwzwlwl
 @swapd %rw swap %wl
 @rot swapd swap
 @unrot swap swapd

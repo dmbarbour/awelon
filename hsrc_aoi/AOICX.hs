@@ -238,8 +238,10 @@ aoiReload =
 preCompile :: CompilerConfig -> Dictionary -> Dictionary
 preCompile = const id
 
+-- go ahead and simplify code (it's nicer to see it's
+-- simplified form in the REPL).
 postCompile :: CompilerConfig -> DictC -> DictC
-postCompile = const id
+postCompile = const $ M.map simplifyABC
 
 
 {-

@@ -11,7 +11,7 @@ module AO.Op
     , op_5, op_6, op_7, op_8, op_9
     , op_add, op_mul, op_negate, op_recip, op_Q
 
-    , op_apply, op_cond, op_quote
+    , op_apply, tcLoop, op_cond, op_quote
     , op_compose, op_rel, op_aff
 
     , op_D, op_F, op_M, op_K
@@ -94,7 +94,7 @@ op_drop v = opFail '%' v
 op_num, op_0, op_1, op_2, op_3, op_4
       , op_5, op_6, op_7, op_8, op_9 :: (Monad c) => V c -> c (V c)
 
-op_num e = return (P (N 0) e)
+op_num = return . P (N 0)
 
 op_0 = opDigit 0
 op_1 = opDigit 1
@@ -145,14 +145,18 @@ divModQ b a =
 
 op_apply, op_cond :: (Monad c) => (V c) -> c (V c)
 op_apply (P (B _ abc) (P x e)) = 
-    abc_comp abc x >>= \ x' -> return (P x' e)
+    abc_comp abc x >>= tcLoop >>= \ x' -> return (P x' e)
 op_apply v = opFail '$' v
 
 op_cond (P (B kf abc) (P (L x) e)) | may_drop kf =
-    abc_comp abc x >>= \ x' -> return (P (L x') e)
+    abc_comp abc x >>= tcLoop >>= \ x' -> return (P (L x') e)
 op_cond (P (B kf _) v@(P (R _) _)) | may_drop kf = 
     return v
 op_cond v = opFail '$' v
+
+tcLoop :: (Monad c) => (V c) -> c (V c)
+tcLoop (TC op) = op >>= tcLoop
+tcLoop op = return op
 
 op_compose :: (Monad c) => V c -> c (V c)
 op_compose (P (B kyz cyz) (P (B kxy cxy) e)) = return (P bxz e) 
@@ -243,7 +247,7 @@ tryGT y x =
     if (structGT x y) then Just False else
     Nothing
 
--- greater-than due to structure
+-- greater-than due to structure (partial ordering)
 structGT :: V c -> V c -> Bool
 structGT (P _ _) x = is_num x || is_sum x
 structGT (N _) x = is_sum x

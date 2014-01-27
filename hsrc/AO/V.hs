@@ -20,13 +20,15 @@ import qualified Data.Foldable as S
 import qualified Data.List as L
 
 data V c -- ABC's structural types in context c
-    = L (V c)    -- sum left
-    | R (V c)    -- sum right
+    = L !(V c)    -- sum left
+    | R !(V c)    -- sum right
     | N {-# UNPACK #-} !Rational -- number
     | P (V c) (V c) -- product; tracks copy/drop allowance
     | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
     | U -- unit
     | S !Text (V c)  -- sealed value (via sealer capability)
+    -- pseudo-value hacks
+    | TC (c (V c))   -- tail-call thunk
 
 -- track affine and relevant properties
 -- (these are tracked for blocks and products)
@@ -54,7 +56,7 @@ data Op
     | BL !(S.Seq Op) -- block literal
     | Invoke !Text -- {invocation}
     | AMBC ![S.Seq Op]  -- AMBC extension, set of options
-    deriving (Eq) -- structural equality
+    deriving (Ord,Eq) -- structural equality and ordering
 
 -- ABC CODES
 opCodeList, inlineOpCodeList :: [Char]
@@ -98,6 +100,7 @@ abcQuote v@(P a b) =
         Nothing -> 
             abcQuote a S.>< 
             (abcQuote b S.|> Op 'w' S.|> Op 'l')
+abcQuote (TC _) = error "cannot quote tail-call pseudo-values!"
 
 abcLit :: V c -> Text
 abcLit = showOps . abcQuote
@@ -135,6 +138,7 @@ droppable (R v) = droppable v
 droppable (N _) = True
 droppable (S _ v) = droppable v
 droppable U = True
+droppable (TC _) = False
 
 -- may we copy this value?
 copyable (B kf _) = may_copy kf
@@ -144,10 +148,12 @@ copyable (R v) = copyable v
 copyable (N _) = True
 copyable (S _ v) = copyable v
 copyable U = True
+copyable (TC _) = False
 
 -- may we introspect the value's structure?
 observable U = False
 observable (S _ _) = False
+observable (TC _) = False
 observable _ = True
 
 -- parse text from a sequence of numbers
@@ -190,6 +196,7 @@ instance Show (V c) where
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
     show (S t v) = show v ++ "{$" ++ T.unpack t ++ "}"
+    show (TC _) = "{*tailcall thunk*}" -- shouldn't be seen
     show (B kf abc) = "[" ++ show abc ++ "]" ++ rel ++ aff
         where rel = if may_drop kf then "" else "k"
               aff = if may_copy kf then "" else "f"

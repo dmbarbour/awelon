@@ -46,7 +46,7 @@
 @compose p %rrol
 @composel swap compose
 @.apply p %rr$l
-@apply %rwrzvrwvvrrvrrz %$ %wlcllccwlcl
+@apply %rwrzvrwvvrrvrrz$wlcllccwlcl
 @dip %rwrzvrwr$wlcl
 @hdip reifyHand putd dip take restoreHand
 @inline %rvr$c
@@ -111,7 +111,7 @@
 @doc.quote "(Quotable x) ⇒ x -- [--x]"
 @doc.unquote "[--x] -- x"
 @quote %r'l [%l] compose
-@unquote %rvvrvrrz %$ %wlclcwlcl
+@unquote %rvvrvrrz$wlclcwlcl
 
 @test.quote  7 dup quote unquote assertEQ drop
 @id.quoteUnquote quote unquote
