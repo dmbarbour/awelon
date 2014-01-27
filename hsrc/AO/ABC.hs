@@ -47,13 +47,12 @@ parseABC :: (P.Stream s m Char) => P.ParsecT s u m (S.Seq Op)
 --     seal   {$foo}  (for arbitrary token foo) 
 --     unseal {/foo}  (for arbitrary token foo)
 type Invoker m = Text -> V m -> m (V m)
-runABC :: (Monad m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
-runAMBC :: (MonadPlus m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
+runABC, runABC_B :: (Monad m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
+runAMBC, runAMBC_B :: (MonadPlus m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
 
 -- MAP OF OPERATION SEQUENCES 
---  includes ALL single-character ops
---  plus (potentially) common useful multi-character operations
---  the latter allows Haskell to partially optimize
+--  includes single-character ops
+--  results: sequences don't appreciably help performance
 opsMap :: (Monad c) => M.Map [Op] (V c -> c (V c))
 opsMap = M.fromList $ 
     [ opc ' ' op_sp -- identity functions
@@ -104,7 +103,7 @@ opsMap = M.fromList $
     , opc '8' op_8
     , opc '9' op_9
 
-    -- short sequences of 'rw' and 'wl' are very common
+    -- short sequences of 'rw' and 'wl' are common
     , opL "rw" (ops_rw)
     , opL "rwr" (op_r >=> op_w >=> op_r)
     , opL "wrw" (op_w >=> op_r >=> op_w)
@@ -116,7 +115,7 @@ opsMap = M.fromList $
     , opL "wlwl" (ops_wl >=> ops_wl)
     , opL "wlwlwl" (ops_wl >=> ops_wl >=> ops_wl)
 
-    -- optimizing 'inline' and 'dip' are especially important
+    -- optimizing 'inline' and 'dip' seem important
     , opL "vr$c" ops_inline
     , opL "vrwr$wlc" ops_dip
 
@@ -176,10 +175,10 @@ ops_inline, ops_dip,
     :: (Monad m) => V m -> m (V m)
 
 -- inline and dip are two very important optimizations
-ops_inline (P (B _ abc) x) = abc_comp abc x
+ops_inline (P (B _ abc) x) = abc_comp abc x >>= tcLoop
 ops_inline v = fail ("vr$c (prim inline) @ " ++ show v)
 
-ops_dip (P h (P (B _ abc) x)) = abc_comp abc x >>= \ x' -> return (P h x')
+ops_dip (P h (P (B _ abc) x)) = abc_comp abc x >>= tcLoop >>= return . P h
 ops_dip v = fail ("vrwr$wlc (prim dip) @ " ++ show v)
 
 ops_not (P (L a) e) = return (P (R a) e)
@@ -194,10 +193,16 @@ ops_wl = op_w >=> op_l
 ops_vrr = op_v >=> op_r >=> op_r
 
 -- Greedily recognize and run sequences of matchable operations.
--- Adding common sequences or specializations to the map should
--- generally improve performance.
+-- (Note: this turned out to not have a big effect relative to 
+-- single operations. I might eventually reverse it.)
+--
+-- In addition, recognize potential tail-call optimizations. Currently
+-- this is limited to optimizing 'inline' applications at the end of a
+-- block.
 runOps :: (Monad m) => (Op -> (V m -> m (V m))) -> [Op] -> (V m -> m (V m))
-runOps _ [] = return
+runOps _ [] = return 
+runOps _ (Op 'v' : Op 'r' : Op '$' : Op 'c' : []) = tailCallInline
+runOps _ (Op '$' : Op 'c' : []) = tailCallElim
 runOps rop l@(op:ops) = 
     let run1 = rop op >=> runOps rop ops in
     case largestMatch l opsMap of
@@ -206,6 +211,16 @@ runOps rop l@(op:ops) =
             case L.stripPrefix k l of
                 Nothing -> error ("invalid match: " ++ show k ++ " @ " ++ show l)
                 Just ops' -> opFound >=> runOps rop ops'
+
+-- to help avoid building up the stack space, try to explicitly 
+-- tail-call when we're at the end of a block. 
+tailCallInline, tailCallElim :: (Monad m) => (V m -> m (V m))
+tailCallInline (P (B _ abc) x) = return $ TC (abc_comp abc x)
+tailCallInline v = fail ("vr$c] (tail call inline) @ " ++ show v)
+tailCallElim (P (B _ abc) (P x U)) = return $ TC (abc_comp abc x)
+tailCallElim v = fail ("$c] (tail call elim1) @ " ++ show v)
+-- to consider: "$]" and "?]" or "?Mc]" 
+
 
 -- find the largest non-empty match for a list
 -- assumes at least first element must match
@@ -243,7 +258,7 @@ mbdist a mb = (,) <$> pure a <*> mb
 runOpABC :: (Monad m) => Invoker m -> Op -> (V m -> m (V m))
 runOpABC _ (TL text) = return . P (textToVal text)
 runOpABC invoke (BL ops) = return . P (B kf0 abc) where
-    abc = ABC { abc_code = ops, abc_comp = runABC invoke ops }
+    abc = ABC { abc_code = ops, abc_comp = runABC_B invoke ops }
 runOpABC invoke (Invoke tok) =
     case T.uncons tok of
         Just ('$', seal) -> op_invoke_seal seal
@@ -254,8 +269,10 @@ runOpABC _ (AMBC _) = const $ fail "AMBC not supported by runABC"
 -- we only reach `Op c` if it wasn't a prefix in our map, i.e. unknown 
 runOpABC _ (Op c) = \ v -> fail ("unknown operator! " ++ (c : " @ ") ++ show v)
 
--- run all ops
-runABC invoke = runOps (runOpABC invoke) . simpl . S.toList
+-- run ops
+runABC_B invoke = runOps (runOpABC invoke) . simpl . S.toList
+runABC invoke ops = (runABC_B invoke ops) >=> tcLoop
+
 
 --------------------------------------
 -- AMBC can be executed similarly to ABC, except for 
@@ -273,7 +290,7 @@ runOpAMBC invoke (Invoke tok) =
         Just ('/', seal) -> op_invoke_unseal seal
         _ -> invoke tok
 runOpAMBC invoke (BL ops) = return . P (B kf0 ambc) where
-    ambc = ABC { abc_code = ops, abc_comp = runAMBC invoke ops }
+    ambc = ABC { abc_code = ops, abc_comp = runAMBC_B invoke ops }
 runOpAMBC invoke (AMBC [singleton]) = runAMBC invoke singleton
 runOpAMBC invoke (AMBC options) = 
     let compiledOptions = fmap (runAMBC invoke) options in
@@ -281,7 +298,9 @@ runOpAMBC invoke (AMBC options) =
 -- we only reach `Op c` if it wasn't a prefix in our map, i.e. unknown 
 runOpAMBC _ (Op c) = \ v -> fail ("unknown operator! " ++ (c : " @ ") ++ show v)
 
-runAMBC invoke = runOps (runOpAMBC invoke) . simpl . S.toList
+runAMBC_B invoke = runOps (runOpAMBC invoke) . simpl . S.toList
+runAMBC invoke ops = (runAMBC_B invoke ops) >=> tcLoop
+
 
 --------------------------------------
 -- SIMPLIFICATION

@@ -5,13 +5,12 @@ module AO.V
     , copyable, droppable, observable
     -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
     , valToText, textToVal
-    , abcQuote, abcLit, abcCompose
+    , abcQuote, abcLit
     , quoteNum, quoteNat
     , opCodeList, inlineOpCodeList
     ) where
 
 import Control.Applicative
-import Control.Monad ((>=>))
 import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -42,11 +41,6 @@ data ABC c = ABC
     { abc_code :: !(S.Seq Op) -- code for show, structural equality
     , abc_comp :: !(V c -> c (V c)) -- compiled form
     }
-
-abcCompose :: (Monad c) => ABC c -> ABC c -> ABC c
-abcCompose xy yz = xz where
-    xz = ABC { abc_code = (abc_code xy S.>< abc_code yz) 
-             , abc_comp = (abc_comp xy >=> abc_comp yz)  }
 
 -- Ops no longer carry values directly. This is the bare
 -- minimum for ABC. A compiler may target any category.

@@ -12,7 +12,7 @@ module AO.Op
     , op_add, op_mul, op_negate, op_recip, op_Q
 
     , op_apply, tcLoop, op_cond, op_quote
-    , op_compose, op_rel, op_aff
+    , op_compose, abcCompose, op_rel, op_aff
 
     , op_D, op_F, op_M, op_K
     , op_P, op_S, op_B, op_N, op_GT
@@ -20,8 +20,10 @@ module AO.Op
     , op_invoke_seal, op_invoke_unseal
     ) where
 
+import Control.Monad ((>=>))
 import Data.Ratio
 import Data.Text (Text)
+import qualified Data.Sequence as S
 import qualified Data.Text as T
 import AO.V
 
@@ -165,6 +167,12 @@ op_compose (P (B kyz cyz) (P (B kxy cxy) e)) = return (P bxz e)
                  , may_drop = (may_drop kyz && may_drop kxy) }
         cxz = abcCompose cxy cyz
 op_compose v = opFail 'o' v
+
+abcCompose :: (Monad c) => ABC c -> ABC c -> ABC c
+abcCompose xy yz = xz where
+    xz = ABC { abc_code = (abc_code xy S.>< abc_code yz) 
+             , abc_comp = (abc_comp xy >=> tcLoop >=> abc_comp yz)  }
+
 
 op_quote :: (Monad c) => V c -> c (V c)
 op_quote (P a e) = return (P bb e) where
