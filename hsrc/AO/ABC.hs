@@ -18,7 +18,9 @@
 -- (to leverage GHC's optimizer).
 --
 module AO.ABC
-    ( parseABC, parseOp, runABC
+    ( parseABC, parseOp
+    , runABC, runAMBC
+    , simplifyABC
     , Invoker
     , module AO.V
     ) where
@@ -55,8 +57,7 @@ runOp invoke (Invoke tok) =
         Just ('$', seal) -> op_invoke_seal seal
         Just ('/', seal) -> op_invoke_unseal seal
         _ -> invoke tok
-runOp invoke (BL ops) = return . P bb where
-    bb = B kf0 abc
+runOp invoke (BL ops) = return . P (B kf0 abc) where
     abc = ABC { abc_code = ops, abc_comp = runABC invoke ops }
 runOp invoke (AMBC [singleton]) = runABC invoke singleton
 runOp _ (AMBC _) = const $ fail "AMBC is not supported"
@@ -111,28 +112,45 @@ runOpC '8' = op_8
 runOpC '9' = op_9
 runOpC c = const $ fail (c : " is not a valid ABC operator")
 
-
 -- run all ops
-runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke) . simplABC
+runABC invoke = S.foldr (>=>) (return) . fmap (runOp invoke) . simplifyABC
+
+--------------------------------------
+-- AMBC is very similar to ABC, except for 
+-- how it processes the AMBC operation.
+--------------------------------------
+
+runAmbOp :: (MonadPlus m) => Invoker m -> Op -> (V m -> m (V m))
+runAMBC :: (MonadPlus m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
+
+-- compile/run a single op
+runAmbOp _ (Op c) = runOpC c
+runAmbOp _ (TL text) = return . P (textToVal text)
+runAmbOp invoke (Invoke tok) =
+    case T.uncons tok of
+        Just ('$', seal) -> op_invoke_seal seal
+        Just ('/', seal) -> op_invoke_unseal seal
+        _ -> invoke tok
+runAmbOp invoke (BL ops) = return . P (B kf0 ambc) where
+    ambc = ABC { abc_code = ops, abc_comp = runAMBC invoke ops }
+runAmbOp invoke (AMBC [singleton]) = runAMBC invoke singleton
+runAmbOp invoke (AMBC options) = 
+    let compiledOptions = fmap (runAMBC invoke) options in
+    \ arg -> msum $ map ($ arg) compiledOptions 
+
+runAMBC invoke = S.foldr (>=>) (return) . fmap (runAmbOp invoke) . simplifyABC
 
 --------------------------------------
 -- SIMPLIFICATION
+--  Note: currently, simplification is applied just before application
+--  hence, the simplified variation of code is never provided in
+--  a visible manner (e.g. for a block). 
 --------------------------------------
 
-simplABC :: S.Seq Op -> S.Seq Op
-simplABC = S.fromList . fmap simplB . simpl .  S.toList
-
-simplB :: Op -> Op
-simplB (BL ops) = BL (simplABC ops)
-simplB (AMBC options) = AMBC $ fmap simplABC options
-simplB op = op
+simplifyABC :: S.Seq Op -> S.Seq Op
+simplifyABC = S.fromList . simpl . S.toList
 
 -- a rather simplistic simplifier...
--- I really should reify the patterns to 
--- handle more (like number swapping).
--- But this will be enough for now.
---
--- 
 simpl :: [Op] -> [Op] 
 simpl [] = []
 simpl (Op ' ' : ops) = simpl ops
@@ -155,7 +173,7 @@ simpl (op : ops) =
 
 -- limit window for simplification 
 simplWindow :: Int
-simplWindow = 12 
+simplWindow = 9 
 
 --------------------------------------
 -- PARSERS
