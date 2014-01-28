@@ -79,7 +79,8 @@ main =
     recoveryLoop (HKL.runInputT hklSettings hklwi) cx
 
 newDefaultContext :: IO AOI_CONTEXT
-newDefaultContext = Env.getArgs >>= foldM p defaultContext where
+newDefaultContext = Env.getArgs >>= foldM p cx0 where
+    cx0 = defaultContext { aoi_powers = defaultPowers } 
     p _ "-?" = runHelp
     p _ "-help" = runHelp
     p cx (dictArg -> Just d) = return $ cx { aoi_source = T.pack d }
