@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards, FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE PatternGuards, ViewPatterns, FlexibleContexts, FlexibleInstances #-}
 
 -- | AOI describes a simplistic, imperative REPL for language AO.
 --
@@ -31,7 +31,6 @@ module AOI
     ( main
     -- stuff that should probably be in separate modules
     , newDefaultContext
-    , makePowerBlock
     , defaultPowers
     , randomBytes
     ) where
@@ -44,6 +43,7 @@ import Control.Monad.Trans.Class
 import Data.IORef
 
 import qualified System.IO as Sys
+import qualified System.Exit as Sys
 import qualified System.IO.Error as Err
 import qualified System.Environment as Env
 import qualified System.Random as R
@@ -54,7 +54,7 @@ import qualified Data.ByteString as B
 import qualified Data.Text as T
 import qualified Data.List as L
 import qualified Data.Map as M
-import qualified Data.Sequence as S
+--import qualified Data.Sequence as S
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified Filesystem as FS
 import Data.Text (Text)
@@ -63,7 +63,6 @@ import Data.ByteString (ByteString)
 import AO.AO
 import HLS
 import AOICX
-
 
 main :: IO ()
 main = 
@@ -79,6 +78,23 @@ main =
     let hklwi = HKL.withInterrupt hkl in
     recoveryLoop (HKL.runInputT hklSettings hklwi) cx
 
+newDefaultContext :: IO AOI_CONTEXT
+newDefaultContext = Env.getArgs >>= foldM p defaultContext where
+    p _ "-?" = runHelp
+    p _ "-help" = runHelp
+    p cx (dictArg -> Just d) = return $ cx { aoi_source = T.pack d }
+    p cx "-frames" = 
+        newIORef (hls_init []) >>= \ rf ->
+        return $ cx { aoi_frames = Just rf }
+    p cx a = putErrLn ("unknown arg: " ++ a) >> return cx
+    dictArg = L.stripPrefix "-dict="
+
+runHelp :: IO a
+runHelp = putErrLn helpMsg >> Sys.exitSuccess where
+    helpMsg = "-? -help      this message\n"
+           ++ "-dict=foo     set AO dictionary (foo.ao on AO_PATH)\n"
+           ++ "-frames       enable debug frames\n"
+
 -- recovery loop will handle state errors (apart from parse errors)
 -- by reversing the ABC streaming state to the prior step. If this
 -- happens, a stack trace is also printed.
@@ -89,9 +105,12 @@ recoveryLoop aoi cx0 =
         Right () -> return () -- clean exit
         Left (E eTxt) ->
             putErrLn (T.unpack eTxt) >>
-            readIORef (aoi_frames cx') >>= \ stack ->
-            reportContext stack >> -- STACK TRACE, VALUE, ETC.
+            printCX (aoi_frames cx') >>
             recoveryLoop aoi cx' -- continue the loop
+
+printCX :: Maybe (IORef FrameHist) -> IO ()
+printCX Nothing = return ()
+printCX (Just rf) = readIORef rf >>= reportContext
 
 initAOI :: HKL.InputT AOI ()
 initAOI = greet >> lift aoiReload where
@@ -105,31 +124,6 @@ finiAOI :: HKL.InputT AOI ()
 finiAOI = 
     HKL.haveTerminalUI >>= \ bTerm ->
     when bTerm $ HKL.outputStrLn "goodbye!"
-
--- initial AOI_CONTEXT
-newDefaultContext :: IO AOI_CONTEXT
-newDefaultContext = 
-    selectSource >>= \ source ->
-    getCompilerConfig >>= \ cconf ->
-    newIORef initialFrameHist >>= \ frames ->
-    return (defaultContext source cconf frames) 
-
-defaultContext :: Import -> CompilerConfig -> IORef FrameHist -> AOI_CONTEXT
-defaultContext source cconf frames = cx where
-    s = U -- initial stack
-    h = U -- initial hand
-    p = defaultPowerBlock -- access to power/effects
-    rns = P (N 3) U -- named stacks
-    ex = U -- extensions 
-    env = (P s (P h (P p (P rns ex))))
-    cx = AOI_CONTEXT
-        { aoi_dict = M.empty -- loads on init or ctrl+c
-        , aoi_source = source
-        , aoi_cconf = cconf
-        , aoi_frames = frames
-        , aoi_step = hls_init (0, env) 
-        , aoi_ifn = defaultIFN
-        }
 
 aoiHaskelineLoop :: HKL.InputT AOI ()
 aoiHaskelineLoop =
@@ -171,32 +165,6 @@ aoiStep txt =
         (L vErr) -> liftIO $ putErrLn ("read error: " ++ show vErr)
         v -> liftIO $ putErrLn ("read type error: " ++ show v)
 
--- create a powerblock given a map of powers
---
--- the powerblock receives (label * message) 
---            then outputs (power * result).
---
--- The set of powers is closed once constructed.
-type Power = V AOI -> AOI (V AOI)
-makePowerBlock :: M.Map Text Power -> V AOI
-makePowerBlock powerMap = powerBlock where
-    powerBlock = B (KF False False) abc where
-    abc = ABC { abc_code = falseCode, abc_comp = power }
-    falseCode = (S.singleton . Invoke . T.pack) "*power*" -- never invoked
-    run frame action = 
-        pushFrame frame >> -- simplify error discovery
-        action >>= \ result ->
-        popFrame' frame >>
-        return (P powerBlock result)
-    power v@(P vLabel message) =
-        case valToText vLabel of
-            Nothing -> powerFail v
-            Just label -> case M.lookup label powerMap of
-                Nothing -> powerFail v
-                Just op -> run label (op message)
-    power v = powerFail v
-    powerFail v = fail $ "{*power*} message not understood: " ++ show v
-
 -- very few powers for now...
 defaultPowers :: M.Map Text Power
 defaultPowers = M.fromList $ map (first T.pack) $
@@ -211,9 +179,6 @@ defaultPowers = M.fromList $ map (first T.pack) $
     ,("readFile", aoiReadFile)
     ,("writeFile", aoiWriteFile)
     ]
-
-defaultPowerBlock :: V AOI
-defaultPowerBlock = makePowerBlock defaultPowers
 
 switchAOI :: V AOI -> AOI (V AOI)
 switchAOI (P (B kf abc) eIC) | may_copy kf && may_drop kf = 
@@ -278,23 +243,6 @@ aoiWriteFile v@(P fn ftext) =
             maybe (L U) (const (R U)) <$> liftIO (tryIO op)
 aoiWriteFile v = fail $ ("writeFile @ " ++ show v)
 
-selectSource :: IO Import
-selectSource = sfa <$> Env.getArgs where
-    sfa [] = T.pack "aoi"
-    sfa (arg:args) = 
-        case L.stripPrefix "-dict=" arg of
-            Nothing -> sfa args
-            Just foo -> (T.pack foo)
-
-
-getCompilerConfig :: IO CompilerConfig
-getCompilerConfig = L.foldl withArg cc0 <$> Env.getArgs where
-    cc0 = CompilerConfig 
-            { cc_frame_enable = True
-            }
-    withArg cc "-frames=no"  = cc { cc_frame_enable = False }
-    withArg cc _ = cc
-
 
 tryIO :: IO a -> IO (Maybe a)
 tryIO = liftM (either (const Nothing) (Just)) . Err.tryIOError
@@ -350,7 +298,7 @@ aoiCompletion = quotedFiles prefixedWords where
         (aoi_dict <$> getCX) >>= \ dc ->
         return (dictCompletions dc s)
 
--- a colorful printing function
+-- a printing function
 aoiHklPrint :: HKL.InputT AOI ()
 aoiHklPrint = printIfTerminalUI where
     printIfTerminalUI = 

@@ -3,11 +3,10 @@
 -- data structures and context for AOI
 module AOICX
     ( AOI_CONTEXT(..), IFN(..), AOI, runAOI
-    , Error(..), Frame, FrameHist
-    , CompilerConfig(..), compileActions
+    , Error(..), Frame, FrameHist, Power
+    , defaultContext, defaultEnv, defaultPB
     , getCX, putCX, modCX
-    , pushFrame, popFrame, popFrame', getFrameHist
-    , setFrameHist, resetFrameHist, initialFrameHist
+    , pushFrame, popFrame, popFrame', enableFrameHist, resetFrameHist
     , defaultIFN, aoiGetIfn, aoiPutIfn
     , aoiGetStep, aoiPushStep
     , aoiReload
@@ -25,7 +24,7 @@ import qualified Data.Map as M
 --import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Sequence as S
---import qualified Data.List as L
+import qualified Data.List as L
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 
@@ -40,6 +39,7 @@ newtype Error = E Text
 type Frame = Text
 type StepState = (Integer, V AOI)
 type FrameHist = HLS [Frame]
+type Power = V AOI -> AOI (V AOI)
 
 instance MT.Error Error where strMsg = E . T.pack 
 
@@ -71,16 +71,54 @@ modCX = liftCX . MT.modify
 data AOI_CONTEXT = AOI_CONTEXT 
     { aoi_dict    :: !DictC  -- loaded and compiled dictionary
     , aoi_source  :: !Import -- for reloading
-    , aoi_cconf   :: !CompilerConfig
-    , aoi_frames  :: !(IORef FrameHist) -- stack frames + history
+    , aoi_powers  :: !(M.Map Text Power) -- provide powers to powerblock
+    , aoi_frames  :: !(Maybe (IORef FrameHist)) -- track frames?
     , aoi_step    :: !(HLS StepState) -- recovery values 
     , aoi_ifn     :: !IFN 
     }
 
-data CompilerConfig = CompilerConfig
-    { cc_frame_enable :: Bool
+defaultContext :: AOI_CONTEXT
+defaultContext = AOI_CONTEXT
+    { aoi_dict = M.empty
+    , aoi_powers = M.empty
+    , aoi_source = T.pack "aoi"
+    , aoi_frames = Nothing
+    , aoi_step = hls_init (0, defaultEnv)
+    , aoi_ifn = defaultIFN
     }
 
+-- standard environment
+defaultEnv :: V AOI
+defaultEnv = env where
+    s = U
+    h = U
+    pb = defaultPB
+    sn = textToVal T.empty -- initial stack name
+    ns = U -- no named stacks
+    ex = U
+    env = (P s (P h (P pb (P (P sn ns) ex))))
+
+defaultPB :: V AOI
+defaultPB = B (KF False False) abc where
+    abc = ABC 
+        { abc_code = (S.singleton . Invoke . T.pack) "~power~"
+        , abc_comp = invokePower 
+        }
+
+invokePower, powerFail :: V AOI -> AOI (V AOI)
+invokePower v@(P vLbl vMsg) =
+    (aoi_powers <$> getCX) >>= \ mPowers ->
+    case valToText vLbl of
+        Nothing -> powerFail v
+        Just label -> case M.lookup label mPowers of
+            Nothing -> powerFail v 
+            Just power ->
+                pushFrame label >>
+                power vMsg >>= \ vAnswer ->
+                popFrame' label >> 
+                return (P defaultPB vAnswer)
+invokePower v = powerFail v
+powerFail v = fail $ "message not understood: {~power~} @ " ++ show v
 
 -- AOI supports a reprogrammable interpreter to support bootstrap.
 -- The interpreter is really an incremental compiler of rough type:
@@ -128,16 +166,15 @@ compileActions :: AODef -> AOI (Either Text (ABC AOI))
 compileActions actions = 
     getCX >>= \ cx -> 
     let dc = aoi_dict cx in
-    let cc = aoi_cconf cx in
     let wNeed = aoWordsRequired actions in
     let wMissed = Set.filter (`M.notMember` dc) wNeed in
     if Set.null wMissed
-        then return $ Right $ compileABC cc $ aoToABC dc actions
+        then return $ Right $ compileABC cx $ aoToABC dc actions
         else return $ Left $ 
             T.pack "undefined words: " `T.append` 
             T.unwords (Set.toList wMissed)
 
-compileABC :: CompilerConfig -> S.Seq Op -> ABC AOI
+compileABC :: AOI_CONTEXT -> S.Seq Op -> ABC AOI
 compileABC _ ops = 
     ABC { abc_code = ops
         , abc_comp = runABC invokeAOI ops } 
@@ -157,57 +194,63 @@ illegalToken tok = fail $ "illegal token: {" ++ T.unpack tok ++ "}"
 aoiAnno :: Text -> a -> AOI a
 aoiAnno tok =
     case T.uncons tok of
-        Just ('@', frame) -> aoiFrame frame
+        Just ('@', frame) -> \ v -> aoiFrame frame >> return v
         _ -> return -- no other annotations are supported yet
 
-aoiFrame :: Text -> a -> AOI a
+aoiFrame :: Text -> AOI ()
 aoiFrame frame =
     case T.uncons frame of
         Just ('-', ftxt) ->
-            if T.null ftxt then \ v -> popFrame >> return v
-                           else \ v -> popFrame' ftxt >> return v
-        _ -> \ v -> pushFrame frame >> return v
+            if T.null ftxt then popFrame
+                           else popFrame' ftxt
+        _ -> pushFrame frame
 
 popFrame :: AOI ()
-popFrame = 
-    (aoi_frames <$> getCX) >>= \ fr ->
-    liftIO (readIORef fr) >>= \ hls ->
+popFrame = modFrames $ \ hls ->
     case hls_get hls of
-        (_:fs) -> liftIO (writeIORef fr (hls_put fs hls))
-        _ -> fail "popped empty stack!"
+        (_:fs) -> Right (hls_put fs hls)
+        _ -> Left (T.pack "popped empty stack!")
 
 popFrame' :: Text -> AOI ()
-popFrame' target =
-    (aoi_frames <$> getCX) >>= \ fr ->
-    liftIO (readIORef fr) >>= \ hls ->
+popFrame' target = modFrames $ \ hls ->
     case hls_get hls of
-        (f:fs) | (f == target) ->
-            liftIO (writeIORef fr (hls_put fs hls))
-        _ -> fail ("failed to pop " ++ T.unpack target ++ " from stack!")
+        (f:fs) | (f == target) -> Right (hls_put fs hls)
+        _ -> Left (T.pack "invalid stack; expecting " `T.append` target)
 
 pushFrame :: Text -> AOI ()
-pushFrame frame =
-    (aoi_frames <$> getCX) >>= \ fr ->
-    liftIO (readIORef fr) >>= \ hls ->
+pushFrame label = modFrames $ \ hls ->
     let fs = hls_get hls in
-    let hls' = hls_put (frame : fs) hls in
-    hls' `seq` liftIO (writeIORef fr hls')
+    Right (hls_put (label : fs) hls)
 
--- obtain the current frame history (for debugging)
-getFrameHist :: AOI (HLS [Frame])
-getFrameHist = (aoi_frames <$> getCX) >>= liftIO . readIORef
+resetFrameHist :: AOI ()
+resetFrameHist = modFrames $ const $ Right $ hls_init []
 
--- clear the current frame history (e.g. between steps)
-setFrameHist :: HLS [Frame] -> AOI ()
-setFrameHist hist = 
-    (aoi_frames <$> getCX) >>= \ fr ->
-    liftIO (writeIORef fr hist)
+-- enable or disable use of frames
+enableFrameHist :: Bool -> AOI ()
+enableFrameHist False = 
+    modCX $ \ cx -> cx { aoi_frames = Nothing }
+enableFrameHist True =
+    getCX >>= \ cx ->
+    case aoi_frames cx of
+        Just _ -> return ()
+        Nothing ->
+            liftIO (newIORef (hls_init [])) >>= \ fr ->
+            let cx' = cx { aoi_frames = Just fr } in
+            putCX cx'
 
-resetFrameHist :: AOI () 
-resetFrameHist = setFrameHist initialFrameHist
-
-initialFrameHist :: FrameHist
-initialFrameHist = hls_init []
+-- modify the current frame hist, allowing for error. 
+modFrames :: (FrameHist -> Either Text FrameHist) -> AOI ()
+modFrames f =
+    getCX >>= \ cx ->
+    case aoi_frames cx of
+        Nothing -> return ()
+        Just fr ->
+            liftIO (readIORef fr) >>= \ fHist ->
+            case f fHist of
+                Left err -> MT.throwError (E err)
+                Right fHist' ->
+                    fHist' `seq` 
+                    liftIO (writeIORef fr fHist')
 
 -- manipulate step values
 aoiGetStep :: AOI StepState
@@ -226,37 +269,30 @@ aoiPushStep v = modCX put where
 aoiReload :: AOI ()
 aoiReload = 
     getCX >>= \ cx ->
-    let cc = aoi_cconf cx in
     liftIO (loadDictionary (aoi_source cx)) >>= \ dictAO_pre ->
-    let dictAO = preCompile cc dictAO_pre in
+    let dictAO = preCompile cx dictAO_pre in
     let dc0 = compileDictionary dictAO in
-    let dcf = postCompile cc dc0 in
+    let dcf = postCompile cx dc0 in
     let cx' = cx { aoi_dict = dcf } in
     putCX cx'
 
 -- OPPORTUNITY FOR OPTIMIZATIONS
-preCompile :: CompilerConfig -> Dictionary -> Dictionary
-preCompile = const id
+preCompile :: AOI_CONTEXT -> Dictionary -> Dictionary
+preCompile cx dict0 = dictf where
+    framedDict = case aoi_frames cx of
+        Nothing -> dict0
+        Just _ -> M.mapWithKey (frameWrap cx) dict0
+    dictf = framedDict
 
 -- go ahead and simplify code (it's nicer to see it's
 -- simplified form in the REPL).
-postCompile :: CompilerConfig -> DictC -> DictC
+postCompile :: AOI_CONTEXT -> DictC -> DictC
 postCompile = const $ M.map simplifyABC
 
-
-{-
--- preCompile operates on the AO code.
-preCompile :: CompilerConfig -> Dictionary -> Dictionary
-preCompile cc dict0 = dictf where
-    framedDict = autoFrame dict0
-    autoFrame | not (cc_frame_enable cc) = id
-              | otherwise = M.mapWithKey (frameWrap cc)  
-    dictf = framedDict 
-
-
 -- for now, wrap a word unless it consists of pure data shuffling
--- around other words. 
-frameWrap :: CompilerConfig -> W -> (Locator, AODef) -> (Locator, AODef)
+-- around other words. By 'data shuffling' I really mean 'anything
+-- that is part of the fixpoint function'.
+frameWrap :: AOI_CONTEXT -> W -> (Locator, AODef) -> (Locator, AODef)
 frameWrap _ w (loc,def) = (loc,framedDef) where
     locTxt = wordLocatorText w loc
     annoLoc = Prim . S.singleton . Invoke . T.cons '&' . T.cons '@'
@@ -284,7 +320,6 @@ shuffleAction (Amb options) = all shuffleDef options
 shuffleABC :: S.Seq Op -> Bool
 shuffleABC = S.null . S.dropWhileL shuffleOp
 
-
 shuffleOp :: Op -> Bool
 shuffleOp (Op c) = L.elem c " \nlrwzvc^%'$o"
 shuffleOp (TL _) = True
@@ -294,5 +329,5 @@ shuffleOp (Invoke text) =
         Just ('&', _) -> True
         _ -> False
 shuffleOp (AMBC options) = all shuffleABC options
--}
+
 
