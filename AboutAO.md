@@ -69,7 +69,7 @@ Blocks in AO use square brackets and contain arbitrary AO code. The square brack
         [12.3 :foo dup bloop flip trip]
         [[[foo]each]keep]dip
 
-While large blocks are permitted, large or deep blocks should generally be understood as a *code smell* - if you see a lot of them, it's wise to refactor. Consider use of adverbs or staged programming idioms.
+While large blocks are permitted, large or deep blocks should generally be understood as a *code smell* - if you see a lot of them, it's wise to refactor. Consider use of [adverbs](doc/AboutAdverbs.md) or staged programming idioms.
 
 AO literals have a slightly different type than ABC literals. 
 
@@ -123,42 +123,6 @@ Sealers and unsealers are represented as capabilities using inline ABC:
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
-## Ambiguity and Program Search
-
-Ambiguity is syntactically expressed by wrapping a section in parentheses, and separating one or more options with a vertical bar. For example:
-
-        a (b | c d) e (f|g|h)
-
-The meaning of the above subprogram may be any one of:
-
-        a b e f
-        a b e g
-        a b e h
-        a c d e f
-        a c d e g
-        a c d e h
-
-The choice of meanings in a given use case is left to the AO compiler. Formally, the choice is non-deterministic, but it is not random. Similar to ambiguity in natural language, ambiguity in AO is *resolved in context*.  Choices are eliminated if obviously not typesafe in context. 
-
-The remaining choices may be searched based on a heuristic functions, which may evaluate options for performance, size, confidence of safety, stability (across versions of a program), and programmer annotations. Through annotations and control of the heuristic function, programmers can effectively influence the compiler's choice, leading to a good solution. 
-
-There is never a guarantee that an optimum (or even optimal) solution will be discovered. It is not difficult to express programs with a hundred options for 2^100 meanings or more. With such large search spaces, non-exhaustive mechanisms must be used to select a 'good' program - e.g. hill climbing or genetic programming. 
-
-The choice operator `|` is *commutative, associative, and idempotent*. The syntactic order in which choices are expressed must not contribute to heuristic evaluation of choices. This independence is important for refactoring ambiguous programs, and for optimizing search. It also means that, formally, we can understand ambiguity as expressing a *set* of programs. 
-
-Ambiguous code has many roles: rapid prototyping, self-healing or adaptive code, exploring design spaces and tradeoffs, and tactical theorem proving. Adding or removing ambiguity allows programmers to shift gradually between 'crystalline' code with rigid structure and 'fluid' code that can reshape itself for its context. Developers can control where and how much adaptation occurs.
-
-### Constraining Ambiguity
-
-Context-dependent or non-deterministic meaning can be semantically troubling. For example, it hinders equational reasoning. Also, search is expensive. Ambiguity should be avoided or removed from a codebase when there is no obvious benefit from it. Where feasible, we should push program search to edit-time, and perhaps resolve ambiguous code at edit-time. 
-
-A good programming environment can help developers manage ambiguity:
-
-1. ambiguous words are styled or colored differently when rendered
-2. automatic tests may be set to fail if specific code is ambiguous
-
-The first technique helps developers recognize ambiguity without digging deeply through code. The second technique helps control ambiguity, preventing it from stealthily entering the dictionary.
-
 ## Processing AO
 
 ### AO Definition Syntax
@@ -170,9 +134,9 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
-* adverbs `\` (proposal, discussed later)
+* adverbs `\`
 
-Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
+The latter two features are experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md) and [AboutAdverbs.md](doc/AboutAdverbs.md). Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
 
 * words may not start with `@`, `%`, `-`, or a digit
 * words may not contain `"`, `[`, `]`, `(`, `|`, `)`, or `\`
@@ -287,26 +251,3 @@ The powerblock serves as the general-purpose entry point to observe or influence
 AO will be pursuing a new, experimental alternative to the configurations problem that supports default implementations, soft constraints, heuristic policy injection, and deep overrides. The idea is to leverage dependent types, partial evaluation, and staged constraint solvers to automate a lot of glue-code. 
 
 This is low priority at the moment, but it will eventually have a pervasive impact on the AO programming experience. Relevantly, it will serve roles similar to typeclasses and dependency injection frameworks.
-
-## Adverbs and Inflection (EXPERIMENTAL!)
-
-In AO, we might decide to apply some word `foo` to each element of a list. We can easily express this as `[foo] each`, which would directly apply foo to each element of a list. If we further want to keep a copy of the list, we might modify this to `[[foo] each] keep`. If we also want to hide the first element on the stack, we might modify this to `[[[foo] each] keep] dip`.
-
-An 'adverb' is a word that modifies a verb. 
-
-Words such as `each`, `keep`, and `dip` aren't adverbs. They're too active. But they are at least *related* to adverbs. If we were instead to say `[foo] listwise`, we might expect as result a function - a verb - that, *when later applied to a list*, will apply `foo` to each element in the list. We could define the adverb `listwise` as simply `[each] curry`. Currying relates higher order functions to adverbs. Adverbs have a nice property: their input and output type is the same - just a verb. This makes adverbs very compositional and a good fit for concatenative PLs. We can meaningfully say `[foo] listwise barwise bazwise`, and we can directly refactor or abstract a common sequences of adverbs. 
-
-Unfortunately, `[foo] each` is easier to write than `[foo] listwise apply` even if we ignore the additional one-time cost to define `listwise`. The path of least resistance thus guides developers towards rigid, brittle structures that are difficult to directly abstract or refactor such as `[[[foo] each] keep] dip`. 
-
-To make adverbs usable, I propose syntactic sugar for [inflection](http://en.wikipedia.org/wiki/Inflection). Inflection refers to modifying the structure of a word in a simple, systematic way in order to modify the word's meanings. With inflection, a subprogram of form `[foo] listwise keeping withdip apply` might be expressed parsimoniously as `foo\*kd`. The details:
-
-* character `\` is now reserved, may not be used in normal words
-* `foo\*kd` rewrites in place to `[foo] [\*kd] applyWithAdverbs`
-* like inline ABC, `\*kd` encodes the sequence of words `\* \k \d`
-* users define words `\*`, `\k`, `\d` (etc.) and `applyWithAdverbs`
-
-Developers are limited to one distinguishing character per modifier. However, not every modifier needs to directly represent an adverb. It is feasible to model selectors such that digraph `\K₃` constructs an adverb, or such that `\lf` represents a fold over a list while `\Tf` represents a fold over trees. That said, unicode is big while the number of inflections worth defining for reuse is relatively small. Character per adverb should often serve admirably in practice.
-
-The standard definition for `applyWithAdverbs` will first apply the adverbs to the word in a controlled environment, i.e. such that the adverbs cannot be effectful or sensitive to context, then inline the result. By doing so, `foo\*kd` can easily be understood as a single word.
-
-As an experimental feature, sugar for inflection will be removed if it doesn't seem highly useful after trying it in a few significant projects. 
