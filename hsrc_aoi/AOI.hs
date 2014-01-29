@@ -27,7 +27,7 @@
 --
 -- Note: AOI does not represent the intended vision for AO interactive
 -- programming. AOI is simply a stopgap for pre-bootstrap testing.
-module AOI
+module Main -- AOI
     ( main
     -- stuff that should probably be in separate modules
     , newDefaultContext

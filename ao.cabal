@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.8.3
+Version: 0.8.4
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -50,7 +50,7 @@ Executable aoi
     , random (>= 1.0 && < 1.2)
     , cprng-aes (>= 0.5 && < 0.7)
   main-is: AOI.hs
-  ghc-options: -auto-all -Wall -main-is AOI -rtsopts
+  ghc-options: -auto-all -Wall -rtsopts
 
 Library
   hs-Source-Dirs: hsrc
