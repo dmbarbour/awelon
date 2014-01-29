@@ -38,7 +38,7 @@ kf0 = KF True True
 
 -- a block operates in a monadic context c
 data ABC c = ABC
-    { abc_code :: !(S.Seq Op) -- code for show, structural equality
+    { abc_code :: (S.Seq Op) -- code for show, structural equality
     , abc_comp :: !(V c -> c (V c)) -- compiled form
     }
 
