@@ -19,11 +19,11 @@ import qualified Data.Foldable as S
 import qualified Data.List as L
 
 data V c -- ABC's structural types in context c
-    = L !(V c)    -- sum left
-    | R !(V c)    -- sum right
+    = L (V c)    -- sum left
+    | R (V c)    -- sum right
     | N {-# UNPACK #-} !Rational -- number
     | P (V c) (V c) -- product; tracks copy/drop allowance
-    | B {-# UNPACK #-} !KF {-# UNPACK #-} !(ABC c) -- block
+    | B KF (ABC c) -- block
     | U -- unit
     | S !Text (V c)  -- sealed value (via sealer capability)
     -- pseudo-value hacks
@@ -39,7 +39,7 @@ kf0 = KF True True
 -- a block operates in a monadic context c
 data ABC c = ABC
     { abc_code :: (S.Seq Op) -- code for show, structural equality
-    , abc_comp :: !(V c -> c (V c)) -- compiled form
+    , abc_comp :: (V c -> c (V c)) -- compiled form
     }
 
 -- Ops no longer carry values directly. This is the bare

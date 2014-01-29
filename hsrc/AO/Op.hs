@@ -171,7 +171,7 @@ op_compose v = opFail 'o' v
 abcCompose :: (Monad c) => ABC c -> ABC c -> ABC c
 abcCompose xy yz = xz where
     xz = ABC { abc_code = (abc_code xy S.>< abc_code yz) 
-             , abc_comp = (abc_comp xy >=> tcLoop >=> abc_comp yz)  }
+             , abc_comp = (abc_comp xy >=> (tcLoop >=> abc_comp yz))  }
 
 
 op_quote :: (Monad c) => V c -> c (V c)
