@@ -278,3 +278,12 @@ op_invoke_unseal t (S t' v) | (t == t') = return v
 op_invoke_unseal t v = fail $
     "{/" ++ T.unpack t ++ "} @ " ++ show v
 
+{-# RULES
+"%lr" op_l >=> op_r = return
+"%rl" op_r >=> op_l = return
+"%ww" op_w >=> op_w = return
+"%zz" op_z >=> op_z = return
+"%zwz" op_z >=> op_w >=> op_z = op_w >=> op_z >=> op_w
+"f>=>id"  forall f . f >=> return = f
+"id>=>f"  forall f . return >=> f = f
+ #-}

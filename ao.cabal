@@ -52,6 +52,18 @@ Executable aoi
   main-is: AOI.hs
   ghc-options: -auto-all -Wall -rtsopts
 
+Executable ao2hs
+  hs-source-dirs: hsrc_ao2hs
+  default-language: Haskell2010
+  build-depends: base (>= 4.5 && < 5)
+    , ao
+    , system-fileio
+    , system-filepath
+    , text
+    , containers
+  main-is: AO2HS.hs
+  ghc-options: -Wall
+
 Library
   hs-Source-Dirs: hsrc
   default-language: Haskell2010
