@@ -13,6 +13,7 @@
 @.rem  .divMod drop
 @.sub .neg .add
 @.div .inv .mul
+@.square dup .mul
 
 @inc 1 .add
 @incd swap inc swap

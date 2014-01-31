@@ -49,7 +49,7 @@
   * functions on lists, association lists, records
   *   binary to base64, binary to text, text to binary
   * contraint models for staged dependency/policy/typeclass injection 
-  * project euler?
+  * project euler? rosetta code? a simple tetris/breakout game?
   * optimizers and compilers for ABC, AMBC, and AO
   * simplified app type for quick integration with Haskell? (use plugins?)
   * 2D-3D scene-graphs based on enneatrees and zippers

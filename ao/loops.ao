@@ -15,8 +15,8 @@
 ~
 
 @doc.repeat "[] n --; inline block n times"
-@doc.enum   "[i --] n m --; loop with integral index in range [n,m)."
-@doc.enumI  "enum in range [n,m] (i.e. including m)"
+@doc.enum  "[i --] n m --; loop with integral index in range [n,m)."
+@doc.enum1 "enum in range [n,m] (i.e. including m)"
 
 @test.repeat 4 7 [incd] 3 repeat assertEQ
 @repeat assertNatural swap [repeat.step] bind fixpoint inline
@@ -27,8 +27,8 @@
  [drop3]
  if!
 
-@test.enum 15 0 [.add] 1 5 enumI assertEQ
-@enumI inc enum
+@test.enum 15 0 [.add] 1 5 enum1 assertEQ
+@enum1 inc enum
 @enum assertEnumRange pw swap [enum.step] bind fixpoint inline
 @assertEnumRange swap assertInteger swap assertInteger assertLTE
 @doc.enum.step "(n*m) [continue] [action] -- "
@@ -65,7 +65,7 @@
 @until1 [.distribE] compose %rvr .until1 %c
 
 @doc.fixpoint
-"This strict fixpoint combinator (Z combinator) binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint can express cyclic behavior.
+"This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of cyclic behavior.
  
      [foo] fixpoint
          is equivalent to
@@ -75,7 +75,13 @@
  
  Fixpoint is one of those patterns that people find difficult to comprehend until they've used it many times. I encourage developers to use, learn, and understand it. But in practice it may often be easier to express most behavior in terms of a few loops (map, each, enum, repeat, until, while, etc.) built above fixpoint.
 ~
-@fixpoint [swap dup bind composel] bind dup apply
+@fixpoint fixZ
+
+@doc.fixZ "based on the Z fixpoint combinator"
+@fixZ [swap dup bind swap compose] bind dup apply
+
+@doc.fixY "based on the Y fixpoint combinator"
+@fixY [swap dup bind swap inline] bind dup bind
 
 @doc.factorial.naive "mostly this is a test for fixpoint :)"
 @factorial.naive assertNatural [factorialStep.naive] fixpoint apply
