@@ -3,6 +3,8 @@
 -- | The `ao2hs` executable takes a single dictionary name, imports
 -- said dictionary, then compiles to 'Dict.hs'.
 -- The compiler does name mangling as needed.
+--
+-- Annotations are ignored, but value sealing is supported.
 module Main
     ( main
     ) where
@@ -12,6 +14,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Map as M
 import qualified Data.Sequence as S
+import qualified Data.Foldable as S
 import qualified System.IO as Sys
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
@@ -98,18 +101,44 @@ hsTypeDef :: W -> Text
 hsTypeDef w = w `T.append` T.pack " :: (Monad c) => V c -> c (V c)"
 
 hsDef :: W -> S.Seq Action -> Text
-hsDef w _ = w `T.append` T.pack " = undefined"
+hsDef w ao = w `T.append` T.pack " = " `T.append` ao2hs ao
+
+ao2hs :: S.Seq Action -> Text
+ao2hs = T.intercalate (T.pack " >=> ") . S.toList . fmap action2hs
+
+action2hs :: Action -> Text
+action2hs (Word w) = w
+action2hs (Num r) = T.pack $ "(return . P (N (" ++ show r ++ "))) >=> op_l"
+action2hs (Lit txt) = T.pack $ "(return . P (textToVal " ++ show txt ++ ")) >=> op_l"
+action2hs (BAO aoDef) = T.pack $ "(return . P (" ++ bTxt ++ ")) >=> op_l" where
+    bTxt = "
+
+"(return . (P (N r)))"
+    T.intercalate (T.pack " >=> ") (fmap action2hs (S.toList actions))
+
+action2hs :: Action -> Text
+action2hs 
+
+data Action 
+    = Word W -- a plain old word
+    | Num Rational -- literal number, many formats accepted
+    | Lit Text -- text literal (inline or multi-line)
+    | BAO AODef -- block of AO code
+    | Prim (S.Seq Op) -- %inlineABC
+    | Amb [AODef] -- ambiguous choice, or maybe just one choice
+
+T.pack " = undefined"
 
 -- Many of AO's naming conventions are invalid in Haskell's syntax.
--- The following translation rules will apply:
---    initial letter is preceded by _ unless it is a lower case alphanum
---    non alpha-num characters (including '_') are replaced by XX_
+-- So we manipulate the names a bit. We also precede every name with
+-- 'w_' to avoid issues with capitalization and keywords.
+--
 hsMangle :: W -> W
-hsMangle w = c1 (T.head w) `T.append` T.concatMap cN (T.tail w) where
-    c1 c | not (isLower c) = '_' `T.cons` cN c
-         | otherwise = T.singleton c
-    cN c | isAlphaNum c = T.singleton c
-    cN c = T.pack $ toHex "_" (fromEnum c)
+hsMangle = T.cons 'w' . T.cons '_' . T.concatMap mangleC
+
+mangleC :: Char -> Text
+mangleC c | isAlphaNum c = T.singleton c
+mangleC c = T.pack $ toHex "_" (fromEnum c)
 
 isAlphaNum, isUpper, isLower, isNum :: Char -> Bool
 isAlphaNum c = isUpper c || isLower c || isNum c
