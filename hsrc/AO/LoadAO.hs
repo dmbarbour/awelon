@@ -74,7 +74,7 @@ firstM (op:ops) =
 
 -- import then parse.
 importDictFile :: Import -> IO DictFile
-importDictFile imp = readDictFileText <$> importText imp
+importDictFile imp = readDictFileText imp <$> importText imp
 
 -- deep load a dictionary from an initial import
 --   loads each import exactly once (no cycles or redundancies)

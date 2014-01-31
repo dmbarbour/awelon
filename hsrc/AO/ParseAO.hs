@@ -24,8 +24,8 @@ import Text.Parsec.Text()
 import AO.AOTypes
 import AO.V
 
-readDictFileText :: Text -> DictFile
-readDictFileText = readDictFileE . splitEntries . dropBOM
+readDictFileText :: Import -> Text -> DictFile
+readDictFileText imp = readDictFileE imp . splitEntries . dropBOM
 
 -- ignore a leading byte order mark (added by some text editors)
 dropBOM :: Text -> Text
@@ -49,19 +49,22 @@ lnum n (e:es) = (n,e) : lnum n' es where
     accumLF ct _ = ct
 
 -- first entry is imports, other entries are definitions
-readDictFileE :: [(Line,Text)] -> DictFile
-readDictFileE [] = DictFile [] [] []
-readDictFileE (impEnt:defEnts) = DictFile imps defs errs where
+readDictFileE :: Import -> [(Line,Text)] -> DictFile
+readDictFileE _ [] = DictFile [] [] []
+readDictFileE imp (impEnt:defEnts) = DictFile imps defs errs where
     imps = splitImports (snd impEnt)
     (errL,defL) = (partitionEithers . map readEnt) defEnts
     readEnt = distrib . second (P.parse parseEntry "")
     errs = map etext errL
     defs = map swizzle defL
     swizzle (ln,(w,aodef)) = (w,(ln,aodef))
+    fixSrc = (`P.setSourceName` T.unpack imp)
+    fixLn ln = (`P.incSourceLine` (ln - 1))
+    fixCol 1 = (`P.incSourceColumn` 1) -- offset for the '@'
+    fixCol _ = id 
     etext (ln,pe) =
-        let pos = P.errorPos pe in
-        let pos' = P.incSourceLine pos (ln - 1) in
-        let pe' = P.setErrorPos pos' pe in
+        let fixPos = fixCol ln . fixLn ln . fixSrc in
+        let pe' = P.setErrorPos (fixPos (P.errorPos pe)) pe in
         (ln, T.pack (show pe'))
 
 distrib :: (a,Either b c) -> Either (a,b) (a,c)
