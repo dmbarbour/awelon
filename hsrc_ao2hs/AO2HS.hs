@@ -1,5 +1,7 @@
 {-# LANGUAGE PatternGuards, ViewPatterns #-}
 
+-- NOTE: This code is not in use at the moment, and is broken.
+
 -- | The `ao2hs` executable takes a single dictionary name, imports
 -- said dictionary, then compiles to 'Dict.hs'.
 -- The compiler does name mangling as needed.
