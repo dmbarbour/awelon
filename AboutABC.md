@@ -389,7 +389,7 @@ Value sealing is a simple technique with very wide applications. The setup is si
         {:u} :: a → Sealed u a        `:` for seal
         {.u} :: Sealed u a → a        `.` for unseal
 
-In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value.
+In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. And, often, sealers can be completely eliminated by the compiler. (For correct code, value sealing has no observable impact on program behavior.)
 
 Developers cannot observe or operate upon a sealed value without first unsealing it. But whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
 
@@ -400,8 +400,6 @@ Developers can reason about sealed values by reasoning about distribution of sea
 * integrity, confidentiality, authentication, rights amplification
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
-
-The actual implementation of sealed values can be very simple and efficient, and may even be eliminated at compile-time (in some contexts). In some contexts - open distributed systems where a sealed value is temporarily hosted at a location that lacks the sealer - value sealing may also result in to automatic encryption at the sealed value granularity, orthogonal to the network layer.
 
 ### Capabilities for Structure Sharing and Separate Compilation
 
