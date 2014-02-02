@@ -114,11 +114,11 @@ parseAODef = S.fromList <$> P.manyTill parseAction P.eof
 -- so I'll do a little filtering at parse time. A few capabilities are
 -- allowed:
 --    prefix '&' for annotations
---    prefix '$' for sealers
---    prefix '/' for unsealers
+--    prefix ':' for sealers
+--    prefix '.' for unsealers
 validToken :: String -> Bool
 validToken [] = False
-validToken (c:_) = ('&' == c) || ('$' == c) || ('/' == c)
+validToken (c:_) = ('&' == c) || (':' == c) || ('.' == c)
 
 -- An AO action is word, text, number, block, amb, or inline ABC.
 -- Whitespace is preserved as inline ABC.

@@ -8,8 +8,8 @@
  The structure is sealed to resist accidental confusions about which value is which, or enable later extension. Developers should mostly use the `.stats` suffix functions to observe the statistics. 
 ~
 @new.stats 0 0 0 pw pw seal.stats
-@seal.stats [%{$stats}] .apply
-@unseal.stats [%{/stats}] .apply
+@seal.stats [%{:stats}] .apply
+@unseal.stats [%{.stats}] .apply
 @doc.add.stats "(len * (sum * sumsq)) num -- (len+1 * (sum+num * sumsq+sqnum))"
 @add.stats 
  take unseal.stats

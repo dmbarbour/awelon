@@ -86,7 +86,7 @@ abcQuote (L v) = abcQuote v S.|> (Op 'V')
 abcQuote (R v) = abcQuote v S.>< S.fromList intro0 where
     intro0 = (Op 'V' : Op 'V' : Op 'R' : Op 'W' : Op 'L' : Op 'C' : [])
 abcQuote (S tok v) = abcQuote v S.|> reifySeal S.|> applySeal where
-    reifySeal = (BL . S.singleton . Invoke . T.cons '$') tok
+    reifySeal = (BL . S.singleton . Invoke . T.cons ':') tok
     applySeal = Op '$'
 abcQuote v@(P a b) = 
     case valToText v of
@@ -189,8 +189,8 @@ instance Show (V c) where
     show (L a) = "(" ++ show a ++ "+_)"
     show (R b) = "(_+" ++ show b ++ ")"
     show U     = "u"
-    show (S t v) = show v ++ "{$" ++ T.unpack t ++ "}"
-    show (TC _) = "{*tailcall thunk*}" -- shouldn't be seen
+    show (S t v) = show v ++ "{:" ++ T.unpack t ++ "}"
+    show (TC _) = "{TAILCALL THUNK (SHOULD NOT BE SEEN!)}"
     show (B kf abc) = "[" ++ show abc ++ "]" ++ rel ++ aff
         where rel = if may_drop kf then "" else "k"
               aff = if may_copy kf then "" else "f"

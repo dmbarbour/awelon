@@ -118,8 +118,8 @@ Value sealing is a form of annotation in the sense that it doesn't have any obse
 
 Sealers and unsealers are represented as capabilities using inline ABC:
 
-        %{$foo}       sealer 'foo' seals the value
-        %{/foo}       unseal value from sealer 'foo'
+        %{:foo}       sealer 'foo' seals the value
+        %{.foo}       unseal value from sealer 'foo'
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 

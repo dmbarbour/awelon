@@ -125,8 +125,8 @@ runOpABC invoke (BL ops) = return . P (B kf0 abc) where
     abc = ABC { abc_code = ops, abc_comp = runABC_B invoke ops }
 runOpABC invoke (Invoke tok) =
     case T.uncons tok of
-        Just ('$', seal) -> op_invoke_seal seal
-        Just ('/', seal) -> op_invoke_unseal seal
+        Just (':', seal) -> op_invoke_seal seal
+        Just ('.', seal) -> op_invoke_unseal seal
         _ -> invoke tok
 runOpABC invoke (AMBC [singleton]) = runABC invoke singleton
 runOpABC _ (AMBC _) = const $ fail "AMBC not supported by runABC"
@@ -149,8 +149,8 @@ runOpAMBC _ (Op c) = runOpC c
 runOpAMBC _ (TL text) = return . P (textToVal text)
 runOpAMBC invoke (Invoke tok) =
     case T.uncons tok of
-        Just ('$', seal) -> op_invoke_seal seal
-        Just ('/', seal) -> op_invoke_unseal seal
+        Just (':', seal) -> op_invoke_seal seal
+        Just ('.', seal) -> op_invoke_unseal seal
         _ -> invoke tok
 runOpAMBC invoke (BL ops) = return . P (B kf0 ambc) where
     ambc = ABC { abc_code = ops, abc_comp = runAMBC_B invoke ops }

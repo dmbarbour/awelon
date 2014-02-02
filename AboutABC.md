@@ -384,17 +384,19 @@ Stability is readily achieved using a filepath/URL metaphor: when 'forking' a un
 
 ### Value Sealing Types and Capabilities
 
-Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). Use of the resulting sealed valu is extremely constrained. Informally:
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). The recommended representation:
 
-        {$u} :: a → Sealed u a        `$` for seal
-        {\u} :: Sealed u a → a        `\` for unseal
+        {:u} :: a → Sealed u a        `:` for seal
+        {.u} :: Sealed u a → a        `.` for unseal
 
-Basic data plumbing features are available on the whole sealed value. For example, it inherits from `a` with regards to copy, drop, quotation, and distribution. However, to observe or modify a sealed value requires first unsealing it with the corresponding unsealer.
+In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value.
 
-Thus, it becomes simple to reason about sealed values by reasoning about distribution of unsealers. Value sealing is useful for:
+Developers cannot observe or operate upon a sealed value without first unsealing it. But whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
+
+Developers can reason about sealed values by reasoning about distribution of sealers and unsealers. This is potentially useful for:
 
 * representation independence and implementation hiding 
-* enforce parametricity for distrusted data plumbing frameworks
+* enforce parametricity for distrusted data plumbing services
 * integrity, confidentiality, authentication, rights amplification
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
