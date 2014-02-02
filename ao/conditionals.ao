@@ -54,6 +54,7 @@
 @distrib p %rrDl
 @partialFactor %rFll x
 @merge %rMl
+@merged swap merge swap
 @fullFactor partialFactor merge
 
 @doc.condSwap "conditional swap; swap top two arguments if third in right"

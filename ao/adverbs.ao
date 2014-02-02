@@ -1,23 +1,24 @@
 @doc.applyWithAdverbs
-"AO includes experimental syntactic sugar for inflection with user-defined adverbs. AO takes a word like `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` itself is syntactic sugar for sequence of words `\* \k \d`, similar to expansion of inline ABC - except these special words are user-defined. Inflection is limited to a single character per adverb, but this isn't a severe limitation. Inflection achieves utility through flexible, ad-hoc combination specific to the site of use.
+"(NOTE: Adverbs currently disabled. But `\` still disabled, too. Plan to re-introduce adverbs in a later stage. I need to carefully consider how bracketing, lenses, and zippers should work.)
  
- The word `applyWithAdverbs` defined via dictionary, enabling adaptation to non-standard environment models. The typical definition is `apply inline`, which will apply the adverbs in a pure, context-free environment then inline the word.
+ AO includes experimental syntactic sugar for conjugation, or inflection of a verb with a modifying word (an adverb).
  
- *NOTES:* Adverbs are potentially useful for minor data shuffling (dip, swap, first, left, deep applications), currying, quoting a word, collection-oriented programming (map, fold, etc.), quoting words without explicit blocks, and so on. It will take time to see whether this is a worthwhile feature to keep. As an experimental feature, adverbs may eventually be deemed not worth the small amount of complexity they add.
+ The AO parser takes a word of form `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` is further expanded to sequence of adverbs `\* \k \d`, similar to expansion of inline ABC. Each adverb is limited to a single distinguishing character. The meaning of each word and adverb in the expanded form must be defined in the developer's dictionary. 
+ 
+ The typical definition of `applyWithAdverbs` will ensure that adverbs are pure and context-free. However, developers are free to experiment with alternatives. At this time, best practices and design of adverbs are not well understood. Adverbs are potentially useful for data shuffling, currying or binding, collection-oriented programming (map, fold, etc.), and so on.
+ 
+ If inflection does not prove to be widely useful, it will be removed. 
 ~
 @applyWithAdverbs apply inline
 @doc.adverb.* "\* will map a function of type [x--y] across a list"
 @doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
 @doc.adverb.d "\d will hide first item on stack before applying"
-@doc.adverb.H "\H will enforce clean hands; hide hand before applying"
-@doc.adverb.P "\P will apply to a single argument in empty environment"
+@doc.adverb.k "\k will copy first item on stack, hide one copy, and bind the other before applying; subsequent modifiers will not see this item"
 
 @\* [map] bind
 @\f [each] bind
 @\P [apply] bind
 @\d [dip] bind
-@\H [hdip] bind
-@\k [keep] bind
 
 
 @doc.adverb.y "\y will set the function to curry its first argument"

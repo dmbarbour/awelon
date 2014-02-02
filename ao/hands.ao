@@ -32,6 +32,9 @@
 @juggle2 %w roll2 %w
 @juggle3 %w roll3 %w
 @juggle4 %w roll4 %w
+@discard2 discard discard
+@discard3 discard discard discard
+@discard4 discard discard discard discard
 
 @taked swap take
 @putd put swap

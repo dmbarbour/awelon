@@ -1,0 +1,47 @@
+@doc.stats
+"Stats is a sealed structure that tracks a useful triple of values: 
+ 
+  count, sum, sum of squares
+ 
+ From these values, we can compute average and standard deviation. 
+ 
+ The structure is sealed to resist accidental confusions about which value is which, or enable later extension. Developers should mostly use the `.stats` suffix functions to observe the statistics. 
+~
+@new.stats 0 0 0 pw pw seal.stats
+@seal.stats [%{$stats}] .apply
+@unseal.stats [%{/stats}] .apply
+@doc.add.stats "(len * (sum * sumsq)) num -- (len+1 * (sum+num * sumsq+sqnum))"
+@add.stats 
+ take unseal.stats
+ x inc swap x paste .add swap put dup .mul .add pw pw
+ seal.stats
+@count.stats
+ unseal.stats
+ x copy p
+ seal.stats
+ put
+@sum.stats
+ unseal.stats
+ wx x copy p pw
+ seal.stats
+ put
+@sumsq.stats
+ unseal.stats
+ wx wx copy pw pw
+ seal.stats
+ put
+@average.stats
+ count.stats 0 gt
+ [0]
+ [count.stats take sum.stats put .div]
+ if! 
+
+@doc.stats.list "obtain stats for a list of numbers"
+@stats.list new.stats [add.stats] each
+
+@doc.sum.list "just need the sum of a list?"
+@sum.list 0 swap [.add] each
+
+@doc.sumsq.list "just need the sum of squares?"
+@sumsq.list 0 swap [dup .mul .add] each
+

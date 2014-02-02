@@ -79,7 +79,13 @@
 @r %rrrwzlwll
 @pw p w
 @wx w x
-@pwx p w x
+@dp unrot p swap
+@dx swap x rot
+@dw swap w swap
+@dpw unrot pw swap
+@dl swap l swap
+@dr swap r swap
+
 
 @doc..swap "(x*y)→(y*x); primitive swap"
 @.swap %vrwlc

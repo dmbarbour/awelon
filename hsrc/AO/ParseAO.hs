@@ -6,7 +6,7 @@
 module AO.ParseAO
     ( readDictFileText, parseEntry
     , parseAODef, parseAction
-    , parseFullWord, parseNumber
+    , parseWord, parseNumber
     , parseMultiLineText, parseInlineText
     ) where
 
@@ -84,8 +84,7 @@ splitImports t =
 -- by any word separator - usually a space or newline.
 parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AODef)
 parseEntry =
-    parseEntryWord >>= \ w ->
-    expectWordSep >>
+    parseWord >>= \ w ->
     parseAODef >>= \ def ->
     return (w,def)
 
@@ -94,55 +93,22 @@ expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
 expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
--- initial word or adverb at start of entry
-parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
-parseEntryWord = (adverb P.<|> parseBasicWord) P.<?> "entry word or adverb" 
-    where adverb = P.char '\\' >> advChar >>= return . adverbWord
-
-advChar :: P.Stream s m Char => P.ParsecT s u m ADV
-advChar = P.satisfy isAdvChar
-
--- AO adverb is a two character word of form `\c`
-adverbWord :: ADV -> W
-adverbWord = T.cons '\\' . T.singleton
-
--- basic word without inflection
-parseBasicWord :: P.Stream s m Char => P.ParsecT s u m W
-parseBasicWord =
+parseWord :: P.Stream s m Char => P.ParsecT s u m W
+parseWord =
     P.satisfy isWordStart >>= \ c1 ->
     P.many (P.satisfy isWordCont) >>= \ cs ->
+    expectWordSep >>
     return (T.pack (c1:cs))
 
 -- | a definition is trivially a sequence of AO actions
 parseAODef :: P.Stream s m Char => P.ParsecT s u m AODef
 parseAODef = S.fromList <$> P.manyTill parseAction P.eof
 
--- | a full word consists of a basic word with potential inflection
--- by adverbs, e.g. `foo` or `foo\adverbs`.
-parseFullWord :: P.Stream s m Char => P.ParsecT s u m (W,[ADV])
-parseFullWord =
-    parseBasicWord >>= \ w ->
-    P.option [] actionAdverbs >>= \ advs ->
-    expectWordSep >>
-    return (w,advs)
-
 -- adverbs are allowed as naked words, and operate similarly
 -- to inline ABC: `\adverb` expands to `\a \d \v \e \r \b`.
 -- The main difference is that these operations are user defined!
-actionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
-actionAdverbs = P.char '\\' >> P.many1 advChar
-
--- translate a full word into an action
--- will immediately expand the inflection sugar
-fullWordAction :: (W,[ADV]) -> Action
-fullWordAction (w,[]) = Word w
-fullWordAction (w,advs) = Amb [singleton] where
-    singleton = S.fromList [bw, ba, Word applyWithAdverbs]
-    bw = (BAO . S.singleton . Word) w
-    ba = (BAO . adverbActions) advs 
-
-adverbActions :: [ADV] -> S.Seq Action
-adverbActions = S.fromList . map (Word . adverbWord)
+--actionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
+--actionAdverbs = P.char '\\' >> P.many1 advChar
 
 -- I don't want to allow hard-coding of arbitrary capabilities in AO,
 -- so I'll do a little filtering at parse time. A few capabilities are
@@ -159,8 +125,8 @@ validToken (c:_) = ('&' == c) || ('$' == c) || ('/' == c)
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> aoblock P.<|> amb P.<|>
-             number P.<|> text P.<|> prim P.<|> adverbs 
-    word = fullWordAction <$> parseFullWord
+             number P.<|> text P.<|> prim 
+    word = Word <$> parseWord
     text = Lit <$> (parseInlineText P.<|> parseMultiLineText)
     spaces = (Prim . S.fromList . map Op) <$> P.many1 (P.satisfy isSpace)
     prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
@@ -175,9 +141,6 @@ parseAction = parser P.<?> "word or primitive" where
         P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
         (expectWordSep P.<?> "word separator or ABC code") >>
         return ((Prim . S.fromList . map Op) ops)
-    adverbs =  
-        actionAdverbs >>= \ advs -> expectWordSep >>
-        return ((Amb . (:[]) . adverbActions) advs)
     number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
     aoblock = 
         P.char '[' >> P.manyTill parseAction (P.char ']') >>= 
@@ -308,8 +271,8 @@ isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
     number = isDigit c || '-' == c
 
 -- adverb characters
-isAdvChar :: Char -> Bool
-isAdvChar c = isWordCont c 
+--isAdvChar :: Char -> Bool
+--isAdvChar c = isWordCont c 
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF. In general, developers
