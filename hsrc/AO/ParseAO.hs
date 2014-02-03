@@ -4,10 +4,9 @@
 -- (Which is to say, it does not detect cycles, missing words,
 -- or other problems.) It also doesn't load imports recursively.
 module AO.ParseAO
-    ( readDictFileText, parseEntry
-    , parseAODef, parseAction
-    , parseWord, parseNumber
-    , parseMultiLineText, parseInlineText
+    ( readDictFileText
+    , parseEntry, parseAODef, parseAction
+    , parseNumber, parseMultiLineText, parseInlineText
     ) where
 
 import Control.Applicative
@@ -84,7 +83,8 @@ splitImports t =
 -- by any word separator - usually a space or newline.
 parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AODef)
 parseEntry =
-    parseWord >>= \ w ->
+    parseEntryWord >>= \ w ->
+    expectWordSep >>
     parseAODef >>= \ def ->
     return (w,def)
 
@@ -93,22 +93,48 @@ expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
 expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
-parseWord :: P.Stream s m Char => P.ParsecT s u m W
-parseWord =
+parseBasicWord :: P.Stream s m Char => P.ParsecT s u m W
+parseBasicWord = 
     P.satisfy isWordStart >>= \ c1 ->
     P.many (P.satisfy isWordCont) >>= \ cs ->
-    expectWordSep >>
     return (T.pack (c1:cs))
+
+-- entry word is simple word or adverb (not modified)
+parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
+parseEntryWord = adverb P.<|> parseBasicWord where
+    adverb = advToWord <$> (P.char '\\' >> P.satisfy isAdvChar)
+
+advToWord :: ADV -> W
+advToWord = T.cons '\\' . T.singleton
+
+adverbActions :: [ADV] -> AODef
+adverbActions = S.fromList . fmap (Word . advToWord)
+
+-- action word is either plain word 'foo' or has inflections
+-- e.g. foo\*kd applies three modifiers to the word
+parseActionWord :: P.Stream s m Char => P.ParsecT s u m Action
+parseActionWord = 
+    parseBasicWord >>= \ w ->
+    P.option [] parseActionAdverbs >>= \ adv ->
+    expectWordSep >>
+    return (modifiedWordAction w adv)
+
+-- using `([foo] [\*kd] applyWithAdverbs)`, i.e. singleton 'Amb', to
+-- capture the expanded form as a single action
+modifiedWordAction :: W -> [ADV] -> Action
+modifiedWordAction w [] = Word w
+modifiedWordAction w advs = Amb [S.fromList [bW, bAdv, app]] where
+    bW = BAO $ S.singleton $ Word w
+    bAdv = BAO $ adverbActions advs
+    app = Word applyWithAdverbs
+
+-- adverbs may be used directly; `\*kd` expands to `\* \k \d`
+parseActionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
+parseActionAdverbs = P.char '\\' >> P.many1 (P.satisfy isAdvChar)
 
 -- | a definition is trivially a sequence of AO actions
 parseAODef :: P.Stream s m Char => P.ParsecT s u m AODef
 parseAODef = S.fromList <$> P.manyTill parseAction P.eof
-
--- adverbs are allowed as naked words, and operate similarly
--- to inline ABC: `\adverb` expands to `\a \d \v \e \r \b`.
--- The main difference is that these operations are user defined!
---actionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
---actionAdverbs = P.char '\\' >> P.many1 advChar
 
 -- I don't want to allow hard-coding of arbitrary capabilities in AO,
 -- so I'll do a little filtering at parse time. A few capabilities are
@@ -125,8 +151,9 @@ validToken (c:_) = ('&' == c) || (':' == c) || ('.' == c)
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> aoblock P.<|> amb P.<|>
-             number P.<|> text P.<|> prim 
-    word = Word <$> parseWord
+             number P.<|> text P.<|> prim P.<|> adverbs
+    word = parseActionWord
+    adverbs = (Amb . (:[]) . adverbActions) <$> parseActionAdverbs
     text = Lit <$> (parseInlineText P.<|> parseMultiLineText)
     spaces = (Prim . S.fromList . map Op) <$> P.many1 (P.satisfy isSpace)
     prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
@@ -271,8 +298,8 @@ isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
     number = isDigit c || '-' == c
 
 -- adverb characters
---isAdvChar :: Char -> Bool
---isAdvChar c = isWordCont c 
+isAdvChar :: Char -> Bool
+isAdvChar c = isWordCont c 
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF. In general, developers
