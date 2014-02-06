@@ -18,7 +18,7 @@
 @not      %rVRWLCl
 @notd     swap not swap
 
-@doc..mirror "(a+b)→(b+a)"
+@doc..mirror "(a+b)*e→(b+a)*e"
 @.mirror %VRWLC
 
 @doc..leftE "[(a*e)→(a'*e)] * ((a+b)*e) → ((a'+b)*e)]; i.e. inline on left"
@@ -116,6 +116,14 @@
  [%r] %r? .mirror
  [%r] %r? .mirror
  %FwMwlcl
+
+@doc.leftJoin "(a+b) [a--b] -- b; apply on left then merge inline (can tail-call optimize)"
+@doc.rightJoin "(a+b) [b--a] -- a; apply in right then merge inline (can tail-call optimize)"
+@leftJoin .distribdE %w?Mc
+@rightJoin .distribdE .mirror %w?Mc
+
+@test.leftJoin.inL 1 inL [1 +] leftJoin 2 assertEQ
+@test.leftJoin.inR 1 inR [1 +] leftJoin 1 assertEQ
 
 @doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
 @doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"

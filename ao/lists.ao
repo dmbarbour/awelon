@@ -56,3 +56,6 @@
 @each each.list
 @map map.list
 @reverse reverse.list
+
+@test.length.list "hello" length.list 5 assertEQ
+@test.map.list "gdkkn" [inc] map "hello" assertEQ

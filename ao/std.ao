@@ -46,11 +46,19 @@
 
 @doc.TODO
 "Much to do about AO
-  * functions on lists, association lists, records
-  *   binary to base64, binary to text, text to binary
+  * automatic testing (run all 'test' words)
+  * functions for lists, streams
+  * functions for association lists, maps, records
+  * functions for sequences (finger-trees/ropes)
+  * functions for parser combinators
+  * AO bootstrap; optimizers and compilers for ABC, AO
+  *   eventually do typechecking
+  *   eventually get to AMBC
+  * 
+  * functions for text, utf-8, binary, base64
+  * functions for kd-trees, geometries, scene-graphs
   * contraint models for staged dependency/policy/typeclass injection 
   * project euler? rosetta code? a simple tetris/breakout game?
-  * optimizers and compilers for ABC, AMBC, and AO
   * simplified app type for quick integration with Haskell? (use plugins?)
   * 2D-3D scene-graphs based on enneatrees and zippers
   * secure pseduo-random number generators; probabilistic programs
