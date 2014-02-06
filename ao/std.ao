@@ -1,16 +1,17 @@
  plumbing hands stdenv 
- blocks conditionals loops
+ blocks conditionals 
+ loops streams lists sequences
  math stats
- colors
+ colors adverbs
 
 @doc.import.std "viable starting point for AO dictionaries"
 
 @doc.NamingConventions
-"AO makes heavy use of naming conventions. Common prefixes suggest automatic processing or type information. For example, 'doc.' indicates documentation for a word, and 'test.' indicates automatic testing in a mockup environment, and 'id.' indicates that a given expression should be equivalent to identity for all the types it accepts. Similarly, suffixes connote context. A suffix might identify a specific framework, project, or programmer.
+"AO makes heavy use of naming conventions. Common prefixes suggest automatic processing or type information. For example, 'doc.' indicates documentation for a word, and 'test.' indicates automatic testing in a mockup environment, and 'id.' indicates that a given expression should be equivalent to identity for all the types it accepts. Conversely, suffixes connote context. A suffix might identify a specific framework, project, spreadsheet, or programmer.
  
- Multi-part words unfortunately make AO verbose and difficult to read. 
+ Multi-part words unfortunately make plain-text AO verbose and difficult to read. 
  
- The intention is to mitigate this issue in the editor. A set of rules (configurable per user or project) will translate common prefixes and suffixes into rendering with colors and styles. Also, fuzzy autocomplete mechanisms can eliminate need to fully write out large words.
+ The intention is to mitigate this issue in the editor. A set of rules (configurable per user, view, or project) shall translate common prefixes and suffixes into rendering with colors and styles and possible icons. Also, fuzzy autocomplete mechanisms can eliminate need to fully write out large words, and may be weakly type sensitive.
 ~
 
 @doc.prefix.doc
@@ -34,7 +35,6 @@
  
  A more specialized equivalency is also available with prefix 'id'. Eventually, there may be specialized prefixes for for idempotence (`f f = f`) and commutativity (`f g = g f`), and similar properties (plus associativity) for binary functions. However, for now, these may be expressed by eqv.
 ~
-
 
 @doc.prefix.id 
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 

@@ -186,10 +186,13 @@ simpl (Op 'w' : Op 'w' : ops) = simpl ops
 simpl (Op 'z' : Op 'z' : ops) = simpl ops
 simpl (Op 'v' : Op 'c' : ops) = simpl ops 
 -- from wzw = zwz
-simpl (Op 'w' : Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'z' : Op 'w' : simpl ops)
-simpl (Op 'z' : Op 'w' : Op 'z' : Op 'w' : ops) = simpl (Op 'w' : Op 'z' : simpl ops)
-simpl (AMBC [singleton] : ops) = simpl ((S.toList singleton) ++ ops)
+simpl (Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'w' : Op 'z' : Op 'w' : ops)
+-- from lzrw = wlzr
+--simpl (Op 'l' : Op 'z' : Op 'r' : Op 'w' : Op 'l' : ops) = simpl (Op 'w' : Op 'l' : Op 'z' : ops)
+--simpl (Op 'r' : Op 'w' : Op 'l' : Op 'z' : Op 'r' : ops) = simpl (Op 'z' : Op 'r' : Op 'w' : ops)
+--simpl (Op 'w' : Op 'l' : Op 'z' : Op 'r' : Op 'w' : ops) = simpl (Op 'l' : Op 'z' : Op 'r' : ops)
 -- continue simplification (single pass)
+simpl (AMBC [singleton] : ops) = simpl ((S.toList singleton) ++ ops)
 simpl (op : ops) = 
     let ops' = simpl ops in
     let k = simplWindow in

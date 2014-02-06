@@ -1,37 +1,21 @@
 @doc.applyWithAdverbs
-"(NOTE: Adverbs currently disabled. But `\` still disabled, too. Plan to re-introduce adverbs in a later stage. I need to carefully consider how bracketing, lenses, and zippers should work.)
+"AO includes a highly experimental syntactic sugar for conjugation, or inflection of a verb with a modifying word (an adverb). 
  
- AO includes experimental syntactic sugar for conjugation, or inflection of a verb with a modifying word (an adverb).
+ The AO parser takes a word of form `foo\*kd` and rewrites it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` is further rewritten to sequence of adverbs `\* \k \d`, similar to expansion of inline ABC. Each adverb is limited to a single distinguishing character. 
  
- The AO parser takes a word of form `foo\*kd` and expands it to `[foo] [\*kd] applyWithAdverbs`. The code `\*kd` is further expanded to sequence of adverbs `\* \k \d`, similar to expansion of inline ABC. Each adverb is limited to a single distinguishing character. The meaning of each word and adverb in the expanded form must be defined in the developer's dictionary. 
+ The meaning of each word and adverb in the expanded form must be defined in the developer's dictionary. This includes `applyWithAdverbs`. Developers can explore different models for adverbs by different definitions of this word.
  
- The typical definition of `applyWithAdverbs` will ensure that adverbs are pure and context-free. However, developers are free to experiment with alternatives. At this time, best practices and design of adverbs are not well understood. Adverbs are potentially useful for data shuffling, currying or binding, collection-oriented programming (map, fold, etc.), and so on.
+ At the moment, adverbs are not very usable, beyond trivial cases. Direct operations on a word seem unable to capture some broad classes of useful patterns. A more indirect model might offer more flexibility, and could be implemented via `applyWithAdverbs`. 
  
- If inflection does not prove to be widely useful, it will be removed. 
+ CAUTION: The adverb feature will be removed if adverbs do not prove widely useful. For now, they should not be used in the main dictionaries.
 ~
 @applyWithAdverbs apply inline
 @doc.adverb.* "\* will map a function of type [x--y] across a list"
 @doc.adverb.f "\f will fold a function of type [x--] across a list; the entire environment (minus the list argument) becomes the fold state"
 @doc.adverb.d "\d will hide first item on stack before applying"
-@doc.adverb.k "\k will copy first item on stack, hide one copy, and bind the other before applying; subsequent modifiers will not see this item"
+@doc.adverb.k "\k should operate on a copy of the first item on the stack."
 
 @\* [map] bind
 @\f [each] bind
-@\P [apply] bind
 @\d [dip] bind
-
-
-@doc.adverb.y "\y will set the function to curry its first argument"
-@doc.adverb.' 
-"\' will quote or reify the word, resulting in a block on the stack.
- 
-     foo\xyz' = [foo\xyz]
- 
- This is only a minor syntactic convenience, but may result in a less noisy or more legible syntax. If used, quotation should usually be the last adverb.
-~
-
-@\y curry
-@\' quote 
-
-@id.swapd_adverb swapd swap\d
-
+@\k [dupd dip] bind

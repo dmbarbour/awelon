@@ -54,17 +54,19 @@
 @test.while1 0 10 pw [wx incd lt] while1 x assertEQ
 
 @doc.fixpoint
-"This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of cyclic behavior.
+"This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of recursive behavior.
  
      [foo] fixpoint
          is equivalent to
      [[foo] fixpoint foo]
  
- Naturally, if a fixpoint function unconditionally applies itself, the program will diverge. Thus, any fixpoint function should have conditional behavior and a termination condition.
- 
- Fixpoint is one of those patterns that people find difficult to comprehend until they've used it many times. I encourage developers to use, learn, and understand it. But in practice it may often be easier to express most behavior in terms of a few loops (map, each, enum, repeat, until, while, etc.) built above fixpoint.
+ If the resulting block is unconditionally applied by `foo`, the function will diverge. Divergence is a bug. Loops in AO/ABC are required to terminate. It is necessary that `foo` reach a terminating condition in which the function is not applied. I.e. every fixpoint function must have conditional behavior. 
 ~
-@fixpoint [dup bind] swap compose dup bind
+@fixpoint %r [%^'wol] %rwo %^'wol
+@fixpoint.old [dup bind] composel dup bind
+
+@doc..fixpoint "(f*e)→(ff*e); fixpoint combinator outside stack"
+@.fixpoint [%^'wo] %rwo %^'wo
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply

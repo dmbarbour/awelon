@@ -113,11 +113,10 @@
 @quote %r'l [%l] compose
 @unquote %rvvrvrrz$wlclcwlcl
 
-@test.quote  7 dup quote unquote assertEQ drop
+@test.quote  7 dup quote unquote assertEQ "okay"
 @id.quoteUnquote quote unquote
 @id.unquoteQuote unquote quote
 @id.textDrop "text" drop
-
 
 @doc.relevant "mark block on stack as relevant (not Droppable)"
 @doc.affine "mark block on stack as affine (not Copyable)"

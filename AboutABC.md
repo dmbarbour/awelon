@@ -222,9 +222,11 @@ A sum type, `(a + b)`, represents that we're either right with `b` or left with 
         > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
+(Thoughts: it might be sufficient to have just `P` and `>`. However, the other options exist at the moment to simplify assertions.)
+
 Most types are observable and comparable. Pairs are greater than numbers, and numbers are greater than sums. Pairs compare first before second, i.e. such that text (modulo case) compares in lexicographic order. Sums treat left as before right, and only compare inner elements if the branching is equal. 
 
-However, blocks are not comparable, unit is not observable, and unit may be compared only with unit (and is equal). Unit provides a foundation for static structure: in general, developers must know statically where to find unit values. This is discussed later.
+However, blocks are not comparable, unit is not observable, and unit may be compared only with unit (and is equal). Unit provides a foundation for static structure: in general, developers must know statically where to find unit values. This is discussed later. 
 
 After a condition is observed, we can conditionally apply a block:
 
@@ -389,9 +391,9 @@ Value sealing is a simple technique with very wide applications. The setup is si
         {:u} :: a → Sealed u a        `:` for seal
         {.u} :: Sealed u a → a        `.` for unseal
 
-In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. And, often, sealers can be completely eliminated by the compiler. (For correct code, value sealing has no observable impact on program behavior.)
+In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. Value sealing has no observable impact on behavior of a correct program. Often, sealers can be completely eliminated by the compiler. 
 
-Developers cannot observe or operate upon a sealed value without first unsealing it. But whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
+Developers cannot observe, compare, or operate upon a sealed value without first unsealing it. But a few whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
 
 Developers can reason about sealed values by reasoning about distribution of sealers and unsealers. This is potentially useful for:
 

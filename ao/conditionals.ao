@@ -16,9 +16,13 @@
 @isNumber %rNl
 @isBlock  %rBl
 @not      %rVRWLCl
+@notd     swap not swap
 
 @doc..mirror "(a+b)→(b+a)"
 @.mirror %VRWLC
+
+@doc..leftE "[(a*e)→(a'*e)] * ((a+b)*e) → ((a'+b)*e)]; i.e. inline on left"
+@.leftE %vrwrwD [%vrwlc] %r?w? [%vrwlc] %r?Mwlc
 
 @id.isPairMerge  isPair merge
 @id.isSumMerge   isSum merge
@@ -30,6 +34,8 @@
 @doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
 @inR %rVVRWLCl
 @inL %rVl
+@inRd swap inR swap
+@inLd swap inL swap
 
 @doc.gt "a b -- ((a*b) + (b*a)); a > b?"
 @doc.lt "a b -- ((b*a) + (a*b)); a < b?"

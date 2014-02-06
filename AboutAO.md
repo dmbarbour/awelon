@@ -1,6 +1,6 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a programming language built above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language, but is distinguished from other such languages in several ways: 
+Awelon Object language (AO) is a programming language built above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language (similar to Forth or Factor), but is distinguished from other such languages in several ways: 
 
 * AO is not stack-based. It can operate on any value structured by pairs.
 * AO leverages pairs to model multiple stacks, Huet zippers, lenses, tools.
@@ -11,17 +11,13 @@ Awelon Object language (AO) is a programming language built above [Awelon Byteco
 * AO exhibits *spatial idempotence*, which simplifies equational reasoning.
 * AO can represent adaptive or declarative search-spaces of programs. 
 
-In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The relationship between words their definitions is maintained by a **dictionary** with a flat namespace.
+In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The relationship between words their definitions is maintained by a **dictionary** with a flat namespace. The formal semantics for every word is simply the inline expansion of its definition. Recursive definitions are invalid; loops are instead expressed using fixpoint combinators. Expansion ends at a finite sequence of text, numbers, blocks, and inlined ABC.
 
-The formal semantics for every word is simply the inline expansion of its definition. Recursive definitions are invalid; loops are instead expressed using fixpoint combinators. Expansion ends at a finite sequence of text, numbers, blocks, and inlined ABC.
+Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems might be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells that can be rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
 
-Words in AO additionally have *informal* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems can be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
+Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. A good AO programming environment can augment AO and mitigate its weaknesses:
 
-Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. 
-
-A good AO programming environment can augment AO and mitigate its weaknesses:
-
-* style and color should replace rendering of common prefixes or suffixes
+* style and color should replace rendering of frequent prefixes or suffixes
 * hyperlinking or zooming to quickly access definitions and documentation
 * automatic visualization of inferred stack-like structures, reduced burden
 * graphical manipulation of rendered structures to simplify data shuffling
@@ -30,7 +26,7 @@ A good AO programming environment can augment AO and mitigate its weaknesses:
 * automated refactoring support; discover similar code in other projects
 * live programming; continuous feedback of value over change in definition
 
-AO is envisioned with these features in a wiki-based integrated development environment. However, a simple **.ao** dictionary file format with imports has been defined for a more conventional filesystem and text-editor programming environment. Working without automatic visualization has a steep learning curve that can intimidate potential programmers, so I do not wish to promote the **.ao** dictionary format much beyond its intended use for bootstrapping.
+In the absence of such an IDE, AO has a steep learning curve and is not very human-friendly. The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for bootstrap development.
 
 ## Literals: Numbers, Text, Blocks
 
