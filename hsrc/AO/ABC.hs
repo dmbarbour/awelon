@@ -105,13 +105,21 @@ runOpC c = \v ->
 -- for moment, only code of the form `$c]` is optimized
 runOps :: (Monad m) => (Op -> (V m -> m (V m))) -> [Op] -> (V m -> m (V m))
 runOps _ [] = return 
-runOps _ (Op '$' : Op 'c' : []) = tailCall
+runOps _ (Op '$' : Op 'c' : []) = tailCall -- very useful
+runOps _ (Op '?' : Op 'M' : Op 'c' : []) = tailCallMerge -- experimental
 runOps rop (op:ops) = rop op >=> runOps rop ops
 
 -- tail execution of a block 
 tailCall :: (Monad m) => (V m -> m (V m))
 tailCall (P (B _ abc) (P x U)) = return $ TC (abc_comp abc x)
 tailCall v = fail ("$c] (tail call) @ " ++ show v)
+
+-- tail conditional execution of a block (experimental)
+tailCallMerge :: (Monad m) => V m -> m (V m)
+tailCallMerge (P (B kf abc) (P (L x) U)) | may_drop kf = return $ TC (abc_comp abc x)
+tailCallMerge (P (B kf _) (P (R x) U)) | may_drop kf = return x
+tailCallMerge v = fail ("?Mc (tail call merge) @ " ++ show v)
+
 
 -----------------------------------------------------
 -- TRANSLATE ABC OPERATIONS TO MONADIC CODE
