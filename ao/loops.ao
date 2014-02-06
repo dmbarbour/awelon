@@ -1,8 +1,12 @@
 
 @doc.Loops
-"Loop words in AO will repeatedly copy and apply a block until some halting condition is reached. For example, the word `each` will sequentially apply a block to each element in a list. Loops are ultimately implemented using fixpoint combinators (see @doc.fixpoint).
+"Loops in AO are ultimately expressed using fixpoint combinators. A loop will repeatedly copy and apply a block (which represents the body of the loop) until a terminating condition is observed.
  
- *Note:* Loops in AO are required to terminate. Termination analysis will often be applied, but cannot always recognize errors. Ultimately, the responsibility to ensure termination falls on the developer. Long-running applications and services in AO are expressed in terms other than explicit loops, e.g. as continuous RDP behaviors, or incremental processes with an implicit toplevel loop.
+ To the potential user of AO: please avoid explicit loops!
+ 
+ Compared to the recursive functions or built-in loops of more conventional programming languages, using fixpoint combinators is very awkward. Convenient loops are simply a low priority for AO's design. Instead, AO favors developing a few common collection types with collection-oriented words (which covers many use-cases for loops), plus incremental application models such that the outer loop is implicit.
+ 
+ Explicit loops in AO are required to terminate. Due to the halting problem, termination cannot always be proven or disproven statically. However, a non-terminating loop is always a bug, and developers are expected to treat one thusly.
 ~
 
 @doc.repeat "[] n --; inline block n times"
@@ -40,58 +44,14 @@
 @doc.while  "(a + b) [b -- (a + b)] -- a"
 @doc.until  "(a + b) [a -- (a + b)] -- b"
 
-@while [while1] rightE merge
-@until [until1] leftE merge
-@while1 [not] compose until1
-@until1 [.distribE] compose %rvr .until1 %c
+@while1 inRd while
+@until1 inLd until
+@while notd [not] compose until
+@until [step.until] bind fixpoint inline
+@step.until composel [] ifk merged inline 
 
-
-@doc.Lists
-"Lists in AO consist of a sequence of pairs ending in a number. For example, a list of four values might have structure:
- 
-     (a * (b * (c * (d * N(x))))
- 
- In type signatures, this structure might be abbreviated as a`L, for a list of a. Lists are processed by asking of each element 'are you a pair?'. If so, the first item is an element in the list, and the second is the rest of the list. The terminating number is not an element of the list, but a useful convention of AO is to make use of different numbers to weakly indicate different types, e.g. to support debugging. A few common numbers:
- 
-     0: generic list terminator
-     3: text (list of integers between 0 and 0x10ffff)
-     8: binary (list of integers between 0 and 255)
- 
- Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents. It is a bad idea to observe a terminal to decide type in any formal sense, but it can be useful in heuristic contexts (e.g. rendering in a debugger).
- 
- Lists tend to be reversed every time we process them, and so must be un-reversed when we're done. The list functions tend to include the middle steps with an extra `reverse` in the name. Using the intermediate steps can sometimes be more efficient if one was going to reverse the list again anyway. (Though, this efficiency benefit may eventually vanish if optimizers or ABCD begin to recognize list operations.)
- 
- *Aside:* Lists are simplistic, in the sense that they are often overly simple. AO's standard dictionaries should include other data structures more suitable for efficient ad-hoc manipulations. These will include finger-trees, ropes built on finger-trees, and zippers. 
-~
-
-@doc.each "a`L [a --] --; apply block to each element in list, left to right"
-@doc.map "a`L [a -- b] -- b`L; process each element in list, left to right; preserves terminal"
-@doc.eachT "a`L [a --] -- Nterm; apply block to each element in list, return terminal"
-@doc.map&reverseT "a`L [a -- b] -- b`L(reverse order) Nterm; eqv. to `map reverseT`"
-@doc.reverse&append "a`L(dest) a`L(src) -- a`L(reverse src ++ dest)"
-@doc.map&append "b`L a`L [a -- b] -- b`L"
-@doc.reverseT "a`L -- a`L(reverse order) Nterm; (reversed list terminates in 0)"
-@doc.reverse "a`L -- a`L (reverse order); loses information about terminal"
-
-@each eachT drop
-@map map&reverseT swap reverse&append
-@reverse&append [p] each
-@reverseT 0 swap [p] eachT
-@reverse reverseT drop
-@length 0 swap [inc] each
-
-@eachT [step.eachT] bind fixpoint inline
-@doc.step.eachT "a`L [[a --] step.eachT] [a --] -- terminal"
-@step.eachT
- rot isPair
- [assertNumber nip2]
- [wx roll p rot dip x inline]
- ifk merged inline
-
-@map&reverseT [step.map&reverseT] bind fixpoint inline
-@doc.step.map "a`L [[a--b] step.map&reverseT] [a--b] -- b`L"
-
-
+@test.until1 0 10 pw [wx incd gte] until1 x assertEQ
+@test.while1 0 10 pw [wx incd lt] while1 x assertEQ
 
 @doc.fixpoint
 "This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of cyclic behavior.
@@ -104,13 +64,7 @@
  
  Fixpoint is one of those patterns that people find difficult to comprehend until they've used it many times. I encourage developers to use, learn, and understand it. But in practice it may often be easier to express most behavior in terms of a few loops (map, each, enum, repeat, until, while, etc.) built above fixpoint.
 ~
-@fixpoint fixZ
-
-@doc.fixZ "based on the Z fixpoint combinator"
-@fixZ [swap dup bind swap compose] bind dup apply
-
-@doc.fixY "based on the Y fixpoint combinator"
-@fixY [swap dup bind swap inline] bind dup bind
+@fixpoint [dup bind] swap compose dup bind
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply
