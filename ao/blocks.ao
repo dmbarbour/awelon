@@ -102,9 +102,11 @@
 @.bapply [.apply] bind
 
 @doc.Quotable
-"Most values in AO are quotable, except in contexts where an AO program models a distributed behavior. Distributed values are not quotable; all values entering a quote must have the same location. 
+"Most values in AO are quotable. 
  
- A quotation is simply a block that reproduces a value. This typically has special support from the implementation (i.e. capturing the value rather than converting it to code), but will be serialized to code when necessary for display or networking.
+ There are some unusual exceptions. For example, distributed values (e.g. a pair of which one value is computed at the GPU and another on the CPU) are not quotable. All values entering a quote must be observable at a common location, which is then inherited by the quotation.
+ 
+ A quotation is simply a block that reproduces a value. This typically has special support from the implementation, but will be serialized to code when necessary for display or networking.
  
  If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
 ~

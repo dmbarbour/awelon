@@ -2,7 +2,7 @@
  blocks conditionals 
  loops streams lists sequences
  math stats
- colors adverbs
+ adverbs
 
 @doc.import.std "viable starting point for AO dictionaries"
 
@@ -19,11 +19,11 @@
 ~
 
 @doc.prefix.test
-"Automated testing is an effective means to maintain software quality. Tests cannot discover every problem, but they can resist errors, prevent regressions, and generally improve confidence in code. In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words.
+"Automated testing is an effective means to maintain software quality. Tests cannot discover every problem, but they can resist errors, prevent regressions, and generally improve confidence in code. Test driven design can additionally help keep development grounded and incremental. 
  
- Tests are systematically executed in a standard environment with a confined powerblock. A test is said to fail if there are any type errors, assertion failures, or explicit failures (reported via powerblock). In addition, developers can issue warnings through the powerblock. Unless otherwise indicated, a test passes and (in many cases) developers are free to examine the test output.
+ In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words. Test words can be systematically executed in a standard environment with a confined powerblock. A test fails only if there are type errors, assertion failures, or the powerblock is invoked with errors. Developers may issue warnings through the powerblock.
  
- In addition to conventional tests, AO developers can express desire for symbolic analysis using 'eqv.' and 'id.' prefixes.
+ In addition to testing, AO developers are encouraged to leverage symbolic analysis. Symbolic analysis may be requested through other prefixes, such as 'eqv.' and 'id.' (and maybe 'type.' later).
 ~
 
 @doc.prefix.eqv 
@@ -54,7 +54,13 @@
   * AO bootstrap; optimizers and compilers for ABC, AO
   *   eventually do typechecking
   *   eventually get to AMBC
-  * 
+  * develop a colors model? 
+  *   named palette plus RGB? meh. 
+  *   a DSL for mixing, lightening, and darkening colors?
+  *   maybe a richer 'materials' model (cf. POV-ray) 
+  *     with shine, roughness, transparency, etc.
+  *     procedural texture generation, perlin noise
+  *     automatic generation from images
   * functions for text, utf-8, binary, base64
   * functions for kd-trees, geometries, scene-graphs
   * contraint models for staged dependency/policy/typeclass injection 

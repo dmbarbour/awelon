@@ -17,9 +17,9 @@
 ~
 
 @doc.eachT.list "a`L [a --] -- a`Nel; apply block to each element in list, return term"
-@doc.reverseT&append.list "dest`L src`L -- (reverse src ++ dest)`L src`Nel" 
-@doc.map&reverseT.list "a`L [a -- b] -- b`L(reverse order) Nterm; eqv. to `map reverseT`"
 @doc.reverseT&append.list "d`L s`L -- (reverse s ++ d)`L s`Nel"
+@doc.map&reverseT.list "a`L [a -- b] -- b`L(reversed) a`Nel"
+@doc.map&reverseT&append.list "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
 @doc.reverseT.list "a`L -- (reverse a, terminate in 0)`L a`Nel"
 
 @eachT.list [step.eachT.list] bind fixpoint inline
@@ -29,33 +29,23 @@
  [nip2 assertNumber]
  [wx roll p rot dip x inline]
  ifk merged inline
-@reverseT&append.list [p] eachT
+
+@reverseT&append.list [p] eachT.list
 @reverseT.list 0 swap reverseT&append.list
-
 @map&reverseT.list 0 unrot map&reverseT&append.list
+@map&reverseT&append.list hidingDest.map.list eachT.list
+@hidingDest.map.list [dip] bind [swap] composel [pw] compose
 
-[step.map&reverseT] bind fixpoint inline
-@doc.step.map&reverseT "a`L [[a--b] step.map&reverseT] [a--b] -- b`L(reversed) term"
-@step.map&reverseT
- rot isPair
- [assertNumber 
+@doc.each.list "a`L [a --] --; apply block to each element in list"
+@doc.map.list "a`L [a -- b] -- b`L; apply block modifying each element in list"
 
+@each.list      eachT.list drop
+@map.list       map&reverseT.list swap reverseT&append.list drop
+@length.list    0 swap [drop inc] each.list
 
-@doc.each.list "a`L [a --] --; apply block to each element in list, left to right"
-@doc.map.list "a`L [a -- b] -- b`L; process elements in list left to right, preserve terminal"
-@doc.reverse&append.list "a`L(dest) a`L(src) -- a`L(reverse src ++ dest)"
-@doc.map&append.list "b`L a`L [a -- b] -- b`L"
-@doc.reverse.list "a`L -- a`L (reverse order); loses information about terminal"
-
-@each.list eachT.list assertNumber drop
-@reverse.list reverseT.list assertNumber drop
-@reverse&append.list reverseT&append.list assertNumber drop
-@map.list map&reverseT.list swap reverse&append.list
-@length.list 0 swap [drop inc] each.list
+@test.each.list 0 "World" [.add] each.list 520 assertEQ
+@test.length.list "hello" length.list 5 assertEQ
+@test.map.list "gdkkn" [inc] map.list "hello" assertEQ
 
 @each each.list
-@map map.list
-@reverse reverse.list
-
-@test.length.list "hello" length.list 5 assertEQ
-@test.map.list "gdkkn" [inc] map "hello" assertEQ
+@map  map.list

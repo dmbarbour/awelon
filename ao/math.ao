@@ -1,5 +1,5 @@
 @doc.PrimitiveMath
-"The intention is for AO to operate easily with units and matrices. The prefix '.' is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.multiply`, `.negate`, `.invert`, `.divMod`, `.subtract`, and `.divide`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
+"The intention is for AO to operate easily with units and matrices. The prefix '.' for math is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.mul`, `.neg`, `.inv`, `.divMod`, `.sub`, and `.div`. The same operations without the prefix will eventually refer to versions that contain dispatch logic for common value types, requiring very aggressive optimization.
  
  More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
 ~

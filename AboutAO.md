@@ -1,6 +1,6 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a programming language built above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language (similar to Forth or Factor), but is distinguished from other such languages in several ways: 
+Awelon Object language (AO) is a programming language built (very thinly) above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language (similar to Forth or Factor), but is distinguished from other such languages in several ways: 
 
 * AO is not stack-based. It can operate on any value structured by pairs.
 * AO leverages pairs to model multiple stacks, Huet zippers, lenses, tools.
@@ -15,18 +15,20 @@ In AO, a **word** is both a unit of modularity and a functional software compone
 
 Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems might be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells that can be rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
 
-Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. A good AO programming environment can augment AO and mitigate its weaknesses:
+Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, tests, documents, resources, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. A good AO programming environment can augment AO and mitigate its weaknesses:
 
 * style and color should replace rendering of frequent prefixes or suffixes
+* automatic word completion, fuzzy search sensitive to type and context
 * hyperlinking or zooming to quickly access definitions and documentation
-* automatic visualization of inferred stack-like structures, reduced burden
+* automatic visualization of values in environment, reduces mental burden
 * graphical manipulation of rendered structures to simplify data shuffling
 * automatic animation highlighting changes in structure across words in def
-* support for automatic word completion, sensitive to type and context
 * automated refactoring support; discover similar code in other projects
 * live programming; continuous feedback of value over change in definition
 
-In the absence of such an IDE, AO has a steep learning curve and is not very human-friendly. The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for bootstrap development.
+In the absence of such an IDE, AO has a steep learning curve and is not very human-friendly. Ultimately, AO is designed to support *tooling*, and the quality of the AO programming experience depends heavily upon available tools. Unfortunately, the great tools don't yet exist. 
+
+The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for bootstrap development.
 
 ## Literals: Numbers, Text, Blocks
 

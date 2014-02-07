@@ -43,9 +43,9 @@ hls_full_init hl jf s0 = HLS
     , hls_join = jf
     }
 
--- | default half-life (12) and default join-function (const)
+-- | default half-life (e) and default join-function (const)
 hls_init :: s -> HLS s
-hls_init = hls_full_init 12 const 
+hls_init = hls_full_init 2.71828 const 
 
 -- | obtain incomplete history (including current state)
 hls_getHist :: HLS s -> [s]
