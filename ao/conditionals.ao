@@ -122,8 +122,8 @@
 @leftJoin .distribdE %w?Mc
 @rightJoin .distribdE .mirror %w?Mc
 
-@test.leftJoin.inL 1 inL [1 +] leftJoin 2 assertEQ
-@test.leftJoin.inR 1 inR [1 +] leftJoin 1 assertEQ
+@test.leftJoin.inL 1 inL [inc] leftJoin 2 assertEQ
+@test.leftJoin.inR 1 inR [inc] leftJoin 1 assertEQ
 
 @doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
 @doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
