@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.8.4
+Version: 0.8.5
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -7,15 +7,16 @@ Description:
   Byte Code (ABC), or an ambiguous variation thereof (AMBC). AO is
   ultimately designed for Reactive Demand Programming (RDP) but is
   suitable for procedural and functional programming (depending on
-  the effects model, which is a parameter to the program).
+  the effects model, which is determined by capabilities passed to
+  the program).
   
-  This project provides an 'aoi' REPL for most of AO - excluding 
-  ambiguity, and a simplified effects model. The AO_PATH environment 
-  variable determines search for '.ao' imports. If no '.ao' file is
-  provided on the command line, the 'aoi' dict is imported.
+  This package includes a library and a couple executables to work
+  with '.ao' files. Developers can use the 'aoi' REPL to experiment
+  with words, and the 'ao' executable to perform automatic testing.
+  The goal is to bootstrap AO to native code or LLVM. These Haskell
+  programs are relatively inefficient interpreters.
   
-  Goal is to support bootstrap of AO compilers and development 
-  environments written in AO.
+  The AO_PATH environment variable control search for '.ao' files.
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
@@ -50,6 +51,17 @@ Executable aoi
     , random (>= 1.0 && < 1.2)
     , cprng-aes (>= 0.5 && < 0.7)
   main-is: AOI.hs
+  ghc-options: -auto-all -Wall -rtsopts
+
+Executable ao
+  hs-source-dirs: hsrc_ao
+  default-language: Haskell2010
+  build-depends: base (>= 4.6 && < 5)
+     , ao
+     , text
+     , containers
+     , parsec
+  main-is: AO.hs
   ghc-options: -auto-all -Wall -rtsopts
 
 Library
