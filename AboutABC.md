@@ -123,7 +123,7 @@ After construction, a block is applied with the `$` operator:
 
         $ :: [x→x'] * (x * e) → (x' * e)
 
-Loops can be modeled as fixpoint combinators that copy and apply a block. A simple fixpoint combinator is `[^'wo]wo^'wo`, and a variation suitable for AO's standard environment is `r[^'wol]wo^'wol`. These apply to a block and cause it to construct itself (in fixpoint form) as an argument. *Note:* long running services or applications are not modeled by loops. Instead, incremental automata or reactive behaviors are defined assuming an *implicit* top-level loop, which is ultimately provided by the compiler.
+Loops can be modeled with fixpoint combinators. A simple fixpoint combinator is `[^'wo]wo^'wo`, and a variation suitable for AO's standard environment is `r[^'wol]wo^'wol`. These apply to a block and cause it to construct itself (in fixpoint form) as an argument. *Note:* long running services or applications are not modeled by loops. Instead, incremental automata or reactive behaviors are defined assuming an *implicit* top-level loop, which is ultimately provided by the compiler.
 
 Higher order programming can be modeled as a block that expects a block as an argument. Currying (partial application) can be modeled by combining quotation with composition.
 
