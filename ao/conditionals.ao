@@ -81,7 +81,6 @@
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
 
-
 @doc..distribdE
 "Distribute the environment across the condition expressed in the second item on the stack, holding only the item on the top of the stack. This doesn't require a standard environment:
  

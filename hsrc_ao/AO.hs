@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
 
 -- | The `ao` command line executable
 --
@@ -7,7 +7,8 @@
 --
 --     ao test dict   -- run all 'test.' words in named dict
 --
--- currently, there aren't many options! :)
+-- currently, there aren't many options! I might need to add some
+-- verbosity options to testing, later.
 --
 -- I'm just using Parsec to handle the command line.
 module Main 
@@ -17,11 +18,13 @@ module Main
 
 import Control.Applicative
 -- import Control.Monad
+import Data.IORef
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Sequence as S
+import qualified Data.Foldable as S
 import qualified Text.Parsec as P
 -- import qualified Text.Parsec.Pos as P
 -- import qualified Text.Parsec.Token as P
@@ -29,11 +32,18 @@ import qualified System.IO as Sys
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import AO.AO
+import AO.ABC
 
 -- not many modes to parse at the moment.
 data Mode 
     = Test Import
     | Help
+data TestState = TestState 
+    { ts_emsg :: S.Seq Text -- explicit warnings or errors
+    }
+type TestResult = (TestState, Maybe (V IO))
+ts0 :: TestState
+ts0 = TestState S.empty
 
 cmdLineHelp :: String
 cmdLineHelp = 
@@ -43,6 +53,10 @@ cmdLineHelp =
 main :: IO ()
 main = getMode >>= runMode
 
+-----------------------------
+-- Initial Setup 
+-----------------------------
+
 getMode :: IO Mode
 getMode =
     Env.getArgs >>= \ args ->
@@ -51,6 +65,7 @@ getMode =
             putErrLn (show parseErr) >>
             return Help -- default to help mode
         Right mode -> return mode
+
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
@@ -62,40 +77,93 @@ runMode (Test dict) = runTests dict
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
 
+--------------------------------
+-- Running Tests
+--------------------------------
+
 runTests :: Import -> IO ()
 runTests d0 =
     loadDictionary d0 >>= \ dict ->
     let dc = compileDictionary dict in
     let tests = M.filterWithKey isTestWord dc in
-    mapM runTest (M.toList tests) >>=
-    mapM_ reportTest
+    mapM (onSnd runTest) (M.toList tests) >>=
+    mapM_ (uncurry reportTest)
 
 isTestWord :: W -> a -> Bool
 isTestWord w _ = T.isPrefixOf (T.pack "test.") w
 
-type TestArg = (W, S.Seq Op)
-type TestResult = (W, Either Fail Pass)
-type Fail = Text
-type Pass = V IO
+onSnd :: (Applicative ap) => (b -> ap c) -> ((a,b) -> ap (a,c))
+onSnd f (a,b) = ((,) a) <$> f b
 
-runTest :: TestArg -> IO TestResult
-runTest (testWord, testCode) = run where
-    run = toResult <$> Err.tryIOError mkTest
-    toResult (Left e) = (testWord, Left $ T.pack $ show e)
-    toResult (Right v) = (testWord, Right v)
-    mkTest = undefined testCode
+---------------------------
+-- Reporting Results
+---------------------------
 
-reportTest :: TestResult -> IO ()
-reportTest (testWord, Left failure) =
-    Sys.putStrLn ("(FAIL) " ++ T.unpack testWord) >>
-    Sys.putStrLn (indent "  " (T.unpack failure)) >>
-    return ()
-reportTest (testWord, Right _) =
-    Sys.putStrLn ("(pass) " ++ T.unpack testWord) >>
-    return ()
+reportTest :: W -> TestResult -> IO ()
+reportTest w (ts,Just _) | tsOkay ts = 
+    Sys.putStrLn ("(pass) " ++ T.unpack w)
+reportTest w (ts,Just _) | otherwise =
+    Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
+    Sys.putStrLn (indent "  " $ tsFailureMsg ts)    
+reportTest w (ts,Nothing) =
+    Sys.putStrLn ("(FAIL) " ++ T.unpack w) >>
+    Sys.putStrLn (indent "  " $ tsFailureMsg ts)    
+
+tsOkay :: TestState -> Bool
+tsOkay = S.null . ts_emsg
+
+tsFailureMsg :: TestState -> String
+tsFailureMsg = T.unpack . T.unlines . S.toList . ts_emsg
 
 indent :: String -> String -> String
-indent spaces = L.unlines . L.map (spaces ++) . L.lines
+indent ws = L.unlines . map (ws ++) . L.lines 
+
+---------------------
+-- Running One Test
+--
+--  each test runs with a fresh standard environment & state.
+--  the powerblock is confined to simple state manipulations.
+---------------------
+
+runTest :: S.Seq Op -> IO TestResult
+runTest code = 
+    newIORef ts0 >>= \ rf ->
+    let env0 = stdEnv (testPower rf) in
+    let action = runABC invNull code env0 in
+    Err.tryIOError action >>= \ result ->
+    case result of
+        Left ioe ->
+            addErrMsg rf (T.pack (show ioe)) >>
+            readIORef rf >>= \ tsf ->
+            return (tsf, Nothing)
+        Right vf ->
+            readIORef rf >>= \ tsf ->
+            return (tsf, Just vf)
+
+-- standard environment with given powerblock.
+stdEnv :: (Monad m) => V m -> V m
+stdEnv pb = (P U (P U (P pb (P (P (N 3) U) U))))
+           -- stack hand power     sn   ns ex
+
+addErrMsg :: IORef TestState -> Text -> IO ()
+addErrMsg rf msg =
+    readIORef rf >>= \ ts ->
+    let emsg' = (ts_emsg ts) S.|> msg in
+    let ts' = ts { ts_emsg = emsg' } in
+    writeIORef rf ts'
+
+testPower :: IORef TestState -> V IO
+testPower rf = B (KF False False) (ABC ops action) where
+    ops = (S.singleton . Invoke . T.pack) "~test power~"
+    vt = liftA T.unpack . valToText
+    action (P (vt -> Just cmd) msg) = 
+        runCmd cmd msg >>= \ result ->
+        return (P (testPower rf) result)
+    action v = fail ("unrecognized power: " ++ show v)
+    runCmd "warn" (valToText -> Just msg) = addErrMsg rf msg >> return U
+    runCmd "error" (vt -> Just msg) = fail msg
+    runCmd s msg = fail $ "unrecognized command: " 
+                          ++ s ++ " with " ++ show msg
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)

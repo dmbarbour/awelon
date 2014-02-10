@@ -20,7 +20,7 @@
 module AO.ABC
     ( parseABC, runABC, runAMBC
     , simplifyABC
-    , Invoker
+    , Invoker, invNull
     , module AO.V
     ) where
 
@@ -45,6 +45,7 @@ parseABC :: (P.Stream s m Char) => P.ParsecT s u m (S.Seq Op)
 --     seal   {$foo}  (for arbitrary token foo) 
 --     unseal {/foo}  (for arbitrary token foo)
 type Invoker m = Text -> V m -> m (V m)
+invNull :: (Monad m) => Invoker m -- minimal invoker
 runABC, runABC_B :: (Monad m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
 runAMBC, runAMBC_B :: (MonadPlus m) => Invoker m -> S.Seq Op -> (V m -> m (V m))
 
@@ -120,6 +121,11 @@ tailCallMerge (P (B kf abc) (P (L x) U)) | may_drop kf = return $ TC (abc_comp a
 tailCallMerge (P (B kf _) (P (R x) U)) | may_drop kf = return x
 tailCallMerge v = fail ("?Mc] (tail call merge) @ " ++ show v)
 
+-- minimal invoker
+invNull txt =
+    case T.uncons txt of
+        Just ('&', _) -> return
+        _ -> \ v -> fail ("{" ++ T.unpack txt ++ "}(?) @ " ++ show v)
 
 -----------------------------------------------------
 -- TRANSLATE ABC OPERATIONS TO MONADIC CODE

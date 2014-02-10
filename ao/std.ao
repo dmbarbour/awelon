@@ -19,12 +19,17 @@
 ~
 
 @doc.prefix.test
-"Automated testing is an effective means to maintain software quality. Tests cannot discover every problem, but they can resist errors, prevent regressions, and generally improve confidence in code. Test driven design can additionally help keep development grounded and incremental. 
+"Automated testing is an effective means to maintain software quality, avoid regressions, and achieve confidence in code. Test driven design can keep designs well grounded and incremental.  
  
- In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words. Test words can be systematically executed in a standard environment with a confined powerblock. A test fails only if there are type errors, assertion failures, or the powerblock is invoked with errors. Developers may issue warnings through the powerblock.
+ In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words. Test words can be systematically executed in a standard environment with a confined powerblock. A test can fail due to type errors, assertion failures, taking too much time or space, or emitting an error message effectfully through the powerblock.
  
- In addition to testing, AO developers are encouraged to leverage symbolic analysis. Symbolic analysis may be requested through other prefixes, such as 'eqv.' and 'id.' (and maybe 'type.' later).
+ Testing has limits. You cannot prove, through testing, that bugs are absent. AO developers are encouraged also to leverage symbolic analysis, which is also expressed in a relatively dynamic manner in AO (e.g. use of the 'eqv.' or 'id.' prefixes).
 ~
+@doc.warn.test "warnMsg --; emit message"
+@doc.error.test "errMsg --; emit message and fail"
+@warn.test "warn" p cmd.test
+@error.test "error" p cmd.test
+@cmd.test %zwl .apply x %rwz
 
 @doc.prefix.eqv 
 "There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests or provide hints for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two expressions should be equivalent.
