@@ -1,0 +1,7 @@
+@doc.Sequences
+"Lists are simple data structures with some nice properties, such as strong normalization. However, lists are not appropriate for every problem: it can be expensive to manipulate the middle or end of a list. Sequences offer an alternative.
+  
+ Sequences are based on finger-trees, which offer O(1) manipulations at each end, and O(lg(N)) manipulations at the middle. In addition, these sequences offer logical reverse, such that reversing the sequence is O(1). But this comes at a cost of complexity.
+ 
+ The underlying implementation of sequences is sealed, so developers should only use smart constructors to build or manipulate sequences.
+~

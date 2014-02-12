@@ -83,6 +83,7 @@
 @dx swap x rot
 @dw swap w swap
 @dpw unrot pw swap
+@dwx swap wx rot
 @dl swap l swap
 @dr swap r swap
 
@@ -132,4 +133,31 @@
 @eqv.p3drop4 [p p p drop] [drop4]
 @eqv.pw2drop3 [pw pw drop] [drop3]
 @eqv.dupSwap [dup swap] [dup]
+
+@v_.doc "(a*e)→((a*1)*e); ~ `[%v]$`"
+@c_.doc "((a*1)*e)→(a*e); ~ `[%c]$`"
+@l_.doc "((a*(b*c))*e)→(((a*b)*c)*e); ~ `[%l]$`"
+@r_.doc "(((a*b)*c)*e)→((a*(b*c))*e); ~ `[%r]$`"
+@w_.doc "((a*(b*c))*e)→((b*(a*c))*e); ~ `[%w]$`"
+@z_.doc "((a*(b*(c*d)))*e)→((a*(c*(b*d)))*e); ~ `[%z]$`"
+@v_ %vrwvrwlc
+@c_ %vrwlcwlc
+@l_ %rwrzwll
+@r_ %rrwzlwl
+@w_ %rwrwzwlwl
+@z_ %rwrwrwzwlwlwl
+
+@v$ [%v]%r$
+@c$ [%c]%r$
+@l$ [%l]%r$
+@r$ [%r]%r$
+@w$ [%w]%r$
+@z$ [%z]%r$
+
+@eqv.inline.v [v$] [v_]
+@eqv.inline.c [c$] [c_]
+@eqv.inline.r [r$] [r_]
+@eqv.inline.l [l$] [l_]
+@eqv.inline.w [w$] [w_]
+@eqv.inline.z [z$] [z_]
 

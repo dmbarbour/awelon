@@ -17,8 +17,8 @@ prim([A,[B,C]], l, [[A,B],C]).
 prim([[A,B],C], r, [A,[B,C]]).
 prim([A,[B,C]], w, [B,[A,C]]).
 prim([A,[B,[C,D]]], z, [A,[C,[B,D]]]).
-%prim(A,v,[A,unit]).
-%prim([A,unit],c,A).
+prim(A,v,[A,unit]).
+prim([A,unit],c,A).
 
 %lib(A,id,A,[]).
 
@@ -94,15 +94,25 @@ inline_preStep(N) :- path([[b,s],e], [b, [[s,e],unit]], N).
 apply(N) :- path([[b,s],[h,e]], [b, [ [s,[unit,e]], h]], N).
 endApply(N) :- path([ [s,[unit,e]], h], [s,[h,e]], N).
 
+l_E(N) :- path([ [a,[b,c]], e],
+               [ [[a,b],c], e], N).
+r_E(N) :- path([ [[a,b],c], e], 
+               [ [a,[b,c]], e], N).
+z_E(N) :- path([ [a,[b,[c,d]]], e], 
+               [ [a,[c,[b,d]]], e], N).
+w_E(N) :- path([ [a,[b,c]], e],
+               [ [b,[a,c]], e], N).
+v_E(N) :- path([a,e], [[a,unit],e], N).
+c_E(N) :- path([[a,unit],e], [a,e], N).
+
 assocr(N) :- path([[x,y],z], [x,[y,z]], N).
 assocl(N) :- path([x,[y,z]], [[x,y],z], N).
 rotx(N) :- path([a,[b,[c,d]]], [c,[b,[a,d]]],N).
 rot2(N) :- path([x,[y,z]], [y,[x,z]], N).
 swapE(N)   :- path([[x,y],e], [[y,x],e], N).
-assoclE(N) :- path([[x,[y,z]],e], [[[x,y],z],e], N).
-assocrE(N) :- path([[[x,y],z],e], [[x,[y,z]],e], N).
-assoclEw(N) :- path([[x,[y,z]],e], [[[y,x],z],e], N).
-assocrEw(N) :- path([[[x,y],z],e], [[y,[x,z]],e], N).
+assoclE(N)  :- path([[x,[y,z]],e], [[[x,y],z],e], N).
+assocrE(N)  :- path([[[x,y],z],e], [[x,[y,z]],e], N).
+
 roxE(N)    :- path([[a,[b,[c,z]]],e], [[c,[b,[a,z]]],e], N).
 rot3E(N)   :- path([[a,[b,[c,z]]],e], [[c,[a,[b,z]]],e], N).
 rot2E(N)   :- path([[x,[y,z]],e], [[y,[x,z]],e], N).

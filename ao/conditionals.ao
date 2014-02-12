@@ -39,12 +39,21 @@
 
 @doc.gt "a b -- ((a*b) + (b*a)); a > b?"
 @doc.lt "a b -- ((b*a) + (a*b)); a < b?"
-@doc.gte "a b -- ((a*b) + (b*a)); a >= b?"
-@doc.lte "a b -- ((b*a) + (a*b)); a =< b?"
+@doc.gte "a b -- ((a*b) + (b*a)); a ≥ b?"
+@doc.lte "a b -- ((b*a) + (a*b)); a ≤ b?"
 @gt  p %rr>l
 @lt  swap gt
 @gte lt not
 @lte gt not
+
+@doc.gt1 "a x -- (a + a); a > x?"
+@doc.lt1 "a x -- (a + a); a < x?"
+@doc.gte1 "a x -- (a + a); a ≥ x?"
+@doc.lte1 "a x -- (a + a); a ≤ x?"
+@gt1 lte1 not
+@lt1 gte1 not
+@lte1 p %rr>  [%vrw%c] %r? %VRWLC [%vr%c]  %r? %l
+@gte1 p %rrw> [%vr%c]  %r? %VRWLC [%vrw%c] %r? %l
 
 @doc.compare "a b -- (((LT(a*b) + EQ(b*a)) + GT(b*a))"
 @doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a))"

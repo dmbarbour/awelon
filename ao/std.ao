@@ -1,6 +1,7 @@
- plumbing hands stdenv 
- blocks conditionals 
- loops streams lists sequences
+ plumbing conditionals blocks
+ hands stdenv 
+ lists sequences
+ loops streams process
  math stats
  adverbs
 
@@ -25,10 +26,11 @@
  
  Testing has limits. You cannot prove, through testing, that bugs are absent. AO developers are encouraged also to leverage symbolic analysis, which is also expressed in a relatively dynamic manner in AO (e.g. use of the 'eqv.' or 'id.' prefixes).
 ~
-@doc.warn.test "warnMsg --; emit message"
-@doc.error.test "errMsg --; emit message and fail"
-@warn.test "warn" p cmd.test
-@error.test "error" p cmd.test
+@doc.warn.test "warnMsg --; (io) emit message"
+@doc.error.test "errMsg --; (io) emit message then fail"
+@warn.test "warn" p cmd.test drop
+@error.test "error" p cmd.test drop
+@doc.cmd.test "msg -- result; (io) call powerblock in standard location"
 @cmd.test %zwl .apply x %rwz
 
 @doc.prefix.eqv 
@@ -151,11 +153,15 @@
 
 @doc.prefix.seal "seal the first item on the stack"
 @doc.prefix.unseal "unseal the first item on the stack"
+@doc.prefix.sealer "an insecure sealing capability"
+@doc.prefix.unsealer "an insecure unsealing capability"
 
 @doc.seal "guard a value against accidental observation"
 @doc.unseal "unseal a value guarded by 'seal'"
-@seal [%{:0}] .apply
-@unseal [%{.0}] .apply
+@sealer [%{:}]
+@unsealer [%{.}]
+@seal sealer .apply
+@unseal unsealer .apply
 
 @doc.CompositionIsFirstPrinciple
 "Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically or categorically closed; they combine two components into a third component. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 

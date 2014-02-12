@@ -31,6 +31,7 @@
  ifk merged inline
 
 @reverseT&append.list [p] eachT.list
+@reverse&append.list reverseT&append.list drop
 @reverseT.list 0 swap reverseT&append.list
 @map&reverseT.list 0 unrot map&reverseT&append.list
 @map&reverseT&append.list hidingDest.map.list eachT.list
@@ -41,11 +42,72 @@
 
 @each.list      eachT.list drop
 @map.list       map&reverseT.list swap reverseT&append.list drop
-@length.list    0 swap [drop inc] each.list
 
-@test.each.list 0 "World" [.add] each.list 520 assertEQ
+@doc.eachTP.list "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
+@doc.eachP.list "x y`L [x y -- x] -- x; in 'apply' environment"
+@doc.mapP.list "x`L [x -- y] -- y`L; in 'apply' environment"
+@eachTP.list p p [x x eachT.list p] apply x
+@eachP.list eachTP.list drop
+@mapP.list [apply] bind p [x map.list] apply 
+
+@length.list 0 swap [drop inc] eachP.list
+
+@test.each.list 0 "World" [.add] eachP.list 520 assertEQ
 @test.length.list "hello" length.list 5 assertEQ
-@test.map.list "gdkkn" [inc] map.list "hello" assertEQ
+@test.map.list "hello" [4 .add] mapP.list "lipps" assertEQ
 
-@each each.list
-@map  map.list
+@doc.lists.todo
+" * search lists (with short-circuit)
+  * remove duplicates from a list
+  * filter list by some criterion
+  * sorted merge of two lists
+  * stable-sort a list (with a given sort function)
+  * association lists
+  * list to/from stream
+~
+
+@doc.partition.list "(a+b)`L -- a`L b`L"
+@partition.list 
+ 0 0 pw swap 
+ [push.partition.list] eachTP.list
+ dx dup rot 
+ reverse&append.list
+ unrot swap
+ reverse&append.list
+@push.partition.list
+ [dx p p]
+ [dwx p pw]
+ ifk merged inline
+
+@test.partition.list 
+ "hello, World!" [106 gt1] map.list 
+ partition.list
+ "lloorl" assertEQ drop2 
+
+@doc.partitionBy.list "a`L [a--(b+c)] -- a`L b`L"
+@partitionBy.list mapP.list partition.list
+
+@doc.filter.list "a`L [a--(b+c)] -- c`L; Droppable b"
+@filter.list partitionBy.list dropd
+
+
+@doc.nub.list "remove duplicate values from list"
+@doc.nubBy.list "remove duplicate values, given duplicate test"
+@doc.sort.list "sort a list of values"
+@doc.sortBy.list "sort a list of values given a sorting function"
+
+
+@doc.AssocLists
+"An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
+~
+
+@doc.ListQueue 
+"Model a simple, linear queue object with a pair of lists. Developers must explicitly copy or destroy the queue.
+~
+@doc.suffix.lq doc.ListQueue
+@sealer.lq [%{:lq}]
+@unsealer.lq [%{.lq}]
+@seal.lq sealer.lq .apply
+@unseal.lq unsealer.lq .apply
+@empty.lq 0 0 pw seal.lq
+

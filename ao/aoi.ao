@@ -53,6 +53,7 @@ std euler
 
 @doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
 @debugOut "debugOut" p iomsg.aoi
+@debugStack reifyStack debugOut restoreStack
 
 @+ .add
 @* .mul

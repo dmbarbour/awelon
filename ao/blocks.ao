@@ -31,6 +31,7 @@
        this variation provides a fresh stack and empty hand
        (powerblock, named stacks, etc. are hidden)
      dip    :: h [] -- ; apply block to all except top element on stack
+     dip2   :: h1 h2 [] -- ; apply block to all except top two elements
      hdip   :: [] -- ; apply block hiding current hand 
      inline :: [] -- ; apply block as if inline (hand is visible)
      keep   :: x [x -- y] -- y x; copies element on stack
@@ -52,9 +53,9 @@
 @inline %rvr$c
 @keep dupd dip
 
-@dip2 take p put dip x
-@dip3 take p p put dip x x
-@dip4 take p p p put dip x x x
+@dip2 dp dip x
+@dip3 dp dp dip x x
+@dip4 dp dp dp dip x x x
 @keep2 take dup2 put dip2
 @keep3 take dup3 put dip3
 @keep4 take dup4 put dip4
@@ -83,7 +84,7 @@
 @doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
 @doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
 @.bind pw %rr'wol
-@bind swap %r'l [%l] compose composel
+@bind [%l] composel swap %r'l composel
 
 @bind2 bind bind
 @bind3 bind bind bind
@@ -131,3 +132,4 @@
 @eqv.idempotent.linear [linear linear] [linear]
 @eqv.idempotent.affine [affine affine] [affine]
 @eqv.idempotent.relevant [relevant relevant] [relevant]
+

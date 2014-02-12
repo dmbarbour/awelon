@@ -9,35 +9,19 @@
  Explicit loops in AO are required to terminate. Due to the halting problem, termination cannot always be proven or disproven statically. However, a non-terminating loop is always a bug, and developers are expected to treat one thusly.
 ~
 
-@doc.repeat "[] n --; inline block n times"
-@doc.enum  "[i --] n m --; loop with integral index in range [n,m)."
-@doc.enum1 "enum in range [n,m] - i.e. including m"
+@doc.repeat "a [a -- a] n -- a; repeat block `n` times"
 
-@test.repeat 4 7 [incd] 3 repeat assertEQ
-@repeat assertNatural swap [step.repeat] bind fixpoint inline
-@doc.step.repeat "n [continue] [action] -- ; n counting down"
+@repeat
+ assertNatural swap
+ [dip] bind [p] composel
+ [step.repeat] compose fixpoint
+ p step.repeat
 @step.repeat
- rot dup 1 lt
- [rot p swap dip x decd inline]
- [drop3]
- if!
+ wx dup dec unrot
+ 0 gt [drop] rot if!
 
-@test.enum 15 0 [.add] 1 5 enum1 assertEQ
-@enum1 inc enum
-@enum assertEnumRange pw swap [step.enum] bind fixpoint inline
-@assertEnumRange swap assertInteger swap assertInteger assertLTE
-@doc.step.enum "(n*m) [continue] [action] -- "
-@step.enum
- pick x gt
- [drop3]
- [action.enum]
- if!
-@action.enum
- pick x dropd swap
- roll roll p swap
- dip
- wx x inc p swap
- inline
+@test.repeat 4 [inc] 3 repeatP 7 assertEQ
+@repeatP p p [x x repeat] apply
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
@@ -74,6 +58,5 @@
  take 2 lt
  [tail dup dec put apply .mul]
  [head discard]
- eitherE
- merge
+ ifk merged inline
 @test.factorial.fixpoint 720 6 factorial.fixpoint assertEQ

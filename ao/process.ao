@@ -1,0 +1,32 @@
+@doc.Processes
+"In conventional imperative languages, a process is modeled as a procedure that enters an indefinite loop, which typically cycles between effectfully waiting for input and effectfully emitting outputs. This is an AWFUL process model! It is extremely difficult to externally compose, control, reuse, or extend these 'encapsulated loop' processes.
+ 
+ In AO, we instead favor incremental processes. More precisely, we model one step of a process, and this step consumes one input and produces one output, in addition to specifying next step for the same process. The type for a process is (roughly):
+ 
+     type Process a b = µP. [a → (P * b)]
+         shorthand: (a↣b) (↣ is U+21A3)
+ 
+ Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and generates a process for the next step `P`. By modifying `P`, processes can encapsulate state in a linear and purely functional manner. Processes may be suspended between steps, offering simple process control. Feedback, where an output influences future inputs, is possible but always takes a step (and hence always may be interrupted).
+ 
+ Processes can be directly composed in sequence, in parallel, and in conditional or switching network styles (using sum types). In addition, it is possible to model 'environments' containing named processes that can dispatch or route messages indirectly based on name.
+ 
+ Usefully, flexible composition greatly alleviates conventional requirements for shared state and side-effects. 
+ 
+ An AO service or application could feasibly be modeled as a process. In this case, the top-level loop would be implicit, provided by the compiler or runtime. Such a process could even be persistent by serializing the underlying ABC, and thus model long-running workflows. Unfortunately, processes still have a significant weakness as a foundation for services or applications: they encapsulate state! The behavior `P` of a process will diverge from the original source code. This hinders live programming, continuous deployment, mirroring and replication, debugging. Awelon project favors RDP for service or app behavior.
+ 
+ Even so, processes are useful for processing streams and lists, and may serve a useful role for bootstrapping or integrating awelon with more conventional systems.
+ 
+ The actual process type is abstract to discourage dependency upon the implementation structure.
+~
+@doc.suffix.p doc.Processes
+@sealer.p [%{:p}]
+@unsealer.p [%{.p}]
+@seal.p sealer.p .apply
+@unseal.p unsealer.p .apply
+
+@doc.liftF.p "[a→b] -- (a↣b)"
+@doc.liftS.p "s [(s*a)→(s*b)] -- (a↣b)"
+@liftF.p %r^'ol seal.p
+@liftS.p 
+
+
