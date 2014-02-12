@@ -79,35 +79,37 @@
  [dwx p pw]
  ifk merged inline
 
-@test.partition.list 
- "hello, World!" [106 gt1] map.list 
- partition.list
- "lloorl" assertEQ drop2 
-
 @doc.partitionBy.list "a`L [a--(b+c)] -- a`L b`L"
 @partitionBy.list mapP.list partition.list
+
+@test.partition.list 
+ "hello, World!" [106 gt1] 
+ partitionBy.list
+ "lloorl" assertEQ drop2 
 
 @doc.filter.list "a`L [a--(b+c)] -- c`L; Droppable b"
 @filter.list partitionBy.list dropd
 
+@doc.remove.list "a`L a -- a`L; removes comparable value"
+@remove.list [neq1m] bind filter.list
+
+@test.remove.list "hello world" 108 remove.list "heo word" assertEQ 
 
 @doc.nub.list "remove duplicate values from list"
-@doc.nubBy.list "remove duplicate values, given duplicate test"
 @doc.sort.list "sort a list of values"
-@doc.sortBy.list "sort a list of values given a sorting function"
-
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
 ~
 
 @doc.ListQueue 
-"Model a simple, linear queue object with a pair of lists. Developers must explicitly copy or destroy the queue.
+"Model a simple, queue object with a pair of lists.
 ~
 @doc.suffix.lq doc.ListQueue
 @sealer.lq [%{:lq}]
 @unsealer.lq [%{.lq}]
 @seal.lq sealer.lq .apply
 @unseal.lq unsealer.lq .apply
-@empty.lq 0 0 pw seal.lq
+@empty.lq 0 0 pw [] pw seal.lq
+@copy.lq 
 

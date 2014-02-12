@@ -56,7 +56,7 @@
 @dup4 p p p dup %rw x x x %wl x x x
 
 @doc.ShorthandDataShuffling
-"This dictionary defines a few single character data shufflers for an object on the stack, to compactly support simple manipulations. These operations include:
+"A few short data shufflers for an object on the stack, to compactly support simple manipulations. These operations include:
  
      p :: y x -- (x*y)
      x :: (x*y) -- y x
@@ -93,8 +93,20 @@
 
 @doc.head "(x*y) -- x"
 @doc.tail "(x*y) -- y"
-@head wx drop
-@tail x drop
+@head fst
+@tail snd
+
+@doc..fst "(x*y)→x"
+@doc..snd "(x*y)→y"
+@.fst %vrw%c
+@.snd %vr%c
+@doc.fst "(x*y) -- x"
+@doc.snd "(x*y) -- y"
+@fst %rrw%l
+@snd %rr%l
+
+@eqv.fst.wxdrop [fst] [wx drop]
+@eqv.snd.xdrop [snd] [x drop]
 
 @id.wl³ w l w l w l
 @id..wl³ .swap %l .swap %l .swap %l
@@ -145,7 +157,15 @@
 @l_ %rwrzwll
 @r_ %rrwzlwl
 @w_ %rwrwzwlwl
-@z_ %rwrwrwzwlwlwl
+@z_ %rw w_ %wl
+
+@v__ v_ r_ w_ v_ r_ w_ l_ c_
+@c__ v_ r_ w_ l_ c_ w_ l_ c_
+@l__ r_ w_ r_ z_ w_ l_ l_
+@r__ r_ r_ w_ z_ l_ w_ l_
+@w__ r_ w_ r_ w_ z_ w_ l_ w_ l_
+@z__ r_ w_ w__ w_ l_
+@vrwlc__ v__ r__ w__ l__ c__
 
 @v$ [%v]%r$
 @c$ [%c]%r$
@@ -160,4 +180,14 @@
 @eqv.inline.l [l$] [l_]
 @eqv.inline.w [w$] [w_]
 @eqv.inline.z [z$] [z_]
+
+@eqv.inner.v_ [%r v_ %l] [v__]
+@eqv.inner.c_ [%r c_ %l] [c__]
+@eqv.inner.l_ [%r l_ %l] [l__]
+@eqv.inner.r_ [%r r_ %l] [r__]
+@eqv.inner.w_ [%r w_ %l] [w__]
+@eqv.inner.z_ [%r z_ %l] [z__]
+@eqv.vrwlc__.rrwll [%rrwll] [vrwlc__]
+
+@test.gratuitousDeepShuffle 5 6 pw dup vrwlc__ w assertEQ
 

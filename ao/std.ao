@@ -7,12 +7,13 @@
 
 @doc.import.std "viable starting point for AO dictionaries"
 
+
 @doc.NamingConventions
 "AO makes heavy use of naming conventions. Common prefixes suggest automatic processing or type information. For example, 'doc.' indicates documentation for a word, and 'test.' indicates automatic testing in a mockup environment, and 'id.' indicates that a given expression should be equivalent to identity for all the types it accepts. Conversely, suffixes connote context. A suffix might identify a specific framework, project, spreadsheet, or programmer.
  
- Multi-part words unfortunately make plain-text AO verbose and difficult to read. 
+ Multi-part words unfortunately make plain-text AO verbose, noisy, and difficult to read. 
  
- The intention is to mitigate this issue in the editor. A set of rules (configurable per user, view, or project) shall translate common prefixes and suffixes into rendering with colors and styles and possible icons. Also, fuzzy autocomplete mechanisms can eliminate need to fully write out large words, and may be weakly type sensitive.
+ The intention is to mitigate this issue at the editor. A set of rules (configurable per user, view, or project) shall translate common prefixes and suffixes into rendering with colors and styles and possible icons. For example, `foo.x` and `foo.y` might render the same text (just `foo`) but with different colors for the `x` vs. `y` context. Similarly, fuzzy autocomplete mechanisms in the editor can eliminate need to fully write out large words. `foo.x` might be found by typing just `fx`.
 ~
 
 @doc.prefix.doc
@@ -34,11 +35,11 @@
 @cmd.test %zwl .apply x %rwz
 
 @doc.prefix.eqv 
-"There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests or provide hints for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two expressions should be equivalent.
+"There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests, and provide hints or tests for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two subprograms should be equivalent.
  
- The type of an 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
+ The type of any 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
  
- That is, developers should simply add two blocks to the current stack, which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. 
+ That is, developers should simply add two blocks to the current stack (in no particular order) which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. 
  
  A more specialized equivalency is also available with prefix 'id'. Eventually, there may be specialized prefixes for for idempotence (`f f = f`) and commutativity (`f g = g f`), and similar properties (plus associativity) for binary functions. However, for now, these may be expressed by eqv.
 ~
@@ -178,5 +179,4 @@
  
  AO is designed to serve as that generic compositional layer. AO's words are software components. AO's compositional properties - especially causal commutativity, spatial idempotence, and capability security - are very useful in this role. AO is also designed to mitigate common weaknesses of deeply layered abstractions by aggressive use of partial evaluation, dependent type analysis, and program search.
 ~
-
 

@@ -96,11 +96,49 @@
 @curry3 [bind curry2] bind
 @curry4 [bind curry3] bind
 
-@.bfirst %r'l [%$] compose
-@.bleft  %r'l [%vr?c] compose
-@.bsecond .bfirst [.swap] compose [.swap] composel
-@.bright .bleft [.mirror] compose [.mirror] composel
+@.bfirst %r' [%$] %rol
+@.bsecond %r' [%vrw] %rwo [%$wlc] %rol
+@.bleft %r' [%v] %rwo [%?c] %rol
+@.bright %r' [%vVRW] %rwo [%?WLCc] %rol
 @.bapply [.apply] bind
+
+@test..bfirst 
+ intro1 intro1 7 p p 
+ [6 %r*] .bfirst .apply 
+ x x 42 assertEQ
+ drop2 elim1 elim1
+
+@test..bsecond
+ intro1 intro1 7 p pw 
+ [6 %r*] .bsecond .apply 
+ wx x 42 assertEQ
+ drop2 elim1 elim1
+
+@test..bleft.inL
+ intro1 7 p inL
+ [6 %r*] .bleft .apply
+ not assert x 42 assertEQ
+ drop2 elim1
+
+@test..bleft.inR
+ intro1 7 p inR
+ [6 %r*] .bleft .apply
+ assert x 7 assertEQ
+ drop2 elim1
+
+@test..bright.inR
+ intro1 7 p inR
+ [6 %r*] .bright .apply
+ assert x 42 assertEQ
+ drop2 elim1
+
+@test..bright.inL
+ intro1 7 p inL
+ [6 %r*] .bright .apply
+ not assert x 7 assertEQ
+ drop2 elim1
+
+
 
 @doc.Quotable
 "Most values in AO are quotable. 

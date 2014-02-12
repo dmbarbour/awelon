@@ -1,32 +1,108 @@
 @doc.Processes
 "In conventional imperative languages, a process is modeled as a procedure that enters an indefinite loop, which typically cycles between effectfully waiting for input and effectfully emitting outputs. This is an AWFUL process model! It is extremely difficult to externally compose, control, reuse, or extend these 'encapsulated loop' processes.
  
- In AO, we instead favor incremental processes. More precisely, we model one step of a process, and this step consumes one input and produces one output, in addition to specifying next step for the same process. The type for a process is (roughly):
+ In AO, we instead favor incremental processes. 
  
-     type Process a b = µP. [a → (P * b)]
-         shorthand: (a↣b) (↣ is U+21A3)
+ Precisely, we model one step of a process. This step consumes one input and produces one output, and may encapsulate state that influences how the process responds to future inputs. The minimal type for a process is (abstractly):
  
- Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and generates a process for the next step `P`. By modifying `P`, processes can encapsulate state in a linear and purely functional manner. Processes may be suspended between steps, offering simple process control. Feedback, where an output influences future inputs, is possible but always takes a step (and hence always may be interrupted).
+     type Process a b = µP. [a→(P*b)]
+         shorthand notation: [a↣b] (↣ is U+21A3)
  
- Processes can be directly composed in sequence, in parallel, and in conditional or switching network styles (using sum types). In addition, it is possible to model 'environments' containing named processes that can dispatch or route messages indirectly based on name.
+ Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and determines the behavior for the next step, `P`. This design offers simple process control: a process may be suspended between steps, and feedback loops always take at least one step.
+ 
+ AO's actual process type is described in @doc.ProcessRep
+ 
+ Incremental processes can composed in sequence, in parallel, and in conditional or switching network styles (using sum types). Dynamic processes are readily modeled. Each step consumes exactly one input and produces exactly one output; however, the input or output may be a collection type. It is feasible to model 'environments' containing named processes that can dispatch or route collections of messages.
  
  Usefully, flexible composition greatly alleviates conventional requirements for shared state and side-effects. 
  
  An AO service or application could feasibly be modeled as a process. In this case, the top-level loop would be implicit, provided by the compiler or runtime. Such a process could even be persistent by serializing the underlying ABC, and thus model long-running workflows. Unfortunately, processes still have a significant weakness as a foundation for services or applications: they encapsulate state! The behavior `P` of a process will diverge from the original source code. This hinders live programming, continuous deployment, mirroring and replication, debugging. Awelon project favors RDP for service or app behavior.
  
  Even so, processes are useful for processing streams and lists, and may serve a useful role for bootstrapping or integrating awelon with more conventional systems.
- 
- The actual process type is abstract to discourage dependency upon the implementation structure.
 ~
-@doc.suffix.p doc.Processes
+
+@doc.ProcessRep
+"The abstract model for a process is µP.[a→(P*b)]. This model can be implemented directly, but it has two significant weaknesses: First, it requires abundant and awkward use of fixpoints, quotations, and runtime composition, and will be difficult to optimize. Second, it doesn't integrate nicely with literals or words developed for AO's standard environment.
+ 
+ I will implement parts of the abstract model with suffix `.abstract.p` for validation purposes. However, AO favors an alternative implementation model: 
+ 
+     type Process a b = ∃e,s. ([((a*s)*e)→((b*s)*e)] * (s*e))
+ 
+ Which is to say, the process operates in a stateful environment consisting of a stack `s` and an extended environment `e`. The (s*e) pair becomes the encapsulated state, carried from step to step. (Often, this state is simply a pair of unit values.) The input `a` is added to the stack prior to invoking each step. Dynamic processes may still be modeled, by keeping a block in state. 
+ 
+
+Hopefully, I can find a way to optimize these away using various compilation techniques. However, if I am unable, there are alternative implementations that can serve the same role. A possibl
+
+In addition, it doesn't work well with words defined for AO's standard environment.
+ 
+ So an alternative process model is favored:
+ 
+     type Process a b = ∃s,e. ( [((a*s)*e)→((b*s)*e)] * (s*e) )
+
+ 
+  
+
+A simpler model is used to implement:
+ 
+     type Process a b = ∃s.([(a*s))→(b*s))]*s)
+ 
+ Which is to say, `Process a b` will encapsulate an existential state `s`, which is not accessible to other processes in the composition. Dynamic processes can then be represented by explicitly modeling one in the state. A process, in this sense, is similar to an OOP object with a single method.
+ 
+ This model is sealed to avoid future changes.
+~
+
 @sealer.p [%{:p}]
 @unsealer.p [%{.p}]
 @seal.p sealer.p .apply
 @unseal.p unsealer.p .apply
 
-@doc.liftF.p "[a→b] -- (a↣b)"
-@doc.liftS.p "s [(s*a)→(s*b)] -- (a↣b)"
-@liftF.p %r^'ol seal.p
-@liftS.p 
+@sealer.abstract.p [%{:abstract.p}]
+@unsealer.abstract.p [%{.abstract.p}]
+@seal.abstract.p sealer.abstract.p .apply
+@unseal.abstract.p unsealer.abstract.p .apply
+
+
+@doc.suffix.p doc.Processes
+@doc.suffix.abstract.p "naive process model; see @doc.ProcessRep"
+@doc.suffix.pr "typically as per suffix `.p`, then composes"
+@doc.suffix.pl "typically as per suffix '.p', then composes on left"
+
+@doc.step.p "a [a↣b] -- b [a'↣b']; run process one step"
+@step.p
+ unseal.p
+ 
+ p %rr$l x
+ seal.p
+
+@doc.id.p "-- a↣a"
+@doc.compose.p "a↣b b↣c -- a↣c"
+@doc.composel.p "b↣c a↣b -- a↣c"
+@id.p [] lift.p
+@composel.p swap compose.p
+@compose.p
+ swap unseal.p swap unseal.p
+ p %rr
+ [step.compose.p] .fixpoint
+ .bind .bind seal.p
+@step.compose.p
+ %v
+ 
+
+@doc.inc.p "[N(x)↣N(x+1)]"
+@inc.p [%v 1 %r+c] lift.p
+@dec.p [%v -1 %r+c] lift.p
+
+@test.inc.p 11 inc.p step.p step.p drop 13 assertEQ
+
+@doc.lift.p "[a→b] -- (a↣b)"
+@lift.p.abstract .bsecond .fixpoint seal.p
+
+@doc..lifts.p "s [(s*a)→(s*b)] -- (a↣b)"
+@doc..liftws.p "s [(a*s)→(b*s)] -- (a↣b)"
+
+
+@doc.liftFE.p "[a--b] -- ((a*s)*e ↣ (b*s')*e')"
+@liftF.p "TODO: a sort of inverted fixpoint; duplicate process at end"
+@liftS.p "Similar to liftF, except also need to bind state"
 
 

@@ -49,7 +49,7 @@
 @fixpoint %r [%^'wol] %rwo %^'wol
 @fixpoint.old [dup bind] composel dup bind
 
-@doc..fixpoint "(f*e)→(ff*e); fixpoint combinator outside stack"
+@doc..fixpoint "fix functions of form [(f*a)→b]; `f` is bound as fixpoint"
 @.fixpoint [%^'wo] %rwo %^'wo
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"

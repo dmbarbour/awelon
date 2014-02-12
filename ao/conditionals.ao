@@ -52,15 +52,23 @@
 @doc.lte1 "a x -- (a + a); a ≤ x?"
 @gt1 lte1 not
 @lt1 gte1 not
-@lte1 p %rr>  [%vrw%c] %r? %VRWLC [%vr%c]  %r? %l
-@gte1 p %rrw> [%vr%c]  %r? %VRWLC [%vrw%c] %r? %l
+@lte1 p %rr>  [.fst] %r? .mirror [.snd] %r?l
+@gte1 p %rrw> [.snd] %r? .mirror [.fst] %r?l
 
-@doc.compare "a b -- (((LT(a*b) + EQ(b*a)) + GT(b*a))"
 @doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a))"
-@doc.neq "a b -- (EQ(b*b) + (LT(a*b) + GT(b*a)))"
-@compare gt [%vv wx lt not %cc] .left
+@doc.neq "a b -- (EQ(b*a) + (LT(a*b) + GT(b*a)))"
 @eq neq not
-@neq compare %rRWl
+@neq gt [%vr>c] .left %rRl
+
+@doc.eq1 "a x -- ((a(<x) + a(>x)) + a(=x))"
+@doc.neq1 "a x -- (a(=x) + (a(<x) + a(>x))); a ≠ x?"
+@eq1 neq1 not
+@neq1 neq %r [.snd] %r? %VRWR [.fst] %r? %W [.snd] %r? %WLWLC %l
+
+@doc.eq1m "a x -- (a(≠x) + a(=x))"
+@doc.neq1m "a x -- (a(=x) + a(≠x))"
+@eq1m eq1 [%vMc] .left
+@neq1m eq1m not
 
 @doc.distrib "(a + b) c -- ((c*a) + (c*b))"
 @doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
@@ -85,7 +93,7 @@
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
 @doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
 @.left p %rr?l
-@.right take not put .left not
+@.right notd .left not
 @.either take .left put .right
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
@@ -130,8 +138,8 @@
 @leftJoin .distribdE %w?Mc
 @rightJoin .distribdE .mirror %w?Mc
 
-@test.leftJoin.inL 1 inL [inc] leftJoin 2 assertEQ
-@test.leftJoin.inR 1 inR [inc] leftJoin 1 assertEQ
+@test.leftJoin.inL 1 inL [inc] leftJoin 2 assertEQ1
+@test.leftJoin.inR 1 inR [inc] leftJoin 1 assertEQ1
 
 @doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
 @doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
@@ -198,6 +206,7 @@
 @assertGT   gt assert x
 @assertGTE  gte assert x
 @assertEQ   eq assert x
+@assertEQ1  assertEQ drop
 @assertNEQ  neq assert [%vrwlc] .left merge x
 
 @assertLTz  assertNumber 0 assertLT drop
