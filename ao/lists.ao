@@ -16,87 +16,103 @@
  *Aside:* Lists are simplistic, in the sense that they are often overly simple. AO's standard dictionaries should include other data structures more suitable for efficient ad-hoc manipulations. These will include finger-trees, ropes built on finger-trees, and zippers. 
 ~
 
-@doc.eachT.list "a`L [a --] -- a`Nel; apply block to each element in list, return term"
-@doc.reverseT&append.list "d`L s`L -- (reverse s ++ d)`L s`Nel"
-@doc.map&reverseT.list "a`L [a -- b] -- b`L(reversed) a`Nel"
-@doc.map&reverseT&append.list "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
-@doc.reverseT.list "a`L -- (reverse a, terminate in 0)`L a`Nel"
+@doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
+@doc.reverseT&append.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
+@doc.map&reverseT.l "a`L [a -- b] -- b`L(reversed) a`Nel"
+@doc.map&reverseT&append.l "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
+@doc.reverseT.l "a`L -- (reverse a, terminate in 0)`L a`Nel"
 
-@eachT.list [step.eachT.list] bind fixpoint inline
-@doc.step.eachT.list "a`L [[a --] step.eachT.list] [a --] -- terminal"
-@step.eachT.list
+@eachT.l [step.eachT.l] bind fixpoint inline
+@doc.step.eachT.l "a`L [[a --] step.eachT.l] [a --] -- terminal"
+@step.eachT.l
  rot isPair
  [nip2 assertNumber]
  [wx roll p rot dip x inline]
  ifk merged inline
 
-@reverseT&append.list [p] eachT.list
-@reverse&append.list reverseT&append.list drop
-@reverseT.list 0 swap reverseT&append.list
-@map&reverseT.list 0 unrot map&reverseT&append.list
-@map&reverseT&append.list hidingDest.map.list eachT.list
-@hidingDest.map.list [dip] bind [swap] composel [pw] compose
+@reverseT&append.l [p] eachT.l
+@reverse&append.l reverseT&append.l drop
+@reverseT.l 0 swap reverseT&append.l
+@map&reverseT.l 0 unrot map&reverseT&append.l
+@map&reverseT&append.l hidingDest.map.l eachT.l
+@hidingDest.map.l [dip] bind [swap] composel [pw] compose
 
-@doc.each.list "a`L [a --] --; apply block to each element in list"
-@doc.map.list "a`L [a -- b] -- b`L; apply block modifying each element in list"
+@doc.each.l "a`L [a --] --; apply block to each element in list"
+@doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
 
-@each.list      eachT.list drop
-@map.list       map&reverseT.list swap reverseT&append.list drop
+@each.l      eachT.l drop
+@map.l       map&reverseT.l swap reverseT&append.l drop
 
-@doc.eachTP.list "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
-@doc.eachP.list "x y`L [x y -- x] -- x; in 'apply' environment"
-@doc.mapP.list "x`L [x -- y] -- y`L; in 'apply' environment"
-@eachTP.list p p [x x eachT.list p] apply x
-@eachP.list eachTP.list drop
-@mapP.list [apply] bind p [x map.list] apply 
+@doc.eachTP.l "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
+@doc.eachP.l "x y`L [x y -- x] -- x; in 'apply' environment"
+@doc.mapP.l "x`L [x -- y] -- y`L; in 'apply' environment"
+@eachTP.l [eachT.l] apply3to2
+@eachP.l eachTP.l drop
+@mapP.l [apply] bind [map.l] apply2to1 
 
-@length.list 0 swap [drop inc] eachP.list
+@doc.eqv.mapTwice.compMap
+"Rewriting from a composition of map operations to a map of compositions is a difficult challenge for an optimizer. And proving this is difficult for a prover. In general, if developers need this sort of optimization, they should be using a staged programming model that symbolically constructs the map operations, i.e. initially constructing a free, logical list/stream.
+~
+@eqv.mapTwice.compMap 
+ [compose mapP.l] 
+ [unrot mapP.l swap mapP.l]
 
-@test.each.list 0 "World" [.add] eachP.list 520 assertEQ
-@test.length.list "hello" length.list 5 assertEQ
-@test.map.list "hello" [4 .add] mapP.list "lipps" assertEQ
+@length.l 0 swap [drop inc] eachP.l
 
-@doc.lists.todo
-" * search lists (with short-circuit)
-  * remove duplicates from a list
-  * filter list by some criterion
-  * sorted merge of two lists
-  * stable-sort a list (with a given sort function)
-  * association lists
-  * list to/from stream
+@test.each.l 0 "World" [.add] eachP.l 520 assertEQ
+@test.length.l "hello" length.l 5 assertEQ
+@test.map.l "hello" [4 .add] mapP.l "lipps" assertEQ
+
+@doc.Lists.todo
+"* search lists (with short-circuit)
+ * sorted merge of two lists
+ * stable-sort a list (with a given sort function)
+ * association lists
+ * list to/from stream
 ~
 
-@doc.partition.list "(a+b)`L -- a`L b`L"
-@partition.list 
+@doc.partition.l "(a+b)`L -- a`L b`L"
+@partition.l 
  0 0 pw swap 
- [push.partition.list] eachTP.list
+ [push.partition.l] eachTP.l
  dx dup rot 
- reverse&append.list
+ reverse&append.l
  unrot swap
- reverse&append.list
-@push.partition.list
+ reverse&append.l
+@push.partition.l
  [dx p p]
  [dwx p pw]
  ifk merged inline
 
-@doc.partitionBy.list "a`L [a--(b+c)] -- a`L b`L"
-@partitionBy.list mapP.list partition.list
+@doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
+@partitionBy.l mapP.l partition.l
 
-@test.partition.list 
+@test.partition.l 
  "hello, World!" [106 gt1] 
- partitionBy.list
+ partitionBy.l
  "lloorl" assertEQ drop2 
 
-@doc.filter.list "a`L [a--(b+c)] -- c`L; Droppable b"
-@filter.list partitionBy.list dropd
+@doc.filter.l "a`L [a--(b+c)] -- c`L; Droppable b"
+@filter.l partitionBy.l dropd
 
-@doc.remove.list "a`L a -- a`L; removes comparable value"
-@remove.list [neq1m] bind filter.list
+@doc.remove.l "a`L a -- a`L; removes comparable value"
+@remove.l [neq1m] bind filter.l
 
-@test.remove.list "hello world" 108 remove.list "heo word" assertEQ 
+@test.remove.l "hello world" 108 remove.l "heo word" assertEQ 
 
-@doc.nub.list "remove duplicate values from list"
-@doc.sort.list "sort a list of values"
+@doc.nub.l "remove duplicate values from list"
+@doc.sort.l "sort a list of values"
+
+@nub.l [step.nub.l] fixpoint apply
+@step.nub.l
+ swap isPair
+ [dropd]
+ [x copy remove.l swap inline put p]
+ ifk merged inline
+@test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
+
+
+ 
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.

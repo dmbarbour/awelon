@@ -91,11 +91,6 @@
 @doc..swap "(x*y)→(y*x); primitive swap"
 @.swap %vrwlc
 
-@doc.head "(x*y) -- x"
-@doc.tail "(x*y) -- y"
-@head fst
-@tail snd
-
 @doc..fst "(x*y)→x"
 @doc..snd "(x*y)→y"
 @.fst %vrw%c
@@ -104,6 +99,11 @@
 @doc.snd "(x*y) -- y"
 @fst %rrw%l
 @snd %rr%l
+
+@doc.dupfst "(x*y) -- (x*y) x"
+@doc.dupsnd "(x*y) -- (x*y) y"
+@dupfst x dup dp
+@dupsnd wx dup dpw
 
 @eqv.fst.wxdrop [fst] [wx drop]
 @eqv.snd.xdrop [snd] [x drop]
@@ -152,6 +152,7 @@
 @r_.doc "(((a*b)*c)*e)→((a*(b*c))*e); ~ `[%r]$`"
 @w_.doc "((a*(b*c))*e)→((b*(a*c))*e); ~ `[%w]$`"
 @z_.doc "((a*(b*(c*d)))*e)→((a*(c*(b*d)))*e); ~ `[%z]$`"
+
 @v_ %vrwvrwlc
 @c_ %vrwlcwlc
 @l_ %rwrzwll
@@ -166,6 +167,14 @@
 @w__ r_ w_ r_ w_ z_ w_ l_ w_ l_
 @z__ r_ w_ w__ w_ l_
 @vrwlc__ v__ r__ w__ l__ c__
+
+@v___ v__ r__ w__ v__ r__ w__ l__ c__
+@c___ v__ r__ w__ l__ c__ w__ l__ c__
+@l___ r__ w__ r__ z__ w__ l__ l__
+@r___ r__ r__ w__ z__ l__ w__ l__
+@w___ r__ w__ r__ w__ z__ w__ l__ w__ l__
+@z___ r__ w__ w___ w__ l__
+@vrwlc___ v___ r___ w___ l___ c___
 
 @v$ [%v]%r$
 @c$ [%c]%r$
@@ -188,6 +197,15 @@
 @eqv.inner.w_ [%r w_ %l] [w__]
 @eqv.inner.z_ [%r z_ %l] [z__]
 @eqv.vrwlc__.rrwll [%rrwll] [vrwlc__]
-
 @test.gratuitousDeepShuffle 5 6 pw dup vrwlc__ w assertEQ
 
+@eqv.inner.v__ [%r v__ %l] [v___]
+@eqv.inner.c__ [%r c__ %l] [c___]
+@eqv.inner.l__ [%r l__ %l] [l___]
+@eqv.inner.r__ [%r r__ %l] [r___]
+@eqv.inner.w__ [%r w__ %l] [w___]
+@eqv.inner.z__ [%r z__ %l] [z___]
+@eqv.vrwlc___.rrrwlll [%rrrwlll] [vrwlc___]
+@test.gratuitousDeeperShuffle 4 5 6 pw p dup vrwlc___ x w p 
+
+@eqv.rrrwlll.xwp [%rrrwlll] [x w p]

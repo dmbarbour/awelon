@@ -30,6 +30,9 @@
      apply  :: x [x--y] -- y; apply block to just top object on stack
        this variation provides a fresh stack and empty hand
        (powerblock, named stacks, etc. are hidden)
+     applyNtoM :: takes N arguments on stack, generates M results
+       provides an empty hand, like apply, for N,M=1..4
+     applyS :: apply to full stack (hiding rest of environment)
      dip    :: h [] -- ; apply block to all except top element on stack
      dip2   :: h1 h2 [] -- ; apply block to all except top two elements
      hdip   :: [] -- ; apply block hiding current hand 
@@ -47,7 +50,8 @@
 @compose p %rrol
 @composel swap compose
 @.apply p %rr$l
-@apply %rwrzvrwvvrrvrrz$wlcllccwlcl
+@apply  %rwrzvrwvvrrvrrz$wlcllccwlcl
+@applyS %rwvvrrwvrrz$wlcwllcc
 @dip %rwrzvrwr$wlcl
 @hdip reifyHand putd dip take restoreHand
 @inline %rvr$c
@@ -60,10 +64,35 @@
 @keep3 take dup3 put dip3
 @keep4 take dup4 put dip4
 
+@apply1to1 apply
+@apply1to2 [pw] compose apply wx 
+@apply1to3 [pw pw] compose apply wx wx
+@apply1to4 [pw pw pw] compose apply wx wx wx
+@apply2to1 compressArgs apply1to1
+@apply2to2 compressArgs apply1to2
+@apply2to3 compressArgs apply1to3
+@apply2to4 compressArgs apply1to4
+@apply3to1 compressArgs apply2to1
+@apply3to2 compressArgs apply2to2
+@apply3to3 compressArgs apply2to3
+@apply3to4 compressArgs apply2to4
+@apply4to1 compressArgs apply3to1
+@apply4to2 compressArgs apply3to2
+@apply4to3 compressArgs apply3to3
+@apply4to4 compressArgs apply3to4
+@compressArgs dpw [wx] composel
+
+@test.apply4to2 
+  2 3 4 5 [.add unrot .add] apply4to2 
+  5 assertEQ1 swap 
+  9 assertEQ1 
+
 @id.apply.id [id] apply
 @id.compose [id] compose
 @id.swap.compose [id] swap compose
 @id.inline.id [id] inline
+
+
 
 @doc..first "(a*b) [a→a'] -- (a'*b)"
 @doc..second "(a*b) [b→b'] -- (a*b')"
@@ -170,4 +199,9 @@
 @eqv.idempotent.linear [linear linear] [linear]
 @eqv.idempotent.affine [affine affine] [affine]
 @eqv.idempotent.relevant [relevant relevant] [relevant]
+
+
+
+@eqv.appTwice.compApp [compose apply] [unrot apply swap apply]
+@eqv.inlineTwice.compInline [compose inline] [swap dip inline]
 

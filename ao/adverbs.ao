@@ -15,7 +15,7 @@
 @doc.adverb.d "\d will hide first item on stack before applying"
 @doc.adverb.k "\k should operate on a copy of the first item on the stack."
 
-@\* [map.list] bind
-@\f [each.list] bind
+@\* [map.l] bind
+@\f [each.l] bind
 @\d [dip] bind
 @\k [dupd dip] bind

@@ -21,7 +21,7 @@
  0 gt [drop] rot if!
 
 @test.repeat 4 [inc] 3 repeatP 7 assertEQ
-@repeatP p p [x x repeat] apply
+@repeatP [repeat] apply3to1
 
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
@@ -49,14 +49,14 @@
 @fixpoint %r [%^'wol] %rwo %^'wol
 @fixpoint.old [dup bind] composel dup bind
 
-@doc..fixpoint "fix functions of form [(f*a)→b]; `f` is bound as fixpoint"
-@.fixpoint [%^'wo] %rwo %^'wo
+@doc..fixfirst "[(f*e)→e] -- [e→e]; fixpoint first argument in pair"
+@.fixfirst %r [%^'wo] %rwo %^'wol
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply
 @step.factorial.fixpoint
  take 2 lt
- [tail dup dec put apply .mul]
- [head discard]
+ [snd dup dec put apply .mul]
+ [fst discard]
  ifk merged inline
 @test.factorial.fixpoint 720 6 factorial.fixpoint assertEQ

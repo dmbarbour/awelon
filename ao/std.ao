@@ -17,7 +17,11 @@
 ~
 
 @doc.prefix.doc
-"AO does not have 'comments' in the usual sense. Instead, it has documentation words. A word that starts with 'doc.' should introduce documentation in a common format. If a word is too complicated to effectively document this way, consider factoring its definition into smaller pieces!
+"AO does not have 'comments' in the usual sense. Instead, a word that starts with `doc.` can document some aspect of a dictionary - e.g. a word, project, or convention. This makes documentation a first-class, computable value, though most of the time it will simply be some text.
+ 
+ In some cases, developers will be tempted to inject remarks directly into a word. This is doable (just `"this is a comment" drop` would do) but discouraged. Instead, consider refactoring the definition into words that can be documented independently, or that have self-explanatory names.
+ 
+ At the moment, documentation lacks a clear convention or format, just a pseudo-markdown. Most likely, this will be addressed when we start processing documentation into HTML pages or similar.
 ~
 
 @doc.prefix.test
