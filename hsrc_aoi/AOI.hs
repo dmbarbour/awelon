@@ -114,11 +114,16 @@ printCX Nothing = return ()
 printCX (Just rf) = readIORef rf >>= reportContext
 
 initAOI :: HKL.InputT AOI ()
-initAOI = greet >> lift aoiReload where
+initAOI = lift aoiReload >> greet where
     greet =  
         HKL.haveTerminalUI >>= \ bTerm ->
         when bTerm $
             HKL.outputStrLn "Welcome to aoi!" >>
+            lift getCX >>= \ cx ->
+            let wc = M.size (aoi_dict cx) in
+            let imp = T.unpack (aoi_source cx) in
+            let dictMsg = "  dict " ++ imp ++ " (" ++ show wc ++ " words)" in
+            HKL.outputStrLn dictMsg >>
             HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload"
 
 finiAOI :: HKL.InputT AOI ()
