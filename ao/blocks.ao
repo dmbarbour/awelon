@@ -46,9 +46,11 @@
 
 @doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
 @doc.composel "[y→z] [x→y] -- [x→z]; compose on left"
+@doc.wrapfn "[x→y] [w→x] [y→z] -- [w→z]; wrap a function"
 
 @compose p %rrol
 @composel swap compose
+@wrapfn swapd compose compose
 @.apply p %rr$l
 @apply  %rwrzvrwvvrrvrrz$wlcllccwlcl
 @applyS %rwvvrrwvrrz$wlcwllcc

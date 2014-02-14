@@ -28,7 +28,7 @@
  
      type Process a b = ∃e,s. ([((a*s)*e)→((b*s)*e)] * (s*e))
  
- This treats each process as encapsulating its own, complete environment, albeit with the step argument added to the stack each step, and the result removed from the stack. Dynamic processes can be modeled as processes that compute and execute internal processes, easily enough.
+ This treats each process as encapsulating its own, complete environment, albeit with the step argument added to the stack each step, and the result removed from the stack. Dynamic processes can be modeled as processes that compute and execute processes internally, easily enough.
  
  This implementation model is sealed to hinder accidental dependency on the implementation. In the future, the implementation model may change to support symbolic optimizations and so on.
 ~
@@ -39,51 +39,78 @@
 @seal.p sealer.p .apply
 @unseal.p unsealer.p .apply
 
-
 @doc.step.p "a [a↣b] -- b [a'↣b']; run process one step"
 @step.p
- unseal.p
- p %rr$l x
- seal.p
+ unseal.p wx rot p l
+ dupd swap .apply
+ r x unrot pw seal.p
 
-@doc.id.p "-- a↣a"
-@doc.compose.p "a↣b b↣c -- a↣c"
-@doc.composel.p "b↣c a↣b -- a↣c"
+@test.step.p 
+ 2 [4 .add] lift.p 
+ [step.p] 10 repeat
+ drop 42 assertEQ1
+
+@doc.id.p "-- [a↣a]"
 @id.p [] lift.p
-@composel.p swap compose.p
-@compose.p
- swap unseal.p swap unseal.p
- p %rr
- [step.compose.p] .fixpoint
- .bind .bind seal.p
-@step.compose.p
- %v
+
+@doc.delay.p "a -- [a↣a]; delay input by one step, with initial outputs"
+@delay.p [swap] liftS.p
+
+
+@doc.sum.p "-- [n↣n]; output is sum of inputs"
+@doc.sum_init.p "n -- [n↣n]; sum with initial value"
+@sum.p 0 sum_init.p
+@sum_init.p [.add dup] liftS.p
+
+@test.sum.p
+  0 sum.p
+  [incd dupd step.p dropd] 5 repeat
+  dropd 0 swap step.p drop
+  15 assertEQ1
+
+@doc.lift.p "[a -- b] -- [a↣b]"
+@doc.liftS.p "s [s a -- s b] -- [a↣b]"
+@doc.liftE.p "(s*e) [((a*s)*e)→((b*s)*e)] -- [a↣b]"
+
+@lift.p intro1 intro1 intro1 pw pw swap liftE.p
+@liftS.p swap intro1 pw intro1 intro1 pw pw swap liftE.p
+@liftE.p p seal.p
+
+@doc.compose.p "a↣b b↣c -- a↣c; sequential composition"
+@compose.p 
+ unseal2.p zip2 
+ ops.compose.p swap states.compose.p 
+ p seal.p
+@states.compose.p [%vv x] .apply
+@ops.compose.p
+ x
+ [.apply] bind 
+ [p] composel [x swapd p] compose 
+ swap
+ [.apply] bind [x swapd] compose
+ compose
+ 
+@doc.states.compose.p " -- (sab*(sbc*1))"
+@states.compose.p intro1 pw r
  
 
-@doc.inc.p "[N(x)↣N(x+1)]"
-@inc.p [%v 1 %r+c] lift.p
-@dec.p [%v -1 %r+c] lift.p
+@doc.ops.compose.p
+"Two process function
+@ops.compose.p
 
 
-@doc.lift.p "[a→b] -- (a↣b)"
+@unseal2.p swap unseal.p swap unseal.p
+
+@doc.composel.p "b↣c a↣b -- a↣c"
+@composel.p swap compose
 
 
-@doc..lifts.p "s [(s*a)→(s*b)] -- (a↣b)"
-@doc..liftws.p "s [(a*s)→(b*s)] -- (a↣b)"
-
-
-@doc.liftFE.p "[a--b] -- ((a*s)*e ↣ (b*s')*e')"
-@liftF.p "TODO: a sort of inverted fixpoint; duplicate process at end"
-@liftS.p "Similar to liftF, except also need to bind state"
-
-
-@doc.suffix.abstract.p "naive implementations of the abstract process model"
+@doc.suffix.abstract.p "naive implementation of abstract process model"
 @doc.lift.abstract.p "[a→b] -- µP.[a→(P*b)]"
 @lift.abstract.p .bsecond .fixfirst
 @doc.step.abstract.p "a [a↣b] -- b [a'↣b']; run process one step"
 @step.abstract.p .apply x
 @inc.abstract.p [%v 1 %r+c] lift.abstract.p
-@dec.abstract.p [%v -1 %r+c] lift.abstract.p
 @test.inc.abstract.p 
   11 inc.abstract.p 
   [step.abstract.p] 16 repeat

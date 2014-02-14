@@ -23,6 +23,11 @@
 @test.repeat 4 [inc] 3 repeatP 7 assertEQ
 @repeatP [repeat] apply3to1
 
+@doc.enumx "a [a ix -- a] n m -- a; apply with ix in range [n,m)."
+@doc.enum "a [a ix -- a] n m -- a; apply with ix in range [n,m]."
+@enumFromUntil dupd swap .sub rot [keep inc] bind swap repeat drop
+@enumFromTo inc enumFromUntil
+
 @doc.while1 "b [b -- (a + b)] -- a"
 @doc.until1 "a [a -- (a + b)] -- b"
 @doc.while  "(a + b) [b -- (a + b)] -- a"

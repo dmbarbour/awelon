@@ -87,6 +87,10 @@
 @dl swap l swap
 @dr swap r swap
 
+@doc.zip2 "(c*d) (a*b) -- (b*d) (a*c)"
+@zip2 dx x swapd p dp
+
+@test.zip2 5 6 pw 7 8 pw zip2 7 5 pw assertEQ1
 
 @doc..swap "(x*y)→(y*x); primitive swap"
 @.swap %vrwlc
@@ -119,6 +123,7 @@
 @id.lr l r
 @id.rl r l
 
+@id.zip2 zip2 zip2
 @id.swap swap swap
 @id.swapd swapd swapd
 @id.rot rot rot rot

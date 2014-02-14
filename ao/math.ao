@@ -34,3 +34,10 @@
 @id.div1 1 .div
 @id.add0 0 .add
 @id.sub0 0 .sub
+
+
+@doc.fibonacci "N -- fib(N); the 'hello world' of functional programming"
+@fibonacci 1 0 [dup swapd .add] roll repeat dropd
+@test.fibonacci 11 fibonacci 89 assertEQ1
+
+
