@@ -115,6 +115,8 @@ w_E(N) :- path([ [a,[b,c]], e],
 v_E(N) :- path([a,e], [[a,unit],e], N).
 c_E(N) :- path([[a,unit],e], [a,e], N).
 
+apply_wrap(N) :- path(a,[[a,unit],[unit,unit]],N).
+
 assocr(N) :- path([[x,y],z], [x,[y,z]], N).
 assocl(N) :- path([x,[y,z]], [[x,y],z], N).
 rotx(N) :- path([a,[b,[c,d]]], [c,[b,[a,d]]],N).

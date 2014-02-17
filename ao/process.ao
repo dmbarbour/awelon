@@ -3,16 +3,16 @@
  
  In AO, we instead favor incremental processes. 
  
- Precisely, we model one step of a process. This step consumes one input and produces one output, and may encapsulate state that influences how the process responds to future inputs. The minimal type for a process is (abstractly):
+ Precisely, we model one step of a process. This step consumes one input and produces one output, and may encapsulate state that influences how the process responds to future inputs. The minimal type for an incremental process is (abstractly):
  
      type Process a b = µP. [a→(P*b)]
          shorthand notation: [a↣b] (↣ is U+21A3)
  
- Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and determines the behavior for the next step, `P`. This design offers simple process control: a process may be suspended between steps, and feedback loops always take at least one step.
+ Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and determines the behavior for the next step, `P`. This design offers simple process control: a process may always be suspended between steps, and feedback loops (where an output influences a subsequent input) may always be interrupted.
  
- AO's actual process type is described in @doc.ProcessRep, and enables processes to operate and encapsulate state within a more conventional environment.
+ See @doc.ProcessRep for the actual process implementation.
  
- Incremental processes can composed in sequence, in parallel, and in conditional or switching network styles (using sum types). Dynamic processes are readily modeled. Each step consumes exactly one input and produces exactly one output; however, the input or output may be a collection type. It is feasible to model 'environments' containing named processes that can dispatch or route collections of messages.
+ Incremental processes can composed in sequence, in parallel, and in conditional or switching network styles (using sum types). Dynamic processes are readily modeled. Each step consumes exactly one input and produces exactly one output; however, the input or output may be a collection type. It is feasible to model networked spaces where processes can communicate by name or indirectly through a shared service (though this becomes relatively difficult to typecheck).
  
  Usefully, flexible composition greatly alleviates conventional requirements for shared state and side-effects. 
  
@@ -22,87 +22,43 @@
 ~
 
 @doc.ProcessRep
-"The abstract model for a process is µP.[a→(P*b)]. This abstract model can be implemented directly, but it requires abundant use of fixpoints and quotations, which can be difficult to optimize. Further, it doesn't integrate nicely with conventional AO words.
+"The abstract model for a process is µP.[a→(P*b)]. This abstract model can be implemented directly, but it involves opaque dynamic elements that can be very difficult for a compiler to optimize. 
  
- An alternative implementation model can alleviate these issues.
+ To reduce the burden on the compiler, AO uses a symbolic model for processes and performs its own rewrite optimizations before compiling. The resulting block should then be easier to further optimize. The intention is that, in practice, processes should mostly be compiled via partial evaluation.
  
-     type Process a b = ∃e,s. ([((a*s)*e)→((b*s)*e)] * (s*e))
+ Basic Processes (essentially an ADT based on Arrows):
  
- This treats each process as encapsulating its own, complete environment, albeit with the step argument added to the stack each step, and the result removed from the stack. Dynamic processes can be modeled as processes that compute and execute processes internally, easily enough.
+     id    :: [a↣a]
+     const :: c → [a↣(c*a)]
+     fmap  :: [a→b] → [a↣b] (assume pure function; allow dead code elim)
+     efmap :: [a→b] → [a↣b] (assume impure function; no dead code elim)
+     state :: (∃s.([(a*s)↣(b*s)]*s)) → [a↣b]
+     proc  :: (µP.[a→(P*b)]) → [a↣b]
  
- This implementation model is sealed to hinder accidental dependency on the implementation. In the future, the implementation model may change to support symbolic optimizations and so on.
+     seq   :: ([a↣b]*[b↣c]) → [a↣c]
+     par   :: ([a↣a']*[b↣b']) → [(a*b)↣(a'*b')]
+     sum   :: ([a↣a']*[b↣b']) → [(a+b)↣(a'+b')]
+ 
+ But this is just a start. I also expect to optimize for data shuffling primitives, and I might also want some extensible compilation model (such that new symbols and optimizations can be introduced, e.g. to optimize any stream-processing or list-processing). In some broad sense, this process model may reflect most of ABC and AO.
+ 
+ The implementation of this symbolic model is trivial (label*value) pairs, where labels are generally text like "id" or "fmap", and the values are the arguments to the associated process. Rewrite rules mostly operate on sequences. Most complexity is shifted to the compiler, which must be aware of the symbols.
+ 
+ The concrete implementation of processes is kept weakly abstract by a sealer and smart constructors.
 ~
+
+@doc.TODO.p
+"TODO: make it easy to develop rewrite rules and compilers of this form. 
+ 
+ AO is awful for direct expression of pattern-matching and transform logics (seeing as there is no syntactic support for pattern matching), but should be okay after a layer or two abstractions and indirections, or possibly using a DSL. Mostly, I need rewrite rules on a sequence, or a grammar model for sequence-to-sequence (or stream-to-stream, or set-of-streams to set-of-streams as a weighted optimization problem). Tree-based is much less essential.
+~
+
 @doc.suffix.p doc.Processes
 
 @sealer.p [%{:p}]
 @unsealer.p [%{.p}]
 @seal.p sealer.p .apply
 @unseal.p unsealer.p .apply
-
-@doc.step.p "a [a↣b] -- b [a'↣b']; run process one step"
-@step.p
- unseal.p wx rot p l
- dupd swap .apply
- r x unrot pw seal.p
-
-@test.step.p 
- 2 [4 .add] lift.p 
- [step.p] 10 repeat
- drop 42 assertEQ1
-
-@doc.id.p "-- [a↣a]"
-@id.p [] lift.p
-
-@doc.delay.p "a -- [a↣a]; delay input by one step, with initial outputs"
-@delay.p [swap] liftS.p
-
-
-@doc.sum.p "-- [n↣n]; output is sum of inputs"
-@doc.sum_init.p "n -- [n↣n]; sum with initial value"
-@sum.p 0 sum_init.p
-@sum_init.p [.add dup] liftS.p
-
-@test.sum.p
-  0 sum.p
-  [incd dupd step.p dropd] 5 repeat
-  dropd 0 swap step.p drop
-  15 assertEQ1
-
-@doc.lift.p "[a -- b] -- [a↣b]"
-@doc.liftS.p "s [s a -- s b] -- [a↣b]"
-@doc.liftE.p "(s*e) [((a*s)*e)→((b*s)*e)] -- [a↣b]"
-
-@lift.p intro1 intro1 intro1 pw pw swap liftE.p
-@liftS.p swap intro1 pw intro1 intro1 pw pw swap liftE.p
-@liftE.p p seal.p
-
-@doc.compose.p "a↣b b↣c -- a↣c; sequential composition"
-@compose.p 
- unseal2.p zip2 
- ops.compose.p swap states.compose.p 
- p seal.p
-@states.compose.p [%vv x] .apply
-@ops.compose.p
- x
- [.apply] bind 
- [p] composel [x swapd p] compose 
- swap
- [.apply] bind [x swapd] compose
- compose
- 
-@doc.states.compose.p " -- (sab*(sbc*1))"
-@states.compose.p intro1 pw r
- 
-
-@doc.ops.compose.p
-"Two process function
-@ops.compose.p
-
-
 @unseal2.p swap unseal.p swap unseal.p
-
-@doc.composel.p "b↣c a↣b -- a↣c"
-@composel.p swap compose
 
 
 @doc.suffix.abstract.p "naive implementation of abstract process model"

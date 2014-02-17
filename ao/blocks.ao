@@ -29,7 +29,7 @@
      .apply :: x [x→y] -- y ; apply block to just top object on stack
      apply  :: x [x--y] -- y; apply block to just top object on stack
        this variation provides a fresh stack and empty hand
-       (powerblock, named stacks, etc. are hidden)
+       (the powerblock, named stacks, etc. are hidden)
      applyNtoM :: takes N arguments on stack, generates M results
        provides an empty hand, like apply, for N,M=1..4
      applyS :: apply to full stack (hiding rest of environment)
@@ -52,7 +52,7 @@
 @composel swap compose
 @wrapfn swapd compose compose
 @.apply p %rr$l
-@apply  %rwrzvrwvvrrvrrz$wlcllccwlcl
+@apply %rwrzvrwvvrrvrrz$wlcllccwlcl
 @applyS %rwvvrrwvrrz$wlcwllcc
 @dip %rwrzvrwr$wlcl
 @hdip reifyHand putd dip take restoreHand
@@ -94,7 +94,12 @@
 @id.swap.compose [id] swap compose
 @id.inline.id [id] inline
 
-
+@doc.preApply "a→((a*1)*(1*1)); wrap argument in `apply` environment"
+@doc.postApply "((a*1)*(1*1))→a; unwrap result from `apply` environment"
+@doc.apwrap "[a -- b] -- [a→b]; apply 1:1 stack function in `apply` environment"
+@preApply %vvvr
+@postApply %lccc
+@applyWrap [preApply] [postApply] wrapfn
 
 @doc..first "(a*b) [a→a'] -- (a'*b)"
 @doc..second "(a*b) [b→b'] -- (a*b')"
@@ -169,8 +174,6 @@
  not assert x 7 assertEQ
  drop2 elim1
 
-
-
 @doc.Quotable
 "Most values in AO are quotable. 
  
@@ -202,8 +205,5 @@
 @eqv.idempotent.affine [affine affine] [affine]
 @eqv.idempotent.relevant [relevant relevant] [relevant]
 
-
-
 @eqv.appTwice.compApp [compose apply] [unrot apply swap apply]
 @eqv.inlineTwice.compInline [compose inline] [swap dip inline]
-
