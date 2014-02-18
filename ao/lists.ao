@@ -30,7 +30,7 @@
  [wx roll p rot dip x inline]
  ifk merged inline
 
-@reverseT&append.l [p] eachT.l
+@reverseT&append.l [p] eachTP.l
 @reverse&append.l reverseT&append.l drop
 @reverseT.l 0 swap reverseT&append.l
 @map&reverseT.l 0 unrot map&reverseT&append.l
@@ -42,6 +42,7 @@
 
 @each.l      eachT.l drop
 @map.l       map&reverseT.l swap reverseT&append.l drop
+@reverse.l   reverseT.l drop
 
 @doc.eachTP.l "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
 @doc.eachP.l "x y`L [x y -- x] -- x; in 'apply' environment"
@@ -85,12 +86,20 @@
  ifk merged inline
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
+@doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
+@doc.partitionHead.l "(a(hd)*a`L) -- a(≤hd)`L a(>hd)`L"
 @partitionBy.l mapP.l partition.l
+@partitionElem.l [lte1] bind partitionBy.l swap
+@partitionHead.l x dup dp partitionElem.l
 
 @test.partition.l 
  "hello, World!" [106 gt1] 
  partitionBy.l
  "lloorl" assertEQ drop2 
+
+@test.partitionHead.l
+ "hello, World!" partitionHead.l
+ drop "he, Wd!" assertEQ1
 
 @doc.filter.l "a`L [a--(b+c)] -- c`L; Droppable b"
 @filter.l partitionBy.l dropd
@@ -110,6 +119,12 @@
  [x copy remove.l swap inline put p]
  ifk merged inline
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
+
+@sort.l [step.sort.l] fixpoint apply
+@step.sort.l
+ swap isPair
+ [dropd]
+ [partitionHead
 
 
  

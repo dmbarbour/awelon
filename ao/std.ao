@@ -3,7 +3,6 @@
  lists sequences
  loops streams process
  math stats
- adverbs
 
 @doc.import.std "viable starting point for AO dictionaries"
 

@@ -50,6 +50,8 @@
 "TODO: make it easy to develop rewrite rules and compilers of this form. 
  
  AO is awful for direct expression of pattern-matching and transform logics (seeing as there is no syntactic support for pattern matching), but should be okay after a layer or two abstractions and indirections, or possibly using a DSL. Mostly, I need rewrite rules on a sequence, or a grammar model for sequence-to-sequence (or stream-to-stream, or set-of-streams to set-of-streams as a weighted optimization problem). Tree-based is much less essential.
+ 
+ TODO: make it easy to recognize pattern pairs for composition
 ~
 
 @doc.suffix.p doc.Processes

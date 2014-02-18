@@ -1,0 +1,15 @@
+
+@doc.Boolean 
+"A boolean, in AO, is simply a sum of unit values: 1 + 1. This sum is achieved by making an observation, which results in a sum, then dropping the information about what was observed. 
+  
+ Words for operating on booleans mostly use the `.b` suffix.
+~
+
+@doc.suffix.b doc.Boolean
+
+@true.b intro1 inR
+@false.b intro1 inL
+
+@doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- (1 + 1)"
+@toBoolean %rVR [%v%] %r?W [%v%] %r?WLCl
+
