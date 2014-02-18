@@ -130,7 +130,11 @@ modifiedWordAction w advs = Amb [S.fromList [bW, bAdv, app]] where
 
 -- adverbs may be used directly; `\*kd` expands to `\* \k \d`
 parseActionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
-parseActionAdverbs = P.char '\\' >> P.many1 (P.satisfy isAdvChar)
+parseActionAdverbs = 
+    P.char '\\' >> 
+    P.parserFail "adverbs disabled" >>
+    P.many1 (P.satisfy isAdvChar)
+
 
 -- | a definition is trivially a sequence of AO actions
 parseAODef :: P.Stream s m Char => P.ParsecT s u m AODef
