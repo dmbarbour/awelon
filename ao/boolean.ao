@@ -1,8 +1,6 @@
 
 @doc.Boolean 
-"A boolean, in AO, is simply a sum of unit values: 1 + 1. This sum is achieved by making an observation, which results in a sum, then dropping the information about what was observed. 
-  
- Words for operating on booleans mostly use the `.b` suffix.
+"A boolean, in AO, is simply a sum of unit values: 1 + 1. This sum is achieved by making an observation, which results in a sum, then dropping the information about what was observed. Words for operating on booleans use the `.b` suffix.
 ~
 
 @doc.suffix.b doc.Boolean
@@ -10,6 +8,44 @@
 @true.b intro1 inR
 @false.b intro1 inL
 
-@doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- (1 + 1)"
+@doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- Bool"
 @toBoolean %rVR [%v%] %r?W [%v%] %r?WLCl
+
+@doc.and.b "Bool Bool -- Bool; are both arguments true?"
+@doc.or.b "Bool Bool -- Bool; is at least one argument true?"
+@doc.xor.b "Bool Bool -- Bool; are the arguments distinct?"
+@doc.nand.b "Bool Bool -- Bool; is at least one argument false?"
+@doc.not.b "Bool -- Bool; invert boolean"
+
+@not.b %rVRWLCl
+
+@and.b 
+ distrib %rVRW
+ [%c] %r?WLC
+ %L [%v%] %r?l
+
+@nand.b and.b not.b
+
+@test.and.b
+ false.b false.b and.b false.b assertEQ1
+ false.b true.b  and.b false.b assertEQ1
+ true.b  true.b  and.b true.b  assertEQ1
+ true.b  false.b and.b false.b assertEQ1
+
+@test.not.b
+ false.b not.b true.b  assertEQ1 
+ true.b  not.b false.b assertEQ1
+
+@test.or.b
+ false.b false.b or.b false.b assertEQ1
+ false.b true.b  or.b true.b  assertEQ1
+ true.b  true.b  or.b true.b  assertEQ1
+ true.b  false.b or.b true.b  assertEQ1
+
+@test.xor.b
+ false.b false.b xor.b false.b assertEQ1
+ false.b true.b  xor.b true.b  assertEQ1
+ true.b  true.b  xor.b true.b  assertEQ1
+ true.b  false.b xor.b false.b assertEQ1
+
 

@@ -6,14 +6,15 @@
  * direct models of higher order programs and behavioral abstraction
  * transporting access and authority to resources and side-effects
  
- Best practices for use of blocks have not fully been established. Awelon project favors compositional abstractions to such an extent that use of ad-hoc parametric abstraction is discouraged. (See @doc.FirstPrincipleIsComposition.) My expectation is that blocks will be de-emphasized for behavioral abstraction in favor of indirect mechanisms - e.g. structured DSLs, symbolic expressions, free monads, staged programming. In this sense, AO discourages conventional 'functional programming' in favor of a more 'language oriented programming'.
+ Best practices for use of blocks have not fully been established. Awelon project favors compositional abstractions to such an extent that use of ad-hoc parametric abstraction is discouraged. (See @doc.FirstPrincipleIsComposition.) My expectation is that blocks will be de-emphasized for behavioral abstraction in favor of indirect mechanisms - e.g. structured DSLs, symbolic expressions, free monads, staged programming. In this sense, AO would discourage conventional 'functional programming' in favor of a more 'language oriented programming'.
  
  Nonetheless, blocks remain essential for loops, effects, and conditions. Also, blocks make an effective compilation target, an alternative to interpretation, and they can help an embedded DSL model corner cases.
  
  Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
  
      compose :: [x→y] [y→z] -- [x→z]      (sequential)
-     .curry  :: x [(x*y)→z] -- [y→z]      (partial)
+     bind    :: x [x--y] -- [--y]         (partial)
+     .bind   :: x [(x*y)→z] -- [y→z]      (partial)
      .bfirst :: [x→y] -- [(x*e)→(y*e)]    (concurrent)
      .bleft  :: [x→y] -- [(x+e)→(y+e)]    (conditional)
  
@@ -59,9 +60,12 @@
 @inline %rvr$c
 @keep dupd dip
 
-@dip2 dp dip x
-@dip3 dp dp dip x x
-@dip4 dp dp dp dip x x x
+@dip2 dpw dip  wx
+@dip3 dpw dip2 wx
+@dip4 dpw dip3 wx
+@dip5 dpw dip4 wx
+@dip6 dpw dip5 wx
+@dip7 dpw dip6 wx
 @keep2 take dup2 put dip2
 @keep3 take dup3 put dip3
 @keep4 take dup4 put dip4
@@ -111,9 +115,9 @@
 @eqv.cca [.both] [swap take2 pw put2 .both pw]
 
 @doc..bind "x [(x*y)→z] -- [y→z]; bind argument into pair"
-@doc.bind "x [((x*s)*e)→z] -- [(s*e)→z]; bind argument onto stack"
+@doc.bind "x [x -- z] -- [-- z]; bind argument onto stack"
 @doc..curry "[(x*y)→z] -- [x→[y→z]]; curry pair argument"
-@doc.curry "[((x*s)*e)→z] -- [x→[(s*e)→z]]; curry stack argument"
+@doc.curry "[x--z] -- [x--[--z]]; curry stack argument"
 @doc..bfirst "[x→x'] -- [(x*y)→(x'*y)]"
 @doc..bleft "[x→x'] -- [(x+y)→(x'+y)]"
 @doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
@@ -125,6 +129,13 @@
 @bind2 bind bind
 @bind3 bind bind bind
 @bind4 bind bind bind bind
+
+@doc.bind2nd "x [x y -- z] -- [y -- z]"
+@doc.bind3rd "w [w x y -- z] -- [x y -- z]"
+@doc.bind4th "v [v w x y -- z] -- [w x y -- z]"
+@bind2nd [swap] composel bind
+@bind3rd [unrot] composel bind
+@bind4th [unroll] composel bind
 
 @.curry [.bind] bind
 @curry  [bind]  bind
@@ -173,6 +184,88 @@
  [6 %r*] .bright .apply
  not assert x 7 assertEQ
  drop2 elim1
+
+@doc.bi 
+"apply two blocks to one argument.
+ 
+     [p] [q] bi 
+        is equivalent to
+     [p] keep q
+ 
+~
+@bi [keep] dip inline
+@bi.blockFree rot dup dp swap rot dip wx inline
+
+@test.bi
+ 6 [5 .add] [7 .mul] bi
+ 42 assertEQ1 swap
+ 11 assertEQ1 swap
+
+@doc.bi2 
+"apply two blocks each to same two arguments.
+ 
+     [p] [q] bi2 
+        is equivalent to
+     [p] keep2 q
+ 
+~
+@doc.bi3 "apply two blocks each to same three arguments"
+@bi2 [keep2] dip inline
+@bi3 [keep3] dip inline
+@test.bi2
+ 6 7 [.add] [.mul] bi2
+ 42 assertEQ1 swap
+ 13 assertEQ1 swap
+
+@doc.tri "[p] [q] [r] tri = [p] keep [q] keep r; apply 3 blocks to same 1 arg"
+@doc.tri2 "apply 3 blocks to the same 2 args"
+@doc.tri3 "apply 3 blocks each to the same 3 args"
+@tri [keep] dip2 bi
+@tri2 [keep2] dip2 bi2
+@tri3 [keep3] dip2 bi3
+@test.tri2
+ 6 7 [.add] [.mul] [.square swap .square .add] tri2
+ 85 assertEQ1 unrot
+ 42 assertEQ1 unrot
+ 13 assertEQ1 unrot
+
+@doc.bi* "apply 2 blocks each to respective input"
+@doc.bi2* "apply 2 blocks each to 2 respective inputs"
+@doc.bi3* "apply 2 blocks each to 3 respective inputs"
+@doc.tri* "apply 3 blocks each to respective input"
+@doc.tri2* "apply 3 blocks each to 2 respective inputs"
+@doc.tri3* "apply 3 blocks each to 3 respective inputs"
+@bi* [dip] dip inline
+@bi2* [dip2] dip inline
+@bi3* [dip3] dip inline
+@tri* [dip2] dip2 bi*
+@tri2* [dip4] dip2 bi2*
+@tri3* [dip6] dip2 bi3*
+
+@test.tri*
+ 6 7 8 [9 .add] [10 .mul] [11 .sub] tri*
+ -3 assertEQ1 unrot
+ 70 assertEQ1 unrot
+ 15 assertEQ1 unrot
+
+@test.tri2*
+ 6 7 8 9 10 11 [.mul] [.add] [.div] tri2*
+ 10/11 assertEQ1 unrot
+ 17 assertEQ1 unrot
+ 42 assertEQ1 unrot
+
+@doc.bi~ "apply a single block to two different inputs"
+@doc.bi2~ "apply a single block to two pairs of inputs"
+@doc.bi3~ "apply a single block to two triples of inputs"
+@doc.tri~ "apply a single block to three different inputs"
+@doc.tri2~ "apply a single block to three pairs of inputs"
+@doc.tri3~ "apply a single block to three triples of inputs"
+@bi~ dup bi*
+@bi2~ dup bi2*
+@bi3~ dup bi3*
+@tri~ dup2 tri*
+@tri2~ dup2 tri2*
+@tri3~ dup2 tri3* 
 
 @doc.Quotable
 "Most values in AO are quotable. 

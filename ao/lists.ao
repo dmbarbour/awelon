@@ -28,7 +28,7 @@
  rot isPair
  [nip2 assertNumber]
  [wx roll p rot dip x inline]
- ifk merged inline
+ ifkm!
 
 @reverseT&append.l [p] eachTP.l
 @reverse&append.l reverseT&append.l drop
@@ -42,7 +42,13 @@
 
 @each.l      eachT.l drop
 @map.l       map&reverseT.l swap reverseT&append.l drop
-@reverse.l   reverseT.l drop
+
+@doc.reverse.l "reverse a list (nel 0)"
+@doc.reverseText.l "reverse text (as a list; nel 3)"
+@doc.reverseBinary.l "reverse binary list (nel 8)"
+@reverse.l reverseT.l drop
+@reverseText.l 3 swap reverseT&append.l 3 assertEQ1 drop
+@reverseBinary.l 8 swap reverseT&append.l 8 assertEQ1 drop
 
 @doc.eachTP.l "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
 @doc.eachP.l "x y`L [x y -- x] -- x; in 'apply' environment"
@@ -80,10 +86,7 @@
  reverse&append.l
  unrot swap
  reverse&append.l
-@push.partition.l
- [dx p p]
- [dwx p pw]
- ifk merged inline
+@push.partition.l [dx p p] [dwx p pw] ifkm!
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
@@ -117,7 +120,7 @@
  swap isPair
  [dropd]
  [x copy remove.l swap inline put p]
- ifk merged inline
+ ifkm!
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 
 @sort.l [step.sort.l] fixpoint apply

@@ -56,6 +56,15 @@ boolean
 @lte1 p %rr>  [.fst] %r? .mirror [.snd] %r?l
 @gte1 p %rrw> [.snd] %r? .mirror [.fst] %r?l
 
+@doc.gtb "a x -- Bool; a > x?"
+@doc.ltb "a x -- Bool; a < x?"
+@doc.gteb "a x -- Bool; a ≥ x?"
+@doc.lteb "a x -- Bool; a ≤ x?"
+@gtb gt toBoolean
+@ltb lt toBoolean
+@gteb gte toBoolean
+@lteb lte toBoolean
+
 @doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a))"
 @doc.neq "a b -- (EQ(b*a) + (LT(a*b) + GT(b*a)))"
 @eq neq not
@@ -71,6 +80,12 @@ boolean
 @eq1m eq1 [%vMc] .left
 @neq1m eq1m not
 
+@doc.eqb "a b -- Bool; a = b?"
+@doc.neqb "a b -- Bool; a ≠ b?"
+@eqb eq toBoolean
+@neqb neq toBoolean
+
+
 @doc.distrib "(a + b) c -- ((c*a) + (c*b))"
 @doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
 @doc.merge   "(a + a') -- a; a and a' must be future compatible"
@@ -85,10 +100,16 @@ boolean
 @doc.ifk "keep one of two values based on condition; keep conditional"
 @doc.if "keep one of two values based on condition; drop conditional"
 @doc.if! "apply if to select a block, then apply the block inline"
+@doc.ifkm "keep but merge the conditional"
+@doc.ifkm! "keep but merge the conditional, then inline the call"
 @condSwap p distrib [%rwl] .left fullFactor wx
 @ifk condSwap drop
 @if ifk dropd
 @if! if inline
+@ifkm ifk merged
+@ifkm! ifkm inline
+
+
 
 @doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
