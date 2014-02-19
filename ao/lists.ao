@@ -84,15 +84,18 @@
  * list to/from stream
 ~
 
+@doc.partition&append&reverseT.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L (as+bs)`Nel" 
 @doc.partition.l "(a+b)`L -- a`L b`L"
-@partition.l 
- 0 0 pw swap 
- [push.partition.l] eachTP.l
- dx dup rot 
- reverse&append.l
- unrot swap
- reverse&append.l
-@push.partition.l [dx p p] [dwx p pw] ifkm!
+@partition&append&reverseT.l
+ unrot pw swap
+ [pushrv.partition.l]
+ eachTP.l dx
+@pushrv.partition.l [dx p p] [dwx p pw] ifkm!
+@partition&reverseT.l 0 0 rot partition&append&reverseT.l
+@partition.l
+ partition&reverseT.l dup
+ rot reverse&append.l
+ unrot swap reverse&append.l
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
@@ -130,8 +133,8 @@
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 
 @sort.l [step.sort.l] fixpoint apply
-@step.sort.l swap isPair [dropd] [body.sort.l] ifkm!
-@body.sort.l x copy partitionElem.l rot bi& put p append.l
+@step.sort.l swap isPair [dropd] [nonEmpty.sort.l] ifkm!
+@nonEmpty.sort.l x copy partitionElem.l rot bi& put p append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
 
 @doc.AssocLists
