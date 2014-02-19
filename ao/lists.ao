@@ -18,6 +18,13 @@
 
 @doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
 @doc.reverseT&append.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
+
+@id.reverseT&append.l 0 swap reverseT&append.l swap reverseT&append.l drop
+@test.id.reverseT&append.l 
+ "hello, World!" dup 
+ [id.reverseT&append.l] apply 
+ assertEQ1
+
 @doc.map&reverseT.l "a`L [a -- b] -- b`L(reversed) a`Nel"
 @doc.map&reverseT&append.l "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
 @doc.reverseT.l "a`L -- (reverse a, terminate in 0)`L a`Nel"
@@ -55,6 +62,10 @@
 @reverse.l reverseT.l drop
 @reverseText.l 3 swap reverseT&append.l 3 assertEQ1 drop
 @reverseBinary.l 8 swap reverseT&append.l 8 assertEQ1 drop
+
+@test.reverseText.l 
+ "hello, World!" reverseText.l
+ "!dlroW ,olleh" assertEQ1
 
 @doc.eachTP.l "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
 @doc.eachP.l "x y`L [x y -- x] -- x; in 'apply' environment"
