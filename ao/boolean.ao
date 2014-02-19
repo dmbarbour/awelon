@@ -1,6 +1,8 @@
 
 @doc.Boolean 
 "A boolean, in AO, is simply a sum of unit values: 1 + 1. This sum is achieved by making an observation, which results in a sum, then dropping the information about what was observed. Words for operating on booleans use the `.b` suffix.
+ 
+ Aside: Booleans exhibit a problem described as 'boolean blindness' by Bob Harper: they lose too much information about context, about which condition was observed and what the boolean means. AO can model booleans with sum types, but often it is wiser to stick with sum types. It may eventually prove useful to model logical propositions more explicitly and symbolically.
 ~
 
 @doc.suffix.b doc.Boolean
@@ -11,6 +13,9 @@
 @doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- Bool"
 @toBoolean %rVR [%v%] %r?W [%v%] %r?WLCl
 
+@doc.assertBoolean "Bool -- Bool; enforces boolean argument"
+@assertBoolean %rVR [.assertUnit] %r?W [.assertUnit] %r?WLCl
+
 @doc.and.b "Bool Bool -- Bool; are both arguments true?"
 @doc.or.b "Bool Bool -- Bool; is at least one argument true?"
 @doc.xor.b "Bool Bool -- Bool; are the arguments distinct?"
@@ -18,13 +23,13 @@
 @doc.not.b "Bool -- Bool; invert boolean"
 
 @not.b %rVRWLCl
-
-@and.b 
- distrib %rVRW
- [%c] %r?WLC
- %L [%v%] %r?l
-
 @nand.b and.b not.b
+@and.b distrib %rVRW [%c] %r?WLCL [%v%] %r?l
+@or.b  distrib %r [%c] %r?RVRW [%v%] %r?WLCl
+@xor.b 
+ distrib 
+ %r [%c] %r? %VRW [%c] %r? %LCRWZL
+ %VR [%vMc] %r?W [%vMc] %r?WLCl
 
 @test.and.b
  false.b false.b and.b false.b assertEQ1
@@ -45,7 +50,16 @@
 @test.xor.b
  false.b false.b xor.b false.b assertEQ1
  false.b true.b  xor.b true.b  assertEQ1
- true.b  true.b  xor.b true.b  assertEQ1
- true.b  false.b xor.b false.b assertEQ1
+ true.b  true.b  xor.b false.b assertEQ1
+ true.b  false.b xor.b true.b  assertEQ1
+
+@id.not.b not.b not.b
+@id.assertBoolean assertBoolean
+@eqv.idempotent.toBoolean [toBoolean] [toBoolean toBoolean]
+@eqv.commutative.and.b [and.b] [swap and.b]
+@eqv.commutative.or.b  [or.b]  [swap or.b]
+@eqv.commutative.xor.b [xor.b] [swap xor.b]
+@eqv.deMorgans.1 [and.b not.b] [not.b swap not.b swap or.b]
+@eqv.deMorgans.2 [or.b not.b] [not.b swap not.b swap and.b]
 
 

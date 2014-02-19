@@ -39,9 +39,15 @@
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
+@doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 
 @each.l      eachT.l drop
 @map.l       map&reverseT.l swap reverseT&append.l drop
+@append.l swap reverse.l reverse&append.l
+
+@test.append.l 
+ "hello, " "World!" append.l
+ "hello, World!" assertEQ1
 
 @doc.reverse.l "reverse a list (nel 0)"
 @doc.reverseText.l "reverse text (as a list; nel 3)"
@@ -90,7 +96,7 @@
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
-@doc.partitionHead.l "(a(hd)*a`L) -- a(≤hd)`L a(>hd)`L"
+@doc.partitionHead.l "(hd*a`L) -- a(≤hd)`L a(>hd)`L"
 @partitionBy.l mapP.l partition.l
 @partitionElem.l [lte1] bind partitionBy.l swap
 @partitionHead.l x dup dp partitionElem.l
@@ -98,7 +104,7 @@
 @test.partition.l 
  "hello, World!" [106 gt1] 
  partitionBy.l
- "lloorl" assertEQ drop2 
+ "lloorl" assertEQ1 drop2
 
 @test.partitionHead.l
  "hello, World!" partitionHead.l
@@ -124,13 +130,9 @@
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 
 @sort.l [step.sort.l] fixpoint apply
-@step.sort.l
- swap isPair
- [dropd]
- [partitionHead
-
-
- 
+@step.sort.l swap isPair [dropd] [body.sort.l] ifkm!
+@body.sort.l x copy partitionElem.l rot bi& put p append.l
+@test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
@@ -145,5 +147,4 @@
 @seal.lq sealer.lq .apply
 @unseal.lq unsealer.lq .apply
 @empty.lq 0 0 pw [] pw seal.lq
-@copy.lq 
 

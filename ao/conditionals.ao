@@ -244,6 +244,9 @@ boolean
 @assertSum    isSum assert
 @assertUnit   elim1 intro1
 
+@doc..assertUnit "1→1; assert singular value is unit"
+@.assertUnit %vvrwlcc
+
 @assertInteger  dup 1 .rem assertEQz drop
 @assertNatural  assertGTEz assertInteger
 @assertNatural+ assertGTz  assertInteger
@@ -258,6 +261,7 @@ boolean
 @id.assertBlock assertBlock
 @id.assertSum assertSum
 @id.assertUnit assertUnit
+@id..assertUnit .assertUnit
 @id.assertLT assertLT
 @id.assertLTE assertLTE
 @id.assertGT assertGT

@@ -48,6 +48,22 @@
 @drop3 drop drop drop
 @drop4 drop drop drop drop
 
+@doc.swap2 "a b c d -- c d a b"
+@doc.swap3 "a b c d e f -- d e f a b c"
+@doc.swap4 "a b c d e f g h -- e f g h a b c d"
+@swap2 p     dp       swap dx       x
+@swap3 p p   dp dp    swap dx dx    x x
+@swap4 p p p dp dp dp swap dx dx dx x x x
+
+@test.swap3
+ 1 2 3 4 5 6 swap3
+ 3 assertEQ1 drop
+ 2 assertEQ1 drop
+ 1 assertEQ1 drop
+ 6 assertEQ1 drop
+ 5 assertEQ1 drop
+ 4 assertEQ1 drop
+
 @doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
 @doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
 @doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"

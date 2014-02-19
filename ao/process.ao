@@ -24,6 +24,8 @@
 @doc.ProcessRep
 "The abstract model for a process is µP.[a→(P*b)]. This abstract model can be implemented directly, but it involves opaque dynamic elements that can be very difficult for a compiler to optimize. 
  
+ In addition, as this is an incremental process that will presumably be executed incrementally on multiple elements, it can be useful to think about type 'a' or `b` as a stream (a`S) of inputs. Relevantly, we can distinguish (a`S * b`S) from (a*b)`S at the symbolic optimizations layer, and only convert between them as necessary.
+ 
  To reduce the burden on the compiler, AO uses a symbolic model for processes and performs its own rewrite optimizations before compiling. The resulting block should then be easier to further optimize. The intention is that, in practice, processes should mostly be compiled via partial evaluation.
  
  Basic Processes (essentially an ADT based on Arrows):

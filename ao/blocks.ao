@@ -254,25 +254,25 @@
  17 assertEQ1 unrot
  42 assertEQ1 unrot
 
-@doc.bi~ "apply a single block to two different inputs"
-@doc.bi2~ "apply a single block to two pairs of inputs"
-@doc.bi3~ "apply a single block to two triples of inputs"
-@doc.tri~ "apply a single block to three different inputs"
-@doc.tri2~ "apply a single block to three pairs of inputs"
-@doc.tri3~ "apply a single block to three triples of inputs"
-@bi~ dup bi*
-@bi2~ dup bi2*
-@bi3~ dup bi3*
-@tri~ dup2 tri*
-@tri2~ dup2 tri2*
-@tri3~ dup2 tri3* 
+@doc.bi& "apply a single block to two different inputs"
+@doc.bi2& "apply a single block to two pairs of inputs"
+@doc.bi3& "apply a single block to two triples of inputs"
+@doc.tri& "apply a single block to three different inputs"
+@doc.tri2& "apply a single block to three pairs of inputs"
+@doc.tri3& "apply a single block to three triples of inputs"
+@bi& dup bi*
+@bi2& dup bi2*
+@bi3& dup bi3*
+@tri& dup2 tri*
+@tri2& dup2 tri2*
+@tri3& dup2 tri3* 
 
 @doc.Quotable
 "Most values in AO are quotable. 
  
  There are some unusual exceptions. For example, distributed values (e.g. a pair of which one value is computed at the GPU and another on the CPU) are not quotable. All values entering a quote must be observable at a common location, which is then inherited by the quotation.
  
- A quotation is simply a block that reproduces a value. This typically has special support from the implementation, but will be serialized to code when necessary for display or networking.
+ A quotation is simply a block that reproduces a value. This typically will have special support from the implementation, but will be serialized to code when necessary for display or networking.
  
  If a block with affine or relevant properties is quoted, the quote will inherit these properties. 
 ~
