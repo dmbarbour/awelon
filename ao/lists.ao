@@ -30,7 +30,7 @@
  [wx roll p rot dip x inline]
  ifkm!
 
-@reverseT&append.l [p] eachTP.l
+@reverseT&append.l [cons.l] eachTP.l
 @reverse&append.l reverseT&append.l drop
 @reverseT.l 0 swap reverseT&append.l
 @map&reverseT.l 0 unrot map&reverseT&append.l
@@ -89,8 +89,8 @@
 @partition&append&reverseT.l
  unrot pw swap
  [pushrv.partition.l]
- eachTP.l dx
-@pushrv.partition.l [dx p p] [dwx p pw] ifkm!
+ eachTP.l dwx
+@pushrv.partition.l [dx cons.l p] [dwx cons.l pw] ifkm!
 @partition&reverseT.l 0 0 rot partition&append&reverseT.l
 @partition.l
  partition&reverseT.l dup
@@ -100,7 +100,7 @@
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
 @doc.partitionHead.l "(hd*a`L) -- a(≤hd)`L a(>hd)`L"
-@partitionBy.l mapP.l partition.l
+@partitionBy.l map&reverseT.l dup rot partition&append&reverseT.l drop
 @partitionElem.l [lte1] bind partitionBy.l swap
 @partitionHead.l x dup dp partitionElem.l
 
@@ -134,8 +134,12 @@
 
 @sort.l [step.sort.l] fixpoint apply
 @step.sort.l swap isPair [dropd] [nonEmpty.sort.l] ifkm!
-@nonEmpty.sort.l x copy partitionElem.l rot bi& put p append.l
+@nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
+
+@doc.cons.l "a`L a -- a`L; add element to list"
+@cons.l p
+
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
