@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.8.6
+Version: 0.8.7
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -62,7 +62,7 @@ Executable ao
      , containers
      , parsec
   main-is: AO.hs
-  ghc-options: -auto-all -Wall -rtsopts
+  ghc-options: -auto-all -Wall -rtsopts -threaded
 
 Library
   hs-Source-Dirs: hsrc

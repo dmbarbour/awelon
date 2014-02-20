@@ -17,6 +17,8 @@ module Main
     ) where
 
 import Control.Applicative
+--import Control.Concurrent
+--import System.IO.Unsafe (unsafeInterleaveIO)
 -- import Control.Monad
 import Data.IORef
 import qualified Data.List as L
@@ -41,6 +43,8 @@ data Mode
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
     }
+data TestStatus = Pass | Warn | Fail deriving(Eq)
+
 type TestResult = (TestState, Maybe (V IO))
 ts0 :: TestState
 ts0 = TestState S.empty
@@ -86,8 +90,16 @@ runTests d0 =
     loadDictionary d0 >>= \ dict ->
     let dc = compileDictionary dict in
     let tests = M.filterWithKey isTestWord dc in
-    mapM (onSnd runTest) (M.toList tests) >>=
-    mapM_ (uncurry reportTest)
+    mapM (onSnd runTest) (M.toList tests) >>= \ testResults ->
+    mapM_ (uncurry reportTest) testResults >> 
+    let nPass = L.length $ L.filter (testPass . snd) testResults in
+    let nWarn = L.length $ L.filter (testWarn . snd) testResults in
+    let nFail = L.length $ L.filter (testFail . snd) testResults in
+    let summary = show nPass ++ " PASS; " 
+               ++ show nWarn ++ " WARN; " 
+               ++ show nFail ++ " FAIL"
+    in
+    Sys.putStrLn summary
 
 isTestWord :: W -> a -> Bool
 isTestWord w _ = T.isPrefixOf (T.pack "test.") w
@@ -100,20 +112,25 @@ onSnd f (a,b) = ((,) a) <$> f b
 ---------------------------
 
 reportTest :: W -> TestResult -> IO ()
-reportTest w (ts,Just _) | tsOkay ts = 
-    Sys.putStrLn ("(pass) " ++ T.unpack w)
-reportTest w (ts,Just _) | otherwise =
-    Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
-    Sys.putStrLn (indent "  " $ tsFailureMsg ts)    
-reportTest w (ts,Nothing) =
-    Sys.putStrLn ("(FAIL) " ++ T.unpack w) >>
-    Sys.putStrLn (indent "  " $ tsFailureMsg ts)    
+reportTest w tsr =
+    case testStatus tsr of
+        Pass -> Sys.putStrLn ("(pass) " ++ T.unpack w)
+        Warn -> Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
+                Sys.putStrLn (indent "  " $ tsrFailureMsg tsr)
+        Fail -> Sys.putStrLn ("(FAIL) " ++ T.unpack w) >>
+                Sys.putStrLn (indent "  " $ tsrFailureMsg tsr)
 
-tsOkay :: TestState -> Bool
-tsOkay = S.null . ts_emsg
+tsrFailureMsg :: TestResult -> String
+tsrFailureMsg = T.unpack . T.unlines . S.toList . ts_emsg . fst
 
-tsFailureMsg :: TestState -> String
-tsFailureMsg = T.unpack . T.unlines . S.toList . ts_emsg
+testStatus :: TestResult -> TestStatus
+testStatus (ts, Just _) = if (S.null (ts_emsg ts)) then Pass else Warn
+testStatus (_, Nothing) = Fail
+
+testPass, testWarn, testFail :: TestResult -> Bool
+testPass = (Pass ==) . testStatus
+testWarn = (Warn ==) . testStatus
+testFail = (Fail ==) . testStatus
 
 indent :: String -> String -> String
 indent ws = L.unlines . map (ws ++) . L.lines 
@@ -139,6 +156,18 @@ runTest code =
         Right vf ->
             readIORef rf >>= \ tsf ->
             return (tsf, Just vf)
+
+{-
+-- fork test in a thread; lazily obtain result from MVar
+--
+-- TODO: consider introducing a thread worker pool so at 
+-- most K tests run at any given time.
+runTestAsync :: S.Seq Op -> IO TestResult
+runTestAsync code =
+    newEmptyMVar >>= \ mvResult ->
+    forkIO (runTest code >>= putMVar mvResult) >>
+    unsafeInterleaveIO (readMVar mvResult)
+-}
 
 -- standard environment with given powerblock.
 stdEnv :: (Monad m) => V m -> V m
