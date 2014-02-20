@@ -46,3 +46,12 @@
  put x take x
  .square paste .div 
  .sub put .div
+
+
+@test.stats
+ new.stats [add.stats] 1 10 enumFromTo
+ count.stats 10  assertEQ1 drop
+ sum.stats   55  assertEQ1 drop
+ sumsq.stats 385 assertEQ1 drop
+
+
