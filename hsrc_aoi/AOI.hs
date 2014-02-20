@@ -124,7 +124,7 @@ initAOI = lift aoiReload >> greet where
             let imp = T.unpack (aoi_source cx) in
             let dictMsg = "  dict " ++ imp ++ " (" ++ show wc ++ " words)" in
             HKL.outputStrLn dictMsg >>
-            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload"
+            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload, '-' to undo"
 
 finiAOI :: HKL.InputT AOI ()
 finiAOI = 
@@ -140,10 +140,15 @@ aoiHaskelineLoop =
     foi (HKL.getInputLine prompt) >>= \ sInput ->
     case sInput of
         Nothing -> return ()
+        Just "-" -> lift aoiStepBack >> aoiHaskelineLoop
         Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
             foi (lift (aoiStep (T.pack (' ':str)))) >>
             aoiHaskelineLoop
 
+aoiStepBack :: AOI ()
+aoiStepBack = modCX undo where
+    undo cx = cx { aoi_step = hls_undo (aoi_step cx) }
+    
 -- fail on interrupt
 foi :: HKL.InputT AOI a -> HKL.InputT AOI a
 foi = HKL.handleInterrupt (fail "ctrl+c")

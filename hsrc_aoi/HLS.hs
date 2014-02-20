@@ -1,9 +1,13 @@
 
 -- | HLS describes state with history and a half-life. The decay is
--- pseudo-random on a flat buffer. Developers can set two parameters:
+-- pseudo-random on a flat buffer. Developers can set three parameters:
 --
 --   halflife - determines how much state is kept
 --   join function - determines how old states collapse
+--
+-- One full halflife is kept without loss. So if the halflife is 30, 
+-- you'll always have at least the last 30 frames. The default half
+-- life is an approximation of e.
 --
 -- An alternative implementation might use multiple ring buffers for
 -- state, dropping the occasional state as it moves from buffer to
@@ -14,6 +18,7 @@ module HLS
     , hls_init
     , hls_put, hls_get, hls_modify
     , hls_getHist
+    , hls_undo
     ) where
 
 import qualified Data.Sequence as S
@@ -51,11 +56,19 @@ hls_init = hls_full_init 2.71828 const
 hls_getHist :: HLS s -> [s]
 hls_getHist hls = S.toList (hls_state hls S.<| hls_hist hls)
 
+-- | step back a little
+hls_undo :: HLS s -> HLS s
+hls_undo hls = case S.viewl (hls_hist hls) of
+    S.EmptyL -> hls
+    (s S.:< h) -> hls { hls_state = s, hls_hist = h }
+
 -- | put a value into the state
 hls_put :: s -> HLS s -> HLS s
 hls_put s hls =
     let (r,g') = R.random (hls_rgen hls) in
-    let n = negate $ round $ log (1.0 - r) * hls_halflife hls in
+    let hl = hls_halflife hls in
+    let decayTgt = negate $ log (1.0 - r) * hl in
+    let n = ceiling $ hl + decayTgt in
     let h' = dropHLS (hls_join hls) n (hls_state hls S.<| hls_hist hls) in
     h' `seq` s `seq`
     hls { hls_rgen = g', hls_state = s, hls_hist = h' }
