@@ -149,8 +149,8 @@ boolean
  [%r] %r? .mirror
  %FwMwlcl
 
-@doc.leftJoin "(a+b) [a--b] -- b; apply on left then merge inline (can tail-call optimize)"
-@doc.rightJoin "(a+b) [b--a] -- a; apply in right then merge inline (can tail-call optimize)"
+@doc.leftJoin "(a+b) [a--b] -- b; apply on left then merge inline"
+@doc.rightJoin "(a+b) [b--a] -- a; apply in right then merge inline"
 @leftJoin .distribdE %w?Mc
 @rightJoin .distribdE .mirror %w?Mc
 
