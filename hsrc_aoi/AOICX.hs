@@ -76,7 +76,7 @@ defaultContext = AOI_CONTEXT
     { aoi_dict = M.empty
     , aoi_powers = M.empty
     , aoi_source = T.pack "aoi"
-    , aoi_step = hls_init (0, defaultEnv)
+    , aoi_step = hls_full_init 7 const (0, defaultEnv)
     , aoi_ifn = defaultIFN
     }
 
