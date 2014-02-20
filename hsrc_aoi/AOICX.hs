@@ -166,19 +166,7 @@ compileActions actions =
 compileABC :: AOI_CONTEXT -> S.Seq Op -> ABC AOI
 compileABC _ ops = 
     ABC { abc_code = ops
-        , abc_comp = runABC invokeAOI ops } 
-
--- invokeAOI is called only for annotations. The powerblock and
--- default interpreter are provided as ABC precompiled blocks,
--- so are not invoked this way.
-invokeAOI :: Text -> V AOI -> AOI (V AOI)
-invokeAOI tok =
-    case T.uncons tok of
-        Just ('&',_) -> return
-        _ -> const $ illegalToken tok
-
-illegalToken :: Text -> AOI e
-illegalToken tok = fail $ "illegal token: {" ++ T.unpack tok ++ "}"
+        , abc_comp = runABC invNull ops } 
 
 -- manipulate step values
 aoiGetStep :: AOI StepState
