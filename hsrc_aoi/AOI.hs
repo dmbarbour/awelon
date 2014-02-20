@@ -40,7 +40,6 @@ import Control.Applicative
 import Control.Arrow (first)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
-import Data.IORef
 
 import qualified System.IO as Sys
 import qualified System.Exit as Sys
@@ -84,9 +83,6 @@ newDefaultContext = Env.getArgs >>= foldM p cx0 where
     p _ "-?" = runHelp
     p _ "-help" = runHelp
     p cx (dictArg -> Just d) = return $ cx { aoi_source = T.pack d }
-    p cx "-frames" = 
-        newIORef (hls_init []) >>= \ rf ->
-        return $ cx { aoi_frames = Just rf }
     p cx a = putErrLn ("unknown arg: " ++ a) >> return cx
     dictArg = L.stripPrefix "-dict="
 
@@ -94,7 +90,7 @@ runHelp :: IO a
 runHelp = putErrLn helpMsg >> Sys.exitSuccess where
     helpMsg = "-? -help      this message\n"
            ++ "-dict=foo     set AO dictionary (foo.ao on AO_PATH)\n"
-           ++ "-frames       enable debug frames\n"
+           -- ++ "-frames       enable debug frames\n"
 
 -- recovery loop will handle state errors (apart from parse errors)
 -- by reversing the ABC streaming state to the prior step. If this
@@ -106,12 +102,7 @@ recoveryLoop aoi cx0 =
         Right () -> return () -- clean exit
         Left (E eTxt) ->
             putErrLn (T.unpack eTxt) >>
-            printCX (aoi_frames cx') >>
             recoveryLoop aoi cx' -- continue the loop
-
-printCX :: Maybe (IORef FrameHist) -> IO ()
-printCX Nothing = return ()
-printCX (Just rf) = readIORef rf >>= reportContext
 
 initAOI :: HKL.InputT AOI ()
 initAOI = lift aoiReload >> greet where
@@ -134,7 +125,6 @@ finiAOI =
 aoiHaskelineLoop :: HKL.InputT AOI ()
 aoiHaskelineLoop =
     aoiHklPrint >>
-    lift resetFrameHist >> -- debug history per paragraph
     (fst <$> lift aoiGetStep) >>= \ n ->
     let prompt = show (n + 1) ++ ": " in
     foi (HKL.getInputLine prompt) >>= \ sInput ->
@@ -265,30 +255,6 @@ getHistoryFile = tryIO $
     let fp = appDir FS.</> FS.fromText (T.pack "hist.haskeline") in
     FS.appendFile fp B.empty >>
     return (FS.encodeString fp)
-
--- reportContext prints a stack trace and an incomplete stack history
--- (the stack history is based on state with a halflife)
-reportContext :: HLS [Text] -> IO ()
-reportContext hls = stackTrace >> histTrace where
-    stack = hls_get hls
-    stackTrace = unless (L.null stack) $
-        putErrLn "== CALL STACK ==" >>
-        mapM_ (putErrLn . T.unpack) stack 
-    hist = L.map L.nub $ L.reverse (hls_getHist hls)
-    diffs = L.filter hasDiff $ L.map snd $ 
-            L.scanl stackDiff ([],([],[])) hist 
-    hasDiff ([],[]) = False
-    hasDiff _ = True
-    histTrace = unless (L.null diffs) $ -- simplistic history trace
-        putStrLn "== INCOMPLETE STACK HISTORY ==" >>
-        mapM_ showStackDiff diffs
-    stackDiff (sPrev,_) sNew = 
-        let added = L.filter (`L.notElem` sPrev) sNew in
-        let removed = L.filter (`L.notElem` sNew) sPrev in
-        (sNew, (added, removed))
-    showStackDiff (lAdd, lRem) = 
-        mapM_ putStrLn (L.map (("- " ++) . T.unpack) lRem) >>
-        mapM_ putStrLn (L.map (("+ " ++) . T.unpack) (L.reverse lAdd))
 
 dictCompletions :: DictC -> String -> [HKL.Completion]
 dictCompletions _ [] = []

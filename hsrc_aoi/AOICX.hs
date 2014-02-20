@@ -3,28 +3,25 @@
 -- data structures and context for AOI
 module AOICX
     ( AOI_CONTEXT(..), IFN(..), AOI, runAOI
-    , Error(..), Frame, FrameHist, Power
+    , Error(..), Power
     , defaultContext, defaultEnv, defaultPB
     , getCX, putCX, modCX
-    , pushFrame, popFrame, popFrame', enableFrameHist, resetFrameHist
     , defaultIFN, aoiGetIfn, aoiPutIfn
     , aoiGetStep, aoiPushStep
     , aoiReload
     ) where
 
 import Control.Applicative
+import Control.Monad
 import qualified Control.Monad.Trans.State.Strict as MT
 import qualified Control.Monad.Trans.Error as MT 
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
-import Data.IORef 
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Map as M
---import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Sequence as S
-import qualified Data.List as L
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 
@@ -36,9 +33,7 @@ import AO.ABC
 import HLS
 
 newtype Error = E Text
-type Frame = Text
 type StepState = (Integer, V AOI)
-type FrameHist = HLS [Frame]
 type Power = V AOI -> AOI (V AOI)
 
 instance MT.Error Error where strMsg = E . T.pack 
@@ -72,7 +67,6 @@ data AOI_CONTEXT = AOI_CONTEXT
     { aoi_dict    :: !DictC  -- loaded and compiled dictionary
     , aoi_source  :: !Import -- for reloading
     , aoi_powers  :: !(M.Map Text Power) -- provide powers to powerblock
-    , aoi_frames  :: !(Maybe (IORef FrameHist)) -- track frames?
     , aoi_step    :: !(HLS StepState) -- recovery values 
     , aoi_ifn     :: !IFN 
     }
@@ -82,7 +76,6 @@ defaultContext = AOI_CONTEXT
     { aoi_dict = M.empty
     , aoi_powers = M.empty
     , aoi_source = T.pack "aoi"
-    , aoi_frames = Nothing
     , aoi_step = hls_init (0, defaultEnv)
     , aoi_ifn = defaultIFN
     }
@@ -112,11 +105,7 @@ invokePower v@(P vLbl vMsg) =
         Nothing -> powerFail v
         Just label -> case M.lookup label mPowers of
             Nothing -> powerFail v 
-            Just power ->
-                pushFrame label >>
-                power vMsg >>= \ vAnswer ->
-                popFrame' label >> 
-                return (P defaultPB vAnswer)
+            Just power -> liftM (P defaultPB) $ power vMsg
 invokePower v = powerFail v
 powerFail v = fail $ "message not understood: {~power~} @ " ++ show v
 
@@ -185,72 +174,11 @@ compileABC _ ops =
 invokeAOI :: Text -> V AOI -> AOI (V AOI)
 invokeAOI tok =
     case T.uncons tok of
-        Just ('&',anno) -> aoiAnno anno 
+        Just ('&',_) -> return
         _ -> const $ illegalToken tok
 
 illegalToken :: Text -> AOI e
 illegalToken tok = fail $ "illegal token: {" ++ T.unpack tok ++ "}"
-
-aoiAnno :: Text -> a -> AOI a
-aoiAnno tok =
-    case T.uncons tok of
-        Just ('@', frame) -> \ v -> aoiFrame frame >> return v
-        _ -> return -- no other annotations are supported yet
-
-aoiFrame :: Text -> AOI ()
-aoiFrame frame =
-    case T.uncons frame of
-        Just ('-', ftxt) ->
-            if T.null ftxt then popFrame
-                           else popFrame' ftxt
-        _ -> pushFrame frame
-
-popFrame :: AOI ()
-popFrame = modFrames $ \ hls ->
-    case hls_get hls of
-        (_:fs) -> Right (hls_put fs hls)
-        _ -> Left (T.pack "popped empty stack!")
-
-popFrame' :: Text -> AOI ()
-popFrame' target = modFrames $ \ hls ->
-    case hls_get hls of
-        (f:fs) | (f == target) -> Right (hls_put fs hls)
-        _ -> Left (T.pack "invalid stack; expecting " `T.append` target)
-
-pushFrame :: Text -> AOI ()
-pushFrame label = modFrames $ \ hls ->
-    let fs = hls_get hls in
-    Right (hls_put (label : fs) hls)
-
-resetFrameHist :: AOI ()
-resetFrameHist = modFrames $ const $ Right $ hls_init []
-
--- enable or disable use of frames
-enableFrameHist :: Bool -> AOI ()
-enableFrameHist False = 
-    modCX $ \ cx -> cx { aoi_frames = Nothing }
-enableFrameHist True =
-    getCX >>= \ cx ->
-    case aoi_frames cx of
-        Just _ -> return ()
-        Nothing ->
-            liftIO (newIORef (hls_init [])) >>= \ fr ->
-            let cx' = cx { aoi_frames = Just fr } in
-            putCX cx'
-
--- modify the current frame hist, allowing for error. 
-modFrames :: (FrameHist -> Either Text FrameHist) -> AOI ()
-modFrames f =
-    getCX >>= \ cx ->
-    case aoi_frames cx of
-        Nothing -> return ()
-        Just fr ->
-            liftIO (readIORef fr) >>= \ fHist ->
-            case f fHist of
-                Left err -> MT.throwError (E err)
-                Right fHist' ->
-                    fHist' `seq` 
-                    liftIO (writeIORef fr fHist')
 
 -- manipulate step values
 aoiGetStep :: AOI StepState
@@ -278,56 +206,10 @@ aoiReload =
 
 -- OPPORTUNITY FOR OPTIMIZATIONS
 preCompile :: AOI_CONTEXT -> Dictionary -> Dictionary
-preCompile cx dict0 = dictf where
-    framedDict = case aoi_frames cx of
-        Nothing -> dict0
-        Just _ -> M.mapWithKey (frameWrap cx) dict0
-    dictf = framedDict
+preCompile = flip const
 
--- go ahead and simplify code (it's nicer to see it's
--- simplified form in the REPL).
+-- view simplified code
 postCompile :: AOI_CONTEXT -> DictC -> DictC
 postCompile = const $ M.map simplifyABC
-
--- for now, wrap a word unless it consists of pure data shuffling
--- around other words. By 'data shuffling' I really mean 'anything
--- that is part of the fixpoint function'.
-frameWrap :: AOI_CONTEXT -> W -> (Locator, AODef) -> (Locator, AODef)
-frameWrap _ w (loc,def) = (loc,framedDef) where
-    locTxt = wordLocatorText w loc
-    annoLoc = Prim . S.singleton . Invoke . T.cons '&' . T.cons '@'
-    enterFrame = annoLoc locTxt
-    exitFrame = annoLoc (T.singleton '-')
-    framedDef = 
-        if shuffleDef def then def else 
-        enterFrame S.<| (def S.|> exitFrame)
-
--- pure data shuffling is not framed because it costs too much
--- by 'pure data shuffling' I'm basically going to include everything
--- that is part of the 'fixpoint' function.
--- (and hinders too many downstream optimizations!)
-shuffleDef :: S.Seq Action -> Bool
-shuffleDef = S.null . S.dropWhileL shuffleAction
-
-shuffleAction :: Action -> Bool
-shuffleAction (Word _) = True
-shuffleAction (Num _) = True
-shuffleAction (Lit _) = True
-shuffleAction (BAO _) = True
-shuffleAction (Prim ops) = shuffleABC ops
-shuffleAction (Amb options) = all shuffleDef options
-
-shuffleABC :: S.Seq Op -> Bool
-shuffleABC = S.null . S.dropWhileL shuffleOp
-
-shuffleOp :: Op -> Bool
-shuffleOp (Op c) = L.elem c " \nlrwzvc^%'$o"
-shuffleOp (TL _) = True
-shuffleOp (BL _) = True
-shuffleOp (Invoke text) =
-    case T.uncons text of 
-        Just ('&', _) -> True
-        _ -> False
-shuffleOp (AMBC options) = all shuffleABC options
 
 
