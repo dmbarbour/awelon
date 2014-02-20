@@ -38,13 +38,9 @@
  wx wx copy pw pw
  seal.stats
  put
-@average.stats 
- count.stats 0 gt 
- [0] [averageNZ.stats] if!
+@average.stats count.stats 0 gt [0] [averageNZ.stats] if_
 @averageNZ.stats count.stats take sum.stats put .div
-@variance.stats 
- count.stats 0 gt 
- [0] [varianceNZ.stats] if!
+@variance.stats count.stats 0 gt [0] [varianceNZ.stats] if_
 @varianceNZ.stats
  unseal.stats copy seal.stats
  put x take x

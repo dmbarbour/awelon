@@ -97,19 +97,13 @@ boolean
 @fullFactor partialFactor merge
 
 @doc.condSwap "conditional swap; swap top two arguments if third in right"
-@doc.ifk "keep one of two values based on condition; keep conditional"
-@doc.if "keep one of two values based on condition; drop conditional"
-@doc.if! "apply if to select a block, then apply the block inline"
-@doc.ifkm "keep but merge the conditional"
-@doc.ifkm! "keep but merge the conditional, then inline the call"
 @condSwap p distrib [%rwl] .left fullFactor wx
-@ifk condSwap drop
-@if ifk dropd
-@if! if inline
-@ifkm ifk merged
-@ifkm! ifkm inline
 
+@doc.if "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b; select and apply a block based on observing a conditional"
+@if p distrib [%rwl] .left merge x wx drop inline
 
+@doc.if_ "..a (L+R) [..a -- ..b](/L) [..a -- ..b](/R) -- ..b; as if, but drops conditional"
+@if_ p distrib [%rwl] .left merge wx drop wx drop inline
 
 @doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"

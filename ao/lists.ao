@@ -35,7 +35,7 @@
  rot isPair
  [nip2 assertNumber]
  [wx roll p rot dip x inline]
- ifkm!
+ if
 
 @reverseT&append.l [cons.l] eachTP.l
 @reverse&append.l reverseT&append.l drop
@@ -101,7 +101,7 @@
  unrot pw swap
  [pushrv.partition.l]
  eachTP.l dwx
-@pushrv.partition.l [dx cons.l p] [dwx cons.l pw] ifkm!
+@pushrv.partition.l [dx cons.l p] [dwx cons.l pw] if
 @partition&reverseT.l 0 0 rot partition&append&reverseT.l
 @partition.l
  partition&reverseT.l dup
@@ -140,17 +140,16 @@
  swap isPair
  [dropd]
  [x copy remove.l swap inline put p]
- ifkm!
+ if
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 
 @sort.l [step.sort.l] fixpoint apply
-@step.sort.l swap isPair [dropd] [nonEmpty.sort.l] ifkm!
+@step.sort.l swap isPair [dropd] [nonEmpty.sort.l] if
 @nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
 
 @doc.cons.l "a`L a -- a`L; add element to list"
 @cons.l p
-
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.

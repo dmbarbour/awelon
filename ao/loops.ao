@@ -18,7 +18,7 @@
  p step.repeat
 @step.repeat
  wx dup dec unrot
- 0 gt [drop] rot if!
+ 0 gt [drop] rot if_
 
 @test.repeat 4 [inc] 3 repeatP 7 assertEQ
 @repeatP [repeat] apply3to1
@@ -37,7 +37,7 @@
 @until1 inLd until
 @while notd [not] compose until
 @until [step.until] bind fixpoint inline
-@step.until composel [] ifk merged inline 
+@step.until composel [] if 
 
 @test.until1 0 10 pw [wx incd gte] until1 x assertEQ
 @test.while1 0 10 pw [wx incd lt] while1 x assertEQ
@@ -63,5 +63,5 @@
  take 2 lt
  [snd dup dec put apply .mul]
  [fst discard]
- ifk merged inline
+ if
 @test.factorial.fixpoint 720 6 factorial.fixpoint assertEQ
