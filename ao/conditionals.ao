@@ -99,11 +99,25 @@ boolean
 @doc.condSwap "conditional swap; swap top two arguments if third in right"
 @condSwap p distrib [%rwl] .left fullFactor wx
 
-@doc.if "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b; select and apply a block based on observing a conditional"
-@if p distrib [%rwl] .left merge x wx drop inline
+@doc.if 
+"The 'if' function enables developers to conveniently model conditional behavior. It operates by selecting a block then invoking it. A few variations of 'if' are provided based on whether you need access to the conditional, and whether you wish to keep it.
+ 
+     if  :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b
+     if_ :: ..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b
+     ifk :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R)
+     ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
+                      on left/false  on right/true  
+ 
+ The main weakness of 'if' behaviors is that they're difficult to extend or compose. They're effectively 'closed' syntactically. Developers are under pressure to push a lot of logic into those blocks. ABC is based on sum types (L+R) to better support composition of conditional behavior, but to leverage sum types requires alternative idioms (such as incremental processes or RDP). 
+~
+@doc.if_ "..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b      ; see @doc.if"
+@doc.ifk "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R); see @doc.if"
+@doc.ifd "..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b (L+R); see @doc.if"
 
-@doc.if_ "..a (L+R) [..a -- ..b](/L) [..a -- ..b](/R) -- ..b; as if, but drops conditional"
-@if_ p distrib [%rwl] .left merge wx drop wx drop inline
+@if  p distrib [%rwl] .left merge x wx drop inline
+@if_ p distrib [%rwl] .left fullFactor wx drop dropd inline
+@ifk p distrib [%rwl] .left fullFactor wx drop dupd merged swapd dip
+@ifd p distrib [%rwl] .left fullFactor wx drop dip
 
 @doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
