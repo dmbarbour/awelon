@@ -20,14 +20,13 @@
 --
 module AO.CompileABC
     ( V0(..), V0Inv, op_v0, ops_v0, nullInvV0
+    -- , pass0_annotate
      
     ) where
 
 import AO.V
-import Data.Ratio
 import Data.Monoid
 import Control.Applicative
-import Control.Monad
 import Control.Monad.Trans.Error
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
@@ -35,7 +34,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 
 newtype E = E Text
-instance Error E where strMsg = T.pack
+instance Error E where strMsg = E . T.pack
 
 -- pass 0 data:
 --   some decidedly ad-hoc type information 
@@ -48,10 +47,8 @@ instance Error E where strMsg = T.pack
 -- develop a more precise model, but this will do for now.
 data V0
     = V0Dyn -- runtime value (any type except Void)
-    | V0Block KF (S.Seq Op) -- static block (KF permissive)
-    | V0BKF KF -- expected to be a block (for typechecking)
-    | V0NumC Rational -- static number
-    | V0Num -- expected to be a number (for typechecking)
+    | V0Block KF (Maybe (S.Seq Op)) -- static block (KF permissive)
+    | V0Num (Maybe Rational) -- static number
     | V0P V0 V0 -- product of values
     | V0S V0 V0 -- choice of values
     | V0Unit -- unit value (introduced by Op 'v')
@@ -65,7 +62,7 @@ type V0Inv m = Text -> V0 -> m V0
 instance Show V0 where show = v0Summary
 
 invFail :: (Monad m, Show v) => Text -> v -> m v
-infFail tok v = fail $ "{" ++ T.unpack tok ++ "} @ " ++ show v
+invFail tok v = fail $ "{" ++ T.unpack tok ++ "} @ " ++ show v
 
 opFail :: (Monad m, Show v) => Char -> v -> m v
 opFail op v = fail $ op : (" @ " ++ show v)
@@ -74,23 +71,21 @@ opFail op v = fail $ op : (" @ " ++ show v)
 -- a quick visual summary of static context, to help debugging
 v0Summary :: V0 -> String
 v0Summary V0Dyn = "?"
-v0Summary (V0Block kf _) = addkf kf "B."
-v0Summary (V0BKF kf) = addkf kf "B"
-v0Summary (V0NumC _) = "N."
-v0Summary (V0Num) = "N"
-v0Summary (V0P a b) = "(" ++ v0Summary a ++ "*" v0Summary b ++ ")"
-v0Summary (V0S a b) = "(" ++ v0Summary a ++ "+" v0Summary b ++ ")"
+v0Summary (V0Block kf (Just _)) = addkf kf "B."
+v0Summary (V0Block kf Nothing) = addkf kf "B"
+v0Summary (V0Num (Just _)) = "N."
+v0Summary (V0Num Nothing) = "N"
+v0Summary (V0P a b) = "(" ++ v0Summary a ++ "*" ++ v0Summary b ++ ")"
+v0Summary (V0S a b) = "(" ++ v0Summary a ++ "+" ++ v0Summary b ++ ")"
 v0Summary V0Unit = "1"
 v0Summary (V0Void V0Dyn) = "0"
-v0Summary (V0Void v) = "0(~" ++ v0Summary v ++ ")"
+v0Summary (V0Void v) = "(0`" ++ v0Summary v ++ ")"
 v0Summary (V0Seal txt v) = (T.unpack txt) ++ ":" ++ v0Summary v
 
 addkf :: KF -> String -> String
 addkf kf = addf . addk where
     addf = if may_copy kf then id else (++ "f") -- affine, no copy
     addk = if may_drop kf then id else (++ "k") -- relevant, no drop
-
-
 
 nullInvV0 :: (Monad m) => V0Inv m
 nullInvV0 = invFail
@@ -103,7 +98,7 @@ op_v0 ef (Op '$') = op_v0_ap ef
 op_v0 ef (Op '?') = op_v0_condap ef
 op_v0 _ (Op c) = op_v0c c 
 op_v0 _ (TL text) = return . V0P (textToV0 text)
-op_v0 _ (BL ops) = return . V0P (V0Block kf0 ops)
+op_v0 _ (BL ops) = return . V0P (V0Block kf0 (Just ops))
 op_v0 ef (Invoke tok) = case T.uncons tok of
     Just ('&', _) -> return 
     Just (':', sealer) -> return . (V0Seal sealer)
@@ -111,7 +106,7 @@ op_v0 ef (Invoke tok) = case T.uncons tok of
         V0Seal s v | (s == sealer) -> return v
         V0Dyn -> return V0Dyn
         _ -> invFail tok v0
-    _ -> eff tok
+    _ -> ef tok
 op_v0 ef (AMBC [ops]) = ops_v0 ef ops
 op_v0 _ (AMBC _) = const $ fail $ "ambiguity not supported"
 
@@ -156,17 +151,20 @@ op_v0c 'S' = op_v0_S
 op_v0c 'B' = op_v0_B
 op_v0c 'N' = op_v0_N
 op_v0c '>' = op_v0_gt
-op_v0c c v = opFail c v -- unknown operation
+op_v0c  c  = opFail c -- unknown operation
 
 op_v0_l, op_v0_r, op_v0_w, op_v0_z, op_v0_v, op_v0_c
     , op_v0_dup, op_v0_drop
-    , op_v0_ap, op_v0_comp, op_v0_quote, op_v0_k, op_v0_f
-    , op_v0_introNum, op_v0_digit
+    , op_v0_comp, op_v0_quote, op_v0_k, op_v0_f
+    , op_v0_introNum
     , op_v0_add, op_v0_mul, op_v0_recip, op_v0_negate, op_v0_Q
     , op_v0_L, op_v0_R, op_v0_W, op_v0_Z, op_v0_V, op_v0_C
-    , op_v0_condap, op_v0_D, op_v0_F, op_v0_M, op_v0_K
-    , op_v0_P, op_v0_S, op_V0_B, op_v0_N, op_v0_gt 
+    , op_v0_D, op_v0_F, op_v0_M, op_v0_K
+    , op_v0_P, op_v0_S, op_v0_B, op_v0_N, op_v0_gt 
     :: Monad m => V0 -> m V0
+
+op_v0_digit :: Monad m => Int -> V0 -> m V0
+op_v0_ap, op_v0_condap :: Monad m => V0Inv m -> V0 -> m V0
 
 op_v0_l v =
     asPairV0 v >>= \ (va, vbc) ->
@@ -193,7 +191,7 @@ op_v0_v v = return $ V0P v V0Unit
 
 op_v0_c v = 
     asPairV0 v >>= \ (va, vUnit) ->
-    if isUnit vUnit 
+    if isUnitV0 vUnit  
         then return va 
         else opFail 'c' v
 
@@ -222,25 +220,23 @@ op_v0_ap ef v =
 op_v0_comp v = 
     asPairV0 v >>= \ (byz, vbxy_e) ->
     asPairV0 vbxy_e >>= \ (bxy, ve) ->
-    asBlockV0 byz >>= \ (kf1, opsyz) ->
-    asBlockV0 bxy >>= \ (kf2, opsxy) ->
-    let kf' = KF { may_copy = (may_copy kf1 && may_copy kf2)
-                 , may_drop = (may_drop kf1 && may_drop kf2) }
-    in
-    let opsxz = (S.><) <$> opsxy <*> opsyz in
-    return $ V0P (mkBlockV0 kf opsxz) ve
+    asBlockV0 byz >>= \ (kf1, yz) ->
+    asBlockV0 bxy >>= \ (kf2, xy) ->
+    let kf' = kf1 `mappend` kf2 in
+    let xz = (S.><) <$> xy <*> yz in
+    return $ V0P (mkBlockV0 kf' xz) ve
 
 op_v0_quote v = 
     asPairV0 v >>= \ (vq, ve) ->
     return $ V0P (quoteV0 vq) ve
 
 quoteV0 :: V0 -> V0
-quoteV0 (V0NumC r) = V0Block kf0 (abcQuote (N r))
-quoteV0 (V0Block kf ops) = (V0Block kf ops') where
-    ops' = addf $ addk $ S.singleton (BL ops) 
+quoteV0 (V0Num (Just r)) = V0Block kf0 (Just $ abcQuote (N r))
+quoteV0 (V0Block kf (Just ops)) = (V0Block kf (Just ops')) where
+    ops' = (addf . addk) $ S.singleton (BL ops) 
     addk = if (may_drop kf) then id else (S.|> Op 'k')
     addf = if (may_copy kf) then id else (S.|> Op 'f')
-quoteV0 v = V0BKF kf where
+quoteV0 v = V0Block kf Nothing where
     kf = KF { may_copy = isCopyableV0 v
             , may_drop = isDroppableV0 v }
 
@@ -256,7 +252,8 @@ op_v0_f v =
     let kf' = kf { may_copy = False } in
     return $ V0P (mkBlockV0 kf' mbops) ve
 
-op_v0_introNum = return . V0P (V0NumC 0)
+op_v0_introNum = return . V0P num0 where
+    num0 = V0Num (Just 0)
 
 op_v0_digit d v = 
     let f r = 10 * r + fromIntegral d in
@@ -270,7 +267,7 @@ op_v0_add v =
     asNumV0 va >>= \ mba ->
     asNumV0 vb >>= \ mbb ->
     let mbr = (+) <$> mba <*> mbb in
-    return $ VOP (mkNumV0 mbr) ve
+    return $ V0P (mkNumV0 mbr) ve
 
 op_v0_mul v = 
     asPairV0 v >>= \ (va, vbe) ->
@@ -297,10 +294,17 @@ op_v0_Q v =
     asPairV0 vae >>= \ (va, ve) ->
     asNumV0 vb >>= \ mbb ->
     asNumV0 va >>= \ mba ->
-    let mbr = divModQ <$> mbb <*> mba in
-    if (Just 0 == mbb)
-        then fail $ "divmod by zero @ " ++ show v
-        else return $ V0P (mkNumV0 mbr) ve
+    let divbz = (Just 0) == mbb in
+    let eMsg = "divmod by zero @ " ++ show v in
+    if divbz then fail eMsg else
+    case divModQ <$> mbb <*> mba of
+        Nothing -> 
+            let num = V0Num Nothing in
+            return $ V0P num (V0P num ve)
+        Just (r, q) ->
+            let rn = V0Num (Just r) in
+            let qn = V0Num (Just (fromIntegral q)) in
+            return $ V0P rn (V0P qn ve)
 
 op_v0_L v = 
     asPairV0 v >>= \ (vabc, ve) ->
@@ -382,32 +386,33 @@ op_v0_F v =
 op_v0_M v = 
     asPairV0 v >>= \ (vs, ve) ->
     asSumV0 vs >>= \ (vl, vr) ->
-    mergeV0 vl vr >>= \ vm ->
-    return $ V0P vm ve
+    return $ V0P (mergeV0 vl vr) ve
 
-mergeV0 :: (Monad m) => V0 -> V0 -> m V0
-mergeV0 (V0Void x) y = mergeV0 x y >> return y -- static merge right
-mergeV0 x (V0Void y) = mergeV0 x y >> return x -- static merge left
-mergeV0 V0Dyn _ = return V0Dyn -- permissively merge Dyn with anything
-mergeV0 _ V0Dyn = return V0Dyn
-mergeV0 V0Unit V0Unit = return V0Unit
-mergeV0 l@(V0NumC x) (V0NumC y) | (x == y) = return l
-mergeV0 x y | isNumV0 x && isNumV0 y = return V0Num
-mergeV0 l@(V0Block kfx opsx) (V0Block kfy opsy) | (opsx == opsy) =
-    return $ V0Block (mergeKF kfx kfy) opsx
-mergeV0 l
-mergeV0 (V0B
- y | isBlockV0 x  
-mergeV0 x y | isObservableV0 x && isObservableV0 y = return 
-
-
-mergeV0 V0Unit v = fail $ "cannot merge unit (inL) with " ++ show v
-mergeV0 v V0Unit = fail $ "cannot merge unit (inR) with " ++ show v
-mergeV0 (V0Seal s1 x1) (V0Seal s2 x2) | (s1 == s2) =
-    mergeV0 x1 x2 >>= \ xm ->
-    return (V0Seal s1 xm)
-mergeV0 
-then fail ("merge failure for seals: " ++ T.unpack s1 " & " T.un
+-- this merge is permissive; it never rejects a merge because it
+-- lacks enough context (such as blocks in the environment) to 
+-- decide whether two values are *future* compatible.
+mergeV0 :: V0 -> V0 -> V0
+mergeV0 V0Dyn _ = V0Dyn
+mergeV0 _ V0Dyn = V0Dyn
+mergeV0 (V0Void _) y = y
+mergeV0 x (V0Void _) = x
+mergeV0 V0Unit V0Unit = V0Unit
+mergeV0 (V0P x1 x2) (V0P y1 y2) = V0P m1 m2 where
+    m1 = mergeV0 x1 y1
+    m2 = mergeV0 x2 y2
+mergeV0 (V0S x1 x2) (V0S y1 y2) = V0S m1 m2 where
+    m1 = mergeV0 x1 y1
+    m2 = mergeV0 x2 y2
+mergeV0 (V0Num r1) (V0Num r2) = 
+    if (r1 == r2) then V0Num r1 
+        else V0Num Nothing
+mergeV0 (V0Block kfx x) (V0Block kfy y) =
+    let kf' = kfx `mappend` kfy in
+    if (x == y) then V0Block kf' x 
+        else V0Block kf' Nothing
+mergeV0 (V0Seal s1 x1) (V0Seal s2 x2)
+    | (s1 == s2) = V0Seal s1 (mergeV0 x1 x2)
+mergeV0 _ _ = V0Dyn
 
 op_v0_K v = 
     asPairV0 v >>= \ (vs, ve) ->
@@ -439,7 +444,7 @@ op_v0_S v =
 
 op_v0_B v = 
     asObservableV0 v >>= \ (vx, ve) ->
-    let dynB = V0BKF kf0 in
+    let dynB = V0Block kf0 Nothing in
     let vo = if isDynV0 vx then V0S vx dynB else
              if isBlockV0 vx then V0S voidV0 vx else
              V0S vx (V0Void dynB)
@@ -448,7 +453,7 @@ op_v0_B v =
 
 op_v0_N v = 
     asObservableV0 v >>= \ (vx, ve) ->
-    let dynN = V0Num in
+    let dynN = V0Num Nothing in
     let vo = if isDynV0 vx then V0S vx dynN else
              if isNumV0 vx then V0S voidV0 vx else
              V0S vx (V0Void dynN)
@@ -468,16 +473,61 @@ op_v0_gt v =
     in
     return $ V0P vgt ve
 
-
-
-
+-- returns Nothing if no comparison could be made
+-- returns Just True if left is greater than right
+-- returns Just False if left is less than right
+--   Products are greater than numbers
+--   Numbers are greater thans sums
+--   Rights are greater than Lefts
+-- fails when:
+--   comparing unit with non-unit (and non-dyn)
+--   comparing with sealed values or blocks
+gtV0 :: (Monad m) => V0 -> V0 -> m (Maybe Bool)
+gtV0 (V0Dyn) _ = return Nothing
+gtV0 _ (V0Dyn) = return Nothing
+gtV0 V0Unit V0Unit = return (Just False)
+gtV0 V0Unit y = fail $ "compare unit (inL) with " ++ show y
+gtV0 x V0Unit = fail $ "compare unit (inR) with " ++ show x
+gtV0 (V0Num x) (V0Num y) = return (Just (x > y))
+gtV0 (V0P x1 x2) (V0P y1 y2) =
+    gtV0 x1 y1 >>= \ mbGT ->
+    case mbGT of
+        Nothing -> return Nothing
+        Just True -> return (Just True)
+        Just False ->
+            gtV0 y1 x1 >>= \ mbLT ->
+            case mbLT of
+                Nothing -> return Nothing
+                Just True -> return (Just False)
+                Just False -> gtV0 x2 y2
+gtV0 (V0S x1 x2) (V0S y1 y2) =
+    let xInR = isVoidV0 x1 && not (isVoidV0 x2) in
+    let xInL = not (isVoidV0 x1) && isVoidV0 x2 in
+    let yInR = isVoidV0 y1 && not (isVoidV0 y2) in
+    let yInL = not (isVoidV0 y1) && isVoidV0 y2 in
+    if (xInL && yInL) then gtV0 x1 y1 else
+    if (xInR && yInR) then gtV0 x2 y2 else
+    if (xInR && yInL) then return (Just True) else
+    if (xInL && yInR) then return (Just False) else
+    return Nothing -- might be right vs. left at runtime
+gtV0 bx by | (isBlockV0 bx || isBlockV0 by) = 
+    -- no comparing blocks!
+    fail $ "cannot compare " ++ show bx ++ " with " ++ show by
+gtV0 tx ty | (isSealedV0 tx || isSealedV0 ty) =
+    -- no comparing sealed values! unseal them first.
+    fail $ "cannot compare " ++ show tx ++ " with " ++ show ty
+gtV0 p n | isProdV0 p && (isNumV0 n || isSumV0 n) = return (Just True)
+gtV0 n s | isNumV0 n && isSumV0 s = return (Just True)
+gtV0 n p | (isNumV0 n || isSumV0 n) && isProdV0 p = return (Just False)
+gtV0 s n | isSumV0 s && isNumV0 n = return (Just False)
+gtV0 _ _ = return Nothing -- delay comparison to runtime
 
 
 mkBlockV0 :: KF -> Maybe (S.Seq Op) -> V0
-mkBlockV0 kf = maybe (V0BKF kf) (V0Block kf)
+mkBlockV0 = V0Block
 
 mkNumV0 :: Maybe Rational -> V0
-mkNumV0 = maybe V0Num V0NumC
+mkNumV0 = V0Num
 
 asPairV0, asSumV0 :: (Monad m) => V0 -> m (V0, V0)
 
@@ -494,8 +544,7 @@ asSumV0 v = fail $ "sum expected @ " ++ show v
 
 asBlockV0 :: (Monad m) => V0 -> m (KF, Maybe (S.Seq Op))
 asBlockV0 (V0Dyn) = return (kf0,Nothing)
-asBlockV0 (V0BKF kf) = return (kf, Nothing)
-asBlockV0 (V0Block kf ops) = return (kf, Just ops)
+asBlockV0 (V0Block kf mbops) = return (kf, mbops)
 asBlockV0 v = fail $ "block expected @ " ++ show v
 
 asObservableV0 :: (Monad m) => V0 -> m (V0, V0)
@@ -506,25 +555,22 @@ asObservableV0 v =
 
 asNumV0 :: (Monad m) => V0 -> m (Maybe Rational)
 asNumV0 (V0Dyn) = return Nothing
-asNumV0 (V0Num) = return Nothing
-asNumV0 (V0NumC r) = return (Just r)
+asNumV0 (V0Num mbr) = return mbr
 asNumV0 v = fail $ "number expected @ " ++ show v
     
 textToV0 :: Text -> V0
 textToV0 t = case T.uncons t of
-    Nothing -> V0NumC 3
+    Nothing -> V0Num (Just 3)
     Just (c, t') -> 
         let nc = fromIntegral $ fromEnum c in
-        V0P (V0NumC nc) (textToV0 t')
+        V0P (V0Num (Just nc)) (textToV0 t')
 
 -- test whether values are at least potentially 
 -- droppable vs. copyable
 isCopyableV0, isDroppableV0 :: V0 -> Bool
 isCopyableV0 V0Dyn = True -- potentially copyable
 isCopyableV0 (V0Block kf _) = may_copy kf
-isCopyableV0 (V0BKF kf) = may_copy kf
-isCopyableV0 (V0NumC _) = True
-isCopyableV0 (V0Num) = True
+isCopyableV0 (V0Num _) = True
 isCopyableV0 (V0P a b) = isCopyableV0 a && isCopyableV0 b
 isCopyableV0 (V0S a b) = isCopyableV0 a && isCopyableV0 b
 isCopyableV0 V0Unit = True
@@ -533,9 +579,7 @@ isCopyableV0 (V0Seal _ v) = isCopyableV0 v
 
 isDroppableV0 V0Dyn = True -- potentially droppable
 isDroppableV0 (V0Block kf _) = may_drop kf
-isDroppableV0 (V0BKF kf) = may_drop kf
-isDroppableV0 (V0NumC _) = True
-isDroppableV0 (V0Num) = True
+isDroppableV0 (V0Num _) = True
 isDroppableV0 (V0P a b) = isDroppableV0 a && isDroppableV0 b
 isDroppableV0 (V0S a b) = isDroppableV0 a && isDroppableV0 b
 isDroppableV0 V0Unit = True
@@ -552,21 +596,19 @@ isVoidV0 (V0Void _) = True
 isVoidV0 (V0S a b) = isVoidV0 a && isVoidV0 b
 isVoidV0 _ = False
 
+-- note that this might pass some non-observable V0Dyn objects
 isObservableV0 (V0Unit) = False
 isObservableV0 (V0Seal _ _) = False
 isObservableV0 _ = True
 
-isDynV0, isNumV0, isBlockV0, isProdV0, isSumV0 :: V0 -> Bool
+-- permissive tests - return False only if object is definitely NOT
+-- of the requested class.
+isNumV0, isBlockV0, isProdV0, isSumV0, isSealedV0 :: V0 -> Bool
 
-isDynV0 (V0Dyn) = True
-isDynV0 _ = False
-
-isNumV0 (V0Num) = True
-isNumV0 (V0NumC _) = True
+isNumV0 (V0Num _) = True
 isNumV0 (V0Dyn) = True -- permissively
 isNumV0 _ = False
 
-isBlockV0 (V0BKF _) = True
 isBlockV0 (V0Block _ _) = True
 isBlockV0 (V0Dyn) = True -- permissively
 isBlockV0 _ = False
@@ -578,4 +620,15 @@ isSumV0 _ = False
 isProdV0 (V0P _ _) = True
 isProdV0 (V0Dyn) = True -- permissively
 isProdV0 _ = False
+
+isSealedV0 (V0Seal _ _) = True
+isSealedV0 (V0Dyn) = True -- permissively
+isSealedV0 _ = False
+
+-- isDynV0 only returns true for V0Dyn
+isDynV0 :: V0 -> Bool
+isDynV0 V0Dyn = True
+isDynV0 _ = False
+
+
 
