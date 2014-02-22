@@ -243,7 +243,7 @@
 @eqv.inner.w_ [%r w_ %l] [w__]
 @eqv.inner.z_ [%r z_ %l] [z__]
 @eqv.vrwlc__.rrwll [%rrwll] [vrwlc__]
-@test.gratuitousDeepShuffle 5 6 pw dup vrwlc__ w assertEQ
+@test.gratuitousDeepShuffle 5 6 pw dup vrwlc__ w assertEQ1
 
 @eqv.inner.v__ [%r v__ %l] [v___]
 @eqv.inner.c__ [%r c__ %l] [c___]
@@ -252,6 +252,6 @@
 @eqv.inner.w__ [%r w__ %l] [w___]
 @eqv.inner.z__ [%r z__ %l] [z___]
 @eqv.vrwlc___.rrrwlll [%rrrwlll] [vrwlc___]
-@test.gratuitousDeeperShuffle 4 5 6 pw p dup vrwlc___ x w p 
+@test.gratuitousDeeperShuffle 4 5 6 pw p dup vrwlc___ x w p assertEQ1
 
 @eqv.rrrwlll.xwp [%rrrwlll] [x w p]

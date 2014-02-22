@@ -10,6 +10,9 @@
 @true.b intro1 inR
 @false.b intro1 inL
 
+@true true.b
+@false false.b
+
 @doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- Bool"
 @toBoolean %rVR [%v%] %r?W [%v%] %r?WLCl
 
