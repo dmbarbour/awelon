@@ -20,8 +20,8 @@ module AO.Op
     , op_invoke_seal, op_invoke_unseal
     ) where
 
+import Data.Monoid (mappend)
 import Control.Monad ((>=>))
-import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Sequence as S
 import qualified Data.Text as T
@@ -132,19 +132,6 @@ op_Q (P (N b) (P (N a) e)) | (0 /= b) =
     return (P (N r) (P (N (fromIntegral q)) e))
 op_Q v = opFail 'Q' v
 
--- divModQ b a = (r,q)
---   such that qb + r = a
---             q is integral
---             r is in (b,0] or [0,b)
--- i.e. this is a divMod for rationals
-divModQ :: Rational -> Rational -> (Rational, Integer)
-divModQ b a = 
-    let num = numerator a * denominator b in
-    let den = numerator b * denominator a in
-    let (qN,rN) = num `divMod` den in
-    let denR = denominator a * denominator b in
-    (rN % denR, qN)
-
 op_apply, op_cond :: (Monad c) => (V c) -> c (V c)
 op_apply (P (B _ abc) (P x e)) = 
     abc_comp abc x >>= tcLoop >>= \ x' -> return (P x' e)
@@ -163,8 +150,7 @@ tcLoop op = return op
 op_compose :: (Monad c) => V c -> c (V c)
 op_compose (P (B kyz cyz) (P (B kxy cxy) e)) = return (P bxz e) 
   where bxz = B kxz cxz
-        kxz = KF { may_copy = (may_copy kyz && may_copy kxy)
-                 , may_drop = (may_drop kyz && may_drop kxy) }
+        kxz = kxy `mappend` kyz
         cxz = abcCompose cxy cyz
 op_compose v = opFail 'o' v
 

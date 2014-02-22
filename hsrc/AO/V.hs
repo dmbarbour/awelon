@@ -6,11 +6,12 @@ module AO.V
     -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
     , valToText, textToVal
     , abcQuote, abcLit
-    , quoteNum, quoteNat
+    , quoteNum, quoteNat, divModQ
     , opCodeList, inlineOpCodeList
     ) where
 
 import Control.Applicative
+import Data.Monoid
 import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -35,6 +36,11 @@ data KF = KF { may_copy :: !Bool, may_drop :: !Bool }
 
 kf0 :: KF
 kf0 = KF True True
+
+instance Monoid KF where
+    mempty = kf0
+    mappend a b = KF { may_copy = (may_copy a && may_copy b)
+                     , may_drop = (may_drop a && may_drop b) }
 
 -- a block operates in a monadic context c
 data ABC c = ABC
@@ -121,6 +127,19 @@ quoteNat n | (0 < n) =
     quoteNat q S.|> Op digit
 quoteNat n | (0 == n) = S.singleton (Op '#')
            | otherwise = quoteNat (negate n) S.|> Op '-'
+
+-- divModQ b a = (r,q)
+--   such that qb + r = a
+--             q is integral
+--             r is in (b,0] or [0,b)
+-- i.e. this is a divMod for rationals
+divModQ :: Rational -> Rational -> (Rational, Integer)
+divModQ b a = 
+    let num = numerator a * denominator b in
+    let den = numerator b * denominator a in
+    let (qN,rN) = num `divMod` den in
+    let denR = denominator a * denominator b in
+    (rN % denR, qN)
 
 droppable, copyable, observable :: V c -> Bool
 
