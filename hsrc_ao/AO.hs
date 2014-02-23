@@ -19,7 +19,7 @@ module Main
 import Control.Applicative
 --import Control.Concurrent
 --import System.IO.Unsafe (unsafeInterleaveIO)
--- import Control.Monad
+import Control.Monad
 import Data.IORef
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -35,10 +35,12 @@ import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import AO.AO
 import AO.ABC
+import AO.CompileABC
 
 -- not many modes to parse at the moment.
 data Mode 
-    = Test Import
+    = Test Import -- run all `test.` words
+    | Type0 Import Bool -- partial compilation
     | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
@@ -51,7 +53,8 @@ ts0 = TestState S.empty
 
 cmdLineHelp :: String
 cmdLineHelp = 
-    "ao test [dict]          run tests in dictionary\n" ++
+    "ao test foo             run tests in `foo` dictionary\n" ++
+    "ao type0 foo [-v]       partial typecheck (pass0) on dict foo\n" ++
     "ao help (or -?)         these options\n"
 
 main :: IO ()
@@ -77,6 +80,7 @@ putErrLn = Sys.hPutStrLn Sys.stderr
 runMode :: Mode -> IO ()
 runMode Help = runHelp
 runMode (Test dict) = runTests dict
+runMode (Type0 dict bVerbose) = runPass0 dict bVerbose
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -194,6 +198,27 @@ testPower rf = B (KF False False) (ABC ops action) where
     runCmd s msg = fail $ "unrecognized command: " 
                           ++ s ++ " with " ++ show msg
 
+--------------------------------------
+-- Running Pass0 typecheck
+--------------------------------------
+
+runPass0 :: Import -> Bool -> IO ()
+runPass0 imp bVerbose =
+    loadDictionary imp >>= \ dict ->
+    let dc = compileDictionary dict in
+    let (mBad,mOK) = M.mapEither pass0_check dc in
+    let onOkay = uncurry reportType0Pass in
+    let onFail = uncurry reportType0Fail in
+    when bVerbose (mapM_ onOkay (M.toList mOK)) >>
+    mapM_ onFail (M.toList mBad)
+
+reportType0Fail, reportType0Pass :: W -> Text -> IO ()
+reportType0Fail w etxt = Sys.putStrLn emsg where
+    emsg = "(FAIL) " ++ T.unpack w ++ "\n"
+           ++ indent "  " (T.unpack etxt)
+reportType0Pass w stxt = Sys.putStrLn typeMsg where
+    typeMsg = "(pass) " ++ T.unpack w ++ " :: ? → " ++ T.unpack stxt
+
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
 ---------------------------------------
@@ -213,6 +238,13 @@ parseTestMode =
     anyOneArg >>= 
     return . Test . T.pack
 
+parseType0Mode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
+parseType0Mode =
+    tok (== "type0") >>
+    anyOneArg >>= \ imp ->
+    P.option False (tok (== "-v") >> return True) >>= \ bVerbose ->
+    return (Type0 (T.pack imp) bVerbose)
+
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> P.eof >> return Help where
     anyHelp s = ("help" == s) || ("-help" == s) || ("-?" == s)
@@ -220,4 +252,5 @@ parseHelpMode = tok anyHelp >> P.eof >> return Help where
 parseCmdLine :: P.Stream s m Tok => P.ParsecT s u m Mode
 parseCmdLine = 
     parseTestMode P.<|> 
+    parseType0Mode P.<|>
     parseHelpMode
