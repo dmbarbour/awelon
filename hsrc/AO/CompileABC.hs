@@ -18,24 +18,39 @@
 -- abstract common structure after doing this, but not before,
 -- so there is a lot of duplication for now.
 --
---    Pass 0: forward pass; partial evaluation; permissive copy&drop
---    Pass 1: reverse pass; dead code elim; precise copy&drop
---
+--    Pass 0: forward pass
+--       partial evaluation
+--       permissive substructure
+--       available to next pass
+--    Pass 1: reverse pass
+--       dead code elim
+--       more info about expected types
+--         (untyped data is 'pass-through')
+--       track assertions backwards to observation (early fail)
+--       more precise substructural requirements tracking
+--    Pass 2: forward pass
+--       futures, promised values
+--       conversion to or from dynamic values model
+--       build an 'eval for effects' monoid on the side
+--       requires monad with reference-based state?
+--    
+
 module AO.CompileABC
-    ( V0(..), V0Inv, op_v0, ops_v0, nullInvV0
-    , pass0_check, pass0_anno
+    ( V0(..), op_v0, ops_v0, nullInvV0
+    , pass0_run, pass0_check, pass0_anno
      
     ) where
 
 import AO.V
 import Data.Monoid (mappend)
-import Control.Arrow ((+++), first, left)
+import Control.Arrow (first, left, right)
 import Control.Applicative
 import Data.Functor.Identity
 import Control.Monad.Trans.Error
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.Text as T
+import qualified Data.List as L
 import Data.Text (Text)
 
 newtype E = E { inE :: Text }
@@ -44,28 +59,13 @@ instance Error E where strMsg = E . T.pack
 -- pass0_check will trivially test a seq 
 -- returns Left Error | Right Summary
 pass0_check :: S.Seq Op -> Either Text Text
-pass0_check ops = toText $ run mainTest where
-    toText = inE +++ (T.pack . show)
-    mainTest = ops_v0 nullInvV0 ops V0Dyn 
-    run = runIdentity . runErrorT
+pass0_check = right (T.pack . show) . pass0_run nullInvV0 V0Dyn
 
-pass0_anno :: V0 -> S.Seq Op -> Either Text (S.Seq (V0,Op), V0)
-pass0_anno v ops = toText $ run body where
-    toText = left inE
-    run = runIdentity . runErrorT
-    body = pass0_annoM invFail v ops
+pass0_run :: V0Inv -> V0 -> S.Seq Op -> Either Text V0
+pass0_run ef v0 ops = runV0 $ ops_v0 ef ops v0 where
 
-pass0_annoM :: (Monad m) => V0Inv m -> V0 -> S.Seq Op -> m (S.Seq (V0,Op), V0)
-pass0_annoM ef = step S.empty where
-    step sR v ops = case S.viewl ops of
-        S.EmptyL -> return (sR, v)
-        (op S.:< ops') ->
-            let sR' = sR S.|> (v,op) in
-            op_v0 ef op v >>= \ v' ->
-            step sR' v' ops'
-
-
-
+runV0 :: V0Pass a -> Either Text a
+runV0 = left inE . runIdentity . runErrorT
 
 -- pass 0 data:
 --   some decidedly ad-hoc type information 
@@ -86,7 +86,8 @@ data V0
     | V0Seal Text V0 -- sealed value
 
 type LV0 = (Bool,V0)
-type V0Inv m = Text -> V0 -> m V0
+type V0Pass = ErrorT E Identity
+type V0Inv = Text -> V0 -> V0Pass V0
 instance Show V0 where show = v0Summary 10
 
 invFail :: (Monad m, Show v) => Text -> v -> m v
@@ -95,12 +96,23 @@ invFail tok v = fail $ "{" ++ T.unpack tok ++ "} @ " ++ show v
 opFail :: (Monad m, Show v) => Char -> v -> m v
 opFail op v = fail $ op : (" @ " ++ show v)
 
+indent :: String -> String -> String
+indent ws = L.unlines . map (ws ++) . L.lines 
+
 
 -- a quick visual summary of static context, to help debugging
 v0Summary :: Int -> V0 -> String
-v0Summary n _ | (n < 0) = "..."
 v0Summary _ V0Dyn = "?"
-v0Summary _ (V0Block kf (Just _)) = addkf kf "B."
+v0Summary _ (V0Block kf (Just ops)) = 
+    let nSummary = 14 in
+    let opsTxt0 = showOps ops in
+    let bTooBig = GT == T.compareLength opsTxt0 nSummary in
+    let opsTxt = if bTooBig 
+            then let txtCut = T.take (nSummary - 3) opsTxt0 in
+                 txtCut `T.append` T.pack "..."
+            else opsTxt0
+    in
+    addkf kf $ "[" ++ T.unpack opsTxt ++ "]"
 v0Summary _ (V0Block kf Nothing) = addkf kf "B"
 v0Summary _ (V0Num (Just r)) = show (N r)
 v0Summary _ (V0Num Nothing) = "N"
@@ -117,16 +129,16 @@ addkf kf = addf . addk where
     addf = if may_copy kf then id else (++ "f") -- affine, no copy
     addk = if may_drop kf then id else (++ "k") -- relevant, no drop
 
-nullInvV0 :: (Monad m) => V0Inv m
+nullInvV0 :: V0Inv
 nullInvV0 = invFail
 
-ops_v0 :: (Monad m) => V0Inv m -> S.Seq Op -> V0 -> m V0
+ops_v0 :: V0Inv -> S.Seq Op -> V0 -> V0Pass V0
 ops_v0 ef = flip $ S.foldlM (flip $ op_v0 ef)
 
 -- monad in this case is mostly used for errors (return vs. fail)
 -- annotations are ignored, sealers are tracked, and other effects
 -- are passed to the provided invoker. 
-op_v0 :: (Monad m) => V0Inv m -> Op -> V0 -> m V0
+op_v0 :: V0Inv -> Op -> V0 -> V0Pass V0
 op_v0 ef (Op '$') = op_v0_ap ef
 op_v0 ef (Op '?') = op_v0_condap ef
 op_v0 _ (Op c) = op_v0c c 
@@ -143,7 +155,7 @@ op_v0 ef (Invoke tok) = case T.uncons tok of
 op_v0 ef (AMBC [ops]) = ops_v0 ef ops
 op_v0 _ (AMBC _) = const $ fail $ "ambiguity not supported"
 
-op_v0c :: (Monad m) => Char -> V0 -> m V0
+op_v0c :: Char -> V0 -> V0Pass V0
 op_v0c ' ' = return
 op_v0c '\n' = return
 op_v0c 'l' = op_v0_l
@@ -191,10 +203,10 @@ op_v0_l, op_v0_r, op_v0_w, op_v0_z, op_v0_v, op_v0_c
     , op_v0_L, op_v0_R, op_v0_W, op_v0_Z, op_v0_V, op_v0_C
     , op_v0_D, op_v0_F, op_v0_M, op_v0_K
     , op_v0_P, op_v0_S, op_v0_B, op_v0_N, op_v0_gt 
-    :: Monad m => V0 -> m V0
+    :: V0 -> V0Pass V0
 
-op_v0_digit :: Monad m => Int -> V0 -> m V0
-op_v0_ap, op_v0_condap :: Monad m => V0Inv m -> V0 -> m V0
+op_v0_digit :: Int -> V0 -> V0Pass V0
+op_v0_ap, op_v0_condap :: V0Inv -> V0 -> V0Pass V0
 
 op_v0_l v =
     asPairV0 v >>= \ (va, vbc) ->
@@ -243,9 +255,12 @@ op_v0_ap ef v =
     asBlockV0 b >>= \ (_,mbops) ->
     case mbops of
         Nothing -> return $ V0P V0Dyn ve
-        Just ops -> 
-            ops_v0 ef ops vx >>= \ vx' ->
-            return $ V0P vx' ve
+        Just ops -> case pass0_run ef vx ops of
+            Left etxt -> -- error within block call
+                let emsg1 = "failure in '$' call @ " ++ show v in
+                let emsg2 = indent " " (T.unpack etxt) in
+                fail (emsg1 ++ "\n" ++ emsg2)
+            Right vx' -> return $ V0P vx' ve
 
 op_v0_comp v = 
     asPairV0 v >>= \ (byz, vbxy_e) ->
@@ -389,13 +404,18 @@ op_v0_condap ef v =
     let bDroppable = may_drop kf in
     let eUndroppable = "? (w/undroppable) @ " ++ show v in
     if not bDroppable then fail eUndroppable else
-    let getVL' = case mbops of
-         Nothing -> return V0Dyn
-         Just ops -> ops_v0 ef ops (snd lvl)
-    in
-    getVL' >>= \ vl' ->
-    let lvl' = (fst lvl, vl') in
-    return $ V0P (V0S lvl' lvr) ve
+    case mbops of
+        Nothing -> -- cannot test statically
+            let lvl' = (fst lvl, V0Dyn) in
+            return $ V0P (V0S lvl' lvr) ve
+        Just ops -> case pass0_run ef (snd lvl) ops of
+            Left etxt -> -- failed within call
+                let emsg1 = "failure in '?' call @ " ++ show v in
+                let emsg2 = indent " " (T.unpack etxt) in
+                fail (emsg1 ++ "\n" ++ emsg2)
+            Right vl' -> -- success; static block tested
+                let lvl' = (fst lvl, vl') in
+                return $ V0P (V0S lvl' lvr) ve
 
 op_v0_D v =
     asPairV0 v >>= \ (va, vse) ->
@@ -498,15 +518,20 @@ voidLV0 = (False,V0Dyn)
 op_v0_gt v = 
     asPairV0 v >>= \ (vx, vye) ->
     asPairV0 vye >>= \ (vy, ve) ->
-    gtV0 vy vx >>= \ bGT ->
-    let vR = V0P vx vy in
-    let vL = V0P vy vx in
-    let vgt = case bGT of
-         Nothing    -> V0S (True,vL) (True,vR)  -- dynamic compare
-         Just True  -> V0S (False,vL) (True,vR) -- static true
-         Just False -> V0S (True,vL) (False,vR) -- static false
-    in
-    return $ V0P vgt ve
+    case runV0 $ gtV0 vy vx of
+        Left etxt -> 
+            let emsg1 = "comparison failure '>' @ " ++ show v in
+            let emsg2 = indent " " $ T.unpack etxt in
+            fail (emsg1 ++ "\n" ++ emsg2)
+        Right bGT ->
+            let vR = V0P vx vy in
+            let vL = V0P vy vx in
+            let vgt = case bGT of
+                 Nothing    -> V0S (True,vL) (True,vR)  -- dynamic compare
+                 Just True  -> V0S (False,vL) (True,vR) -- static true
+                 Just False -> V0S (True,vL) (False,vR) -- static false
+            in 
+            return $ V0P vgt ve
 
 -- returns Nothing if no comparison could be made
 -- returns Just True if left is greater than right
@@ -517,7 +542,7 @@ op_v0_gt v =
 -- fails when:
 --   comparing unit with non-unit (and non-dyn)
 --   comparing with sealed values or blocks
-gtV0 :: (Monad m) => V0 -> V0 -> m (Maybe Bool)
+gtV0 :: V0 -> V0 -> V0Pass (Maybe Bool)
 gtV0 (V0Dyn) _ = return Nothing
 gtV0 _ (V0Dyn) = return Nothing
 gtV0 V0Unit V0Unit = return (Just False)
@@ -650,6 +675,38 @@ isSealedV0 (V0Seal _ _) = True
 isSealedV0 _ = False
 isDynV0 V0Dyn = True
 isDynV0 _ = False
+
+------------------------------------------
+-- Initial Pass Annotation!
+------------------------------------------
+
+pass0_anno :: V0Inv -> V0 -> S.Seq Op -> Either Text (S.Seq (V0,Op), V0)
+pass0_anno ef v ops = runV0 $ pass0_annoM ef v ops
+
+pass0_annoM :: V0Inv -> V0 -> S.Seq Op -> V0Pass (S.Seq (V0,Op), V0)
+pass0_annoM ef = step S.empty where
+    step sR v ops = case S.viewl ops of
+        S.EmptyL -> return (sR, v)
+        (op S.:< ops') ->
+            let sR' = sR S.|> (v,op) in
+            op_v0 ef op v >>= \ v' ->
+            step sR' v' ops'
+
+------------------------------------------
+-- Okay, time for the second pass.
+-- 
+-- The first compilation pass handles partial evaluation,
+-- and provides just a little structure to the output type.
+-- It can also catch a few errors.
+--
+-- The second pass is all about dead-code elimination, and
+-- propagating assertion requirements backwards (so we can
+-- fail early). 
+
+------------------------------------------
+-- Okay... time for the second pass
+--   in this case, the data flows right to left
+--   but 
 
 
 

@@ -8,6 +8,7 @@ module AO.V
     , abcQuote, abcLit
     , quoteNum, quoteNat, divModQ
     , opCodeList, inlineOpCodeList
+    , showOps
     ) where
 
 import Control.Applicative
