@@ -22,9 +22,6 @@ boolean
 @doc..mirror "(a+b)*e→(b+a)*e"
 @.mirror %VRWLC
 
-@doc..leftE "[(a*e)→(a'*e)] * ((a+b)*e) → ((a'+b)*e)]; i.e. inline on left"
-@.leftE %vrwrwD [%vrwlc] %r?w? [%vrwlc] %r?Mwlc
-
 @id.isPairMerge  isPair merge
 @id.isSumMerge   isSum merge
 @id.isNumMerge   isNumber merge
@@ -43,7 +40,7 @@ boolean
 @doc.gte "a b -- ((a*b) + (b*a)); a ≥ b?"
 @doc.lte "a b -- ((b*a) + (a*b)); a ≤ b?"
 @gt  p %rr>l
-@lt  swap gt
+@lt  p %rrw>l
 @gte lt not
 @lte gt not
 
@@ -127,79 +124,6 @@ boolean
 @.either take .left put .right
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
-
-@doc..distribdE
-"Distribute the environment across the condition expressed in the second item on the stack, holding only the item on the top of the stack. This doesn't require a standard environment:
- 
-    (k*((a+b)*s))*e → (((a*s)*e)+((b*s)*e))*(k*1)
- 
- Note: this operation is not entirely parametric in context of spatial-temporal types. It must be possible to observe the (+) condition across all values in s,e. 
-~
-@.distribdE
- %rvrw
- %rrwzl
- %D
- [.swap %l] %r? .mirror
- [.swap %l] %r? .mirror
-   
-@doc..factorEd "reverses @.distribdE"
-@.factordE 
- [%r] %r? .mirror
- [%r] %r? .mirror
- %FwMwlwlcll x
-
-@doc..distribE "((a+b)*s)*e → ((a*s)*e)+((b*s)*e); p @.distribdE"
-@.distribE
- %rvrw
- %D
- [.swap %l] %r? .mirror
- [.swap %l] %r? .mirror
- %c
-
-@doc..factorE "reverses @.distribE"
-@.factorE
- %v
- [%r] %r? .mirror
- [%r] %r? .mirror
- %FwMwlcl
-
-@doc.leftJoin "(a+b) [a--b] -- b; apply on left then merge inline"
-@doc.rightJoin "(a+b) [b--a] -- a; apply in right then merge inline"
-@leftJoin .distribdE %w?Mc
-@rightJoin .distribdE .mirror %w?Mc
-
-@test.leftJoin.inL 1 inL [inc] leftJoin 2 assertEQ1
-@test.leftJoin.inR 1 inR [inc] leftJoin 1 assertEQ1
-
-@doc.leftE "(a+b) [a -- a'] -- (a'+b); left with full env"
-@doc.rightE "(a+b) [b -- b'] -- (a+b'); right with full env"
-@doc.eitherE "(a+b) [a -- a'] [b -- b'] -- (a'+b'); with full env"
-
-@leftE .distribdE %w?c .factorE
-@rightE take not put leftE not
-@eitherE
- pw
- .distribdE 
- %wrz?
- .mirror
- %w?
- .mirror
- %c
- .factorE
-
-@doc.leftdE "(a+b) d [a -- a'] -- (a'+b) h; leftE hiding element d"
-@doc.rightdE "(a+b) d [b -- b'] -- (a+b') h; rightE hiding element d"
-@doc.eitherdE "(a+b) d [a -- a'] [b -- b'] -- (a'+b') h; eitherE hiding d" 
-@leftdE p .distribdE %wrz? .factordE
-@rightdE take2 not put2 leftdE take not put
-@eitherdE 
- pw p r
- .distribdE
- %wrz?
- .mirror
- %wrz?
- .mirror
- .factordE
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
