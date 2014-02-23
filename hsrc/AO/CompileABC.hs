@@ -42,6 +42,7 @@ module AO.CompileABC
     ) where
 
 import AO.V
+import AO.ABC (simplifyABC)
 import Data.Monoid (mappend)
 import Control.Arrow (first, left, right)
 import Control.Applicative
@@ -102,10 +103,11 @@ indent ws = L.unlines . map (ws ++) . L.lines
 
 -- a quick visual summary of static context, to help debugging
 v0Summary :: Int -> V0 -> String
+v0Summary n _ | (n < 0) = "..."
 v0Summary _ V0Dyn = "?"
 v0Summary _ (V0Block kf (Just ops)) = 
     let nSummary = 14 in
-    let opsTxt0 = showOps ops in
+    let opsTxt0 = showOps (simplifyABC ops) in
     let bTooBig = GT == T.compareLength opsTxt0 nSummary in
     let opsTxt = if bTooBig 
             then let txtCut = T.take (nSummary - 3) opsTxt0 in
