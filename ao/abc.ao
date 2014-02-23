@@ -1,9 +1,3 @@
-@doc.import.abc 
-"low level data shuffling and manipulation
- 
- using prefix 'abc' because similar words operating on the
- AO stack will be favored.
-~
 
 @assocl.abc %l
 @assocr.abc %r
@@ -50,10 +44,10 @@
 @not.abc    mirror.abc
 @rot2+.abc  %W
 @rot3+.abc  %ZW
-@rot4+.abc  %L rot3+ %WRZW
-@rot5+.abc  %L rot4+ %WRZW
-@rot6+.abc  %L rot5+ %WRZW
-@rot7+.abc  %L rot6+ %WRZW
+@rot4+.abc  %L rot3+.abc %WRZW
+@rot5+.abc  %L rot4+.abc %WRZW
+@rot6+.abc  %L rot5+.abc %WRZW
+@rot7+.abc  %L rot6+.abc %WRZW
 @zip2+.abc  %RZL
 
 @drop.abc %%
