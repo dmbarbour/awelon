@@ -23,14 +23,13 @@
 --
 module AO.CompileABC
     ( V0(..), V0Inv, op_v0, ops_v0, nullInvV0
-    , pass0_check
-    -- , pass0_annotate
+    , pass0_check, pass0_anno
      
     ) where
 
 import AO.V
 import Data.Monoid (mappend)
-import Control.Arrow ((+++), first)
+import Control.Arrow ((+++), first, left)
 import Control.Applicative
 import Data.Functor.Identity
 import Control.Monad.Trans.Error
@@ -49,6 +48,24 @@ pass0_check ops = toText $ run mainTest where
     toText = inE +++ (T.pack . show)
     mainTest = ops_v0 nullInvV0 ops V0Dyn 
     run = runIdentity . runErrorT
+
+pass0_anno :: V0 -> S.Seq Op -> Either Text (S.Seq (V0,Op), V0)
+pass0_anno v ops = toText $ run body where
+    toText = left inE
+    run = runIdentity . runErrorT
+    body = pass0_annoM invFail v ops
+
+pass0_annoM :: (Monad m) => V0Inv m -> V0 -> S.Seq Op -> m (S.Seq (V0,Op), V0)
+pass0_annoM ef = step S.empty where
+    step sR v ops = case S.viewl ops of
+        S.EmptyL -> return (sR, v)
+        (op S.:< ops') ->
+            let sR' = sR S.|> (v,op) in
+            op_v0 ef op v >>= \ v' ->
+            step sR' v' ops'
+
+
+
 
 -- pass 0 data:
 --   some decidedly ad-hoc type information 
