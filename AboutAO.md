@@ -94,9 +94,11 @@ AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#01234
 
 AO compilers generally prohibit syntactic representation of semantic capabilities. That is, interesting capabilities should not be "hard wired" into program source code. Instead, they should be provided as arguments to the program, thus enabling secure reasoning about how authority is distributed through subprograms. 
 
-Capabilities are usually shared via 'powerblock' - a block with a standard location in the environment, that can be asked for specific capabilities. This gives AO the feel of an ambient authority language, since full authority tends to be passed forward by default. AO programmers must instead be explicit about where they restrict authority, leveraging combinators that restrict authority in known ways:
+Capabilities are usually shared via 'powerblock' - a block with a standard location in the environment, that can be asked for specific capabilities. This gives AO the feel of an ambient authority language, since full authority tends to be passed forward by default. 
 
-        [trustMeHehHeh] runJailed
+AO programmers must instead be explicit about where they restrict authority, leveraging combinators that restrict authority in known ways. For example, `apply3to2` will execute a block in a simplified environment using the first three items on the stack, and resulting in two items on the stack:
+
+        [trustMeHehHeh] apply3to2
 
 With a little convention, security implications should at least be visible and obvious in code, which is sufficient to achieve the principle of least authority when it most matters.
 
@@ -132,7 +134,7 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
-* adverbs `\`
+* adverbs `\` (experimental, disabled for now)
 
 The latter two features are experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md) and [AboutAdverbs.md](doc/AboutAdverbs.md). Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
 
@@ -206,7 +208,7 @@ A good AO programming environment should provide support for viewing 'live' spre
 
 ### Flat Namespace
 
-Each word in the AO dictionary has a global definition independent of local context. A single dictionary is expected to support thousands of projects. This design offers several advantages:
+Each word in the AO dictionary has a global definition independent of local context. A single dictionary can grow to contain millions of words and support thousands of projects. This design offers several advantages:
 
 * eliminates local import/export boiler plate 
 * common language, learning, and refactoring across projects
@@ -215,15 +217,17 @@ Each word in the AO dictionary has a global definition independent of local cont
 * opportunity for discovery, reuse, knowledge sharing
 * leads naturally towards dense namespace, terse code
 
-Flat namespaces have one great, classical and well known weakness. Risk-averse developers will tend to use long disambiguating words, i.e. including the name of the project, framework, library, or DSL. This leads to phrases such as `foo.projectQux bar.projectQux baz.projectQux` that are verbose and almost intolerable to read or write. 
+Flat namespaces have one well known weakness: name collisions are easy on a global scale. Risk-averse developers will tend to use long disambiguating words, i.e. resulting in phrases such as `foo.projectQux bar.projectQux baz.projectQux` that grow verbose and almost intolerable to read or write. 
 
-Fortunately, we can mitigate *or even reverse* this weakness in context of a modern development environment. An AO editor can recognize common prefixes or suffixes and hide them on render, instead disambiguating by user-configurable styles and colors. Similarly, on edit, auto-complete features with fuzzy find can simplify discovery and use of long words.
+Fortunately, we can mitigate *or even reverse* this weakness in context of a rich development environment. 
 
-Developers are thus free to use a new suffix for each project or framework as a pseudo-namespace. When functionality proves to be more widely useful, it can later be refactored into a more generic space.
+An AO editor can recognize common prefixes or suffixes. Instead of rendering the full word, we could disambiguate using color or style. For example, `foo.projectQux` might render simply as `foo`, but in color blue. Similarly, on edit, auto-complete features with fuzzy find can simplify discovery and use of long words. Style configurations could be sensitive to the user and active project. 
+
+This technique can feasibly *improve* readability, by enabling developers to see by color which words belong to which frameworks or libraries, and easily visualize how code is coupled. Thus, developers are encouraged to simply use a new suffix for words in a new project or framework. Widely useful code can be discovered and refactored later. 
 
 ## Multi-Stack Environment
 
-Just as developers operate on a tacit dictionary, AO words and literals operate on a tacit value. The latter value is structured and can often be understood as modeling an 'environment' for computation - e.g. a stack, or multiple stacks. The structure of this environment is determined by convention. However, changes are expensive, requiring widespread edits to data shuffling words.
+Just as developers operate on a tacit dictionary, AO words and literals operate on a tacit value. The value is structured and can often be understood as modeling an 'environment' for computation - e.g. a stack, or multiple stacks. The structure of this environment is determined by convention. However, changing convention can be expensive, requiring widespread edits to data shuffling words.
 
 Based on a few experiments, I recommend the following as a flexible starting model for most AO systems:
 

@@ -23,7 +23,7 @@ module AO.AO
 
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Map.Strict as M
+import qualified Data.Map as M
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import Data.Set (Set)

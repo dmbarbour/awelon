@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.10.0
+Version: 0.10.2
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -83,8 +83,7 @@ Library
     AO.ParseAO
     AO.LoadAO
     AO.AO
-    AO.CompileABC
-
+  
   ghc-options: -Wall -auto-all
 
   if os(windows)

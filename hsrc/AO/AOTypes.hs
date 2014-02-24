@@ -14,7 +14,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Map.Strict as M
+import qualified Data.Map as M
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import AO.V

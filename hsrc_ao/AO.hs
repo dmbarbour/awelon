@@ -35,13 +35,13 @@ import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import AO.AO
 import AO.ABC
-import AO.CompileABC
 
 -- not many modes to parse at the moment.
 data Mode 
-    = Test Import -- run all `test.` words
-    | Type0 Import Bool -- partial compilation
+    = Test DictName -- run all `test.` words
+    | Type DictName [W] -- report type for a set of words
     | Help
+type DictName = Import
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
     }
@@ -53,8 +53,8 @@ ts0 = TestState S.empty
 
 cmdLineHelp :: String
 cmdLineHelp = 
-    "ao test foo             run tests in `foo` dictionary\n" ++
-    "ao type0 foo [-v]       partial typecheck (pass0) on dict foo\n" ++
+    "ao test foo             typecheck words in foo, run `test.` words\n" ++
+    "ao type foo word        print type for a given (list of) word(s)\n" ++
     "ao help (or -?)         these options\n"
 
 main :: IO ()
@@ -80,7 +80,7 @@ putErrLn = Sys.hPutStrLn Sys.stderr
 runMode :: Mode -> IO ()
 runMode Help = runHelp
 runMode (Test dict) = runTests dict
-runMode (Type0 dict bVerbose) = runPass0 dict bVerbose
+runMode (Type d ws) = runType d ws
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -202,22 +202,19 @@ testPower rf = B (KF False False) (ABC ops action) where
 -- Running Pass0 typecheck
 --------------------------------------
 
-runPass0 :: Import -> Bool -> IO ()
-runPass0 imp bVerbose =
-    loadDictionary imp >>= \ dict ->
-    let dc = compileDictionary dict in
-    let (mBad,mOK) = M.mapEither pass0_check dc in
-    let onOkay = uncurry reportType0Pass in
-    let onFail = uncurry reportType0Fail in
-    when bVerbose (mapM_ onOkay (M.toList mOK)) >>
-    mapM_ onFail (M.toList mBad)
+runType :: DictName -> [W] -> IO ()
+runType dictName dictWords =
+    loadDictionary dictName >>= \ dictAO ->
+    let dc = compileDictionary dictAO in
+    mapM_ (printTypeOfWord dc) dictWords
 
-reportType0Fail, reportType0Pass :: W -> Text -> IO ()
-reportType0Fail w etxt = Sys.putStrLn emsg where
-    emsg = "(FAIL) " ++ T.unpack w ++ "\n"
-           ++ indent "  " (T.unpack etxt)
-reportType0Pass w stxt = Sys.putStrLn typeMsg where
-    typeMsg = "(pass) " ++ T.unpack w ++ " :: ? → " ++ T.unpack stxt
+printTypeOfWord :: DictC -> W -> IO ()
+printTypeOfWord dc w = case M.lookup w dc of
+    Nothing -> Sys.putStrLn (T.unpack w ++ " :: (ERROR: WORD NOT FOUND!)")
+    Just _ops -> 
+        let typeString = "? → ?; type currently disabled" in
+        let msg = T.unpack w ++ " :: " ++ typeString in
+        Sys.putStrLn msg
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
@@ -238,12 +235,12 @@ parseTestMode =
     anyOneArg >>= 
     return . Test . T.pack
 
-parseType0Mode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseType0Mode =
-    tok (== "type0") >>
-    anyOneArg >>= \ imp ->
-    P.option False (tok (== "-v") >> return True) >>= \ bVerbose ->
-    return (Type0 (T.pack imp) bVerbose)
+parseTypeMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
+parseTypeMode =
+    tok (== "type") >>
+    liftM (T.pack) anyOneArg >>= \ dictName ->
+    P.many1 (anyOneArg) >>= \ targetWords ->
+    return (Type dictName (map T.pack targetWords))
 
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> P.eof >> return Help where
@@ -252,5 +249,5 @@ parseHelpMode = tok anyHelp >> P.eof >> return Help where
 parseCmdLine :: P.Stream s m Tok => P.ParsecT s u m Mode
 parseCmdLine = 
     parseTestMode P.<|> 
-    parseType0Mode P.<|>
+    parseTypeMode P.<|>
     parseHelpMode
