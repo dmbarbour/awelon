@@ -53,9 +53,10 @@ ts0 = TestState S.empty
 
 cmdLineHelp :: String
 cmdLineHelp = 
-    "ao test foo             typecheck words in foo, run `test.` words\n" ++
-    "ao type foo word        print type for a given (list of) word(s)\n" ++
-    "ao help (or -?)         these options\n"
+    "ao test foo             run all `test.` words in foo dict\n" ++
+    "ao type foo             typecheck all words in foo dict\n" ++
+    "ao type foo x y z       print type for a given list of words\n" ++
+    "ao help (or -?)         print these options\n"
 
 main :: IO ()
 main = getMode >>= runMode
@@ -203,18 +204,22 @@ testPower rf = B (KF False False) (ABC ops action) where
 --------------------------------------
 
 runType :: DictName -> [W] -> IO ()
-runType dictName dictWords =
-    loadDictionary dictName >>= \ dictAO ->
-    let dc = compileDictionary dictAO in
-    mapM_ (printTypeOfWord dc) dictWords
+runType dictName [] = 
+    loadDictionary dictName >>= \ dictA0 ->
+    let dc = compileDictionary dictA0 in
+    mapM_ (uncurry runTypeW) (M.toList dc)
+runType dictName ws =
+    loadDictionary dictName >>= \ dictA0 ->
+    let dc = compileDictionary dictA0 in
+    mapM_ (findAndType dc) ws
 
-printTypeOfWord :: DictC -> W -> IO ()
-printTypeOfWord dc w = case M.lookup w dc of
-    Nothing -> Sys.putStrLn (T.unpack w ++ " :: (ERROR: WORD NOT FOUND!)")
-    Just _ops -> 
-        let typeString = "? → ?; type currently disabled" in
-        let msg = T.unpack w ++ " :: " ++ typeString in
-        Sys.putStrLn msg
+findAndType :: DictC -> W -> IO ()
+findAndType dc w = maybe notFound (runTypeW w) (M.lookup w dc) where
+    notFound = Sys.putStrLn $ T.unpack w ++ " :: (WORD NOT FOUND!)"
+
+runTypeW :: W -> S.Seq Op -> IO ()
+runTypeW w _code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
+    msg = "? → ?; type currently disabled"
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
@@ -239,8 +244,8 @@ parseTypeMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseTypeMode =
     tok (== "type") >>
     liftM (T.pack) anyOneArg >>= \ dictName ->
-    P.many1 (anyOneArg) >>= \ targetWords ->
-    return (Type dictName (map T.pack targetWords))
+    liftM (map T.pack) (P.many anyOneArg) >>= \ targetWords ->
+    return (Type dictName targetWords)
 
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> P.eof >> return Help where

@@ -663,10 +663,4 @@ pass0_annoM ef = step S.empty where
             op_v0 ef op v >>= \ v' ->
             step sR' v' ops'
 
-------------------------------------------
--- Okay, time for the second pass.
---
--- In
-----------------------------------------
-
 

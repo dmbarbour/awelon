@@ -57,6 +57,14 @@
 @doc..fixfirst "[(f*e)→e] -- [e→e]; fixpoint first argument in pair"
 @.fixfirst %r [%^'wo] %rwo %^'wol
 
+@doc.fixpointLinear   "fixpoint adding linearity attribute"
+@doc.fixpointAffine   "fixpoint adding affine attribute"
+@doc.fixpointRelevant "fixpoint adding relevant attribute"
+@fixpointLinear   %r [%^'wokfl] %rwo %^'wokfl
+@fixpointAffine   %r [%^'wofl]  %rwo %^'wofl
+@fixpointRelevant %r [%^'wokl]  %rwo %^'wokl
+
+
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply
 @step.factorial.fixpoint

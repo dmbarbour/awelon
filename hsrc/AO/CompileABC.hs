@@ -1,18 +1,38 @@
--- | I would like to 'compile' ABC code, mostly to eliminate the
+-- | I would like to compile ABC code, mostly to eliminate the
 -- data plumbing at runtime, and also to perform some partial eval
 -- of numbers and decisions.
 --
 -- Profiling of runABC has indicated that the 'lrwz' operations are
--- dominant on the performance costs, and that constructing numbers
--- is also very high. If most of these costs can be removed from a
--- runtime loop, the performance for running Haskell should be much
--- better - by perhaps an order of magnitude. In addition, we may be
--- able to achieve better memory locality, or even some parallelization.
+-- dominant on the performance costs, i.e. requiring allocation to
+-- construct the new data structures, plus analysis of the same. Most
+-- of these overheads could feasibly be eliminated. If removed from
+-- runtime loops, the performance benefits could be upwards of one
+-- order of magnitude. In addition, we may achieve memory locality 
+-- or better parallelization.
 --
--- Naive attempts to compile ABC have fallen flat. I could pursue a 
--- register-based compilation, but it isn't convenient to express that
--- in Haskell. I'll probably need to try a graph rewriting compiler, 
--- or even model a proper G-machine. 
+-- This requires translating our ABC program into a staged program
+-- in another language, such that:
+--
+--   (a) we quickly pick apart the ABC input value
+--   (b) we perform minimal computations on the pieces
+--   (c) we quickly put the resulting value back together
+--
+-- ABC cannot do this directly, because ABC computes structural 
+-- information from step to step. Well... it might be feasible, but
+-- it would require a lot of stateful references, which I'd rather
+-- avoid. (Learning this resulted in a few failed compilers, but had
+-- the nice benefit of providing a typechecker.)
+--
+-- Possibilities:
+--
+--    transform ABC program into a graph, use dataflow techniques
+--    develop a register machine; use register for each computed value
+--    compile ABC to Haskell and leverage System.Plugins.
+--
+-- I would like better performance for `aoi` so I can easily bootstrap
+-- many times per day (until I'm ready to fully switch). The main issue
+-- is improving performance for loops.
+--
 module AO.CompileABC
     ( 
     ) where
