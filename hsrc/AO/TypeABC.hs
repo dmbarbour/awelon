@@ -23,8 +23,8 @@ import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.List as L
 import qualified Data.Text as T
+import Data.Text (Text)
 
-import Data.Text
 import AO.V
 
 data Ty
@@ -36,7 +36,7 @@ data Ty
     | TySum STy STy
     | TySeal Text Ty
 type STy = (Bool, Ty)
-newtype TyX = TyX Ty -- type expected
+--newtype TyX = TyX Ty -- type expected
 
 instance Show Ty where show = summaryTy 12
 
@@ -175,18 +175,22 @@ asProd :: Ty -> TyM (Ty,Ty)
 asSum  :: Ty -> TyM (STy,STy)
 asSum' :: STy -> TyM (STy, STy)
 mkSum' :: STy -> STy -> STy
+sumVoid, dynOpt :: STy
 asNum  :: Ty -> TyM (Maybe Rational)
 asBlock :: Ty -> TyM (KF, Maybe (S.Seq Op))
 asUnit :: Ty -> TyM ()
-isDyn :: Ty -> Bool
+isDyn, isProd, isSum, isBlock, isNum, isObs :: Ty -> Bool
 
 asProd (TyProd a b) = return (a,b)
 asProd TyDyn = return (TyDyn, TyDyn)
 asProd v = fail $ "expected product @ " ++ show v
 
 asSum (TySum a b) = return (a,b)
-asSum TyDyn = return (True,TyDyn) (True,TyDyn)
+asSum TyDyn = return (dynOpt,dynOpt)
 asSum v = fail $ "expected sum @ " ++ show v
+
+sumVoid = (False,TyDyn)
+dynOpt = (True,TyDyn)
 
 asSum' (bLive, ab) =
     asSum ab >>= \ (a,b) ->
@@ -211,12 +215,31 @@ asUnit v = fail $ "expected unit @ " ++ show v
 isDyn TyDyn = True
 isDyn _ = False
 
+isProd (TyProd _ _) = True
+isProd _ = False
+
+isSum (TySum _ _) = True
+isSum _ = False
+
+isBlock (TyBlock _ _) = True
+isBlock _ = False
+
+isNum (TyNum _) = True
+isNum _ = False
+
+isObs (TySeal _ _) = False
+isObs (TyUnit) = False
+isObs _ = True
+
 runOp_digit :: Int -> Ty -> TyM Ty
 runOp_digit d vne =
     asProd vne >>= \ (vn,ve) ->
     asNum vn >>= \ mbr -> 
     let mbr' = updateDigit d <$> mbr in
     return $ TyProd (TyNum mbr') ve
+
+updateDigit :: Int -> Rational -> Rational
+updateDigit d r = 10*r + fromIntegral d
 
 runOp_l, runOp_r, runOp_w, runOp_z, runOp_v, runOp_c,
  runOp_L, runOp_R, runOp_W, runOp_Z, runOp_V, runOp_C,
@@ -244,7 +267,7 @@ runOp_z abcd =
     asProd bcd >>= \ (b,cd) ->
     asProd cd >>= \ (c,d) ->
     return (TyProd a (TyProd c (TyProd b d)))
-runOp_v x = TyProd x TyUnit
+runOp_v x = return $ TyProd x TyUnit
 runOp_c xu = asProd xu >>= \ (x, u) -> asUnit u >> return x
 
 runOp_L abce =
@@ -286,33 +309,33 @@ runOp_C ave =
 
 runOp_copy ae =
     asProd ae >>= \ (a,e) ->
-    if (not . copyable) a 
+    if (not . tyCopyable) a 
         then fail $ "^ @ " ++ show ae 
         else return (TyProd a (TyProd a e))
 
-copyable :: Ty -> Bool
-copyable TyDyn = True
-copyable (TyNum _) = True
-copyable (TyBlock kf _) = may_copy kf
-copyable (TyProd a b) = copyable a && copyable b
-copyable (TyUnit) = True
-copyable (TySum a b) = copyable (snd a) && copyable (snd b)
-copyable (TySeal _ v) = copyable v
+tyCopyable :: Ty -> Bool
+tyCopyable TyDyn = True
+tyCopyable (TyNum _) = True
+tyCopyable (TyBlock kf _) = may_copy kf
+tyCopyable (TyProd a b) = tyCopyable a && tyCopyable b
+tyCopyable (TyUnit) = True
+tyCopyable (TySum a b) = tyCopyable (snd a) && tyCopyable (snd b)
+tyCopyable (TySeal _ v) = tyCopyable v
 
 runOp_drop ae =
     asProd ae >>= \ (a,e) ->
-    if (not . droppable) a 
+    if (not . tyDroppable) a 
         then fail $ "% @ " ++ show ae 
         else return e
 
-droppable :: Ty -> Bool
-droppable TyDyn = True
-droppable (TyNum _) = True
-droppable (TyBlock kf _) = may_drop kf
-droppable (TyProd a b) = droppable a && droppable b
-droppable TyUnit = True
-droppable (TySum a b) = droppable (snd a) && droppable (snd b)
-droppable (TySeal _ v) = droppable v
+tyDroppable :: Ty -> Bool
+tyDroppable TyDyn = True
+tyDroppable (TyNum _) = True
+tyDroppable (TyBlock kf _) = may_drop kf
+tyDroppable (TyProd a b) = tyDroppable a && tyDroppable b
+tyDroppable TyUnit = True
+tyDroppable (TySum a b) = tyDroppable (snd a) && tyDroppable (snd b)
+tyDroppable (TySeal _ v) = tyDroppable v
 
 runOp_ap bxe =
     asProd bxe >>= \ (b,xe) ->
@@ -328,7 +351,7 @@ runOp_ap bxe =
                 fail $ emsg1 ++ "\n" ++ emsg2
 
 indent :: String -> String -> String
-indent ws = L.unlines . map (ws ++) . L.lines 
+indent ws = L.unlines . L.map (ws ++) . L.lines 
 
 runOp_comp yzxye =
     asProd yzxye >>= \ (yz,xye) ->
@@ -351,15 +374,8 @@ tyQuote (TyBlock kf (Just ops)) = TyBlock kf (Just ops') where
     addk = if (may_drop kf) then id else (S.|> Op 'k')
     addf = if (may_copy kf) then id else (S.|> Op 'f')
 tyQuote v = TyBlock kf Nothing where
-    kf = KF { may_copy = copyable v, may_drop = droppable v }
-
-
-quoteV0 :: V0 -> V0
-quoteV0 (V0Num (Just r)) = V0Block kf0 (Just $ abcQuote (N r))
-quoteV0 (V0Block kf (Just ops)) = (V0Block kf (Just ops')) where
-quoteV0 v = V0Block kf Nothing where
-    kf = KF { may_copy = isCopyableV0 v
-            , may_drop = isDroppableV0 v }
+    kf = KF { may_copy = tyCopyable v
+            , may_drop = tyDroppable v }
 
 runOp_rel be =
     asProd be >>= \ (b,e) ->
@@ -422,8 +438,8 @@ runOp_condap bse =
     asProd se >>= \ (s,e) ->
     asSum s >>= \ (l,r) ->
     asBlock b >>= \ (kf,mbops) ->
-    let eUndroppable = "? (w/undroppable) @ " ++ show bse in
-    if not (may_drop kf) then fail eUndroppable else
+    let eUntyDroppable = "? (w/untyDroppable) @ " ++ show bse in
+    if not (may_drop kf) then fail eUntyDroppable else
     case mbops of
         Nothing ->
             let s' = TySum (fst l, TyDyn) r in
@@ -457,12 +473,12 @@ runOp_factor se =
 runOp_merge se =
     asProd se >>= \ (s,e) ->
     asSum s >>= \ (a,b) ->
-    return $ TyProd (tyMerge' a b) e
+    return $ TyProd (snd $ tyMerge' a b) e
 
-tyMerge' :: STy -> STy -> Ty
-tyMerge' (False,_) (True,b) = b
-tyMerge' (True,a) (False,_) = a
-tyMerge' (_,a) (_,b) = tyMerge a b
+tyMerge' :: STy -> STy -> STy
+tyMerge' (False,_) (True,b) = (True,b)
+tyMerge' (True,a) (False,_) = (True,a)
+tyMerge' a b = (fst a || fst b, tyMerge (snd a) (snd b))
 
 -- permissive merge, because I cannot locally determine 
 -- future compatibility. 
@@ -494,5 +510,49 @@ runOp_assert se =
     return $ TyProd (snd b) e
 
 
- runOp_isProd, runOp_isSum, runOp_isBlock, runOp_isNum, runOp_gt
+
+asObsProd :: Ty -> TyM (Ty, Ty)
+asObsProd oe =
+    asProd oe >>= \ (o,e) ->
+    if isObs o then return (o,e) else
+    fail $ "expecting observable @ " ++ show oe
+
+runOp_isProd ve =
+    asObsProd ve >>= \ (v,e) ->
+    let dynProd = TyProd TyDyn TyDyn in
+    let vo = if isDyn v then TySum dynOpt (True,dynProd) else
+             if isProd v then TySum sumVoid (True,v) else
+             TySum (True,v) (False,dynProd)
+    in
+    return $ TyProd vo e
+
+runOp_isSum ve = 
+    asObsProd ve >>= \ (v,e) ->
+    let dynSum = TySum dynOpt dynOpt in
+    let vo = if isDyn v then TySum dynOpt (True,dynSum) else
+             if isSum v then TySum sumVoid (True,v) else
+             TySum (True,v) (False,dynSum)
+    in
+    return $ TyProd vo e
+
+runOp_isNum ve =
+    asObsProd ve >>= \ (v,e) ->
+    let dynNum = TyNum Nothing in
+    let vo = if isDyn v then TySum dynOpt (True, dynNum) else
+             if isNum v then TySum sumVoid (True, v) else
+             TySum (True, v) (False, dynNum)
+    in
+    return $ TyProd vo e
+
+runOp_isBlock ve =
+    asObsProd ve >>= \ (v,e) ->
+    let dynBlock = TyBlock kf0 Nothing in
+    let vo = if isDyn v then TySum dynOpt (True, dynBlock) else
+             if isBlock v then TySum sumVoid (True, v) else
+             TySum (True, v) (False, dynBlock)
+    in
+    return $ TyProd vo e
+
+
+runOp_gt = undefined
 
