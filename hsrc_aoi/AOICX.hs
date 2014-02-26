@@ -65,7 +65,6 @@ modCX = liftCX . MT.modify
 --
 data AOI_CONTEXT = AOI_CONTEXT 
     { aoi_dict    :: !DictC  -- loaded and compiled dictionary
-    , aoi_source  :: !Import -- for reloading
     , aoi_powers  :: !(M.Map Text Power) -- provide powers to powerblock
     , aoi_step    :: !(HLS StepState) -- recovery values 
     , aoi_ifn     :: !IFN 
@@ -75,7 +74,6 @@ defaultContext :: AOI_CONTEXT
 defaultContext = AOI_CONTEXT
     { aoi_dict = M.empty
     , aoi_powers = M.empty
-    , aoi_source = T.pack "aoi"
     , aoi_step = hls_full_init 7 const (0, defaultEnv)
     , aoi_ifn = defaultIFN
     }
@@ -185,7 +183,7 @@ aoiPushStep v = modCX put where
 aoiReload :: AOI ()
 aoiReload = 
     getCX >>= \ cx ->
-    liftIO (loadDictionary (aoi_source cx)) >>= \ dictAO_pre ->
+    liftIO loadDictionary >>= \ dictAO_pre ->
     let dictAO = preCompile cx dictAO_pre in
     let dc0 = compileDictionary dictAO in
     let dcf = postCompile cx dc0 in

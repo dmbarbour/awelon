@@ -157,9 +157,7 @@ To help bootstrap, AO defines a simple **.ao** dictionary file format - primaril
 
 Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. If a word is already defined, the earlier definition is replaced and a warning is issued (shouldn't happen silently). A word may be *undefined* by convention of placing it in a cycle with itself, e.g. `@foo foo`. 
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Words from each import are loaded in order, albeit optimized to silently eliminate redundant loads or cycles. Imports are currenly located by simply searching the `AO_PATH` environment variable for the first file named the same as the import plus a **.ao** suffix. 
-
-A complete AO dictionary is generally specified from an initial import.
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Words from each import are loaded in order, albeit optimized to silently eliminate redundant loads or cycles. Imports are currenly located by simply searching the `AO_PATH` environment variable for the first file named the same as the import plus a **.ao** suffix. The full dictionary is specified by an initial import. This defaults to `lang` but can be configured via the `AO_DICT` environment variable.
 
 ### Processing of AO Dictionary
 

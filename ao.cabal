@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.10.2
+Version: 0.11.0
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -79,7 +79,7 @@ Library
     AO.V
     AO.Op
     AO.ABC
-    -- AO.TypeABC
+    AO.TypeABC
     AO.AOTypes
     AO.ParseAO
     AO.LoadAO

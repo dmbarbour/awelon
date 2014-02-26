@@ -2,11 +2,8 @@
 
 -- | AOI describes a simplistic, imperative REPL for language AO.
 --
--- AOI will start by importing the `aoi` dictionary, though another
--- dictionary may be specified on the command line via a `-dict=foo`
--- option, in which case the `foo` dictionary file (foo.ao) will be
--- selected. All dictionaries are selected based on the AO_PATH
--- environment variable, including the initial dictionary.
+-- The dictionary used by AOI is configured by environment variables:
+-- AO_DICT is imported from AO_PATH. 
 --
 -- Unlike conventional REPLs, AOI does not permit defining new words
 -- via the REPL itself. Developers are instead encouraged to modify
@@ -82,15 +79,15 @@ newDefaultContext = Env.getArgs >>= foldM p cx0 where
     cx0 = defaultContext { aoi_powers = defaultPowers } 
     p _ "-?" = runHelp
     p _ "-help" = runHelp
-    p cx (dictArg -> Just d) = return $ cx { aoi_source = T.pack d }
     p cx a = putErrLn ("unknown arg: " ++ a) >> return cx
-    dictArg = L.stripPrefix "-dict="
 
 runHelp :: IO a
 runHelp = putErrLn helpMsg >> Sys.exitSuccess where
     helpMsg = "-? -help      this message\n"
-           ++ "-dict=foo     set AO dictionary (foo.ao on AO_PATH)\n"
-           -- ++ "-frames       enable debug frames\n"
+           ++ "\n"
+           ++ "Environment Variables:\n"
+           ++ "    AO_PATH: list of directories to search for '.ao' files\n"
+           ++ "    AO_DICT: initial import for dictionary (default 'lang')\n"
 
 -- recovery loop will handle state errors (apart from parse errors)
 -- by reversing the ABC streaming state to the prior step. If this
@@ -112,8 +109,7 @@ initAOI = lift aoiReload >> greet where
             HKL.outputStrLn "Welcome to aoi!" >>
             lift getCX >>= \ cx ->
             let wc = M.size (aoi_dict cx) in
-            let imp = T.unpack (aoi_source cx) in
-            let dictMsg = "  dict " ++ imp ++ " (" ++ show wc ++ " words)" in
+            let dictMsg = show wc ++ " words loaded" in
             HKL.outputStrLn dictMsg >>
             HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload, '-' to undo"
 

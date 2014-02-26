@@ -3,7 +3,7 @@
 -- | This module is responsible for loading '.ao' files from the
 -- filesystem, reading AO_PATH, and generally doing file IO. 
 module AO.LoadAO 
-    ( getAO_PATH, importText, importDictFile, importDictFiles
+    ( getAO_PATH, getAO_DICT, importText, importDictFile, importDictFiles
     ) where
 
 import Control.Applicative
@@ -44,6 +44,13 @@ getAO_PATH =
 
 splitPath :: String -> [FS.FilePath]
 splitPath = map FS.fromText . T.split isPathSep . T.pack 
+
+getAO_DICT :: IO Import
+getAO_DICT =
+    Err.tryIOError (Env.getEnv "AO_DICT") >>= \ aod ->
+    case aod of
+        Left _ -> return (T.pack "lang")
+        Right str -> return (T.pack str)
 
 reportError :: String -> IO ()
 reportError = Sys.hPutStrLn Sys.stderr

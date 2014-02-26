@@ -50,7 +50,7 @@ summaryTy _ (TyBlock kf mbOps) = (addDot . addF . addK) "B" where
     addF = if may_copy kf then id else (++ "f")
     addDot = maybe (++ ".") (const id) mbOps
 summaryTy n v@(TyProd a b) =
-    case summaryText 14 v of
+    case summaryText 24 v of
         Just txt -> T.unpack $ '"' `T.cons` txt `T.snoc` '"'
         Nothing -> 
             let msga = summaryTy (n - 1) a in
@@ -72,8 +72,9 @@ summarySTy n (False,a) = "void`" ++ summaryTy n a
 summaryText :: Int -> Ty -> Maybe Text
 summaryText maxLen = tyToVal >=> valToText >=> pure . trimText where
     trimText t = 
-        if (T.compareLength t maxLen) /= GT then t else
-        T.take (maxLen - 3) t `T.append` T.pack "..."
+        if (T.compareLength t maxLen) /= GT 
+            then t 
+            else T.pack "text"
 
 tyToVal :: Ty -> Maybe (V c)
 tyToVal TyDyn = Nothing
@@ -98,10 +99,33 @@ valToTy (P a b) = TyProd (valToTy a) (valToTy b)
 valToTy (B kf abc) = TyBlock kf (Just (abc_code abc))
 valToTy U = TyUnit
 valToTy (S tok v) = TySeal tok (valToTy v)
-valToTy (TC _) = TyDyn
+valToTy (TC _) = TyDyn 
 
+
+
+-- | extract the (input,output) types from a segment of code. 
+-- This will start without any assumptions about type, then 
+-- refine type information in multiple passes. 
 typeOfABC :: S.Seq Op -> Either Text (Ty, Ty)
-typeOfABC = undefined runOp
+typeOfABC ops = runTyM $
+    tyPassAnno TyDyn ops >>= \ (annoOps1, tyOut1) ->
+    tyPassRev tyOut1 annoOps1 >>= \ tyIn1 ->
+    tyPassAnno tyIn1 ops >>= \ (annoOps2, tyOut2) ->
+    tyPassRev tyOut2 annoOps2 >>= \ tyIn2 ->
+    return (tyIn2, tyOut2) -- 2 passes is enough
+
+tyPassAnno :: Ty -> S.Seq Op -> TyM (S.Seq (Ty,Op), Ty)
+tyPassAnno = step S.empty where
+    step sR v ops = case S.viewl ops of
+        S.EmptyL -> return (sR, v)
+        (op S.:< ops') ->
+            let sR' = sR S.|> (v,op) in
+            runOp op v >>= \ v' ->
+            step sR' v' ops'
+
+tyPassRev :: Ty -> S.Seq (Ty,Op) -> TyM Ty
+tyPassRev _ _ = return TyDyn
+
 
 newtype E = E { inE :: Text }
 instance Error E where strMsg = E . T.pack
@@ -179,7 +203,7 @@ sumVoid, dynOpt :: STy
 asNum  :: Ty -> TyM (Maybe Rational)
 asBlock :: Ty -> TyM (KF, Maybe (S.Seq Op))
 asUnit :: Ty -> TyM ()
-isDyn, isProd, isSum, isBlock, isNum, isObs :: Ty -> Bool
+isDyn, isProd, isSum, isBlock, isNum, isObs, isSealed :: Ty -> Bool
 
 asProd (TyProd a b) = return (a,b)
 asProd TyDyn = return (TyDyn, TyDyn)
@@ -230,6 +254,9 @@ isNum _ = False
 isObs (TySeal _ _) = False
 isObs (TyUnit) = False
 isObs _ = True
+
+isSealed (TySeal _ _) = True
+isSealed _ = False
 
 runOp_digit :: Int -> Ty -> TyM Ty
 runOp_digit d vne =
@@ -553,6 +580,59 @@ runOp_isBlock ve =
     in
     return $ TyProd vo e
 
+runOp_gt abe =  -- test if b > a in (a*(b*e))
+    asProd abe >>= \ (a,be) ->
+    asProd be >>= \ (b,e) ->
+    case runTyM (tyGT b a) of
+        Left etxt -> 
+            let emsg1 = "invalid '>' comparison @ " ++ show abe in
+            let emsg2 = indent "  " (T.unpack etxt) in
+            fail $ emsg1 ++ "\n" ++ emsg2
+        Right mbgt -> 
+            let inL = TyProd b a in -- a >= b
+            let inR = TyProd a b in -- b > a
+            let vgt = case mbgt of
+                    Nothing -> TySum (True, inL) (True, inR)
+                    Just True -> TySum (False, inL) (True, inR)
+                    Just False -> TySum (True, inL) (False, inR)
+            in
+            return $ TyProd vgt e
 
-runOp_gt = undefined
+tyGT :: Ty -> Ty -> TyM (Maybe Bool)
+tyGT TyDyn _ = return Nothing
+tyGT _ TyDyn = return Nothing
+tyGT TyUnit TyUnit = return (Just False)
+tyGT TyUnit v = fail $ "compare unit (inL) with " ++ show v
+tyGT v TyUnit = fail $ "compare unit (inR) with " ++ show v
+tyGT (TyNum x) (TyNum y) = return $ (>) <$> x <*> y
+tyGT (TyProd x1 x2) (TyProd y1 y2) =
+    tyGT x1 y1 >>= \ mbGT ->
+    case mbGT of
+        Nothing -> return Nothing
+        Just True -> return (Just True)
+        Just False ->
+            tyGT y1 x1 >>= \ mbLT ->
+            case mbLT of
+                Nothing -> return Nothing
+                Just True -> return (Just False)
+                Just False -> tyGT x2 y2
+tyGT (TySum x1 x2) (TySum y1 y2) = 
+    let xInR = fst x2 && (not . fst) x1 in
+    let xInL = fst x1 && (not . fst) x2 in
+    let yInR = fst y2 && (not . fst) y1 in
+    let yInL = fst y1 && (not . fst) y2 in
+    if (xInL && yInL) then tyGT (snd x1) (snd y1) else
+    if (xInR && yInL) then return (Just True) else
+    if (xInR && yInR) then tyGT (snd x2) (snd y2) else
+    if (xInL && yInR) then return (Just False) else
+    return Nothing
+tyGT x y | (isBlock x || isBlock y) = fail "cannot compare blocks"
+tyGT x y | (isSealed x || isSealed y) = fail "cannot compare sealed values"
+tyGT p ns | isProd p && (isNum ns || isSum ns) = return (Just True)
+tyGT ns p | isProd p && (isNum ns || isSum ns) = return (Just False)
+tyGT n s | isNum n && isSum s = return (Just True)
+tyGT s n | isNum n && isSum s = return (Just False)
+tyGT _ _ = return Nothing -- compare at runtime
+
+
 

@@ -45,9 +45,12 @@ reportError s = Sys.hPutStrLn Sys.stderr s
 -- Reports errors or warnings to stderr, but continues through them.
 -- Will remove words with cyclic or incomplete definitions, so the
 -- resulting dictionary is clean of those issues (though type errors
--- will remain). 
-loadDictionary :: Import -> IO Dictionary
-loadDictionary imp0 =
+-- will remain).
+loadDictionary :: IO Dictionary
+loadDictionary = getAO_DICT >>= loadDictionaryI
+ 
+loadDictionaryI :: Import -> IO Dictionary
+loadDictionaryI imp0 =
     importDictFiles imp0 >>= \ dfs ->
     let (issues, dict) = buildDictionary dfs in
     S.mapM_ (reportError . T.unpack) issues >>

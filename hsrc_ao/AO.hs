@@ -5,7 +5,7 @@
 -- `ao` follows the modern convention of taking a second word
 -- as its command, followed by any options for that word.
 --
---     ao test dict   -- run all 'test.' words in named dict
+--     ao test -- run all 'test.' words in named dict
 --
 -- currently, there aren't many options! I might need to add some
 -- verbosity options to testing, later.
@@ -35,13 +35,13 @@ import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import AO.AO
 import AO.ABC
+import AO.TypeABC
 
 -- not many modes to parse at the moment.
 data Mode 
-    = Test DictName -- run all `test.` words
-    | Type DictName [W] -- report type for a set of words
+    = Test -- run all `test.` words
+    | Type [W] -- report type for a set of words
     | Help
-type DictName = Import
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
     }
@@ -53,10 +53,14 @@ ts0 = TestState S.empty
 
 cmdLineHelp :: String
 cmdLineHelp = 
-    "ao test foo             run all `test.` words in foo dict\n" ++
-    "ao type foo             typecheck all words in foo dict\n" ++
-    "ao type foo x y z       print type for a given list of words\n" ++
-    "ao help (or -?)         print these options\n"
+    "ao test                 run all `test.` words in dict\n" ++
+    "ao type                 typecheck all words in dict\n" ++
+    "ao type x y z           print type for a given list of words\n" ++
+    "ao help (or -?)         print these options\n" ++
+    "\n" ++
+    "Environment Variables:\n" ++
+    "    AO_PATH: list of directories, searched for .ao files\n" ++
+    "    AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n" 
 
 main :: IO ()
 main = getMode >>= runMode
@@ -80,8 +84,8 @@ putErrLn = Sys.hPutStrLn Sys.stderr
 
 runMode :: Mode -> IO ()
 runMode Help = runHelp
-runMode (Test dict) = runTests dict
-runMode (Type d ws) = runType d ws
+runMode Test = runTests 
+runMode (Type ws) = runType ws
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -90,9 +94,9 @@ runHelp = putErrLn cmdLineHelp >> return ()
 -- Running Tests
 --------------------------------
 
-runTests :: Import -> IO ()
-runTests d0 =
-    loadDictionary d0 >>= \ dict ->
+runTests :: IO ()
+runTests =
+    loadDictionary >>= \ dict ->
     let dc = compileDictionary dict in
     let tests = M.filterWithKey isTestWord dc in
     mapM (onSnd runTest) (M.toList tests) >>= \ testResults ->
@@ -203,13 +207,13 @@ testPower rf = B (KF False False) (ABC ops action) where
 -- Running Pass0 typecheck
 --------------------------------------
 
-runType :: DictName -> [W] -> IO ()
-runType dictName [] = 
-    loadDictionary dictName >>= \ dictA0 ->
+runType :: [W] -> IO ()
+runType [] = 
+    loadDictionary >>= \ dictA0 ->
     let dc = compileDictionary dictA0 in
     mapM_ (uncurry runTypeW) (M.toList dc)
-runType dictName ws =
-    loadDictionary dictName >>= \ dictA0 ->
+runType ws =
+    loadDictionary >>= \ dictA0 ->
     let dc = compileDictionary dictA0 in
     mapM_ (findAndType dc) ws
 
@@ -218,8 +222,10 @@ findAndType dc w = maybe notFound (runTypeW w) (M.lookup w dc) where
     notFound = Sys.putStrLn $ T.unpack w ++ " :: (WORD NOT FOUND!)"
 
 runTypeW :: W -> S.Seq Op -> IO ()
-runTypeW w _code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
-    msg = "? → ?; type currently disabled"
+runTypeW w code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
+    msg = case typeOfABC code of
+            Left etxt -> "(ERROR!)\n" ++ indent "  " (T.unpack etxt)
+            Right (tyIn, tyOut) -> show tyIn ++ " → " ++ show tyOut
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
@@ -235,24 +241,21 @@ anyOneArg :: (P.Stream s m Tok) => P.ParsecT s u m Tok
 anyOneArg = tok (const True)
 
 parseTestMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseTestMode =
-    tok (== "test") >>
-    anyOneArg >>= 
-    return . Test . T.pack
+parseTestMode = tok (== "test") >> return Test
 
 parseTypeMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseTypeMode =
     tok (== "type") >>
-    liftM (T.pack) anyOneArg >>= \ dictName ->
     liftM (map T.pack) (P.many anyOneArg) >>= \ targetWords ->
-    return (Type dictName targetWords)
+    return (Type targetWords)
 
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseHelpMode = tok anyHelp >> P.eof >> return Help where
+parseHelpMode = tok anyHelp >> return Help where
     anyHelp s = ("help" == s) || ("-help" == s) || ("-?" == s)
 
 parseCmdLine :: P.Stream s m Tok => P.ParsecT s u m Mode
-parseCmdLine = 
-    parseTestMode P.<|> 
-    parseTypeMode P.<|>
-    parseHelpMode
+parseCmdLine = parseMode >>= \ m -> P.eof >> return m where
+    parseMode = 
+        parseTestMode P.<|> 
+        parseTypeMode P.<|>
+        parseHelpMode
