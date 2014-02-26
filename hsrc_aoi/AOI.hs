@@ -127,7 +127,7 @@ aoiHaskelineLoop =
     case sInput of
         Nothing -> return ()
         Just "-" -> lift aoiStepBack >> aoiHaskelineLoop
-        Just str -> -- TODO: catch HKL ctrl+c interrupt and fail... 
+        Just str -> 
             foi (lift (aoiStep (T.pack (' ':str)))) >>
             aoiHaskelineLoop
 
