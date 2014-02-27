@@ -1,1 +1,10 @@
 aoi std
+
+@doc.import.lang 
+"The **.ao** file format is configured by two environment variables:
+ 
+     AO_PATH: a colon separated list of directories (semicolon for Windows)
+     AO_DICT: the initial import, main dictionary
+ 
+ Environment variables are favored because AO is designed to use a global dictionary for many projects, i.e. as opposed to a dictionary per project. The `lang` import is significant primarily as the default value of AO_DICT.
+~

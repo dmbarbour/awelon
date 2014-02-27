@@ -13,6 +13,7 @@ module AO.TypeABC
     , typeOfABC 
     ) where
 
+import Data.Ratio
 import Data.Monoid (mappend)
 import Control.Arrow (left)
 import Control.Applicative
@@ -34,6 +35,7 @@ data Ty
     | TyProd Ty Ty
     | TyUnit
     | TySum STy STy
+    | TyMerge Ty Ty -- a merged choice of values
     | TySeal Text Ty
 type STy = (Bool, Ty)
 --newtype TyX = TyX Ty -- type expected
@@ -62,6 +64,7 @@ summaryTy n (TySum a b) =
     "(" ++ msga ++ "+" ++ msgb ++ ")"
 summaryTy _ TyUnit = "unit"
 summaryTy n (TySeal tok v) = T.unpack tok ++ ":" ++ summaryTy n v
+summaryTy n (TyMerge a b) = "(" ++ summaryTy (n-1) a ++ "|" ++ summaryTy (n-1) b ++ ")"
 
 summarySTy :: Int -> STy -> String
 summarySTy n (True,a) = summaryTy n a
@@ -100,8 +103,6 @@ valToTy (B kf abc) = TyBlock kf (Just (abc_code abc))
 valToTy U = TyUnit
 valToTy (S tok v) = TySeal tok (valToTy v)
 valToTy (TC _) = TyDyn 
-
-
 
 -- | extract the (input,output) types from a segment of code. 
 -- This will start without any assumptions about type, then 
@@ -207,10 +208,22 @@ isDyn, isProd, isSum, isBlock, isNum, isObs, isSealed :: Ty -> Bool
 
 asProd (TyProd a b) = return (a,b)
 asProd TyDyn = return (TyDyn, TyDyn)
+asProd (TyMerge l r) =
+    asProd l >>= \ (l1,l2) ->
+    asProd r >>= \ (r1,r2) ->
+    let m1 = tyMerge l1 r1 in
+    let m2 = tyMerge l2 r2 in
+    return (m1,m2)
 asProd v = fail $ "expected product @ " ++ show v
 
 asSum (TySum a b) = return (a,b)
 asSum TyDyn = return (dynOpt,dynOpt)
+asSum (TyMerge l r) =
+    asSum l >>= \ (l1, l2) ->
+    asSum r >>= \ (r1, r2) ->
+    let m1 = (fst l1 || fst r1, tyMerge (snd l1) (snd r1)) in
+    let m2 = (fst l2 || fst r2, tyMerge (snd l2) (snd r2)) in
+    return (m1,m2)
 asSum v = fail $ "expected sum @ " ++ show v
 
 sumVoid = (False,TyDyn)
@@ -226,36 +239,55 @@ mkSum' a b = (fst a || fst b, TySum a b)
 
 asNum (TyNum r) = return r
 asNum TyDyn = return Nothing
+asNum (TyMerge a b) =
+    asNum a >>= \ na ->
+    asNum b >>= \ nb ->
+    if (na == nb) then return na else 
+    return Nothing
 asNum v = fail $ "expected number @ " ++ show v
 
 asBlock (TyBlock kf ops) = return (kf,ops)
 asBlock TyDyn = return (kf0, Nothing)
+asBlock (TyMerge a b) =
+    asBlock a >>= \ (kfa,ba) ->
+    asBlock b >>= \ (kfb,bb) ->
+    let kf' = kfa `mappend` kfb in
+    if (ba == bb) then return (kf',ba) else 
+    return (kf',Nothing)
 asBlock v = fail $ "expected block @ " ++ show v
 
 asUnit (TyUnit) = return ()
 asUnit (TyDyn) = return ()
+asUnit (TyMerge a b) = asUnit a >> asUnit b
 asUnit v = fail $ "expected unit @ " ++ show v
 
 isDyn TyDyn = True
+isDyn (TyMerge a b) = isDyn a && isDyn b
 isDyn _ = False
 
 isProd (TyProd _ _) = True
+isProd (TyMerge a b) = isProd a && isProd b
 isProd _ = False
 
 isSum (TySum _ _) = True
+isSum (TyMerge a b) = isSum a && isSum b
 isSum _ = False
 
 isBlock (TyBlock _ _) = True
+isBlock (TyMerge a b) = isBlock a && isBlock b
 isBlock _ = False
 
 isNum (TyNum _) = True
+isNum (TyMerge a b) = isNum a && isNum b
 isNum _ = False
 
 isObs (TySeal _ _) = False
 isObs (TyUnit) = False
+isObs (TyMerge a b) = isObs a && isObs b
 isObs _ = True
 
 isSealed (TySeal _ _) = True
+isSealed (TyMerge a b) = isSealed a && isSealed b
 isSealed _ = False
 
 runOp_digit :: Int -> Ty -> TyM Ty
@@ -348,6 +380,7 @@ tyCopyable (TyProd a b) = tyCopyable a && tyCopyable b
 tyCopyable (TyUnit) = True
 tyCopyable (TySum a b) = tyCopyable (snd a) && tyCopyable (snd b)
 tyCopyable (TySeal _ v) = tyCopyable v
+tyCopyable (TyMerge a b) = tyCopyable a && tyCopyable b
 
 runOp_drop ae =
     asProd ae >>= \ (a,e) ->
@@ -363,6 +396,7 @@ tyDroppable (TyProd a b) = tyDroppable a && tyDroppable b
 tyDroppable TyUnit = True
 tyDroppable (TySum a b) = tyDroppable (snd a) && tyDroppable (snd b)
 tyDroppable (TySeal _ v) = tyDroppable v
+tyDroppable (TyMerge a b) = tyDroppable a && tyDroppable b
 
 runOp_ap bxe =
     asProd bxe >>= \ (b,xe) ->
@@ -514,19 +548,16 @@ tyMerge' a b = (fst a || fst b, tyMerge (snd a) (snd b))
 -- type directly (e.g. `TyMerge a b`). But I don't want to
 -- deal with that quite yet.
 tyMerge :: Ty -> Ty -> Ty
-tyMerge TyDyn _ = TyDyn
-tyMerge _ TyDyn = TyDyn
+tyMerge TyDyn b = b -- future must be at least `b`-compatible
+tyMerge a TyDyn = a -- future must be at least `a`-compatible
 tyMerge TyUnit TyUnit = TyUnit
 tyMerge (TyProd a b) (TyProd c d) = TyProd (tyMerge a c) (tyMerge b d)
 tyMerge (TySum a b) (TySum c d) = TySum (tyMerge' a c) (tyMerge' b d)
 tyMerge (TySeal s1 v1) (TySeal s2 v2) | s1 == s2 = TySeal s1 (tyMerge v1 v2)
-tyMerge (TyNum r1) (TyNum r2) = if (r1 == r2) then TyNum r1 else TyNum Nothing
-tyMerge (TyBlock kf1 ops1) (TyBlock kf2 ops2) =
-    let kf' = kf1 `mappend` kf2 in
-    if (ops1 == ops2) then TyBlock kf' ops1
-        else TyBlock kf' Nothing
-tyMerge _ _ = TyDyn
-
+tyMerge (TyNum r1) (TyNum r2) | (r1 == r2) = TyNum r1
+tyMerge (TyBlock kf1 ops1) (TyBlock kf2 ops2) | (ops1 == ops2) =
+    let kf' = kf1 `mappend` kf2 in TyBlock kf' ops1
+tyMerge a b = TyMerge a b
 
 runOp_assert se =
     asProd se >>= \ (s,e) ->
@@ -535,8 +566,6 @@ runOp_assert se =
     let msgFail = "static assertion failure 'K' @ " ++ show se in
     if staticAssertFailure then fail msgFail else
     return $ TyProd (snd b) e
-
-
 
 asObsProd :: Ty -> TyM (Ty, Ty)
 asObsProd oe =
@@ -599,8 +628,7 @@ runOp_gt abe =  -- test if b > a in (a*(b*e))
             return $ TyProd vgt e
 
 tyGT :: Ty -> Ty -> TyM (Maybe Bool)
-tyGT TyDyn _ = return Nothing
-tyGT _ TyDyn = return Nothing
+tyGT TyDyn TyDyn = return Nothing
 tyGT TyUnit TyUnit = return (Just False)
 tyGT TyUnit v = fail $ "compare unit (inL) with " ++ show v
 tyGT v TyUnit = fail $ "compare unit (inR) with " ++ show v
@@ -635,4 +663,135 @@ tyGT s n | isNum n && isSum s = return (Just False)
 tyGT _ _ = return Nothing -- compare at runtime
 
 
+-- revOp is 'op -> expected input -> output -> TyM refined input'
+--  the expected output is mostly to leverage partial evaluations
+revOp :: Op -> Ty -> Ty -> TyM Ty
+revOp (Op '$') = revOp_apply
+revOp (Op '?') = revOp_condap
+revOp (Op c) = const $ revOpC c
+revOp (TL txt) = const $ revOp_textLit txt
+revOp (BL ops) = const $ revOp_blockLit ops
+revOp (Invoke tok) = case T.uncons tok of
+    Just ('&',_) -> const return
+    Just (':', sealer) -> const $ runOpUnseal sealer
+    Just ('.', sealer) -> const $ return . TySeal sealer
+    _ -> (const . const . return) TyDyn
+revOp (AMBC _) = (const . const . fail) $ "ambiguity not supported"
 
+revOpC :: Char -> Ty -> TyM Ty
+revOpC ' '  = pure
+revOpC '\n' = pure
+revOpC 'l'  = runOp_r
+revOpC 'r'  = runOp_l
+revOpC 'w'  = runOp_w
+revOpC 'z'  = runOp_z
+revOpC 'v'  = runOp_c
+revOpC 'c'  = runOp_v
+revOpC '^'  = revOp_copy
+revOpC '%'  = revOp_drop
+-- revOpC '$'  = revOp_apply
+revOpC 'o'  = revOp_comp
+revOpC '\'' = revOp_quote
+revOpC 'k'  = revOp_rel
+revOpC 'f'  = revOp_aff
+revOpC '#'  = revOp_introNum 
+revOpC c | (('0' <= c) && (c <= '9')) = revOp_digit (fromEnum c - 48)
+revOpC '+'  = revOp_add
+revOpC '-'  = revOp_neg
+revOpC '*'  = revOp_mul
+revOpC '/'  = revOp_inv
+revOpC 'Q'  = revOp_div
+revOpC 'L'  = runOp_R
+revOpC 'R'  = runOp_L
+revOpC 'W'  = runOp_W
+revOpC 'Z'  = runOp_Z
+revOpC 'V'  = runOp_C
+revOpC 'C'  = runOp_V
+-- revOpC '?'  = revOp_condap
+revOpC 'D'  = revOp_distrib
+revOpC 'F'  = revOp_factor
+revOpC 'M'  = revOp_merge
+revOpC 'K'  = revOp_assert
+revOpC 'P'  = revOp_isProd
+revOpC 'S'  = revOp_isSum
+revOpC 'B'  = revOp_isBlock
+revOpC 'N'  = revOp_isNum
+revOpC '>'  = revOp_gt
+revOpC  c   = \ v -> fail $ (c : " (unknown op) rev@ " ++ show v)
+
+revOp_copy, revOp_drop, 
+ revOp_comp, revOp_quote, revOp_rel, revOp_aff,
+ revOp_add, revOp_neg, revOp_mul, revOp_inv, revOp_div,
+ revOp_distrib, revOp_factor, revOp_merge, revOp_assert,
+ revOp_isProd, revOp_isSum, revOp_isBlock, revOp_isNum, revOp_gt
+    :: Ty -> TyM Ty
+
+revOp_textLit  :: Text -> Ty -> TyM Ty
+revOp_blockLit :: S.Seq Op -> Ty -> TyM Ty
+revOp_introNum :: Ty -> TyM Ty
+revOp_digit    :: Int -> Ty -> TyM Ty
+revOp_apply    :: Ty -> Ty -> TyM Ty
+revOp_condap   :: Ty -> Ty -> TyM Ty
+
+revOp_textLit _ tv = asProd tv >>= \ (t,v) -> asText t >> return v
+revOp_blockLit _ bv = asProd bv >>= \ (b,v) -> asBlock b >> return v
+revOp_introNum nv = asProd nv >>= \ (n,v) -> asNum n >> return v
+revOp_digit _ nv = 
+    asProd nv >>= \ (n,v) -> 
+    asNum n >>= \ n' -> 
+    return (TyProd (TyNum n') v)
+
+asText, asChar :: Ty -> TyM Ty
+asText TyDyn = return TyDyn
+asText (TyProd c t) = 
+    asChar c >>= \ c' ->
+    asText t >>= \ t' ->
+    return (TyProd c' t')
+asText v@(TyNum (Just r)) = 
+    if (r == 3) then return v else
+    fail $ "expecting text, but terminates in " ++ show r
+asText v@(TyNum Nothing) = return v
+asText v = fail $ "expecting text @ " ++ show v
+
+asChar TyDyn = return (TyNum Nothing)
+asChar v@(TyNum Nothing) = return v
+asChar v@(TyNum (Just r)) =
+    if isChar r then return v else 
+    fail $ "text element is not a character"
+asChar v = fail $ "expecting character @ " ++ show v
+
+isChar :: Rational -> Bool
+isChar r = isInteger && inRange where
+    isInteger = (1 == denominator r)
+    n = numerator r
+    inRange = (0 <= n) && (n <= 0x10ffff)
+
+revOp_apply tyX ty = undefined
+ --    as
+
+
+revOp_condap = undefined
+
+
+
+revOp_copy = undefined
+revOp_drop = undefined
+revOp_comp = undefined
+revOp_quote = undefined
+revOp_rel = undefined
+revOp_aff = undefined
+revOp_add = undefined
+revOp_neg = undefined
+revOp_mul = undefined
+revOp_inv = undefined
+revOp_div = undefined
+revOp_distrib = undefined
+revOp_factor = undefined
+revOp_merge = undefined
+revOp_assert = undefined
+revOp_isProd = undefined
+revOp_isSum = undefined
+revOp_isBlock = undefined
+revOp_isNum = undefined 
+revOp_gt = undefined
+ 
