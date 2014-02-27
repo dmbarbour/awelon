@@ -10,6 +10,7 @@
 module AO.TypeABC 
     ( Ty(..)
     , valToTy, tyToVal
+    , tyRunOp, tyRevOp
     , typeOfABC 
     ) where
 
@@ -93,6 +94,7 @@ tyToVal (TySum a b) | (not (fst a)) = R <$> tyToVal (snd b)
                     | otherwise = Nothing
 tyToVal TyUnit = pure U
 tyToVal (TySeal tok v) = S tok <$> tyToVal v
+tyToVal (TyMerge _ _) = Nothing
 
 valToTy :: V c -> Ty
 valToTy (L a) = TySum (True, valToTy a) (False, TyDyn)
@@ -138,7 +140,7 @@ runTyM = left inE . runIdentity . runErrorT
 runOps :: S.Seq Op -> Ty -> TyM Ty
 runOps = flip (S.foldlM (flip runOp))
 
-runOp :: Op -> Ty -> TyM Ty
+runOp, tyRunOp :: Op -> Ty -> TyM Ty
 runOp (Op c) = runOpC c
 runOp (TL txt) = return . TyProd ((valToTy . textToVal) txt)
 runOp (BL ops) = return . TyProd (TyBlock kf0 (Just ops))
@@ -148,6 +150,8 @@ runOp (Invoke tok) = case T.uncons tok of
     Just ('.', sealer) -> runOpUnseal sealer
     _ -> (const . return) TyDyn
 runOp (AMBC _) = (const . fail) $ "ambiguity not supported"
+
+tyRunOp = runOp
 
 runOpUnseal :: Text -> Ty -> TyM Ty
 runOpUnseal s (TySeal tok ty) | (s == tok) = return ty
@@ -665,7 +669,7 @@ tyGT _ _ = return Nothing -- compare at runtime
 
 -- revOp is 'op -> expected input -> output -> TyM refined input'
 --  the expected output is mostly to leverage partial evaluations
-revOp :: Op -> Ty -> Ty -> TyM Ty
+revOp, tyRevOp :: Op -> Ty -> Ty -> TyM Ty
 revOp (Op '$') = revOp_apply
 revOp (Op '?') = revOp_condap
 revOp (Op c) = const $ revOpC c
@@ -677,6 +681,8 @@ revOp (Invoke tok) = case T.uncons tok of
     Just ('.', sealer) -> const $ return . TySeal sealer
     _ -> (const . const . return) TyDyn
 revOp (AMBC _) = (const . const . fail) $ "ambiguity not supported"
+
+tyRevOp = revOp
 
 revOpC :: Char -> Ty -> TyM Ty
 revOpC ' '  = pure
@@ -766,13 +772,31 @@ isChar r = isInteger && inRange where
     n = numerator r
     inRange = (0 <= n) && (n <= 0x10ffff)
 
-revOp_apply tyX ty = undefined
- --    as
+-- currently revOp_apply is less precise than it could be
+revOp_apply inBXE outXE = 
+    asProd inBXE >>= \ (inB,inXE) ->
+    asProd inXE >>= \ (inX, inEnv) ->
+    asProd outXE >>= \ (_outX, outEnv) ->
+    asBlock inB >>= \ (kf, mbops) ->
+    let inEr = tyMerge inEnv outEnv in
+    let inXrev = TyDyn in -- TODO: compute using outX & mbops
+    let inXr = tyMerge inXrev inX in
+    return (TyProd (TyBlock kf mbops) (TyProd inXr inEr))
 
-
-revOp_condap = undefined
-
-
+-- currently revOp_condap is less precise than it could be
+revOp_condap inBLRE outLRE = 
+    asProd inBLRE >>= \ (inB, inLRE) ->
+    asProd inLRE >>= \ (inLR, inEnv) ->
+    asBlock inB >>= \ (kf, mbops) -> 
+    asSum inLR >>= \ (inL, inR) ->
+    asProd outLRE >>= \ (outLR, outEnv) ->
+    asSum outLR >>= \ (outL, outR) ->
+    let inRr = tyMerge' outR inR in
+    let inEr = tyMerge inEnv outEnv in
+    let inLrev = (fst outL, TyDyn) in -- TODO: compute using (snd outL) & ops
+    let inLr = tyMerge' inLrev inL in
+    let inLRr = TySum inLr inRr in
+    return (TyProd (TyBlock kf mbops) (TyProd inLRr inEr))
 
 revOp_copy = undefined
 revOp_drop = undefined
