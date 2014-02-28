@@ -100,7 +100,7 @@
  I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
 ~ 
 
-@OLD-AO-ZIPPERS
+@OLD_AO_ZIPPERS
 
 "
  % 
