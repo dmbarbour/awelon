@@ -51,7 +51,7 @@ summaryTy _ (TyNum Nothing) = "N"
 summaryTy _ (TyBlock kf mbOps) = (addDot . addF . addK) "B" where
     addK = if may_drop kf then id else (++ "k")
     addF = if may_copy kf then id else (++ "f")
-    addDot = maybe (++ ".") (const id) mbOps
+    addDot = maybe id (const $ (++ ".")) mbOps
 summaryTy n v@(TyProd a b) =
     case summaryText 24 v of
         Just txt -> T.unpack $ '"' `T.cons` txt `T.snoc` '"'
@@ -127,8 +127,11 @@ tyPassAnno = step S.empty where
             step sR' v' ops'
 
 tyPassRev :: Ty -> S.Seq (Ty,Op) -> TyM Ty
-tyPassRev _ _ = return TyDyn
-
+tyPassRev v ops = case S.viewr ops of
+    S.EmptyR -> return v
+    (ops' S.:> (tyX,op)) ->
+        revOp op tyX v >>= \ v' ->
+        tyPassRev v' ops'
 
 newtype E = E { inE :: Text }
 instance Error E where strMsg = E . T.pack
@@ -573,9 +576,14 @@ runOp_assert se =
 
 asObsProd :: Ty -> TyM (Ty, Ty)
 asObsProd oe =
-    asProd oe >>= \ (o,e) ->
-    if isObs o then return (o,e) else
-    fail $ "expecting observable @ " ++ show oe
+    asProd oe >>= \ (o,e) ->    
+    asObs o >>
+    return (o,e)
+
+asObs :: Ty -> TyM ()
+asObs o = 
+    if isObs o then return () else
+    fail $ "expecting observable @ " ++ show o
 
 runOp_isProd ve =
     asObsProd ve >>= \ (v,e) ->
@@ -798,24 +806,133 @@ revOp_condap inBLRE outLRE =
     let inLRr = TySum inLr inRr in
     return (TyProd (TyBlock kf mbops) (TyProd inLRr inEr))
 
-revOp_copy = undefined
-revOp_drop = undefined
-revOp_comp = undefined
-revOp_quote = undefined
-revOp_rel = undefined
-revOp_aff = undefined
-revOp_add = undefined
-revOp_neg = undefined
-revOp_mul = undefined
-revOp_inv = undefined
-revOp_div = undefined
-revOp_distrib = undefined
-revOp_factor = undefined
-revOp_merge = undefined
-revOp_assert = undefined
-revOp_isProd = undefined
-revOp_isSum = undefined
-revOp_isBlock = undefined
-revOp_isNum = undefined 
-revOp_gt = undefined
+revOp_copy vve =
+    asProd vve >>= \ (v1,ve) ->
+    asProd ve >>= \ (v2,e) ->
+    let vIn = tyMerge v1 v2 in
+    return $ TyProd vIn e
+
+revOp_drop = return . TyProd TyDyn
+
+revOp_comp be = 
+    asProd be >>= \ (b,e) ->
+    asBlock b >>
+    let dynB = TyBlock kf0 Nothing in
+    return $ TyProd dynB (TyProd dynB e)
+
+revOp_quote be = 
+    asProd be >>= \ (b,e) ->
+    asBlock b >>= \ _ ->
+    return $ TyProd TyDyn e
+
+revOp_rel be =
+    asProd be >>= \ (b,e) ->
+    asBlock b >>= \ (kf,ops) ->
+    return $ TyProd (TyBlock kf ops) e
+revOp_aff = revOp_rel
+
+
+revOp_add ne = 
+    asProd ne >>= \ (n,e) ->
+    asNum n >>= \ _mbn ->
+    let dynN = TyNum Nothing in
+    return $ TyProd dynN (TyProd dynN e)
+
+revOp_neg ne =
+    asProd ne >>= \ (n,e) ->
+    asNum n >>= \ mbn ->
+    let negN = TyNum $ negate <$> mbn in
+    return $ TyProd negN e 
+
+revOp_mul = revOp_add
+
+revOp_inv ne = 
+    asProd ne >>= \ (n,e) ->
+    asNum n >>= \ mbn ->
+    if (Just 0 == mbn) then fail $ "divByZero @rev " ++ show ne else
+    let invN = TyNum $ recip <$> mbn in
+    return $ TyProd invN e 
+
+revOp_div rqe =
+    asProd rqe >>= \ (r,qe) ->
+    asProd qe >>= \ (q,e) ->
+    asNum r >>
+    asNum q >>
+    let dynN = TyNum Nothing in
+    return $  TyProd dynN (TyProd dynN e)
+
+revOp_distrib se = 
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (l,r) ->
+    asProd (snd l) >>= \ (a,l') ->
+    asProd (snd r) >>= \ (a',r') ->
+    let s' = TySum (fst l, l') (fst r, r') in
+    let aIn = tyMerge a a' in
+    return $ TyProd aIn (TyProd s' e)
+
+revOp_factor sse =
+    asProd sse >>= \ (s1, se) ->
+    asProd se >>= \ (s2,e) ->
+    asSum s1 >>= \ (l1,r1) ->
+    asSum s2 >>= \ (l2,r2) ->
+    let l' = (fst l1 || fst l2, TyProd (snd l1) (snd l2)) in
+    let r' = (fst r1 || fst r2, TyProd (snd r1) (snd r2)) in
+    let s' = TySum l' r' in
+    return $ TyProd s' e
+
+revOp_merge ve =
+    asProd ve >>= \ (v,e) ->
+    let s = TySum (True,v) (True,v) in
+    return $ TyProd s e
+    
+revOp_assert ve =
+    asProd ve >>= \ (v,e) ->
+    let s = TySum (False,TyDyn) (True,v) in
+    return $ TyProd s e
+
+revOp_isProd se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (l,r) ->
+    asObs (snd l) >>
+    asProd (snd r) >>= \ (ra,rb) ->
+    let r' = (fst r, TyProd ra rb) in
+    return $ TyProd (snd $ tyMerge' l r') e
  
+revOp_isSum se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (l,r) ->
+    asObs (snd l) >>
+    asSum (snd r) >>= \ (rl, rr) ->
+    let r' = (fst r, TySum rl rr) in
+    return $ TyProd (snd $ tyMerge' l r') e
+
+revOp_isBlock se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (l,r) ->
+    asObs (snd l) >>
+    asBlock (snd r) >>= \ (kf,ops) ->
+    let r' = (fst r, TyBlock kf ops) in
+    return $ TyProd (snd $ tyMerge' l r') e
+    
+revOp_isNum se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (l,r) ->
+    asObs (snd l) >>
+    asNum (snd r) >>= \ mbn ->
+    let r' = (fst r, TyNum mbn) in
+    return $ TyProd (snd $ tyMerge' l r') e
+
+revOp_gt se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ (lte,gt) -> 
+    asProd (snd lte) >>= \ (ly,lx) ->
+    asProd (snd gt) >>= \ (rx, ry) ->
+    let y = tyMerge ly ry in
+    let x = tyMerge lx rx in
+    case runTyM $ tyGT y x of -- ensure 'x' and 'y' are comparable.
+        Left etxt ->
+            let emsg1 = "failure in comparison @rev " ++ show se in
+            let emsg2 = indent "  " (T.unpack etxt) in
+            fail $ emsg1 ++ "\n" ++ emsg2
+        Right _ -> return $ TyProd x (TyProd y e) 
+
