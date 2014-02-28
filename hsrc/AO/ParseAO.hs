@@ -101,40 +101,15 @@ parseBasicWord =
 
 -- entry word is simple word or adverb (not modified)
 parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
-parseEntryWord = adverb P.<|> parseBasicWord where
-    adverb = advToWord <$> (P.char '\\' >> P.satisfy isAdvChar)
-
-advToWord :: ADV -> W
-advToWord = T.cons '\\' . T.singleton
-
-adverbActions :: [ADV] -> AODef
-adverbActions = S.fromList . fmap (Word . advToWord)
+parseEntryWord = parseBasicWord
 
 -- action word is either plain word 'foo' or has inflections
 -- e.g. foo\*kd applies three modifiers to the word
 parseActionWord :: P.Stream s m Char => P.ParsecT s u m Action
 parseActionWord = 
     parseBasicWord >>= \ w ->
-    P.option [] parseActionAdverbs >>= \ adv ->
     expectWordSep >>
-    return (modifiedWordAction w adv)
-
--- using `([foo] [\*kd] applyWithAdverbs)`, i.e. singleton 'Amb', to
--- capture the expanded form as a single action
-modifiedWordAction :: W -> [ADV] -> Action
-modifiedWordAction w [] = Word w
-modifiedWordAction w advs = Amb [S.fromList [bW, bAdv, app]] where
-    bW = BAO $ S.singleton $ Word w
-    bAdv = BAO $ adverbActions advs
-    app = Word applyWithAdverbs
-
--- adverbs may be used directly; `\*kd` expands to `\* \k \d`
-parseActionAdverbs :: P.Stream s m Char => P.ParsecT s u m [ADV]
-parseActionAdverbs = 
-    P.char '\\' >> 
-    P.parserFail "adverbs disabled" >>
-    P.many1 (P.satisfy isAdvChar)
-
+    return (Word w)
 
 -- | a definition is trivially a sequence of AO actions
 parseAODef :: P.Stream s m Char => P.ParsecT s u m AODef
@@ -155,9 +130,8 @@ validToken (c:_) = ('&' == c) || (':' == c) || ('.' == c)
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> aoblock P.<|> amb P.<|>
-             number P.<|> text P.<|> prim P.<|> adverbs
+             number P.<|> text P.<|> prim
     word = parseActionWord
-    adverbs = (Amb . (:[]) . adverbActions) <$> parseActionAdverbs
     text = Lit <$> (parseInlineText P.<|> parseMultiLineText)
     spaces = (Prim . S.fromList . map Op) <$> P.many1 (P.satisfy isSpace)
     prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
@@ -293,17 +267,15 @@ isHexDigit c = isDigit c || smallAF || bigAF where
 
 -- words in AO are separated by spaces, [], (|). They also may not
 -- start the same as a number, %inlineABC, or an @word entry.
+-- The " character is prohibited because strings, and hyphen - 
+-- due to negative numbers and possible future extensions (such
+-- as adverbs). 
 isWordSep, isWordStart, isWordCont :: Char -> Bool
 isWordSep c = isSpace c || bracket || amb where
     bracket = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
-isWordCont c = not (isWordSep c || isControl c || '"' == c || '\\' == c)
-isWordStart c = isWordCont c && not (number || '%' == c || '@' == c) where
-    number = isDigit c || '-' == c
-
--- adverb characters
-isAdvChar :: Char -> Bool
-isAdvChar c = isWordCont c 
+isWordCont c = not (isWordSep c || isControl c || '"' == c || '-' == c)
+isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
 
 -- tokens in AO are described with %{...}. They can have most
 -- characters, except for {, }, and LF. In general, developers

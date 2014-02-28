@@ -21,3 +21,12 @@ Developers are limited to one distinguishing character per modifier. However, no
 The standard definition for `applyWithAdverbs` will first apply the adverbs to the word in a controlled environment, i.e. such that the adverbs cannot be effectful or sensitive to context, then inline the result. By doing so, `foo\*kd` can easily be understood as a single word.
 
 As an experimental feature, sugar for inflection will be removed if it doesn't seem highly useful after trying it in a few significant projects. 
+
+## PARTIAL RESULTS (2014 February)
+
+I tried adverbs out for a while, but as they're designed above I don't favor them. A major issue seems to be that these modifiers need to be specific to a category - i.e. I want the same modifiers to mean different things based on whether I'm working with *lists* vs. *streams* vs. *processes* vs. *RDP behaviors*, and I want this *without context-sensitive ambiguity* - i.e. to be part of the word's definition.
+
+For now, it seems better to just define the modified words by hand. It can cover most use-cases easily enough, and an IDE could presumably afford default implementations for modified words without requiring any smarts within the language itself.
+
+For now, I'll return `\` to the pool of word characters. However, I'll reserve `-` for future applications.
+

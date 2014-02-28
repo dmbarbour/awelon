@@ -127,19 +127,19 @@ In general, any sealed value must be treated as an opaque, atomic entity until u
 
 ### AO Definition Syntax
 
-Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence of words, literals, and inlined ABC. Possibly a few ambiguous choices. The most difficult part is parsing numbers. AO currently needs special reader states for:
+Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence of words, literals, explicit ambiguous structure, and inlined ABC. The most difficult part is parsing numbers. AO currently needs special reader states for:
 
-* numbers - decimal, fractional, hexadecimal
+* numbers - decimal, fractional, hexadecimal, negatives
 * text - inline or block
+* inline ABC, e.g. `%vrwlc`
 * capability text `%{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
-* adverbs `\` (experimental, disabled for now)
 
-The latter two features are experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md) and [AboutAdverbs.md](doc/AboutAdverbs.md). Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, and streaming. Also, block and amb characters work as word separators.
+The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, streaming, and future AO extensions. So the following rules apply:
 
-* words may not start with `@`, `%`, `-`, or a digit
-* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, or `\`
+* words may not start with `@`, `%`, or a digit
+* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, or `-`
 * words may not contain C0 or C1 control characters, SP, or DEL.
 
 A specific programming environment might have a few extra constraints, e.g. so words can be used in URLs. We may also unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed, including UTF-8.
