@@ -46,7 +46,7 @@ instance Show Ty where show = summaryTy 12
 summaryTy :: Int -> Ty -> String
 summaryTy n _ | (n < 0) = "..."
 summaryTy _ (TyDyn) = "?"
-summaryTy _ (TyNum (Just r)) = show r
+summaryTy _ (TyNum (Just r)) = show (N r)
 summaryTy _ (TyNum Nothing) = "N"
 summaryTy _ (TyBlock kf mbOps) = (addDot . addF . addK) "B" where
     addK = if may_drop kf then id else (++ "k")

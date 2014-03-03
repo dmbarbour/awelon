@@ -30,6 +30,7 @@ import AO.V
 import AO.ParseAO
 import AO.AO
 import AO.ABC
+-- import AO.TypeABC
 import HLS
 
 newtype Error = E Text
@@ -156,15 +157,18 @@ compileActions actions =
     let wNeed = aoWordsRequired actions in
     let wMissed = Set.filter (`M.notMember` dc) wNeed in
     if Set.null wMissed
-        then return $ Right $ compileABC cx $ aoToABC dc actions
+        then return $ compileABC cx $ aoToABC dc actions
         else return $ Left $ 
             T.pack "undefined words: " `T.append` 
             T.unwords (Set.toList wMissed)
 
-compileABC :: AOI_CONTEXT -> S.Seq Op -> ABC AOI
-compileABC _ ops = 
-    ABC { abc_code = ops
-        , abc_comp = runABC invNull ops } 
+compileABC :: AOI_CONTEXT -> S.Seq Op -> Either Text (ABC AOI)
+compileABC _ ops = Right $ ABC { abc_code = ops, abc_comp = runABC invNull ops } 
+    {-
+  case typeOfABC ops of
+    Left etxt -> Left $ T.pack "context free type error: " `T.append` etxt
+    Right _ -> Right $ ABC { abc_code = ops, abc_comp = runABC invNull ops } 
+    -}
 
 -- manipulate step values
 aoiGetStep :: AOI StepState

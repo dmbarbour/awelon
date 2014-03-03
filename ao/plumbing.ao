@@ -192,12 +192,12 @@
 @eqv.pw2drop3 [pw pw drop] [drop3]
 @eqv.dupSwap [dup swap] [dup]
 
-@v_.doc "(a*e)→((a*1)*e); ~ `[%v]$`"
-@c_.doc "((a*1)*e)→(a*e); ~ `[%c]$`"
-@l_.doc "((a*(b*c))*e)→(((a*b)*c)*e); ~ `[%l]$`"
-@r_.doc "(((a*b)*c)*e)→((a*(b*c))*e); ~ `[%r]$`"
-@w_.doc "((a*(b*c))*e)→((b*(a*c))*e); ~ `[%w]$`"
-@z_.doc "((a*(b*(c*d)))*e)→((a*(c*(b*d)))*e); ~ `[%z]$`"
+@doc.v_ "(a*e)→((a*1)*e); ~ `[%v]$`"
+@doc.c_ "((a*1)*e)→(a*e); ~ `[%c]$`"
+@doc.l_ "((a*(b*c))*e)→(((a*b)*c)*e); ~ `[%l]$`"
+@doc.r_ "(((a*b)*c)*e)→((a*(b*c))*e); ~ `[%r]$`"
+@doc.w_ "((a*(b*c))*e)→((b*(a*c))*e); ~ `[%w]$`"
+@doc.z_ "((a*(b*(c*d)))*e)→((a*(c*(b*d)))*e); ~ `[%z]$`"
 
 @v_ %vrwvrwlc
 @c_ %vrwlcwlc

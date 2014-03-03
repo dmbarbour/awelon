@@ -80,6 +80,10 @@ apply_adv_postStep(N) :-
     path([ [[f,unit],[unit,unit]], [[s,e],unit] ],
            [f, [[s,e],unit]], N).
 
+apply_0_prestep(N) :-
+    path( [[f,s],e] , 
+          [f, [[unit,[unit,unit]], [[s,e],unit]]], N). 
+
 ap_postStep(N) :-
     path([ [[y,unit],[unit,unit]], [[s,e],unit] ],
            [[y,s],e], N).
@@ -114,6 +118,7 @@ w_E(N) :- path([ [a,[b,c]], e],
                [ [b,[a,c]], e], N).
 v_E(N) :- path([a,e], [[a,unit],e], N).
 c_E(N) :- path([[a,unit],e], [a,e], N).
+
 
 apply_wrap(N) :- path(a,[[a,unit],[unit,unit]],N).
 

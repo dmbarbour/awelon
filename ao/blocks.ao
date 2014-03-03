@@ -88,6 +88,11 @@
 @apply4to4 compressArgs apply3to4
 @compressArgs dpw [wx] composel
 
+@apply0to1 %rvvvrrvrrz$wlcllccwlcl
+@apply0to2 [pw] compose apply0to1 wx
+@apply0to3 [pw pw] compose apply0to1 wx wx
+@apply0to4 [pw pw pw] compose apply0to1 wx wx wx
+
 @test.apply4to2 
   2 3 4 5 [.add unrot .add] apply4to2 
   5 assertEQ1 swap 
@@ -278,10 +283,10 @@
 ~
 @doc.quote "(Quotable x) ⇒ x -- [--x]"
 @doc.unquote "[--x] -- x"
-@quote %r'l [%l] compose
-@unquote %rvvrvrrz$wlclcwlcl
+@quote %r' [%l] %rol
+@unquote apply0to1
 
-@test.quote  7 dup quote unquote assertEQ "okay"
+@test.quote  7 dup quote unquote assertEQ1
 @id.quoteUnquote quote unquote
 @id.unquoteQuote unquote quote
 @id.textDrop "text" drop

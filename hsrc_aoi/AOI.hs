@@ -160,7 +160,7 @@ aoiStep txt =
             aoiPutIfn ifn' >>
             aoiPushStep vf
         (L vErr) -> liftIO $ putErrLn ("read error: " ++ show vErr)
-        v -> liftIO $ putErrLn ("read type error: " ++ show v)
+        v -> liftIO $ putErrLn ("reader type error: " ++ show v)
 
 -- very few powers for now...
 defaultPowers :: M.Map Text Power
