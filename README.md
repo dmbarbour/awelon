@@ -22,7 +22,7 @@ At the moment, we have an AO compiler to ABC, a slow ABC interpreter, and a hask
 
 The `aoi` executable doesn't allow you to define new words. You can edit the dictionary, however, and hit Ctrl+C to reload it at any time. The `ao` executable can run `test.` words (with `ao test`) or provide relatively imprecise type information (with `ao type word`).
 
-Mind, AO is still in a very early stage. I'd like to shift AO development to the web, e.g. the wiki-based IDE mentioned earlier. Tools and interactive tutorials should make AO much more accessible, over the course of a year or two.
+Mind, AO is still in a very early stage. I'd like to shift AO development to the web, e.g. the wiki-based IDE mentioned earlier. I need to develop an optimizing ABC compiler. Support for RDP, rather than just one-off functions and procedures, is in the future. Tools and interactive tutorials should make AO much more accessible, over the course of a year or two.
 
 I'm willing to take contributions (pull requests) at this point, though they should come with a (non-exclusive) grant of copy rights. I'm not entirely sure how that works, but I don't want to juggle licenses. (Maybe I should switch to some kind of creative commons license, like Wikipedia uses? Suggestions welcome.)
 
