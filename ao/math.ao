@@ -15,6 +15,16 @@
 @.div .inv .mul
 @.square dup .mul
 
+@+ .add
+@* .mul
+@/ .inv
+@~ .neg
+@doc.− "unicode minus, U+2212"
+@− .sub
+@- .sub
+@doc.÷ "This is unicode division, U+F7. Just because."
+@÷ .div
+
 @inc 1 .add
 @incd swap inc swap
 @dec 1 .sub

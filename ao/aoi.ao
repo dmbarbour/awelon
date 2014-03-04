@@ -55,12 +55,3 @@ std euler
 @debugOut "debugOut" p iomsg.aoi
 @debugStack reifyStack debugOut restoreStack
 
-@+ .add
-@* .mul
-@/ .inv
-@~ .neg
-@doc.− "This is unicode minus, U+2212. It is used for subtraction because '-' may not start a word in AO."
-@− .sub
-@doc.÷ "This is unicode division, U+F7. It is used just because."
-@÷ .div
-
