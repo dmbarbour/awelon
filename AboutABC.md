@@ -386,12 +386,12 @@ Stability is readily achieved using a filepath/URL metaphor: when 'forking' a un
 
 ### Value Sealing Types and Capabilities
 
-Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. These are allocated as a pair, using a secure uniqueness source (see above). The recommended representation:
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. At runtime, these may be allocated as a pair, using a secure uniqueness source (see above). The recommended representation:
 
         {:u} :: a → Sealed u a        `:` for seal
         {.u} :: Sealed u a → a        `.` for unseal
 
-In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. Value sealing has no observable impact on behavior of a correct program. Often, sealers can be completely eliminated by the compiler. 
+In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. Value sealing has no observable impact on behavior of a correct program. Often, sealers can be completely eliminated by a compiler. 
 
 Developers cannot observe, compare, or operate upon a sealed value without first unsealing it. But a few whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
 
@@ -402,6 +402,8 @@ Developers can reason about sealed values by reasoning about distribution of sea
 * integrity, confidentiality, authentication, rights amplification
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
+
+NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible to systematically secure these sealers against foreign code using an HMAC or similar.
 
 ### Capabilities for Structure Sharing and Separate Compilation
 
