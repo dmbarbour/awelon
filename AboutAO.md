@@ -138,11 +138,12 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. However, words are constrained to simplify parsing, printing, quoting, streaming, and future AO extensions. So the following rules apply:
+The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. However, words are constrained to simplify reading, parsing, printing, quoting, and streaming. So the following rules apply:
 
 * words may not start with `@`, `%`, or a digit
-* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, or `-`
+* words may not contain `"`, `[`, `]`, `(`, `|`, `)`
 * words may not contain C0 or C1 control characters, SP, or DEL.
+* words starting with `+`, `-`, or `.` may not follow with a digit.
 
 A specific programming environment might have a few extra constraints, e.g. so words can be used in URLs. We may also unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed, including UTF-8.
 

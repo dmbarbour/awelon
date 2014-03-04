@@ -94,10 +94,24 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
 parseBasicWord :: P.Stream s m Char => P.ParsecT s u m W
-parseBasicWord = 
-    P.satisfy isWordStart >>= \ c1 ->
-    P.many (P.satisfy isWordCont) >>= \ cs ->
-    return (T.pack (c1:cs))
+parseBasicWord = (P.try pmdWord) P.<|> npmdWord where
+    -- words starting with plus, minus, or dot (PMD)
+    -- cannot follow with a digit, to avoid confusion with numbers
+    isPMD c = ('+' == c) || ('-' == c) || ('.' == c)
+    pmdWord = 
+        P.satisfy isPMD >>= \ c1 ->
+        P.many wc >>= \ cs ->
+        if (startsWithDigit cs) then P.unexpected pmdReqMsg else
+        return (T.pack (c1:cs))
+    startsWithDigit [] = False
+    startsWithDigit (c:_) = isDigit c
+    pmdReqMsg = "+ - . words may not follow with digit"
+    isNPMD c = isWordStart c && not (isPMD c)
+    npmdWord =
+        P.satisfy isNPMD >>= \ c1 ->
+        P.many wc >>= \ cs ->
+        return (T.pack (c1:cs))
+    wc = P.satisfy isWordCont
 
 -- entry word is simple word or adverb (not modified)
 parseEntryWord :: P.Stream s m Char => P.ParsecT s u m W
@@ -274,7 +288,7 @@ isWordSep, isWordStart, isWordCont :: Char -> Bool
 isWordSep c = isSpace c || bracket || amb where
     bracket = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
-isWordCont c = not (isWordSep c || isControl c || '"' == c || '-' == c)
+isWordCont c = not (isWordSep c || isControl c || '"' == c)
 isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
 
 -- tokens in AO are described with %{...}. They can have most
