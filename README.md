@@ -14,7 +14,17 @@ Awelon project requires a language that is suitable for streaming, code generati
 
 Development of ABC and AO are necessary to an extent of bootstrapping and building a persistent web service with reasonable performance. Beyond that, an RDP implementation of ABC must be developed, and I would like to implement a wiki-based IDE for AO.
 
-The personal Awelon user environment will happen later, most likely targeting Meta glasses. It is feasible to develop the Awelon user environment in the desktop space, and I plan to do so eventually. But in the short term, I believe people will be more open to a new user experience with glasses.
+The personal Awelon user environment will happen later, most likely targeting augmented reality glasses. It is feasible to develop the Awelon user environment in the desktop space, and I plan to do so eventually. But in the short term, I believe people will be more open to a new user experience with glasses.
+
+### Getting Started
+
+At the moment, we have an AO compiler to ABC, a slow ABC interpreter, and a haskeline REPL. To get started, fork this github repo, clone your fork, then run 'cabal configure && cabal install' in the root directory. Ensure `~/.cabal/bin` is on your PATH, and add a new environment variable AO_PATH pointing to the cloned `ao` directory. 
+
+The `aoi` executable doesn't allow you to define new words. You can edit the dictionary, however, and hit Ctrl+C to reload it at any time. The `ao` executable can run `test.` words (with `ao test`) or provide relatively imprecise type information (with `ao type word`).
+
+Mind, AO is still in a very early stage. I'd like to shift AO development to the web, e.g. the wiki-based IDE mentioned earlier. Tools and interactive tutorials should make AO much more accessible, over the course of a year or two.
+
+I'm willing to take contributions (pull requests) at this point, though they should come with a (non-exclusive) grant of copy rights. I'm not entirely sure how that works, but I don't want to juggle licenses. (Maybe I should switch to some kind of creative commons license, like Wikipedia uses? Suggestions welcome.)
 
 ## How can Awelon succeed where prior efforts failed?
 
