@@ -1,23 +1,34 @@
 @doc.StandardEnvironment
-"AO is not a stack-based programming language. One might better call it pair-based, but even that is somewhat misleading. AO is value-based. The value involved may be composed from six basic structural types: product (pair), sum, unit, void, number, and block (function). AO words will analyze and manipulate this tacit value.
+"AO is not a stack-based programming language, at least not in the traditional sense of having a data stack as a primitive feature. Words operate upon a tacit value, constructed mainly of pairs, numbers, and blocks. This tacit value, however, will typically represent a stack plus an extended, stable environment:
  
- However, by convention, the tacit value will model a stack-based programming environment plus extensibility features. Literals in AO have form `"foo" :: (s*e)→((Text*s)*e)`, effectively treating `s` as an implicit stack and `e` as a stable environment. The standard environment elaborates 'e' with structure for flexible workflows and dataflows, concurrency, and extensibility. Standard data shuffling words are designed assuming the standard environment. The type is roughly:
+     (currentStack * extendedStableEnvironment)
  
-     (s * (h * (p * ((sn * rns) * ex))))
+ Here, `(a * b)` represents an ordered pair of `a` with `b`. The current stack is simply modeled using pairs. Literals in AO are functions that push their value onto the current stack:
+ 
+     42 :: (s*e) → ((42*s)*e)
+ 
+ This maps trivially to ABC code `#42l`. It is useful to understand that this structure really is a plain old value. The stack metaphor is built into literals, but the shape of the extended stable environment is much more accessible. Programmers are free to develop ad-hoc conventions for the shape of the extended environment. Further, different environments can easily be used for different subprograms (especially at locations that choke the number of inputs and outputs). 
+ 
+ The so-called 'standard' environment is simply a set of proposed conventions, embedded in the common words. There are, thus far, two standard environments: an apply environment, and a toplevel multi-stack environment. These share part of their structure:
+ 
+     apply env       :: (s * (h * ex))
+     multi-stack env :: (s * (h * (pb * ((sn * rns) * ex))))
  
  Where:
    s: the current stack, where most operations apply
-   h: the hand, temporary store and semantic clipboard
-   p: a powerblock, to observe or influence real world
+   h: the hand, auxillary stack, useful as temporary store & clipboard
+   pb: a powerblock, to observe or influence real world
    sn: name of current stack, used when switching stacks
    rns: record of (name*stack) pairs for workspaces and registers
-   ex: unused; available for experimental extensions
+   ex: an extensions slot, default value 'unit'
  
- As mentioned above, `s` is the primary active stack. That's where all stack shufflers apply, where all math is performed. However, AO is unlike most other stack-based languages, e.g. with respect to its capability-based effects and causal commutativity. As a consequence of these differences, AO can be very implicitly concurrent - i.e. by modeling different computations on different stacks. Non-deterministic concurrency can also be modeled, using oracle machine idioms.
+ The apply environment is typically created by the apply word and its many cousins (e.g. apply3to2). It is primarily used for purely functional subprograms, e.g. to control how many inputs a given block can access. The hand is an auxillary stack, useful to keep values out of the way. In general, words should exercise a clean hands policy: assume they start with an empty hand, and end with an empty hand (obviously excepting take, put, copy, paste, juggle, and other hand-manipulation words). The apply word will enforce clean hands.
  
- Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes. AO does not have any built-in support for type description, beyond assertions and merges.
+ The toplevel, multi-stack environment is the typical starting environment for a potentially effectful AO program. It extends the apply environment with a 'powerblock' (a block that contains capabilities to observe or influence the real world), plus a collection of named stacks. Named stacks can serve as registers or workspaces. It can be useful to switch between multiple stacks when modeling concurrent tasks (see @doc.ConcurrencyInAO). The initial stack name is the empty string "". 
  
- This particular computing environment is suitable for text-based programming environments. I have an alternative in mind for Awelon project, which involves navigation metaphors (spatial/kd-trees by zipper) while wielding an inventory of recomposable tools including programmable glasses (lenses, HUD).
+ Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes, e.g. in a separate word like `doc.swapd`. (AO does not have any built-in support for type description, beyond assertions and merges. Eventually, there may be a `type.` prefix for certain kinds of symbolic validation.)
+ 
+ NOTE: The current standard environments share a weakness: they are not readily composable. There is no sensible, general way to combine two stacks. They must instead be kept separate, e.g. constructing a fresh environment for each subprogram, injecting only a few inputs and extracting only a few results. In general, composition will instead occur in other layers. At some point, it may be worth exploring alternative conventions that achieve more composable environments, e.g. based on mashable documents, scene-graphs, and zippers, perhaps wielding an inventory of recomposable tools and lenses.
 ~
 
 @reifyStack intro1 %rwl

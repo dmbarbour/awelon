@@ -3,17 +3,22 @@
  
      (a * (b * (c * (d * N(x))))
  
- In type signatures, this structure might be abbreviated as foo`L, and the number ending the list as foo`Nel. Lists are typically processed by asking of each element 'are you a pair?' (a form of dynamic introspection). If so, the first item is an element in the list, and the second is the rest of the list. The terminating number is not an element of the list, but a useful convention of AO is to make use of different numbers to weakly indicate different types, e.g. to support debugging. A few common numbers:
+ In type documentation, this structure might be abbreviated as foo`L, and the number ending the list as foo`Nel. Lists are typically processed by asking of each element 'are you a pair?' (a form of dynamic introspection). If so, the first item is an element in the list, and the second is the rest of the list. The terminating number is not an element of the list, but a useful convention of AO is to make use of different numbers to weakly indicate different types, e.g. to support debugging. A few common numbers:
  
      0: generic list terminator
      3: text (list of integers between 0 and 0x10ffff)
      8: binary (list of integers between 0 and 255)
  
- Relevantly, ending with different number does impact comparison functions, and developers may freely assert on list terminals to resist accidents. It is a bad idea to observe a terminal to decide type in any formal sense, but it can be useful in heuristic contexts (e.g. rendering in a debugger).
+ Relevantly, ending with a different number will impact comparison functions. Also, developers might assert on list terminals to resist accidents. It is a bad idea to conditionally observe a terminal to decide behavior at runtime, but it can be useful in more heuristic contexts (e.g. rendering in a debugger).
  
- Lists tend to be reversed every time we process them, and so must be un-reversed when we're done. The list functions tend to include the middle steps with an extra `reverse` in the name. Using the intermediate steps can sometimes be more efficient if one was going to reverse the list again anyway. (Though, this efficiency benefit may eventually vanish if optimizers or ABCD begin to recognize list operations.)
+ Lists are simplistic data structures. Their extreme simplicity is sometimes convenient, but can lead to much awkwardness the moment developers pursue performance:
  
- *Aside:* Lists are simplistic, in the sense that they are often overly simple. AO's standard dictionaries should include other data structures more suitable for efficient ad-hoc manipulations. These will include finger-trees, ropes built on finger-trees, and zippers. 
+ * access to middle or end of a large list is expensive
+ * large lists can be expensive to hold in memory at once
+ * iterative operations on a list tend to reverse the list
+ * direct list processing is not incremental or compositional
+ 
+ A consequence is that developers cannot easily compose list words to achieve the same performance as developing a new list word. There may be extra reversals, or full-list processing where a short-circuit is feasible. Consequently, developers are encouraged to seek alternatives to lists that avoid these problems. For example, lists are readily translated into streams or sequences. Streams can offer procedural generation and incremental computation. Sequences offer efficient access to the middle and end. There may additionally be some use for some variation of fields that can compute structure on demand.
 ~
 
 @doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
@@ -42,7 +47,7 @@
 @reverseT.l 0 swap reverseT&append.l
 @map&reverseT.l 0 unrot map&reverseT&append.l
 @map&reverseT&append.l hidingDest.map.l eachT.l
-@hidingDest.map.l [dip] bind [swap] composel [pw] compose
+@hidingDest.map.l [dip] bind [swap] [pw] wrapfn
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
@@ -87,8 +92,27 @@
 @test.length.l "hello" length.l 5 assertEQ
 @test.map.l "hello" [4 .add] mapP.l "lipps" assertEQ
 
+
+
+
+@doc.scan.l "s a`L [s a -- s b] -- s b`L"
+@doc.unzip.l "(a*b)`L -- a`L b`L"
+@doc.unzip&reverseT&append.l 
+"a0`L b0`L (a*b)`L -- ((reverse a)++a0)`L ((reverse b)++b0)`L a`Nel b`Nel
+~
+
 @doc.Lists.todo
-"* search lists (with short-circuit)
+"* partition with boolean observer
+ * filter with boolean observer
+ * nub with boolean observer
+ * split, take, drop
+ * find, elem
+ * match head of list? (need concept for 'match'; maybe part of grammar instead)
+ * zip(2..N), unzip(2..N)
+ * association lists (.al?)
+ * t
+ * search lists (with short-circuit)
+ * list to/from stream
  * sorted merge of two lists
  * stable-sort a list (with a given sort function)
  * association lists
@@ -133,8 +157,6 @@
 @test.remove.l "hello world" 108 remove.l "heo word" assertEQ 
 
 @doc.nub.l "remove duplicate values from list"
-@doc.sort.l "sort a list of values"
-
 @nub.l [step.nub.l] fixpoint apply
 @step.nub.l
  swap isPair
@@ -143,6 +165,7 @@
  if
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 
+@doc.sort.l "sort a list of values"
 @sort.l [step.sort.l] fixpoint apply
 @step.sort.l swap isPair [dropd] [nonEmpty.sort.l] if
 @nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l

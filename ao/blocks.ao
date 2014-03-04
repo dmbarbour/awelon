@@ -51,6 +51,7 @@
 
 @compose p %rrol
 @composel swap compose
+@prepose composel
 @wrapfn swapd compose compose
 @.apply p %rr$l
 @apply %rwrzvrwvvrrvrrz$wlcllccwlcl
@@ -71,9 +72,9 @@
 @keep4 take dup4 put dip4
 
 @apply1to1 apply
-@apply1to2 [pw] compose apply wx 
-@apply1to3 [pw pw] compose apply wx wx
-@apply1to4 [pw pw pw] compose apply wx wx wx
+@apply1to2 [pw] compose apply1to1 wx 
+@apply1to3 [pw] compose apply1to2 wx
+@apply1to4 [pw] compose apply1to3 wx
 @apply2to1 compressArgs apply1to1
 @apply2to2 compressArgs apply1to2
 @apply2to3 compressArgs apply1to3
@@ -90,8 +91,8 @@
 
 @apply0to1 %rvvvrrvrrz$wlcllccwlcl
 @apply0to2 [pw] compose apply0to1 wx
-@apply0to3 [pw pw] compose apply0to1 wx wx
-@apply0to4 [pw pw pw] compose apply0to1 wx wx wx
+@apply0to3 [pw] compose apply0to2 wx
+@apply0to4 [pw] compose apply0to3 wx
 
 @test.apply4to2 
   2 3 4 5 [.add unrot .add] apply4to2 

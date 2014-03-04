@@ -167,6 +167,24 @@
 @seal sealer .apply
 @unseal unsealer .apply
 
+@doc.ConcurrencyInAO
+"AO has a natural capacity for parallelism (see @doc.CausalCommutativity). Concurrency is related, but is a different concept from parallelism. With concurrency, we have independently specified subprograms interacting in a shared environment. 
+ 
+ To model concurrent behavior, AO developers need only to model the shared environment and interaction - e.g. to model message queues, registrations, and so on. This sort of explicit concurrency is explored with the incremental processes model (abstractly, `µP.[a→(P*b)]`). Implicit concurrency is also feasible, but only for an effects model that respects causal commutativity and spatial idempotence, such as Reactive Demand Programming (RDP).
+ 
+ Parallel or concurrent behavior in AO tends to be fully deterministic. Non-determinism is possible, but must be expressed explicitly. Implicit non-determinism is incompatible with spatial idempotence (see @doc.SpatialIdempotence). An [oracle machine](http://en.wikipedia.org/wiki/Oracle_machine) could feasibly observe race-conditions, i.e. modeling each race as a unique, stateful resource.
+~
+
+@doc.SpatialIdempotence
+"Spatial idempotence is an assumption in AO: if a subprogram is computed many times, it must each time return the same result and have no additional side-effects beyond computing it once. This assumption can be enforced through the effects model. However, it is often enforced by affine types to simply prevent expressing of an effect more than once. 
+~
+
+@doc.CausalCommutativity
+"AO assumes causal commutativity. Any two subprograms can commute if they don't have a data-dependency relationship (i.e. where the output of one subprogram computes an input to another). This assumption is naturally enforced by the ABC primitives, but must additionally be enforced by whatever effectful capabilities are granted to the AO program.
+ 
+ Causal commutativity is a valuable basis for many optimizations, and also for parallelism. Independent subprograms can be computed in parallel. Synchronization becomes implicit when results from parallel subprograms are used together for a side-effect.
+~
+
 @doc.CompositionIsFirstPrinciple
 "Every compositional model consists of a trinity: components, operators, and properties. Compositional operators are algebraically or categorically closed; they combine two components into a third component. Compositional properties are invariant or inductive over the operators. The set of components may be domain specific (such as diagrams, documents, sounds, and scene-graphs) or more general purpose (such as functions, arrows, matrices, grammars). 
  

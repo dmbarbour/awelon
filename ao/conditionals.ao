@@ -116,6 +116,26 @@ boolean
 @ifk p distrib [%rwl] .left fullFactor wx drop dupd merged swapd dip
 @ifd p distrib [%rwl] .left fullFactor wx drop dip
 
+@doc.when  "..a (L+R) [..a R -- ..a] -- ..a"
+@doc.when_ "..a (L+R) [..a -- ..a] -- ..a"
+@doc.whenk "..a (L+R) [..a R -- ..a] -- ..a (L+R)"
+@doc.whend "..a (L+R) [..a -- ..a] -- ..a"
+
+@when  [drop] swap if
+@whenk [drop] swap ifk
+@when_ [] swap if_
+@whend [] swap ifd
+
+@doc.unless  "..a (L+R) [..a L -- ..a] -- ..a"
+@doc.unless_ "..a (L+R) [..a -- ..a] -- ..a"
+@doc.unlessk "..a (L+R) [..a L -- ..a] -- ..a (L+R)"
+@doc.unlessd "..a (L+R) [..a -- ..a] -- ..a (L+R)"
+
+@unless  [drop] if
+@unlessk [drop] ifk
+@unless_ [] if_
+@unlessd [] ifd
+
 @doc..left  "(a + b) [a→a'] -- (a' + b); apply block on left condition"
 @doc..right "(a + b) [b→b'] -- (a + b'); apply block on right condition"
 @doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
