@@ -111,7 +111,7 @@ initAOI = lift aoiReload >> greet where
             let wc = M.size (aoi_dict cx) in
             let dictMsg = show wc ++ " words loaded" in
             HKL.outputStrLn dictMsg >>
-            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload, '-' to undo"
+            HKL.outputStrLn "  ctrl+d to exit, ctrl+c to reload, '@undo' to undo"
 
 finiAOI :: HKL.InputT AOI ()
 finiAOI = 
@@ -126,7 +126,7 @@ aoiHaskelineLoop =
     foi (HKL.getInputLine prompt) >>= \ sInput ->
     case sInput of
         Nothing -> return ()
-        Just "-" -> lift aoiStepBack >> aoiHaskelineLoop
+        Just "@undo" -> lift aoiStepBack >> aoiHaskelineLoop
         Just str -> 
             foi (lift (aoiStep (T.pack (' ':str)))) >>
             aoiHaskelineLoop
