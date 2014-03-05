@@ -28,19 +28,37 @@
 @enumFromUntil dupd swap .sub rot [keep inc] bind swap repeat drop
 @enumFromTo inc enumFromUntil
 
-@doc.while1 "b [b -- (a + b)] -- a"
-@doc.until1 "a [a -- (a + b)] -- b"
-@doc.while  "(a + b) [b -- (a + b)] -- a"
-@doc.until  "(a + b) [a -- (a + b)] -- b"
+@doc.while1Sum "b [b -- (a + b)] -- a"
+@doc.until1Sum "a [a -- (a + b)] -- b"
+@doc.whileSum  "(a + b) [b -- (a + b)] -- a"
+@doc.untilSum  "(a + b) [a -- (a + b)] -- b"
 
-@while1 inRd while
-@until1 inLd until
-@while notd [not] compose until
-@until [step.until] bind fixpoint inline
-@step.until composel [] if 
+@while1Sum inRd whileSum
+@until1Sum inLd untilSum
+@whileSum notd [not] compose untilSum
+@untilSum [step.untilSum] bind fixpoint inline
+@step.untilSum composel [] if 
 
-@test.until1 0 10 pw [wx incd gte] until1 x assertEQ
-@test.while1 0 10 pw [wx incd lt] while1 x assertEQ
+@test.until1Sum 0 10 pw [wx incd gte] until1Sum x assertEQ
+@test.while1Sum 0 10 pw [wx incd lt] while1Sum x assertEQ
+
+@doc.while  "[action] [--Bool] --; repeat action while boolean condition"
+@doc.while1 "[action] [--Bool] --; as whileCond, but act at least once"
+@doc.until  "[action] [--Bool] --; repeat action until boolean condition"
+@doc.until1 "[action] [--Bool] --; as untilCond, but act at least once"
+@doc.repeatWhile "[action] [--Bool] N -- repeat N times or until some other condition"
+@doc.repeatUntil "[action] [--Bool] N -- repeat N times or while some other condition"
+
+@while1 over dip2 while
+@until1 over dip2 until
+@while [not.b] compose until
+@until [step.until] bind2 fixpoint inline
+@step.until dip2 rot [dip inline] [drop2] if_
+
+@test.until 0 [inc] 10 [dupd gtb] bind until 11 assertEQ1
+@test.while 10 [dec] 0 [dupd gtb] bind while 0 assertEQ1
+@test.until1.1  0 [inc] 0 [dupd gteb] bind until1 1 assertEQ1
+@test.until1.0  0 [inc] 0 [dupd gteb] bind until 0 assertEQ1
 
 @doc.fixpoint
 "This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of recursive behavior.
@@ -48,8 +66,10 @@
      [foo] fixpoint
          is equivalent to
      [[foo] fixpoint foo]
+         is equivalent to
+     [[[foo] fixpoint foo] foo]
  
- If the resulting block is unconditionally applied by `foo`, the function will diverge. Divergence is a bug. Loops in AO/ABC are required to terminate. It is necessary that `foo` reach a terminating condition in which the function is not applied. I.e. every fixpoint function must be expressed with conditional behavior. 
+ I.e. when invoked, the function `foo` has access to its fixpoint form as a block. If this block is unconditionally applied by `foo`, the function will diverge. Divergence is always a bug. Loops in AO/ABC are required to terminate, and long-running behaviors are instead modeled as reactive or incremental processes. It is necessary that `foo` reach a terminating condition in which the function is not applied. I.e. every fixpoint function must be expressed with conditional behavior. 
 ~
 @fixpoint %r [%^'wol] %rwo %^'wol
 @fixpoint.old [dup bind] composel dup bind
@@ -63,7 +83,6 @@
 @fixpointLinear   %r [%^'wokfl] %rwo %^'wokfl
 @fixpointAffine   %r [%^'wofl]  %rwo %^'wofl
 @fixpointRelevant %r [%^'wokl]  %rwo %^'wokl
-
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply

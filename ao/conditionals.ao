@@ -3,7 +3,7 @@ boolean
 @doc.ConditionalBehavior
 "Awelon expresses conditional behavior using sum types. 
  
- A sum type, `(a + b)`, indicates a value that is either left in `a` or right in `b`. A boolean, having two values, could be modeled as `(1 + 1)` where 1 is the unit type (having one value). However, AO does not heavily use booleans. For example, the output of comparing two values will initially contain the compared values, such that no information is lost. 
+ A sum type, `(a + b)`, indicates a value that is either left in `a` or right in `b`. A boolean, having exactly two values, can be modeled as `(1 + 1)` where 1 is the unit type (having one value). ABC does not encourage use of booleans. For example, the output of comparing two values will initially contain the compared values, such that no information is lost. 
  
  In AO, a sum type is the result of an *observation*. For primitive observations, one may ask whether a value (other than unit) is a pair, sum, number, or block. Numbers and complex products or sums of numbers may also be compared, e.g. to test whether one number is greater than another. Unit may only be compared against unit. (The limitations against observing unit help developers model static structure.)
  
@@ -104,6 +104,8 @@ boolean
      ifk :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R)
      ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
                       on left/false  on right/true  
+ 
+ Only `if` and `if_` can be used with tail-call optimizations.
  
  The main weakness of 'if' behaviors is that they're difficult to extend or compose. They're effectively 'closed' syntactically. Developers are under pressure to push a lot of logic into those blocks. ABC is based on sum types (L+R) to better support composition of conditional behavior, but to leverage sum types requires alternative idioms (such as incremental processes or RDP). 
 ~

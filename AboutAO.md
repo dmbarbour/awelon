@@ -138,14 +138,14 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
-The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. However, words are constrained to simplify reading, parsing, printing, quoting, and streaming. So the following rules apply:
+The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, quoting, and streaming. So the following rules apply:
 
 * words may not start with `@`, `%`, or a digit
 * words may not contain `"`, `[`, `]`, `(`, `|`, `)`
-* words may not contain C0 or C1 control characters, SP, or DEL.
-* words starting with `+`, `-`, or `.` may not follow with a digit.
+* words may not contain C0 or C1 control characters, SP, or DEL
+* words starting with `+`, `-`, or `.` may not follow with a digit
 
-A specific programming environment might have a few extra constraints, e.g. so words can be used in URLs. We may also unify or normalize some words, or may add a new class of pseudo-words. But most words should be allowed, including UTF-8.
+The structure of a word is not interpreted by AO. (An experiment with inflection did not hold.) However, the structure of a word may have extrinsic meaning in the larger context, e.g. `test.foo` might be executed as an automatic test (see Processing, below). 
 
 ### AO Dictionary File
 
@@ -172,11 +172,11 @@ Independently of how a dictionary is maintained, it may be processed in several 
 * static analysis and typechecking for obvious errors
 * on demand, compile a word to AMBC or ABC
 * leverage ad-hoc naming conventions, e.g.
-*   `test.foo` - automatic testing, more errors or warnings
+*   `test.foo` - automatic testing; emit errors or warnings
 *   `eqv.foo` - declare/assert equivalency between subprograms
 *   `doc.foo` - automatic documentation or reports 
 *   `app.foo` - automatic executable generation
-*   `b3$foo` - word as cell in the 'foo' spreadsheet
+*   `b3$foo` - word as cell `b3` in the `foo` spreadsheet
 *   programming environment extensions or configuration variables
 *   live services: web services, publish/subscribe, control systems
 
@@ -184,7 +184,7 @@ By leveraging naming conventions to decide processing of words, a single AO dict
 
 AO does not have syntax for comments. Instead, developers must define documentation words. In general, each word may be associated with a documentation word through naming conventions. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible. 
 
-Tests in AO include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-style property testing, and deep reflective analysis on the dictionary (via reflective capabilities). The capability-secure nature of AO can help with modeling mockup environments and configurations.
+Tests in AO potentially include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-style property testing, and deep reflective analysis on the dictionary (via reflective capabilities). The capability-secure nature of AO can help with modeling mockup environments and configurations.
 
 *Aside:* The singular 'main' function of mainstream languages is a significant source of accidental complexity. Developers are forced to use external make systems and linkers to configure multiple applications. Further, applications are not reusable as software components. AO's flexible use of naming conventions should mitigate these issues.
 

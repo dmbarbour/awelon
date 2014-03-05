@@ -18,20 +18,29 @@
  * iterative operations on a list tend to reverse the list
  * direct list processing is not incremental or compositional
  
- A consequence is that developers cannot easily compose list words to achieve the same performance as developing a new list word. There may be extra reversals, or full-list processing where a short-circuit is feasible. Consequently, developers are encouraged to seek alternatives to lists that avoid these problems. For example, lists are readily translated into streams or sequences. Streams can offer procedural generation and incremental computation. Sequences offer efficient access to the middle and end. There may additionally be some use for some variation of fields that can compute structure on demand.
+ A consequence is that developers cannot easily compose list words to achieve the same performance as developing a new list word. There may be extra reversals, or full-list processing where a short-circuit is feasible. Consequently, developers are encouraged to seek alternatives to lists that avoid these problems. For example, lists are readily translated into streams or sequences. Streams offer procedural generation and incremental computation. Sequences offer efficient access to the middle and end. There may additionally be some use for multi-dimensional fields that can compute volumes lazily or on demand.
 ~
 
-@doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
-@doc.reverseT&append.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
+@doc.each.l "a`L [a --] --; apply block to each element in list"
+@doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
+@doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 
-@id.reverseT&append.l 0 swap reverseT&append.l swap reverseT&append.l drop
-@test.id.reverseT&append.l 
+@each.l    eachT.l drop
+@map.l     mapReverseT.l swap reverseAppendT.l drop
+@append.l  swap reverse.l reverseAppend.l
+@appendl.l swap append.l
+
+@doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
+@doc.reverseAppendT.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
+
+@id.reverseAppendT.l 0 swap reverseAppendT.l swap reverseAppendT.l drop
+@test.id.reverseAppendT.l 
  "hello, World!" dup 
- [id.reverseT&append.l] apply 
+ [id.reverseAppendT.l] apply 
  assertEQ1
 
-@doc.map&reverseT.l "a`L [a -- b] -- b`L(reversed) a`Nel"
-@doc.map&reverseT&append.l "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
+@doc.mapReverseT.l "a`L [a -- b] -- b`L(reversed) a`Nel"
+@doc.mapReverseAppendT.l "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
 @doc.reverseT.l "a`L -- (reverse a, terminate in 0)`L a`Nel"
 
 @eachT.l [step.eachT.l] bind fixpoint inline
@@ -42,31 +51,24 @@
  [wx roll p rot dip x inline]
  if
 
-@reverseT&append.l [cons.l] eachTP.l
-@reverse&append.l reverseT&append.l drop
-@reverseT.l 0 swap reverseT&append.l
-@map&reverseT.l 0 unrot map&reverseT&append.l
-@map&reverseT&append.l hidingDest.map.l eachT.l
+@reverseAppendT.l [cons.l] eachTP.l
+@reverseAppend.l reverseAppendT.l drop
+@reverseT.l 0 swap reverseAppendT.l
+@mapReverseT.l 0 unrot mapReverseAppendT.l
+@mapReverseAppendT.l hidingDest.map.l eachT.l
 @hidingDest.map.l [dip] bind [swap] [pw] wrapfn
 
-@doc.each.l "a`L [a --] --; apply block to each element in list"
-@doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
-@doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
-
-@each.l      eachT.l drop
-@map.l       map&reverseT.l swap reverseT&append.l drop
-@append.l swap reverse.l reverse&append.l
 
 @test.append.l 
- "hello, " "World!" append.l
+ "hello, "     "World!"     append.l
  "hello, World!" assertEQ1
 
 @doc.reverse.l "reverse a list (nel 0)"
 @doc.reverseText.l "reverse text (as a list; nel 3)"
 @doc.reverseBinary.l "reverse binary list (nel 8)"
 @reverse.l reverseT.l drop
-@reverseText.l 3 swap reverseT&append.l 3 assertEQ1 drop
-@reverseBinary.l 8 swap reverseT&append.l 8 assertEQ1 drop
+@reverseText.l 3 swap reverseAppendT.l 3 assertEQ1 drop
+@reverseBinary.l 8 swap reverseAppendT.l 8 assertEQ1 drop
 
 @test.reverseText.l 
  "hello, World!" reverseText.l
@@ -92,20 +94,36 @@
 @test.length.l "hello" length.l 5 assertEQ
 @test.map.l "hello" [4 .add] mapP.l "lipps" assertEQ
 
+@doc.take.l "a`L N -- a`L; take first N elements of list (or the full list, if N >= length), drop rest of list"
+@doc.copy.l "a`L N -- a(orig)`L a(first N)`L; copy first N elements of list"
+@doc.drop.l "a`L N -- a`L; drop first N elements of list (or result in empty list, if N >= length)"
+@doc.split.l "a`L N -- a(minus first N)`L a(first N)`L; combines result of drop and take; linear."
+@doc.splitReverse.l "a`L N -- a(minus first N)`L a(first N reversed)`L"
+@doc.splitReverseAppendl.l "a0`L a`L N -- (first N from a ++ a0)`L a(minus first N)`L"
 
+@take.l split.l dropd
+@drop.l split.l drop
+@copy.l splitReverse.l copy reverseAppend.l put reverse.l
+@split.l splitReverse.l reverse.l
+@splitReverse.l 0 unrot splitReverseAppendl.l swap
+@splitReverseAppendl.l assertNatural 
+"TODO: I need to perform a simple append action N times or until I have an empty list.
+ I think I could abstract this short-circuiting pattern, one of two ways:
+    process the list with short-circuit is arbitrary observation on N (i.e. eachUntil)
+    perform an action N times until some arbitrary observation on list (i.e. repeatUntil)
+ I think BOTH of these might be worthy functions to implement.
+~ drop2
 
-
-@doc.scan.l "s a`L [s a -- s b] -- s b`L"
 @doc.unzip.l "(a*b)`L -- a`L b`L"
-@doc.unzip&reverseT&append.l 
-"a0`L b0`L (a*b)`L -- ((reverse a)++a0)`L ((reverse b)++b0)`L a`Nel b`Nel
-~
+@doc.scan.l "s a`L [s a -- s b] -- s b`L"
 
 @doc.Lists.todo
 "* partition with boolean observer
  * filter with boolean observer
- * nub with boolean observer
- * split, take, drop
+ * nub with boolean comparison
+ * compare length to a given number (length up to N, returning (N*n(<N))?
+ * 
+ * split, take, drop? (
  * find, elem
  * match head of list? (need concept for 'match'; maybe part of grammar instead)
  * zip(2..N), unzip(2..N)
@@ -113,29 +131,28 @@
  * t
  * search lists (with short-circuit)
  * list to/from stream
- * sorted merge of two lists
  * stable-sort a list (with a given sort function)
  * association lists
  * list to/from stream
 ~
 
-@doc.partition&append&reverseT.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L (as+bs)`Nel" 
+@doc.partitionAppendReverseT.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L (as+bs)`Nel" 
 @doc.partition.l "(a+b)`L -- a`L b`L"
-@partition&append&reverseT.l
+@partitionAppendReverseT.l
  unrot pw swap
  [pushrv.partition.l]
  eachTP.l dwx
 @pushrv.partition.l [dx cons.l p] [dwx cons.l pw] if
-@partition&reverseT.l 0 0 rot partition&append&reverseT.l
+@partitionReverseT.l 0 0 rot partitionAppendReverseT.l
 @partition.l
- partition&reverseT.l dup
- rot reverse&append.l
- unrot swap reverse&append.l
+ partitionReverseT.l dup
+ rot reverseAppend.l
+ unrot swap reverseAppend.l
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
 @doc.partitionHead.l "(hd*a`L) -- a(≤hd)`L a(>hd)`L"
-@partitionBy.l map&reverseT.l dup rot partition&append&reverseT.l drop
+@partitionBy.l mapReverseT.l dup rot partitionAppendReverseT.l drop
 @partitionElem.l [lte1] bind partitionBy.l swap
 @partitionHead.l x dup dp partitionElem.l
 
@@ -171,7 +188,7 @@
 @nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
 
-@doc.cons.l "a`L a -- a`L; add element to list"
+@doc.cons.l "a`L a -- a`L; add element to front of list"
 @cons.l p
 
 @doc.AssocLists
