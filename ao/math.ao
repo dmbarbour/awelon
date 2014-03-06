@@ -3,7 +3,7 @@
  
  More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
  
- The basic number type in is the exact rational number. However, ABC does not offer observation for the exact numerator or denominator of a rational number. Hence, the representation can vary some: programs could use inexact math in some cases, or an approach to exact math using lazy asymptotic bounds. Developers are free to annotate code requesting use of floating point numbers. Of course, annotations are discretionary, but I imagine most compilers will support it. 
+ The basic number type in is the exact rational number. However, ABC does not offer observation for the exact numerator or denominator of a rational number. Hence, the representation can vary some: programs could use inexact math in some cases, or an approach to exact math using lazy asymptotic bounds. Developers are free to annotate code requesting use of floating point numbers. Of course, annotations are discretionary, but I imagine many compilers will support it. ABC should never *silently* coerce to inexact math.
 ~
 
 @.mul p %rr*l
@@ -54,5 +54,5 @@
 
 @doc.useFloatingPoint32 "N--N; annotation; favor floating point with at least 32 bits"
 @doc.useFloatingPoint64 "N--N; annotation; favor floating point with at least 64 bits"
-@useFloatingPoint   assertNumber [&{useFloatingPoint32}] inline
-@useFloatingPoint64 assertNumber [&{useFloatingPoint64}] inline
+@useFloatingPoint   assertNumber [%{&useFloatingPoint32}] inline
+@useFloatingPoint64 assertNumber [%{&useFloatingPoint64}] inline
