@@ -3,7 +3,7 @@
  
   count, sum, sum of squares
  
- From these values, we can compute average and standard deviation. 
+ From these values, we can compute exact average and variance. Note: AO's use of exact rational numbers may become a performance problem here. (TODO: contemplate use of annotations or modulo arithmetic to control performance.)
  
  The structure is sealed to resist accidental confusions about which value is which, or enable later extension. Developers should mostly use the `.stats` suffix functions to observe the statistics. 
 ~

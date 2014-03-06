@@ -21,7 +21,7 @@
 @id 
 @dup %r^wzlwl
 @dupd swap dup rot
-@over dupd swap
+@over swap dup swapd
 @tuck swap over
 @pick %rw over %wl swap
 @drop %r%
@@ -37,18 +37,39 @@
 @unroll swap %rw unrot %wl
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
+
+@rotd %rw rot %wl
+@rolld %rw roll %wl
+@unrotd %rw unrot %wl
+@unrolld %rw unroll %wl
+
 @roll2 swap
 @roll3 rot
 @roll4 roll
 @roll5 pw roll4 dwx
 @roll6 pw roll5 dwx
 @roll7 pw roll6 dwx
+
+@roll2d swapd
+@roll3d rotd
+@roll4d rolld
+@roll5d %rw roll5 %wl
+@roll6d %rw roll6 %wl
+@roll7d %rw roll7 %wl
+
 @unroll2 swap
 @unroll3 unrot
 @unroll4 unroll
 @unroll5 dpw unroll4 wx
 @unroll6 dpw unroll5 wx
 @unroll7 dpw unroll6 wx
+
+@unroll2d swapd
+@unroll3d unrotd
+@unroll4d unrolld
+@unroll5d %rw unroll5 %wl
+@unroll6d %rw unroll6 %wl
+@unroll7d %rw unroll7 %wl
 
 @test.unroll7
   1 2 3 4 5 6 7 unroll7
@@ -60,6 +81,13 @@
   1 assertEQ1 drop
   7 assertEQ1 drop
   6 assertEQ1 drop5
+
+@over2 roll2 dup unroll2d
+@over3 roll3 dup unroll3d
+@over4 roll4 dup unroll4d
+@over5 roll5 dup unroll5d
+@over6 roll6 dup unroll6d
+@over7 roll7 dup unroll7d
 
 @doc.drop2 "(Droppable x,y) ⇒ x y -- "
 @doc.drop3 "(Droppable x,y,z) ⇒ x y z -- "

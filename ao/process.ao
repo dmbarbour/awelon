@@ -1,29 +1,67 @@
 @doc.Processes
-"In conventional imperative languages, a process is modeled as a procedure that enters an indefinite loop, which typically cycles between effectfully waiting for input and effectfully emitting outputs. This is an AWFUL process model! It is extremely difficult to externally compose, control, reuse, or extend these 'encapsulated loop' processes.
+"Consider an incremental process model, abstractly of form `µP.[a→(P*b)]`. Which is to say, process `P` is described as a step function that takes a single input of type `a` and generates a single output of type `b`, along with an updated process `P` for the next step (thus modeling stateful behavior). Each step should terminate, but the process overall might allow an unbounded number of steps. (A process that terminates should return a value indicating so.)
  
- In AO, we instead favor incremental processes. 
+ OOP-like objects can be modeled using dependent types: `a` contains method name, `b` is result whose type depends on `a`, `P` is the object. It is also feasible for types `a` and `b` to vary between steps, e.g. to model multi-step protocols, typestate, or evolving objects.
  
- Precisely, we model one step of a process. This step consumes one input and produces one output, and may encapsulate state that influences how the process responds to future inputs. The minimal type for an incremental process is (abstractly):
+ Compared to conventional process-as-a-loop models, AO's model offers effective process control and composition without relying on side-effects or indeterminacy. Processes may trivially be halted between steps, or composed sequentially or in parallel (e.g. splitting a pair, combining results). Concurrent behaviors are readily expressed. A process can model environments and networks, routing messages or establishing channels between named child processes.  
  
-     type Process a b = µP. [a→(P*b)]
-         shorthand notation: [a↣b] (↣ is U+21A3)
+ As shorthand for the type of a simple process, I'll use U+21A3: a ↣ b.
+  
+ It is feasible to use the abstract process model directly, leveraging fixpoints. However, a symbolic representation could enable many explicit optimizations, and eliminate some unnecessary intermediate structures. An ABC optimizer on the final block could do some of this, but reducing the burden on smart compilers is a good thing. So the actual representation for AO's processes is symbolic, abstracted by a sealer, with staged compilation to a block upon request. 
  
- Here `µP` indicates a recursive or fixpoint type. In each step, a process accepts an input `a`, generates output `b`, and determines the behavior for the next step, `P`. This design offers simple process control: a process may always be suspended between steps, and feedback loops (where an output influences a subsequent input) may always be interrupted.
- 
- See @doc.ProcessRep for the actual process implementation.
- 
- Incremental processes can composed in sequence, in parallel, and in conditional or switching network styles (using sum types). Dynamic processes are readily modeled. Each step consumes exactly one input and produces exactly one output; however, the input or output may be a collection type. It is feasible to model networked spaces where processes can communicate by name or indirectly through a shared service (though this becomes relatively difficult to typecheck).
- 
- Usefully, flexible composition greatly alleviates conventional requirements for shared state and side-effects. 
- 
- An AO service or application could feasibly be modeled as a process. In this case, the top-level loop would be implicit, provided by the compiler or runtime. Such a process could even be persistent by serializing the underlying ABC, and thus model long-running workflows. Unfortunately, processes still have a significant weakness as a foundation for services or applications: they encapsulate state! The behavior `P` of a process will diverge from the original source code. This hinders live programming, continuous deployment, mirroring and replication, debugging. Awelon project favors RDP for service or app behavior.
- 
- Even so, processes are useful for processing streams and lists, and may serve a useful role for bootstrapping or integrating awelon with more conventional systems.
+ NOTE: Processes encapsulate state, and thus diverge from source. Consequently, long-running processes aren't ideal for live programming or continuous deployment scenarios: we cannot reliably map an update on the source back into an update of the process. (Conversely, we cannot trivially trace an error in the process back to the source.) Reactive demand programming (RDP) is the preferred model for long-running behavior. The incremental process model is useful for folds, processing large data structures, and potentially for implementing RDP. 
 ~
 
 @doc.ProcessRep
-"The abstract model for a process is µP.[a→(P*b)]. This abstract model can be implemented directly, but it involves opaque dynamic elements that can be very difficult for a compiler to optimize. 
+"A little on the concrete representation for incremental subprocesses.
  
+ A point to consider is that an incremental process will presumably be executed many times by many subsequent inputs. Thus, it can be useful to treat inputs as streams rather than atoms. Relevantly, there is a useful distinction between a pair of streams vs. a stream of pairs:
+ 
+     (a`Stream * b`Stream)    vs.    (a*b)`Stream
+ 
+ Similarly, we can distinguish a sum of streams vs. a stream of sums.
+ 
+     (a`Stream + b`Stream)    vs.    (a+b)`Stream
+ 
+ However, in the sum case, the two aren't representationally equivalent. Consider a variation:
+ 
+     ((1+a)`Stream * (1+b)`Stream) ~  (a+b)`Stream
+ 
+ Essentially, we can use a pair of streams with gaps in them to model a single stream that has no gaps. Sadly, this means we can represent some invalid states locally, e.g. neither or both streams are active. We must rely on discipline or implementation-hiding encapsulation. OTOH, this design extends readily to larger sums, e.g. for a stream of ((a+b)+c), we don't need an `(1+(a+b))` intermediate. 
+ 
+ So... what does it even mean for a process or subprocess to be inactive? 
+ 
+ This gets pretty close to how RDP is implemented and optimized. We only need to extend this with the idea of duration coupling, a reasonable assumption that every process is a subprocess (part of a larger process), and logical asynchrony (i.e. that the `a` and `b` branches may have different logical delays).
+ 
+ 
+ If there was no delay, i.e. very input resulted in all the available outputs, then 
+ 
+ It would be convenient if we could simply ignore the inactive subprocesses. 
+ 
+ It seems convenient to assume that we can just process updates for the steps with active inputs. But that doesn't work out if there is any sort of delay between steps. OTOH, we certainly want to stop processing an inactive process after some small number of steps, otherwise we'll never know how much we need to run the process to get all the outputs. So this might be achieved by tracking logical delays.
+ 
+ (For the current abstract process model, our logical delays will be discrete steps. RDP is very similar, except shifts from streams to a more continuous signal concept with rational time.)
+ 
+ 
+ 
+ Well, one useful assumption is that a process has always been inactive before it is first installed, and that it is also inactive for any number of steps after it is removed. 
+
+With duration coupling, it means that every inactive input step must correspond to an inactive output step. But some delay (by a number of steps) might be permitted. So it may be necessary to still process the (1+a)`Stream to obtain outputs that occur in later steps. 
+
+One possibility is that we simply ignore the inactivity, i.e. operate blind to the states where a subprogram is inactive. 
+ 
+ 
+ 
+     
+ 
+ 
+ we'll need a notion of gaps in a stream, and an additional (disciplined) constraint that the gaps are filled in other streams without any overlap:
+ 
+ To generalize across subprograms, we must always assume that a product type is part of a sum. Consequently, this notion of gaps will be pervasive:
+
+ we can assume that products are always part of a sum, so we'll always need this notion of gaps even if we don't use it.
+ 
+ In the sums case, there is no direct equivalence: the righ. However, we could potentially 
  In addition, as this is an incremental process that will presumably be executed incrementally on multiple elements, it can be useful to think about type 'a' or `b` as a stream (a`S) of inputs. Relevantly, we can distinguish (a`S * b`S) from (a*b)`S at the symbolic optimizations layer, and only convert between them as necessary.
  
  To reduce the burden on the compiler, AO uses a symbolic model for processes and performs its own rewrite optimizations before compiling. The resulting block should then be easier to further optimize. The intention is that, in practice, processes should mostly be compiled via partial evaluation.

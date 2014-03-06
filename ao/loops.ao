@@ -42,12 +42,12 @@
 @test.until1Sum 0 10 pw [wx incd gte] until1Sum x assertEQ
 @test.while1Sum 0 10 pw [wx incd lt] while1Sum x assertEQ
 
-@doc.while  "[action] [--Bool] --; repeat action while boolean condition"
-@doc.while1 "[action] [--Bool] --; as whileCond, but act at least once"
-@doc.until  "[action] [--Bool] --; repeat action until boolean condition"
-@doc.until1 "[action] [--Bool] --; as untilCond, but act at least once"
-@doc.repeatWhile "[action] [--Bool] N -- repeat N times or until some other condition"
-@doc.repeatUntil "[action] [--Bool] N -- repeat N times or while some other condition"
+@doc.while  "[action(--)] [cond(--Bool)] --; repeat action while boolean condition"
+@doc.while1 "[action(--)] [cond(--Bool)] --; as whileCond, but act at least once"
+@doc.until  "[action(--)] [cond(--Bool)] --; repeat action until boolean condition"
+@doc.until1 "[action(--)] [cond(--Bool)] --; as untilCond, but act at least once"
+@doc.repeatWhile "[action(--)] [cond(--Bool)] N -- repeat N times or until some other condition"
+@doc.repeatUntil "[action(--)] [cond(--Bool)] N -- repeat N times or while some other condition"
 
 @while1 over dip2 while
 @until1 over dip2 until
@@ -55,10 +55,25 @@
 @until [step.until] bind2 fixpoint inline
 @step.until dip2 rot [dip inline] [drop2] if_
 
-@test.until 0 [inc] 10 [dupd gtb] bind until 11 assertEQ1
-@test.while 10 [dec] 0 [dupd gtb] bind while 0 assertEQ1
-@test.until1.1  0 [inc] 0 [dupd gteb] bind until1 1 assertEQ1
-@test.until1.0  0 [inc] 0 [dupd gteb] bind until 0 assertEQ1
+@test.until     0 [inc] 10 [dupd gtb]  bind until 11 assertEQ1
+@test.while    10 [dec]  0 [dupd gtb]  bind while  0 assertEQ1
+@test.until1.1  0 [inc]  0 [dupd gteb] bind until1 1 assertEQ1
+@test.until1.0  0 [inc]  0 [dupd gteb] bind until  0 assertEQ1
+
+@repeatWhile swap [not] compose swap repeatUntil
+@repeatUntil assertNatural unrot [tryCount.repeatUntil] bind2 fixpoint inline
+@tryCount.repeatUntil over4 0 gt [drop4] [tryCond.repeatUntil] if_
+@tryCond.repeatUntil dip3 roll [body.repeatUntil] [drop3] if_
+@body.repeatUntil dip2 decd inline
+
+@test.repeatWhile.count
+    new.stats 
+    [1 add.stats] [count.stats 15 lte] 10 repeatWhile 
+    count.stats 10 assertEQ1
+@test.repeatWhile.cond   
+    new.stats 
+    [1 add.stats] [count.stats 15 lte] 20 repeatWhile 
+    count.stats 16 assertEQ1
 
 @doc.fixpoint
 "This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of recursive behavior.

@@ -7,7 +7,7 @@
  
  * take item from stack into hand
  * put top item from hand onto stack
- * juggle (rotate) a few items
+ * data plumbing similar to regular stack
  * discard a value from the hand
  * copy an item from the stack into hand
  * paste an item in the hand onto the stack
@@ -35,6 +35,10 @@
 @discard2 discard discard
 @discard3 discard discard discard
 @discard4 discard discard discard discard
+
+@copy2 copy swap copy swap
+@copy3 copy unrot copy unrot copy unrot
+@copy4 copy unroll copy unroll copy unroll copy unroll
 
 @taked swap take
 @putd put swap
@@ -65,3 +69,38 @@
 @id.take3put3 take3 put3
 
 @eqv.takeSwapPut.swapd [take swap put] [swapd]
+
+
+@hx   %w x   %w
+@hw   %w w   %w
+@hp   %w p   %w
+@hwx  %w w x %w
+@hpw  %w p w %w
+@hl   %w l   %w
+@hr   %w r   %w
+@hdp  %w dp  %w
+@hdx  %w dx  %w
+@hdw  %w dw  %w
+@hdpw %w dpw %w
+@hdwx %w dwx %w
+@hdl  %w dl  %w
+@hdr  %w dr  %w
+
+@hdup  %w dup %w
+@hdupd %w dupd %w
+@hover %w over %w
+@htuck %w tuck %w
+@hpick %w pick %w
+@hdrop %w drop %w
+@eqv.hdrop.discard [hdrop] [put drop]
+@hnip %w nip %w
+@hnip2 %w nip2 %w
+@hdropd %w dropd %w
+@hswap %w swap %w
+@hswapd %w swapd %w
+@hrot %w rot %w
+@hunrot %w unrot %w
+@hspin %w spin %w
+@hroll %w roll %w
+@hunroll %w unroll %w
+
