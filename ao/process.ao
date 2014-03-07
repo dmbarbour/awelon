@@ -15,7 +15,9 @@
 @doc.ProcessRep
 "A little on the concrete representation for incremental subprocesses.
  
- A point to consider is that an incremental process will presumably be executed many times by many subsequent inputs. Thus, it can be useful to treat inputs as streams rather than atoms. Relevantly, there is a useful distinction between a pair of streams vs. a stream of pairs:
+ Direct use of blocks are opaque. A very good compiler could offer very good performance, but it is more difficult to assure good performance because we cannot assume the quality of a (potentially JIT) compiler. A more symbolic model - free structure - can ensure greater optimizations by modeling it explicitly, and use of simpler techniques such as staged or partial evaluation. 
+ 
+ In addition, we can treat a behavior as modeling a stream process, not just a one-off input to output. An incremental process will presumably be executed many times by many subsequent inputs. Thus, it can be useful to treat inputs as streams rather than atoms. Relevantly, there is a useful distinction between a pair of streams vs. a stream of pairs:
  
      (a`Stream * b`Stream)    vs.    (a*b)`Stream
  
@@ -27,46 +29,11 @@
  
      ((1+a)`Stream * (1+b)`Stream) ~  (a+b)`Stream
  
- Essentially, we can use a pair of streams with gaps in them to model a single stream that has no gaps. Sadly, this means we can represent some invalid states locally, e.g. neither or both streams are active. We must rely on discipline or implementation-hiding encapsulation. OTOH, this design extends readily to larger sums, e.g. for a stream of ((a+b)+c), we don't need an `(1+(a+b))` intermediate. 
+ Essentially, we can use a pair of streams with gaps to model a stream of independent options that has no gaps. Sadly, this means we can represent some invalid streams, and we must be careful and disciplined to avoid error. OTOH, this presents greater opportunities - e.g. we can model separate delays and paths for each stream.
  
- So... what does it even mean for a process or subprocess to be inactive? 
+ It is useful to generalize this (1+a) pattern. Any process may, as a whole, be inactive. Every process is part of a larger process, with activity ultimately flowing from an implicit top level. Maintaining operational equivalencies leads to duration coupling invariants. A pair of streams represents either a stream of pairs (unzipped) or a stream of sums (to be interwoven). Each input corresponds to exactly one output, potentially with some delay. Incremental processes are very close to RDP, but do not insist on the same temporal continuity properties.
  
- This gets pretty close to how RDP is implemented and optimized. We only need to extend this with the idea of duration coupling, a reasonable assumption that every process is a subprocess (part of a larger process), and logical asynchrony (i.e. that the `a` and `b` branches may have different logical delays).
- 
- 
- If there was no delay, i.e. very input resulted in all the available outputs, then 
- 
- It would be convenient if we could simply ignore the inactive subprocesses. 
- 
- It seems convenient to assume that we can just process updates for the steps with active inputs. But that doesn't work out if there is any sort of delay between steps. OTOH, we certainly want to stop processing an inactive process after some small number of steps, otherwise we'll never know how much we need to run the process to get all the outputs. So this might be achieved by tracking logical delays.
- 
- (For the current abstract process model, our logical delays will be discrete steps. RDP is very similar, except shifts from streams to a more continuous signal concept with rational time.)
- 
- 
- 
- Well, one useful assumption is that a process has always been inactive before it is first installed, and that it is also inactive for any number of steps after it is removed. 
-
-With duration coupling, it means that every inactive input step must correspond to an inactive output step. But some delay (by a number of steps) might be permitted. So it may be necessary to still process the (1+a)`Stream to obtain outputs that occur in later steps. 
-
-One possibility is that we simply ignore the inactivity, i.e. operate blind to the states where a subprogram is inactive. 
- 
- 
- 
-     
- 
- 
- we'll need a notion of gaps in a stream, and an additional (disciplined) constraint that the gaps are filled in other streams without any overlap:
- 
- To generalize across subprograms, we must always assume that a product type is part of a sum. Consequently, this notion of gaps will be pervasive:
-
- we can assume that products are always part of a sum, so we'll always need this notion of gaps even if we don't use it.
- 
- In the sums case, there is no direct equivalence: the righ. However, we could potentially 
- In addition, as this is an incremental process that will presumably be executed incrementally on multiple elements, it can be useful to think about type 'a' or `b` as a stream (a`S) of inputs. Relevantly, we can distinguish (a`S * b`S) from (a*b)`S at the symbolic optimizations layer, and only convert between them as necessary.
- 
- To reduce the burden on the compiler, AO uses a symbolic model for processes and performs its own rewrite optimizations before compiling. The resulting block should then be easier to further optimize. The intention is that, in practice, processes should mostly be compiled via partial evaluation.
- 
- Basic Processes (essentially an ADT based on Arrows):
+ Some symbolic processes?
  
      id    :: [a↣a]
      const :: c → [a↣(c*a)]

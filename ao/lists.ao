@@ -22,6 +22,8 @@
 ~
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
+@doc.eachUntil.l "a`L [a -- Bool] -- a(rem)`L; apply block with short circuit option (halt on true)"
+@doc.eachWhile.l "a`L [a -- Bool] -- a(rem)`L; apply block with short circuit option (halt on false)"
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
 @doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 
@@ -29,6 +31,7 @@
 @map.l     mapReverseT.l swap reverseAppendT.l drop
 @append.l  swap reverse.l reverseAppend.l
 @appendl.l swap append.l
+@eachWhile.l [not] compose eachUntil.l
 
 @doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
 @doc.reverseAppendT.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
@@ -50,6 +53,8 @@
  [nip2 assertNumber]
  [wx roll p rot dip x inline]
  if
+
+@eachUntil.l 
 
 @reverseAppendT.l [cons.l] eachTP.l
 @reverseAppend.l reverseAppendT.l drop
@@ -138,32 +143,20 @@
 
 @doc.partitionAppendReverseT.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L (as+bs)`Nel" 
 @doc.partition.l "(a+b)`L -- a`L b`L"
-@partitionAppendReverseT.l
- unrot pw swap
- [pushrv.partition.l]
- eachTP.l dwx
+@partitionAppendReverseT.l unrot pw swap [pushrv.partition.l] eachTP.l dwx
 @pushrv.partition.l [dx cons.l p] [dwx cons.l pw] if
 @partitionReverseT.l 0 0 rot partitionAppendReverseT.l
-@partition.l
- partitionReverseT.l dup
- rot reverseAppend.l
- unrot swap reverseAppend.l
+@partition.l partitionReverseT.l dup rot reverseAppend.l unrot swap reverseAppend.l
 
 @doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
-@doc.partitionHead.l "(hd*a`L) -- a(≤hd)`L a(>hd)`L"
 @partitionBy.l mapReverseT.l dup rot partitionAppendReverseT.l drop
 @partitionElem.l [lte1] bind partitionBy.l swap
-@partitionHead.l x dup dp partitionElem.l
 
 @test.partition.l 
  "hello, World!" [106 gt1] 
  partitionBy.l
  "lloorl" assertEQ1 drop2
-
-@test.partitionHead.l
- "hello, World!" partitionHead.l
- drop "he, Wd!" assertEQ1
 
 @doc.filter.l "a`L [a--(b+c)] -- c`L; Droppable b"
 @filter.l partitionBy.l dropd
