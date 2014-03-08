@@ -32,6 +32,7 @@ import qualified Text.Parsec as P
 -- import qualified Text.Parsec.Token as P
 import qualified System.IO as Sys
 import qualified System.Environment as Env
+import qualified System.Exit as Exit
 import qualified System.IO.Error as Err
 import AO.AO
 import AO.ABC
@@ -238,8 +239,11 @@ runDumpABC :: W -> IO ()
 runDumpABC w =
     loadDictionary >>= \ dict ->
     let dc = compileDictionary dict in
-    let notFound = putErrLn $ "Word " ++ T.unpack w ++ " not found!" in
-    maybe notFound (Sys.putStrLn . T.unpack . showOps . simplifyABC) (M.lookup w dc)
+    case M.lookup w dc of
+        Just abc -> Sys.putStrLn . T.unpack . showOps . simplifyABC $ abc
+        Nothing -> do
+            putErrLn $ "Word " ++ T.unpack w ++ " not found!"
+            Exit.exitWith $ Exit.ExitFailure 1
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
