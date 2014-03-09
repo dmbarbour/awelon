@@ -32,6 +32,7 @@ import qualified Text.Parsec as P
 -- import qualified Text.Parsec.Token as P
 import qualified System.IO as Sys
 import qualified System.Environment as Env
+import qualified System.Exit as Exit
 import qualified System.IO.Error as Err
 import AO.AO
 import AO.ABC
@@ -41,6 +42,7 @@ import AO.TypeABC
 data Mode 
     = Test -- run all `test.` words
     | Type [W] -- report type for a set of words
+    | DumpABC W -- dump bytecode for a word
     | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
@@ -56,6 +58,7 @@ cmdLineHelp =
     "ao test                 run all `test.` words in dict\n" ++
     "ao type                 typecheck all words in dict\n" ++
     "ao type x y z           print type for a given list of words\n" ++
+    "ao abc word             dump ABC for a given word\n" ++
     "ao help (or -?)         print these options\n" ++
     "\n" ++
     "Environment Variables:\n" ++
@@ -86,6 +89,7 @@ runMode :: Mode -> IO ()
 runMode Help = runHelp
 runMode Test = runTests 
 runMode (Type ws) = runType ws
+runMode (DumpABC w) = runDumpABC w
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -227,6 +231,20 @@ runTypeW w code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
             Left etxt -> "(ERROR!)\n" ++ indent "  " (T.unpack etxt)
             Right (tyIn, tyOut) -> show tyIn ++ " → " ++ show tyOut
 
+--------------------------------------
+-- Dump bytecode for the compiler
+--------------------------------------
+
+runDumpABC :: W -> IO ()
+runDumpABC w =
+    loadDictionary >>= \ dict ->
+    let dc = compileDictionary dict in
+    case M.lookup w dc of
+        Just abc -> Sys.putStrLn . T.unpack . showOps . simplifyABC $ abc
+        Nothing -> do
+            putErrLn $ "Word " ++ T.unpack w ++ " not found!"
+            Exit.exitWith $ Exit.ExitFailure 1
+
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
 ---------------------------------------
@@ -249,6 +267,12 @@ parseTypeMode =
     liftM (map T.pack) (P.many anyOneArg) >>= \ targetWords ->
     return (Type targetWords)
 
+parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
+parseDumpABCMode =
+    tok (== "abc") >>
+    fmap T.pack anyOneArg >>= \ targetWord ->
+    return (DumpABC targetWord)
+
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> return Help where
     anyHelp s = ("help" == s) || ("-help" == s) || ("-?" == s)
@@ -256,6 +280,7 @@ parseHelpMode = tok anyHelp >> return Help where
 parseCmdLine :: P.Stream s m Tok => P.ParsecT s u m Mode
 parseCmdLine = parseMode >>= \ m -> P.eof >> return m where
     parseMode = 
-        parseTestMode P.<|> 
-        parseTypeMode P.<|>
+        parseTestMode    P.<|>
+        parseTypeMode    P.<|>
+        parseDumpABCMode P.<|>
         parseHelpMode
