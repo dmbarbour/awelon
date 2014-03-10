@@ -42,7 +42,7 @@ import AO.TypeABC
 data Mode 
     = Test -- run all `test.` words
     | Type [W] -- report type for a set of words
-    | DumpABC W -- dump bytecode for a word
+    | DumpABC Bool W -- dump bytecode for a word
     | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
@@ -58,7 +58,8 @@ cmdLineHelp =
     "ao test                 run all `test.` words in dict\n" ++
     "ao type                 typecheck all words in dict\n" ++
     "ao type x y z           print type for a given list of words\n" ++
-    "ao abc word             dump ABC for a given word\n" ++
+    "ao abc word             dump weakly simplified ABC for a given word\n" ++
+    "ao abcRaw word          dump raw ABC for a given word\n" ++
     "ao help (or -?)         print these options\n" ++
     "\n" ++
     "Environment Variables:\n" ++
@@ -89,7 +90,7 @@ runMode :: Mode -> IO ()
 runMode Help = runHelp
 runMode Test = runTests 
 runMode (Type ws) = runType ws
-runMode (DumpABC w) = runDumpABC w
+runMode (DumpABC bSimp w) = runDumpABC bSimp w
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -235,12 +236,13 @@ runTypeW w code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
 -- Dump bytecode for the compiler
 --------------------------------------
 
-runDumpABC :: W -> IO ()
-runDumpABC w =
+runDumpABC :: Bool -> W -> IO ()
+runDumpABC bSimp w =
     loadDictionary >>= \ dict ->
     let dc = compileDictionary dict in
+    let simp = if bSimp then simplifyABC else id in
     case M.lookup w dc of
-        Just abc -> Sys.putStrLn . T.unpack . showOps . simplifyABC $ abc
+        Just abc -> Sys.putStrLn . T.unpack . showOps . simp $ abc
         Nothing -> do
             putErrLn $ "Word " ++ T.unpack w ++ " not found!"
             Exit.exitWith $ Exit.ExitFailure 1
@@ -268,10 +270,15 @@ parseTypeMode =
     return (Type targetWords)
 
 parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseDumpABCMode =
-    tok (== "abc") >>
-    fmap T.pack anyOneArg >>= \ targetWord ->
-    return (DumpABC targetWord)
+parseDumpABCMode = rawABC P.<|> simpABC where
+    simpABC = 
+        tok (== "abc") >>
+        fmap T.pack anyOneArg >>= \ targetWord ->
+        return (DumpABC True targetWord)
+    rawABC =
+        tok (== "abcRaw") >>
+        fmap T.pack anyOneArg >>= \ targetWord ->
+        return (DumpABC False targetWord)
 
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> return Help where
