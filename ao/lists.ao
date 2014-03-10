@@ -51,10 +51,18 @@
 @step.eachT.l
  rot isPair
  [nip2 assertNumber]
- [wx roll p rot dip x inline]
+ [wx roll pw rot dip wx inline]
  if
 
-@eachUntil.l 
+@eachUntil.l [step.eachUntil.l] bind fixpoint inline
+@step.eachUntil.l rot isPair [nip2] [action.eachUntil.l] if
+@action.eachUntil.l wx roll pw rot dip wx swapd [] if_
+
+@test.eachUntil.l 
+ 0 "hello, world!"
+ [.add dup 600 gtb] eachUntil.l
+ "world!" assertEQ1 drop
+ 608 assertEQ1
 
 @reverseAppendT.l [cons.l] eachTP.l
 @reverseAppend.l reverseAppendT.l drop
@@ -148,22 +156,25 @@
 @partitionReverseT.l 0 0 rot partitionAppendReverseT.l
 @partition.l partitionReverseT.l dup rot reverseAppend.l unrot swap reverseAppend.l
 
-@doc.partitionBy.l "a`L [a--(b+c)] -- a`L b`L"
-@doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L"
-@partitionBy.l mapReverseT.l dup rot partitionAppendReverseT.l drop
-@partitionElem.l [lte1] bind partitionBy.l swap
+@doc.partitionBy.l   "a`L [a--Bool] -- a`L a`L"
+@doc.partitionWith.l "a`L [a--(b+c)] -- a`L b`L"
+@doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L; Comparable a"
+@partitionWith.l mapReverseT.l dup rot partitionAppendReverseT.l drop
+@partitionElem.l [lte1] bind partitionWith.l swap
+@partitionBy.l wrapObserver.b partitionWith.l
 
 @test.partition.l 
  "hello, World!" [106 gt1] 
- partitionBy.l
+ partitionWith.l
  "lloorl" assertEQ1 drop2
 
-@doc.filter.l "a`L [a--(b+c)] -- c`L; Droppable b"
-@filter.l partitionBy.l dropd
+@doc.filterBy.l "a`L [a--Bool] -- a`L; Droppable a"
+@doc.filterWith.l "a`L [a--(b+c)] -- c`L; Droppable b"
+@filterWith.l partitionWith.l dropd
+@filterBy.l partitionBy.l dropd
 
-@doc.remove.l "a`L a -- a`L; removes comparable value"
-@remove.l [neq1m] bind filter.l
-
+@doc.remove.l "a`L a -- a`L; removes values equal by simple comparison"
+@remove.l [neq1m] bind filterWith.l
 @test.remove.l "hello world" 108 remove.l "heo word" assertEQ 
 
 @doc.nub.l "remove duplicate values from list"

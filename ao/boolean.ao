@@ -64,3 +64,4 @@
 @eqv.commutative.xor.b [xor.b] [swap xor.b]
 @eqv.deMorgans.1 [and.b not.b] [not.b swap not.b swap or.b]
 @eqv.deMorgans.2 [or.b not.b] [not.b swap not.b swap and.b]
+

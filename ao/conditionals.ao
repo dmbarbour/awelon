@@ -105,7 +105,7 @@ boolean
      ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
                       on left/false  on right/true  
  
- Only `if` and `if_` can be used with tail-call optimizations.
+ Only `if` and `if_` can be used if tail-call optimization is needed.
  
  The main weakness of 'if' behaviors is that they're difficult to extend or compose. They're effectively 'closed' syntactically. Developers are under pressure to push a lot of logic into those blocks. ABC is based on sum types (L+R) to better support composition of conditional behavior, but to leverage sum types requires alternative idioms (such as incremental processes or RDP). 
 ~
@@ -143,9 +143,12 @@ boolean
 @doc..either "(a + b) [a→a'] [b→b'] -- (a' + b')"
 @.left p %rr?l
 @.right notd .left not
-@.either take .left put .right
+@.either unrot .left swap .right
 
 @eqv.cca+ [.either] [swap take2 not put2 .either not]
+
+@doc.wrapObserver.b "[a--Bool] -- [a--(a+a)]; Copyable a"
+@wrapObserver.b [keep] bind [distrib [%c] .left [%c] .right] compose
 
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
