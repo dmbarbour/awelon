@@ -33,16 +33,6 @@ ABC is represented in a stream of UTF-8 encoded characters. There are no section
 
 This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports two whitespace characters (LF (10) and SP (32)) assigning them the meaning 'identity', to simplify formatting of ABC.
 
-### ABC Paragraphs
-
-ABC encourages an informal notion of "paragraphs". A paragraph separates a batch of code, serving as a soft, discretionary indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should process a whole number of paragraphs in each step.
-
-A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the stream. This corresponds well to a paragraph in any English text file.
-
-Paragraphs may be enforced in serialization layers - simply disconnect from a client that doesn't provide timely paragraphs of a reasonable size (perhaps with soft, probabilistic tolerance). Paragraphs are convenient as an implicit boundary for batching, typechecking, compilation, and atomic update, while still enabling flexibility to process multiple batches together for performance reasons.
-
-Formally, the space between paragraphs just means identity. Paragraphs are not preserved within blocks, and use of paragraphs is ultimately discretionary within the toplevel stream.
-
 ## ABC Behavior Overview
 
 The ABC stream contains operators, literals (blocks, text, numbers), and invocations.
@@ -405,11 +395,19 @@ and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-a
 
 NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible to systematically secure these sealers against foreign code using an HMAC or similar.
 
-### Capabilities for Structure Sharing and Separate Compilation
+### ABC Paragraphs
+
+ABC encourages an informal notion of "paragraphs". A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
+
+A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're also advantageous for performance and reasoning.
+
+Very large paragraphs might be expressed by leveraging secure hash sources.
+
+### Secure Hash Sources for Code Reuse and Separate Compilation
 
 It is not uncommon in a project to reuse large, specialized software elements: frameworks, templates, plugins, widgets, diagrams, texts, tables, images, agents, codecs, and other software components. In an ABC stream, the most direct way to reuse code is to repeat it in the stream. Unfortunately, reuse by repetition is inefficient for bandwidth and storage. 
 
-An alternative to repeating code is to name it. Then we can reuse large code by repeating the much shorter name. Unfortunately, most naming systems have properties that repeating code does not: collisions, potential cycles, location dependence, update and version consistency issues. These features are troublesome for security, safety, and distribution. Fortunately, we can address these issues by a more rigorous naming system. Instead of allowing humans pick names, we leverage a [secure hash function](http://en.wikipedia.org/wiki/Cryptographic_hash_function) of the content. Collisions and cycles are effectively eliminated. The 'update' and 'reuse' concerns are cleanly separated. Location is rendered irrelevant.
+An alternative to repeating code is to name it. Then we can reuse large code by repeating the much shorter name. Unfortunately, most naming systems have properties that repeating code does not: collisions, potential cycles, location dependence, update and version consistency issues. These features are troublesome for security, safety, and distribution. Fortunately, we can address these issues by a more rigorous naming system. Instead of allowing humans pick names, we leverage a [secure hash function](http://en.wikipedia.org/wiki/Cryptographic_hash_function) of the content. Collisions and cycles are effectively eliminated. The 'update' and 'reuse' and 'location' concerns are cleanly separated.
 
 ABC leverages its effects model to access these `{#secureHash}` sources. 
 
