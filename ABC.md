@@ -48,7 +48,7 @@ See AboutABC for full explanations and design. This file just records each code,
         V :: a * e → (a + 0) * e
         C :: (a + 0) * e → a * e
 
-        ? :: (Droppable b) :: b@[a→a'] * ((a+b)*e) → (a'+b)*e
+        ? :: (Droppable b) :: b@[x→x'] * ((x+y)*e) → (x'+y)*e
         D :: a * ((b+c) * e) → ((a*b) + (a*c)) * e -- distrib
         F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
         M :: (a + a') * e → a * e -- merge; a and a' compatible
