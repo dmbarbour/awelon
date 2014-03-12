@@ -82,7 +82,10 @@ apply_adv_postStep(N) :-
 
 apply_0_prestep(N) :-
     path( [[f,s],e] , 
-          [f, [[unit,[unit,unit]], [[s,e],unit]]], N). 
+          [f, [  [unit,[unit,unit]], [[s,e],unit]]], N). 
+apply_0_poststep(N) :-  
+     path( [ [unit,[unit,unit]], [e,unit]], 
+           e, N).
 
 ap_postStep(N) :-
     path([ [[y,unit],[unit,unit]], [[s,e],unit] ],
