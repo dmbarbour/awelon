@@ -23,22 +23,43 @@
 @copy dup take
 @paste put copy
 
-@take2 take take
-@take3 take take take
-@take4 take take take take
-@put2  put  put
-@put3  put  put  put
-@put4  put  put  put  put
+@take2 take  take
+@take3 take2 take
+@take4 take3 take
+@take5 take4 take
+@take6 take5 take
+@take7 take6 take
+
+@put2  put   put
+@put3  put2  put
+@put4  put3  put
+@put5  put4  put
+@put6  put5  put
+@put7  put6  put
+
 @juggle2 %w roll2 %w
 @juggle3 %w roll3 %w
 @juggle4 %w roll4 %w
-@discard2 discard discard
-@discard3 discard discard discard
-@discard4 discard discard discard discard
 
-@copy2 copy swap copy swap
-@copy3 copy unrot copy unrot copy unrot
-@copy4 copy unroll copy unroll copy unroll copy unroll
+@discard2 discard  discard
+@discard3 discard2 discard
+@discard4 discard3 discard
+@discard5 discard4 discard
+@discard6 discard5 discard
+
+@copy2 dup2 take2
+@copy3 dup3 take3
+@copy4 dup4 take4
+@copy5 dup5 take5
+@copy6 dup6 take6
+@copy7 dup7 take7
+
+@paste2 put2 copy2
+@paste3 put3 copy3
+@paste4 put4 copy4
+@paste5 put5 copy5
+@paste6 put6 copy6
+@paste7 put7 copy7
 
 @taked swap take
 @putd put swap

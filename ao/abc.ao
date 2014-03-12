@@ -88,29 +88,23 @@
 @geq.abc  lt.abc    not.abc
 
 @doc.whitespace.abc
-"ABC permits whitespace to simplify formatting. Only SP (32) and 
- LF (10) are permitted. These are understood as operators with type
- (a → a). Whitespace may also express paragraphs.
+"ABC permits whitespace to simplify formatting. Only SP (32) and LF (10) are permitted. These are understood as operators with type (∀a.a→a). Whitespace may also express paragraphs (see @doc.paragraph.abc).
  
- AO doesn't offer direct access to ABC whitespace, but may use it
- to provide a more readable output.
+ AO doesn't offer direct access to ABC whitespace, though some parsers may translate AO's whitespace directly into ABC whitespace (doing so simplifies the AO parser). Paragraphs aren't useful in AO, so this whitespace will typically be eliminated.
+ 
+ The main role of whitespace in ABC is to support more readable ABC code, and nice formatting.
 ~
 
 @doc.paragraph.abc
-"When streaming ABC, it is convenient to break the stream into chunks
- that start and end with the argument in a 'clean' state (e.g. with 
- respect to rendering and atomicity). This is enforcable with blocks.
- However, a weak form is also useful. So ABC suggests a *convention* 
- to break a stream into 'paragraphs' with a blank line between them.
+"Paragraphs in ABC are an informal concept. Streaming ABC code can be divided into chunks called 'paragraphs', then one or more complete paragraphs will be compiled and evaluated at a time. Well chosen paragraphs can improve performance and ensure clean intermediate states between paragraphs.
  
- The paragraph separator is LF LF. A paragraph is a weak suggestion
- that code within the paragraph should be processed atomically, and
- should be batched up to that point.
+ Paragraphs are expressed much as they are in natural language text files: a blank line between blocks of code, i.e. LF LF (encoded as 10 10). 
+ 
+ Paragraphs are discretionary. An ABC stream interpreter is under no obligation to respect paragraphs, nor is a streaming source under an obligation to provide them. However, an ABC stream interpreter should aim to respect paragraphs up to a reasonable maximum size (e.g. 64 kB), and strongly prefer to compute a whole number of paragraphs at a time.
 ~
 
 @doc.numbers.abc
-"ABC favors legibility over parsimony. One aspect of this regards how
- numbers are represented. ABC uses eleven basic number operators:
+"ABC favors legibility over parsimony. One aspect of this regards how numbers are represented. ABC uses eleven basic number operators:
  
      # :: e → N(0) * e  (constructs a new number)
      0 :: N(x) * e → N(10x + 0) * e
@@ -119,12 +113,9 @@
      ...
      9 :: N(x) * e → N(10x + 9) * e
  
- This design enables natural numbers to be expressed legibly, as in
- `#42` constructing the number 42. Richer numbers must be represented
- using operations on natural numbers, e.g. 2/3 as `#2#3/*`.
+ This design enables natural numbers to be expressed legibly, as in `#42` constructing the number 42. Richer numbers must be represented using operations on natural numbers, e.g. 2/3 as `#2#3/*`.
  
- AO provides its own literal numbers, with a variety of formats. AO 
- doesn't permit use of these eleven operators for inline ABC.
+ AO provides its own literal numbers, with a variety of more conventional formats. These are translated to ABC in a trivial manner. AO does not offer direct access to ABC's number primitives.
 ~
 
 @doc.text.abc
@@ -136,18 +127,15 @@
       Terminate by starting the next line with `~`.
      ~
  
- By design, only LF (10) must be escaped, and it is escaped by the 
- continuing line. The final LF before `~` is dropped. ABC text is 
- conventionally formatted to start at a new line.
+ By design, only LF (10) must be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. 
  
- ABC doesn't have a distinct 'text type'. Instead, literal text is
- shorthand for constructing a large product of small integers. For 
- example "Text\n~" has type:
+ ABC text is conventionally formatted to start at a new line. ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a large product of small integers. For example "Text\n~" has type:
  
         e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
  
- Essentially, this is a list terminated with number 3 (ETX). I would
- encourage a convention of ending lists with different numbers to help 
+ Essentially, this is a list of small numbers terminated by number 3 (which has the meaning 'end of text' in ASCII). ABC encourages a convention of ending different, common kinds of lists with different numbers. 
+
+I would encourage a convention of ending lists with different numbers to help 
  weakly indicate different list types.
  
  AO's multi-line text mode is very the same, except it *requires*

@@ -14,7 +14,7 @@
  Lists are simplistic data structures. Their extreme simplicity is sometimes convenient, but can lead to much awkwardness the moment developers pursue performance:
  
  * access to middle or end of a large list is expensive
- * large lists can be expensive to hold in memory at once
+ * very large lists can be expensive to hold in memory
  * iterative operations on a list tend to reverse the list
  * direct list processing is not incremental or compositional
  
@@ -22,8 +22,8 @@
 ~
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
-@doc.eachUntil.l "a`L [a -- Bool] -- a(rem)`L; apply block with short circuit option (halt on true)"
-@doc.eachWhile.l "a`L [a -- Bool] -- a(rem)`L; apply block with short circuit option (halt on false)"
+@doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
+@doc.eachWhile.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on false)" 
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
 @doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 
@@ -54,14 +54,16 @@
  [wx roll pw rot dip wx inline]
  if
 
-@eachUntil.l [step.eachUntil.l] bind fixpoint inline
-@step.eachUntil.l rot isPair [nip2] [action.eachUntil.l] if
-@action.eachUntil.l wx roll pw rot dip wx swapd [] if_
+@eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
+@step.eachUntil.l roll isPair [nip3] [cond.eachUntil.l] if
+@cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2] if_
+@doc.action.eachUntil.l "[fixed step] [body] (x*xs) -- ..."
+@action.eachUntil.l wx roll pw rot dip wx inline
 
 @test.eachUntil.l 
  0 "hello, world!"
- [.add dup 600 gtb] eachUntil.l
- "world!" assertEQ1 drop
+ [.add] [dup 600 gtb] eachUntil.l
+ "world!" assertEQ1 swap
  608 assertEQ1
 
 @reverseAppendT.l [cons.l] eachTP.l
@@ -77,11 +79,11 @@
  "hello, World!" assertEQ1
 
 @doc.reverse.l "reverse a list (nel 0)"
-@doc.reverseText.l "reverse text (as a list; nel 3)"
+@doc.reverseText.l "reverse text list (nel 3)"
 @doc.reverseBinary.l "reverse binary list (nel 8)"
 @reverse.l reverseT.l drop
-@reverseText.l 3 swap reverseAppendT.l 3 assertEQ1 drop
-@reverseBinary.l 8 swap reverseAppendT.l 8 assertEQ1 drop
+@reverseText.l 3 swap reverseAppend.l
+@reverseBinary.l 8 swap reverseAppend.l
 
 @test.reverseText.l 
  "hello, World!" reverseText.l
@@ -112,20 +114,24 @@
 @doc.drop.l "a`L N -- a`L; drop first N elements of list (or result in empty list, if N >= length)"
 @doc.split.l "a`L N -- a(minus first N)`L a(first N)`L; combines result of drop and take; linear."
 @doc.splitReverse.l "a`L N -- a(minus first N)`L a(first N reversed)`L"
+@doc.splitReverseN.l "a`L N -- a(minus first N)`L a(first N reversed)`L N(remaining; 0 if fully used)"
 @doc.splitReverseAppendl.l "a0`L a`L N -- (first N from a ++ a0)`L a(minus first N)`L"
 
 @take.l split.l dropd
 @drop.l split.l drop
 @copy.l splitReverse.l copy reverseAppend.l put reverse.l
 @split.l splitReverse.l reverse.l
-@splitReverse.l 0 unrot splitReverseAppendl.l swap
-@splitReverseAppendl.l assertNatural 
-"TODO: I need to perform a simple append action N times or until I have an empty list.
- I think I could abstract this short-circuiting pattern, one of two ways:
-    process the list with short-circuit is arbitrary observation on N (i.e. eachUntil)
-    perform an action N times until some arbitrary observation on list (i.e. repeatUntil)
- I think BOTH of these might be worthy functions to implement.
-~ drop2
+@splitReverse.l splitReverseN.l drop
+@splitReverseN.l assertNatural [inner.splitReverseN.l] apply2to3
+@inner.splitReverseN.l 
+  swap 0 swap 
+  [cons.l decd] [counter.splitReverseN.l] eachUntil.l
+  swap rot
+@counter.splitReverseN.l swap dup 1 lt swapd
+
+@takeText.l splitReverse.l reverseText.l dropd
+@copyText.l splitReverse.l copy reverseAppend.l put reverseText.l
+
 
 @doc.unzip.l "(a*b)`L -- a`L b`L"
 @doc.scan.l "s a`L [s a -- s b] -- s b`L"

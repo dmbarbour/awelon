@@ -26,7 +26,9 @@
 @pick %rw over %wl swap
 @drop %r%
 @nip swap drop
-@nip2 unrot drop2
+@nip2 nip nip
+@nip3 nip nip nip
+@nip4 nip nip nip nip
 @dropd swap drop
 @swap  %rwrwzwlwl
 @swapd %rw swap %wl
@@ -120,9 +122,26 @@
 @doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
 @doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
 @doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
-@dup2 p dup %rw x %wl x
-@dup3 p p dup %rw x x %wl x x 
-@dup4 p p p dup %rw x x x %wl x x x
+@dup2 pw dup %rw wx %wl wx
+@dup3 pw pw dup %rw wx wx %wl wx wx
+@dup4 pw pw pw dup %rw wx wx wx %wl wx wx wx
+@dup5 pw pw pw pw dup %rw wx wx wx wx %wl wx wx wx wx
+@dup6 pw pw pw pw pw dup %rw wx wx wx wx wx %wl wx wx wx wx wx
+@dup7 pw pw pw pw pw pw dup %rw wx wx wx wx wx wx %wl wx wx wx wx wx wx
+
+@dup2.alt %rw dup  %wl dup unroll2d
+@dup3.alt %rw dup2 %wl dup unroll3d
+@dup4.alt %rw dup3 %wl dup unroll4d
+@dup5.alt %rw dup4 %wl dup unroll5d
+@dup6.alt %rw dup5 %wl dup unroll6d
+@dup7.alt %rw dup6 %wl dup unroll7d
+
+@eqv.dup2 [dup2] [dup2.alt]
+@eqv.dup3 [dup3] [dup3.alt]
+@eqv.dup4 [dup4] [dup4.alt]
+@eqv.dup5 [dup5] [dup5.alt]
+@eqv.dup6 [dup6] [dup6.alt]
+@eqv.dup7 [dup7] [dup7.alt]
 
 @doc.ShorthandDataShuffling
 "A few short data shufflers for an object on the stack, to compactly support simple manipulations. These operations include:
