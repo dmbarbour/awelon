@@ -181,7 +181,7 @@ ABC treats two whitespace characters - SP (32) and LF (10) - as identity operato
 
 ### Substructure
 
-[Substructural type](http://en.wikipedia.org/wiki/Substructural_type_system) are interesting because they can express structured control-flow or dataflow orthogonally to syntax. They can enforce that protocols and handshakes complete, that resources are released, that promises are kept, that callbacks or continuations execute once and only once. Substructure is also useful for modeling uniqueness or ensuring exclusive write access to a resource.
+[Substructural types](http://en.wikipedia.org/wiki/Substructural_type_system) are interesting because they can express structured control-flow or dataflow orthogonally to syntax. They can enforce that protocols and handshakes complete, that resources are released, that promises are kept, that callbacks or continuations execute once and only once. Substructure is also useful for modeling uniqueness or ensuring exclusive write access to a resource.
 
 In ABC, only blocks have substructural type. This is represented by marking an existing block with substructural type:
 
@@ -245,7 +245,7 @@ Full factor is modeled by combining partial factor and merge:
 
         FM :: ((a*b)+(a'*c))*e → a*((b+c)*e) -- full factor; inverse of D
 
-On merge, the types `a` and `a'` must be compatible for future operations, but they don't need to be exactly the same. What 'compatibility' requires may be judged in context. However, conservatively, any unit values in `a` and `a'` must be structurally aligned. 
+On merge, the types `a` and `a'` must be compatible for future operations, but they don't need to be exactly the same. What 'compatibility' requires may be judged in context, knowledge of future operations. A type checking technique is to have a 'merged' type that validates future operations on both paths, and perhaps even compiles the future paths separately until reaching a convenient location to merge.
 
 Sums may also be copied or dropped (with `^` and `%`) assuming both element types may be copied and dropped.
 
@@ -372,7 +372,7 @@ Exclusive state capabilities correspond to conventional allocations, e.g. to `ne
 
 In many contexts - live programming, orthogonal persistence, open systems - it is useful to ensure *stability* of unique values. 
 
-Stability is readily achieved using a filepath/URL metaphor: when 'forking' a uniqueness source, we provide an identifier for the child that is unique within the parent. The order children are constructed does not affect identity. If used with a little discipline, significant restructuring of the source code becomes feasible without damaging persistence or relationships based on identity.
+Stability is readily achieved using a filepath/URL metaphor: when 'forking' a uniqueness source, we provide an identifier for the child that is unique within the parent. This stabilizes uniqueness with respect to changes in the order children are constructed. If used with a little discipline, significant restructuring of the source code becomes feasible without damaging persistence or relationships assuming stable identity.
 
 ### Value Sealing Types and Capabilities
 
@@ -393,29 +393,27 @@ Developers can reason about sealed values by reasoning about distribution of sea
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
 
-NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible to systematically secure these sealers against foreign code using an HMAC or similar.
+NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible (and useful) to systematically secure these sealers against foreign code by using an HMAC or similar to rename them, i.e. so your 'foo' is not the same as my 'foo'.
 
 ### ABC Paragraphs
 
-ABC encourages an informal notion of "paragraphs". A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
+ABC encourages an informal notion of "paragraphs" at least in a streaming context. A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
 
-A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're also advantageous for performance and reasoning.
-
-Very large paragraphs might be expressed by leveraging secure hash sources.
+A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're advantageous to everyone involved, i.e. for performance and reasoning.
 
 ### Secure Hash Sources for Code Reuse and Separate Compilation
 
-It is not uncommon in a project to reuse large, specialized software elements: frameworks, templates, plugins, widgets, diagrams, texts, tables, images, agents, codecs, and other software components. In an ABC stream, the most direct way to reuse code is to repeat it in the stream. Unfortunately, reuse by repetition is inefficient for bandwidth and storage. 
+It is not uncommon in a project or service to reuse large, specialized software elements: frameworks, templates, plugins, widgets, diagrams, texts, tables, images, agents, codecs, and other software components. In an ABC stream, the most direct way to reuse code is to repeat it in the stream. Unfortunately, reuse by repetition is inefficient for bandwidth and storage. 
 
 An alternative to repeating code is to name it. Then we can reuse large code by repeating the much shorter name. Unfortunately, most naming systems have properties that repeating code does not: collisions, potential cycles, location dependence, update and version consistency issues. These features are troublesome for security, safety, and distribution. Fortunately, we can address these issues by a more rigorous naming system. Instead of allowing humans pick names, we leverage a [secure hash function](http://en.wikipedia.org/wiki/Cryptographic_hash_function) of the content. Collisions and cycles are effectively eliminated. The 'update' and 'reuse' and 'location' concerns are cleanly separated.
 
 ABC leverages its effects model to access these `{#secureHash}` sources. 
 
-Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; compute a type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
+Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; computable type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
 
 To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required. 
 
-Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. This works even in context of secure, streamable code.
+Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. Unlike traditional shared object and linker models, ABC's design works effectively in context of secure, streamable code.
 
 ## Awelon Bytecode Deflated (ABCD)
 
@@ -425,11 +423,11 @@ ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and
 
 A carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, and operators for linear algebras and matrix manipulation.
 
-Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will never grow much beyond the two-octet UTF-8 space. 
+Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will grow much beyond the two-octet UTF-8 space. 
 
 ABCD is intended to be used together with `{#secureHash}` sources. 
 
-ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced.
+ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced by typical caching models.
 
 Between these two features, ABC can be minimal without concern for performance or parsimony.
 
@@ -441,9 +439,9 @@ Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity 
 
 AMBC extends ABC with with `(|)` characters, which represents a choice of subprograms separated by the `|` bar. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). The resolution of this ambiguous meaning is not deterministic, but is constrained by typeful context (i.e. meanings with obvious errors should be eliminated) and may further be guided by heuristics (i.e. weighted preferences or probabilities via annotations). 
 
-Ambiguity is a potential asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. Developers can represent a very *space* of programs or data structures in a small volume of code, and may further implicitly constrain this space by use of types and assertions. This space can feasibly be explored by a number of mechanisms - i.e. satisfiability solvers, genetic programming, iterative hill climbing. 
+Ambiguity is a potential asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. Developers can represent a very large *space* of programs or data structures in a small volume of code, and may further implicitly constrain this space by use of types and assertions. This space can feasibly be explored by a number of mechanisms - i.e. satisfiability solvers, genetic programming, iterative hill climbing. 
 
-There is a tradeoff. Resolution is expensive. It is difficult to correctly resolve effectful meanings in a streaming context. 
+There is a tradeoff. Resolution is expensive. It is difficult to correctly resolve effectful meanings in a streaming context. Equational reasoning, and reasoning in general, are hindered.
 
 These weaknesses can be mitigated. In a typical AO context, resolution is at compile-time, and thus search can become a dialog with the developer. A good IDE can expose active choices to the developer and encourage refactoring of stable subprograms into non-ambiguous components. Average expense could be further reduced by application of machine learning to efficiently identify good meanings in context. In a streaming context, one might resolve for a group of paragraphs at a time, or favor an effects model that delays commitment.
 

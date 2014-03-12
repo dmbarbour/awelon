@@ -5,7 +5,7 @@ See AboutABC for full explanations and design. This file just records each code,
         "~ :: (special - text reader mode)
         {} :: (special - capability reader mode)
         (|) :: (special - AMBC; extension to ABC)
-        SP,LF :: x → x
+        SP,LF :: x → x (whitespace as identity)
 
         l :: (a * (b * c)) → ((a * b) * c)
         r :: ((a * b) * c) → (a * (b * c))
