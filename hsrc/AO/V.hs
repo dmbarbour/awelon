@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, ViewPatterns #-}
 -- dynamic AO/ABC values
 module AO.V
     ( V(..), Op(..), ABC(..), KF(..), kf0
@@ -170,21 +170,22 @@ observable (S _ _) = False
 observable (TC _) = False
 observable _ = True
 
--- parse text from a sequence of numbers
+-- parse text from a list of numbers
+-- list has type µL.(1+(a*L)).
 valToText :: V c -> Maybe Text
-valToText (N r) | (3 == r) = Just T.empty
-valToText (P (N r) b) | validChar r =
-    (((toEnum . fromInteger . numerator) r) `T.cons`) <$> 
-    valToText b
+valToText (L U) = Just T.empty
+valToText (R (P (N r) b)) | validChar r =
+    let c = (toEnum . fromInteger . numerator) r in
+    (c `T.cons`) <$> valToText b
 valToText _ = Nothing
 
 textToVal :: Text -> V c
 textToVal t =
     case T.uncons t of
-        Nothing -> N 3
+        Nothing -> L U
         Just (c, t') -> 
             let r = (fromIntegral . fromEnum) c in
-            P (N r) (textToVal t')
+            R (P (N r) (textToVal t'))
 
 validChar :: Rational -> Bool
 validChar r = 
@@ -202,13 +203,13 @@ instance Show (V c) where
     -- show = T.unpack . abcLit
     show (N r) | (1 == denominator r) = show (numerator r)
     show (N r) = show (numerator r) ++ "/" ++ show (denominator r)
-    show p@(P a b) = 
-        case valToText p of
-            Just txt -> (T.unpack . txtLit) txt
-            Nothing -> "(" ++ show a ++ "*" ++ show b ++ ")"
+    show (P a b) = "(" ++ show a ++ "*" ++ show b ++ ")"
+    show U     = "unit"
+    show (L U) = "false"
+    show (R U) = "true"
+    show (valToText -> Just txt) = (T.unpack . txtLit) txt
     show (L a) = "(" ++ show a ++ "+_)"
     show (R b) = "(_+" ++ show b ++ ")"
-    show U     = "u"
     show (S t v) = show v ++ "{:" ++ T.unpack t ++ "}"
     show (TC _) = "{TAILCALL THUNK (SHOULD NOT BE SEEN!)}"
     show (B kf abc) = "[" ++ show abc ++ "]" ++ rel ++ aff

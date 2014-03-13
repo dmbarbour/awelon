@@ -165,7 +165,7 @@ If anything other than space or `~` follows LF, the ABC stream is in error. Ther
         "Text
         ~
 
-Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a list of small integers (range 0..1114111, from UTF-8). The typical model for a list is: `µL.(1+(a*L))`. 
+Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a static list of small integers (range 0..1114111, from UTF-8). The standard model for a list is: `µL.(1+(a*L))`.
 
 *NOTE:* ABC's representation of text is simplistic. Real text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
 
