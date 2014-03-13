@@ -62,7 +62,7 @@ data Op
 -- ABC CODES
 opCodeList, inlineOpCodeList :: [Char]
 opCodeList = " \n0123456789#" ++ inlineOpCodeList
-inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMKPSBN>"
+inlineOpCodeList = "lrwzvcLRWZVC%^$'okf+*-/Q?DFMK>"
 
 -- showABC :: ABC -> Text
 showABC :: ABC c -> Text
