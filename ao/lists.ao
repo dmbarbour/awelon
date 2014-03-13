@@ -75,15 +75,21 @@
 
 @eachWhile.l [not.b] compose eachUntil.l
 @eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
-@step.eachUntil.l roll [nip3] [cond.eachUntil.l] if
-@cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2] if_
+@step.eachUntil.l roll [nip3 inL] [cond.eachUntil.l] if
+@cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2 inR] if_
 @action.eachUntil.l wx roll pw rot dip wx inline
 
-@test.eachUntil.l 
+@test.eachUntil.l.haltOnCond
  0 "hello, world!"
  [.add] [dup 600 gtb] eachUntil.l
  "world!" assertEQ1 swap
  608 assertEQ1
+@test.eachUntil.l.haltOnLength
+ 0 "hello, world!"
+ [.add] [dup 1200 gtb] eachUntil.l
+ empty.l assertEQ1 swap
+ 1193 assertEQ1 swap
+ 
 
 
 @doc.eqv.mapTwice.compMap
