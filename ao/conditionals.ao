@@ -12,21 +12,12 @@ boolean
  Conditional behavior is expressed by applying a block on just one condition. The block must be droppable (because it might not apply). Compared to most languages, ABC is unusually precise regarding distribution of data across a condition. However, coarse-grained if/then/else or Haskell-like 'either' idioms may be expressed.
 ~
 
-@isPair   %rPl
-@isSum    %rSl
-@isNumber %rNl
-@isBlock  %rBl
 @not      %rVRWLCl
 @notd     swap not swap
+@id.notnot  not not
 
 @doc..mirror "(a+b)*e→(b+a)*e"
 @.mirror %VRWLC
-
-@id.isPairMerge  isPair merge
-@id.isSumMerge   isSum merge
-@id.isNumMerge   isNumber merge
-@id.isBlockMerge isBlock merge
-@id.notnot       not not
 
 @doc.inR "b -- (0 + b); wrap 'b' in success, mark true, in the right"
 @doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
@@ -157,18 +148,16 @@ boolean
  
  In addition, specialized asserts can be much easier to use. These operate as identity functions, but with a limited acceptance criteria.
  
-     assertPair, assertBlock, assertSum, assertNumber, assertUnit -- basic type
      assertLT, assertLTE -- assert upper bounds for a comparable value
      assertGT, assertGTE -- assert lower bounds for a comparable value
  
  And common number assertions...
  
-     assertNumber, assertInteger -- assertions on number types
+     assertInteger, assertNatural, assertNatural+  -- assertions on number types
      assertGTz, assertGTEz -- assert greater than or equal to zero
      assertEQz, assertNEQz -- assert equal or not equal to zero
      assertLTz, assertLTEz -- assert less than or equal to zero
      assertNatural -- integer greater than or equal to zero
-     assertNatural+ -- integer greater than or equal to one
      assertChar -- integer between 0 and 1114111 inclusive
      assertOctet -- integer between 0 and 255 inclusive
      assertProb -- rational number between 0 inclusive and 1 inclusive
@@ -188,21 +177,20 @@ boolean
 @assertEQ1  assertEQ drop
 @assertNEQ  neq assert [%vrwlc] .left merge x
 
-@assertLTz  assertNumber 0 assertLT drop
-@assertLTEz assertNumber 0 assertLTE drop
-@assertGTz  assertNumber 0 assertGT drop
-@assertGTEz assertNumber 0 assertGTE drop
+@assertLTz  0 assertLT drop
+@assertLTEz 0 assertLTE drop
+@assertGTz  0 assertGT drop
+@assertGTEz 0 assertGTE drop
 @assertEQz  0 assertEQ drop
-@assertNEQz assertNumber 0 assertNEQ drop
-
-@assertPair   isPair assert
-@assertNumber isNumber assert
-@assertBlock  isBlock assert
-@assertSum    isSum assert
-@assertUnit   elim1 intro1
+@assertNEQz 0 assertNEQ drop
 
 @doc..assertUnit "1→1; assert singular value is unit"
 @.assertUnit %vvrwlcc
+
+@assertUnit   elim1 intro1
+@assertProd   w w
+@assertSum    not not
+@assertNumber 0 .add
 
 @assertInteger  dup 1 .rem assertEQz drop
 @assertNatural  assertGTEz assertInteger
@@ -213,11 +201,6 @@ boolean
 @assertUniform  assertGTEz 1 assertLT drop
 
 @id.assertInR inR assert
-@id.assertPair assertPair
-@id.assertNumber assertNumber
-@id.assertBlock assertBlock
-@id.assertSum assertSum
-@id.assertUnit assertUnit
 @id..assertUnit .assertUnit
 @id.assertLT assertLT
 @id.assertLTE assertLTE

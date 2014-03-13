@@ -1,63 +1,78 @@
 @doc.Lists
-"Lists in AO consist of a finite sequence of pairs terminated by a number. For example, a list of four values might have structure:
+"Lists in AO are modeled using a recursive type: 
  
-     (a * (b * (c * (d * N(x))))
+     λa.µL.(1+(a*L))       shorthand: a`L
  
- In type documentation, this structure might be abbreviated as foo`L, and the number ending the list as foo`Nel. Lists are typically processed by asking of each element 'are you a pair?' (a form of dynamic introspection). If so, the first item is an element in the list, and the second is the rest of the list. The terminating number is not an element of the list, but a useful convention of AO is to make use of different numbers to weakly indicate different types, e.g. to support debugging. A few common numbers:
+ Of course, AO and ABC don't have direct support for type annotations (not yet, anyway). The list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops).
  
-     0: generic list terminator
-     3: text (list of integers between 0 and 0x10ffff)
-     8: binary (list of integers between 0 and 255)
- 
- Relevantly, ending with a different number will impact comparison functions. Also, developers might assert on list terminals to resist accidents. It is a bad idea to conditionally observe a terminal to decide behavior at runtime, but it can be useful in more heuristic contexts (e.g. rendering in a debugger).
- 
- Lists are simplistic data structures. Their extreme simplicity is sometimes convenient, but can lead to much awkwardness the moment developers pursue performance:
+ Lists are simplistic data structures. Their extreme simplicity leads to akwardness and complexity for many use-cases: 
  
  * access to middle or end of a large list is expensive
  * very large lists can be expensive to hold in memory
  * iterative operations on a list tend to reverse the list
  * direct list processing is not incremental or compositional
  
- A consequence is that developers cannot easily compose list words to achieve the same performance as developing a new list word. There may be extra reversals, or full-list processing where a short-circuit is feasible. Consequently, developers are encouraged to seek alternatives to lists that avoid these problems. For example, lists are readily translated into streams or sequences. Streams offer procedural generation and incremental computation. Sequences offer efficient access to the middle and end. There may additionally be some use for multi-dimensional fields that can compute volumes lazily or on demand.
+ Developers are encouraged to use alternative data structures - sequences, streams, functions, etc. - rather than struggle with lists in cases where they're awkward. The primary advantage of lists is they have a strong normal form, suitable for structural comparisons.
 ~
+
+@doc.empty.l "empty list (has same structure as 'false')"
+@empty.l intro1 inL
+
+@doc.cons.l "a`L a -- a`L; add element to list"
+@cons.l p inR
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
 @doc.eachWhile.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on false)" 
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
+@doc.mapP.l "a`L [a -- b] -- b`L; map elements in limited `apply` environment"
+@doc.fold.l "x a`L [x a -- x] -- x; process each element in constrained environment"
+@doc.length.l "a`L -- a`L integer; return length of list"
 @doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
+@doc.reverse.l "a`L -- a`L; reverse order of elements in list"
+@doc.reverseAppend.l "a1`L a2`L -- (reverse a2 ++ a1)`L; auxillary"
 
-@each.l    eachT.l drop
-@map.l     mapReverseT.l swap reverseAppendT.l drop
-@append.l  swap reverse.l reverseAppend.l
+@each.l [step.each.l] bind fixpoint inline
+@step.each.l rot [elim1 drop2] [action.each.l] if
+@action.each.l wx roll pw rot dip wx inline
+@fold.l [each.l] apply3to1
+
+@map.l mapReverse.l reverse.l
+@mapReverse.l empty.l unrot mapReverseAppend.l
+@mapReverseAppend.l wrapCons.mapReverseAppend.l each.l
+@wrapCons.mapReverseAppend.l [dip] bind [swap] [swap cons.l] wrapfn
+@mapP.l [apply] bind [map.l] apply2to1
+
+@append.l swap reverse.l reverseAppend.l
 @appendl.l swap append.l
-@eachWhile.l [not] compose eachUntil.l
+@reverse.l empty.l swap reverseAppend.l
+@reverseAppend.l [cons.l] fold.l
 
-@doc.eachT.l "a`L [a --] -- a`Nel; apply block to each element in list, return term"
-@doc.reverseAppendT.l "d`L s`L -- (reverse s ++ d)`L s`Nel"
+@test.each.l 0 "World" [.add] fold.l 520 assertEQ1
+@test.reverse.l 
+ "hello, World!" reverse.l 
+ "!dlroW ,olleh" assertEQ1
+@test.append.l
+ "hello, "  "World!" append.l
+ "hello, World!" assertEQ1
+@test.reverseAppend.l
+ " World!" ",olleh" reverseAppend.l
+ "hello, World!" assertEQ1
+@test.map.l 
+ "hello" [4 .add] mapP.l 
+ "lipps" assertEQ1
+@test.length.l
+ "hello" length.l 
+ 5 assertEQ1 swap
+ "hello" assertEQ1 swap
+@id.reverse.l reverse.l reverse.l
+@id.append.l.empty empty.l append.l
+@id.appendl.l.empty empty.l appendl.l
 
-@id.reverseAppendT.l 0 swap reverseAppendT.l swap reverseAppendT.l drop
-@test.id.reverseAppendT.l 
- "hello, World!" dup 
- [id.reverseAppendT.l] apply 
- assertEQ1
-
-@doc.mapReverseT.l "a`L [a -- b] -- b`L(reversed) a`Nel"
-@doc.mapReverseAppendT.l "b0`L a`L [a--b] -- (b reversed ++ b0)`L a`Nel"
-@doc.reverseT.l "a`L -- (reverse a, terminate in 0)`L a`Nel"
-
-@eachT.l [step.eachT.l] bind fixpoint inline
-@doc.step.eachT.l "a`L [[a --] step.eachT.l] [a --] -- terminal"
-@step.eachT.l
- rot isPair
- [nip2 assertNumber]
- [wx roll pw rot dip wx inline]
- if
-
+@eachWhile.l [not.b] compose eachUntil.l
 @eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
-@step.eachUntil.l roll isPair [nip3] [cond.eachUntil.l] if
+@step.eachUntil.l roll [nip3] [cond.eachUntil.l] if
 @cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2] if_
-@doc.action.eachUntil.l "[fixed step] [body] (x*xs) -- ..."
 @action.eachUntil.l wx roll pw rot dip wx inline
 
 @test.eachUntil.l 
@@ -66,35 +81,6 @@
  "world!" assertEQ1 swap
  608 assertEQ1
 
-@reverseAppendT.l [cons.l] eachTP.l
-@reverseAppend.l reverseAppendT.l drop
-@reverseT.l 0 swap reverseAppendT.l
-@mapReverseT.l 0 unrot mapReverseAppendT.l
-@mapReverseAppendT.l hidingDest.map.l eachT.l
-@hidingDest.map.l [dip] bind [swap] [pw] wrapfn
-
-
-@test.append.l 
- "hello, "     "World!"     append.l
- "hello, World!" assertEQ1
-
-@doc.reverse.l "reverse a list (nel 0)"
-@doc.reverseText.l "reverse text list (nel 3)"
-@doc.reverseBinary.l "reverse binary list (nel 8)"
-@reverse.l reverseT.l drop
-@reverseText.l 3 swap reverseAppend.l
-@reverseBinary.l 8 swap reverseAppend.l
-
-@test.reverseText.l 
- "hello, World!" reverseText.l
- "!dlroW ,olleh" assertEQ1
-
-@doc.eachTP.l "x y`L [x y -- x] -- x y`Nel; in 'apply' environment"
-@doc.eachP.l "x y`L [x y -- x] -- x; in 'apply' environment"
-@doc.mapP.l "x`L [x -- y] -- y`L; in 'apply' environment"
-@eachTP.l [eachT.l] apply3to2
-@eachP.l eachTP.l drop
-@mapP.l [apply] bind [map.l] apply2to1 
 
 @doc.eqv.mapTwice.compMap
 "Rewriting from a composition of map operations to a map of compositions is a difficult challenge for an optimizer. And proving this is difficult for a prover. In general, if developers need this sort of optimization, they should be using a staged programming model that symbolically constructs the map operations, i.e. initially constructing a free, logical list/stream.
@@ -103,11 +89,7 @@
  [compose mapP.l] 
  [unrot mapP.l swap mapP.l]
 
-@length.l 0 swap [drop inc] eachP.l
 
-@test.each.l 0 "World" [.add] eachP.l 520 assertEQ
-@test.length.l "hello" length.l 5 assertEQ
-@test.map.l "hello" [4 .add] mapP.l "lipps" assertEQ
 
 @doc.take.l "a`L N -- a`L; take first N elements of list (or the full list, if N >= length), drop rest of list"
 @doc.copy.l "a`L N -- a(orig)`L a(first N)`L; copy first N elements of list"
@@ -197,9 +179,6 @@
 @step.sort.l swap isPair [dropd] [nonEmpty.sort.l] if
 @nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
-
-@doc.cons.l "a`L a -- a`L; add element to front of list"
-@cons.l p
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.

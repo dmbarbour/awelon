@@ -127,22 +127,11 @@
       Terminate by starting the next line with `~`.
      ~
  
- By design, only LF (10) must be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. 
+ By design, only LF (10) must be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. Within an ABC stream, text should typically be formatted to start at a new line (to simplify debugging). 
  
- ABC text is conventionally formatted to start at a new line. ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a large product of small integers. For example "Text\n~" has type:
+ ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a list of small integers (see @doc.Lists).  
  
-        e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
- 
- Essentially, this is a list of small numbers terminated by number 3 (which has the meaning 'end of text' in ASCII). ABC encourages a convention of ending different, common kinds of lists with different numbers. 
-
-I would encourage a convention of ending lists with different numbers to help 
- weakly indicate different list types.
- 
- AO's multi-line text mode is very the same, except it *requires*
- starting at a new line, and literals appear on an implicit stack of
- form (s*e)→((L*s)*e) to ensure stability of environment. AO also 
- supports inline text form "foo", which may not contain newlines or
- double quotes.
+ AO has two modes for reading text. AO's multi-line mode requires text start in the first column, and exactly matches ABC's text mode. AO's inline text mode requires text start after the first column, and is useful for short identifiers or labels (e.g. "foo"). AO text has no escapes, so inline text cannot use the double quote or newline (LF) characters.
 ~
 
 @doc.block.abc
