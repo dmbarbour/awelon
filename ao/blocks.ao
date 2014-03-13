@@ -31,8 +31,9 @@
      apply  :: x [x--y] -- y; apply block to just top object on stack
        this variation provides a fresh stack and empty hand
        (the powerblock, named stacks, etc. are hidden)
-     applyNtoM :: takes N arguments on stack, generates M results
-       provides an empty hand, like apply, for N,M in 0..7
+     applyNtoM :: takes N arguments on stack, generates M results on stack
+       hides everything else (empty hand, no powerblock or named stacks)
+       N and M in range 0..7. 0 outputs suggests effectful block.
      applyS :: apply to full stack (hiding rest of environment)
      dip    :: h [] -- ; apply block to all except top element on stack
      dip2   :: h1 h2 [] -- ; apply block to all except top two elements

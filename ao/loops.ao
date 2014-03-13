@@ -66,11 +66,11 @@
 @tryCond.repeatUntil dip3 roll [body.repeatUntil] [drop3] if_
 @body.repeatUntil dip2 decd inline
 
-@test.repeatWhile.count
+@test.repeatWhile.haltOnCount
     new.stats 
     [1 add.stats] [count.stats 15 lte] 10 repeatWhile 
     count.stats 10 assertEQ1
-@test.repeatWhile.cond   
+@test.repeatWhile.haltOnCond   
     new.stats 
     [1 add.stats] [count.stats 15 lte] 20 repeatWhile 
     count.stats 16 assertEQ1

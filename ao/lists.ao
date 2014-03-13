@@ -137,7 +137,7 @@
 @doc.scan.l "s a`L [s a -- s b] -- s b`L"
 
 @doc.Lists.todo
-"* partition with boolean observer
+"
  * filter with boolean observer
  * nub with boolean comparison
  * compare length to a given number (length up to N, returning (N*n(<N))?
@@ -162,7 +162,7 @@
 @partitionReverseT.l 0 0 rot partitionAppendReverseT.l
 @partition.l partitionReverseT.l dup rot reverseAppend.l unrot swap reverseAppend.l
 
-@doc.partitionBy.l   "a`L [a--Bool] -- a`L a`L"
+@doc.partitionBy.l   "a`L [a--Bool] -- a`L a`L; Copyable a"
 @doc.partitionWith.l "a`L [a--(b+c)] -- a`L b`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L; Comparable a"
 @partitionWith.l mapReverseT.l dup rot partitionAppendReverseT.l drop
@@ -174,7 +174,7 @@
  partitionWith.l
  "lloorl" assertEQ1 drop2
 
-@doc.filterBy.l "a`L [a--Bool] -- a`L; Droppable a"
+@doc.filterBy.l "a`L [a--Bool] -- a`L; Copyable&Droppable a"
 @doc.filterWith.l "a`L [a--(b+c)] -- c`L; Droppable b"
 @filterWith.l partitionWith.l dropd
 @filterBy.l partitionBy.l dropd
