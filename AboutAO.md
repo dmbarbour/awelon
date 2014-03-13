@@ -123,7 +123,7 @@ Sealers and unsealers are represented as capabilities using inline ABC:
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
-While these discretionary sealers are insecure with respect to the AO dictionary, they can be secured against foreign code in an open system. This would be achieved as a postprocess, rewriting the discretionary sealers to use an HMAC or similar so that foreign code cannot use the same `foo` as your own.
+While these discretionary sealers are insecure with respect to static subprograms, they may be secured against foreign code in an open system, e.g. by rewriting the sealer names at compile time using an HMAC. This would ensure that one service's `foo` cannot be forged by another service. 
 
 ## Processing AO
 

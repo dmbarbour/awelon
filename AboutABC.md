@@ -165,13 +165,9 @@ If anything other than space or `~` follows LF, the ABC stream is in error. Ther
         "Text
         ~
 
-Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a list of small integers (range 0..1114111). The above text essentially means `#3#116l#120l#101l#84l`, which would have the type: 
+Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a list of small integers (range 0..1114111, from UTF-8). The typical model for a list is: `µL.(1+(a*L))`. 
 
-        e → (N(84) * (N(101) * (N(120) * (N(116) * N(3)) ))) * e
-
-The terminal `3` for a list of text is arbitrary, chosen for its meaning as ETX (end text) in C0. By convention, ABC systems use list terminators as weak type indicators to support visualization, debugging, and dependent typing.
-
-*NOTE:* ABC's representation of text is simplistic. Text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
+*NOTE:* ABC's representation of text is simplistic. Real text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
 
 ### Identity
 
@@ -203,28 +199,16 @@ When a relevant block is copied, both copies are relevant. (*Note:* Technically,
 
 ### Conditional Behavior
 
-A sum type, `(a + b)`, represents that we're either right with `b` or left with `a`. A sum type is constructed by observing a condition. In ABC, primitive operators enable observing a basic conditions, convention punning 'right' with 'true', i.e. `(false + true)` order. These primitives are:
+A sum type, `(a + b)`, represents that we're either right with `b` or left with `a`. Convention is to pun 'right' with 'true', i.e. `(false+true)` ordering. A sum type is the typical result of making an observation, such as comparing two numbers:
 
-        P :: (Observable x) ⇒ x * e → (x+x(a*b)) * e -- x is pair
-        S :: (Observable x) ⇒ x * e → (x+x(a+b)) * e -- x is sum
-        B :: (Observable x) ⇒ x * e → (x+x([a→b])) * e -- x is block
-        N :: (Observable x) ⇒ x * e → (x+x(N(a))) * e -- x is number
-        > :: (Comparable x y) ⇒ x * (y * e) → ((y*x)+(x*y)) * e -- y > x
+        > :: (Comparable x) ⇒ x₁ * (x₂ * e) → ((x₂*x₁)+(x₁*x₂)) * e -- x₂ > x₁
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-(Thoughts: it might be sufficient to have just `P` and `>`. However, the other options exist at the moment to simplify assertions.)
+In addition, a sum type can model data structures, e.g. list is `µL.(1+(a*L))`. 
 
-Most types are observable and comparable. Pairs are greater than numbers, and numbers are greater than sums. Pairs compare first before second, i.e. such that text (modulo case) compares in lexicographic order. Sums treat left as before right, and only compare inner elements if the branching is equal. 
-
-However, blocks are not comparable, unit is not observable, and unit may be compared only with unit (and is equal). Unit provides a foundation for static structure: in general, developers must know statically where to find unit values. This is discussed later. 
-
-After a condition is observed, we can conditionally apply a block:
-
-        ? :: (Droppable b) ⇒ b@[x→x'] * ((x + y) * e) → (x' + y) * e
-
-A block with the 'relevant' substructural property cannot be applied in this manner. Any such block must be applied under all conditions.
-
-Sums have their own set of data shuffling operators:
+Comparisons are sufficiently flexible to directly compare texts, i.e. such that texts are suitable as first-class identifiers. Texts are simply lists of numbers. Comparing texts can involve comparing sums with sums, units with units, numbers with numbers, and products with products. Sums compare right as greater than left, and products compare first elements before second elements.
+ 
+Sum types have their own set of data shuffling operators:
 
         L :: (a + (b + c)) * e → ((a + b) + c) * e
         R :: ((a + b) + c) * e → (a + (b + c)) * e
@@ -233,9 +217,11 @@ Sums have their own set of data shuffling operators:
         V :: a * e → (a + 0) * e
         C :: (a + 0) * e → a * e
 
-Type `0` is identity for sum, called 'void', and corresponds to vacuous condition. Static analysis may infer types for void to reject inconsistencies even in dead code.
+Type `0` is identity for sum, called 'void', and corresponds to a vacuous condition. Static analysis may infer types for void to reject inconsistencies even in dead code. After a condition is observed, we can conditionally apply a block:
 
-We also can distribute, factor, and merge sums:
+        ? :: (Droppable b) ⇒ b@[x→x'] * ((x + y) * e) → (x' + y) * e
+
+A block with the 'relevant' substructural property cannot be applied in this manner. Any such block must be applied under all conditions. In addition, we can distribute, factor, and merge sums:
 
         D :: a * ((b+c) * e) → ((a*b) + (a*c)) * e -- distrib
         F :: ((a*b) + (c*d)) * e → (a+c) * ((b+d) * e) -- partial factor
@@ -245,9 +231,11 @@ Full factor is modeled by combining partial factor and merge:
 
         FM :: ((a*b)+(a'*c))*e → a*((b+c)*e) -- full factor; inverse of D
 
-On merge, the types `a` and `a'` must be compatible for future operations, but they don't need to be exactly the same. What 'compatibility' requires may be judged in context, knowledge of future operations. A type checking technique is to have a 'merged' type that validates future operations on both paths, and perhaps even compiles the future paths separately until reaching a convenient location to merge.
+On merge, the types `a` and `a'` must be compatible for future operations. What 'compatibility' requires may be judged in context, knowledge of future operations. 
 
 Sums may also be copied or dropped (with `^` and `%`) assuming both element types may be copied and dropped.
+
+*ASIDE:* A possible type checking technique is to have a 'merged' type that simply validates future operations on both paths. In practice, the partial factor operation can be more difficult to precisely type, because we easily lose precise information about how `(a+c)` and `(b+d)` are on the same side. 
 
 ### Partial Functions and Contracts
 
@@ -393,7 +381,7 @@ Developers can reason about sealed values by reasoning about distribution of sea
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
 
-NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible (and useful) to systematically secure these sealers against foreign code by using an HMAC or similar to rename them, i.e. so your 'foo' is not the same as my 'foo'.
+NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible (and useful) to systematically secure these sealers against foreign code by rewriting them using an HMAC or similar.
 
 ### ABC Paragraphs
 

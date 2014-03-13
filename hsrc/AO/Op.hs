@@ -14,8 +14,7 @@ module AO.Op
     , op_apply, tcLoop, op_cond, op_quote
     , op_compose, abcCompose, op_rel, op_aff
 
-    , op_D, op_F, op_M, op_K
-    , op_P, op_S, op_B, op_N, op_GT
+    , op_D, op_F, op_M, op_K, op_GT
     
     , op_invoke_seal, op_invoke_unseal
     ) where
@@ -196,33 +195,16 @@ op_M v = opFail 'M' v
 op_K (P (R b) e) = return (P b e)
 op_K v = opFail 'K' v
 
-op_P, op_S, op_B, op_N :: (Monad c) => V c -> c (V c)
-
-op_P (P o@(P _ _) e) = return (P (R o) e)
-op_P (P o e) | observable o = return (P (L o) e)
-op_P v = opFail 'P' v
-
-op_S (P o@(L _) e) = return (P (R o) e)
-op_S (P o@(R _) e) = return (P (R o) e)
-op_S (P o e) | observable o = return (P (L o) e)
-op_S v = opFail 'S' v
-
-op_B (P o@(B _ _) e) = return (P (R o) e)
-op_B (P o e) | observable o = return (P (L o) e)
-op_B v = opFail 'B' v
-
-op_N (P o@(N _) e) = return (P (R o) e)
-op_N (P o e) | observable o = return (P (L o) e)
-op_N v = opFail 'N' v
-
 op_GT :: (Monad c) => V c -> c (V c)
-op_GT v@(P x (P y e)) =
+op_GT v@(P x (P y e)) = 
     case tryGT y x of
         Just True -> return (P (R (P x y)) e)
         Just False -> return (P (L (P y x)) e)
         Nothing -> opFail '>' v
 op_GT v = opFail '>' v
 
+-- comparisons now only operate between like structures 
+-- (e.g. no comparison between product and sum).
 tryGT :: V c -> V c -> Maybe Bool
 tryGT (N y) (N x) = Just (y > x)
 tryGT (P y1 y2) (P x1 x2) =
@@ -235,32 +217,15 @@ tryGT (P y1 y2) (P x1 x2) =
             Just False -> tryGT y2 x2
 tryGT (R y) (R x) = tryGT y x
 tryGT (L y) (L x) = tryGT y x
+tryGT (R _) (L _) = Just True
+tryGT (L _) (R _) = Just False
 tryGT U U = Just False
-tryGT y x = 
-    if (structGT y x) then Just True else
-    if (structGT x y) then Just False else
-    Nothing
-
--- greater-than due to structure (partial ordering)
-structGT :: V c -> V c -> Bool
-structGT (P _ _) x = is_num x || is_sum x
-structGT (N _) x = is_sum x
-structGT (R _) (L _) = True
-structGT _ _ = False
-
-is_num, is_sum :: V c -> Bool
-
-is_num (N _) = True
-is_num _ = False
-
-is_sum (L _) = True
-is_sum (R _) = True
-is_sum _ = False
+tryGT _ _ = Nothing
 
 op_invoke_seal, op_invoke_unseal :: (Monad c) => Text -> V c -> c (V c)
 
 op_invoke_seal tok = return . S tok
 op_invoke_unseal t (S t' v) | (t == t') = return v
 op_invoke_unseal t v = fail $
-    "{/" ++ T.unpack t ++ "} @ " ++ show v
+    "{." ++ T.unpack t ++ "} @ " ++ show v
 

@@ -196,10 +196,6 @@ runOpC 'D' = runOp_distrib
 runOpC 'F' = runOp_factor
 runOpC 'M' = runOp_merge
 runOpC 'K' = runOp_assert
-runOpC 'P' = runOp_isProd
-runOpC 'S' = runOp_isSum
-runOpC 'B' = runOp_isBlock
-runOpC 'N' = runOp_isNum
 runOpC '>' = runOp_gt
 runOpC  c  = \ v -> fail $ c : (" (unknown op) @ " ++ show v)
 
@@ -207,11 +203,11 @@ asProd :: Ty -> TyM (Ty,Ty)
 asSum  :: Ty -> TyM (STy,STy)
 asSum' :: STy -> TyM (STy, STy)
 mkSum' :: STy -> STy -> STy
-sumVoid, dynOpt :: STy
+dynOpt :: STy
 asNum  :: Ty -> TyM (Maybe Rational)
 asBlock :: Ty -> TyM (KF, Maybe (S.Seq Op))
 asUnit :: Ty -> TyM ()
-isDyn, isProd, isSum, isBlock, isNum, isObs, isSealed :: Ty -> Bool
+isDyn, isUnit :: Ty -> Bool
 
 asProd (TyProd a b) = return (a,b)
 asProd TyDyn = return (TyDyn, TyDyn)
@@ -233,7 +229,6 @@ asSum (TyMerge l r) =
     return (m1,m2)
 asSum v = fail $ "expected sum @ " ++ show v
 
-sumVoid = (False,TyDyn)
 dynOpt = (True,TyDyn)
 
 asSum' (bLive, ab) =
@@ -272,30 +267,8 @@ isDyn TyDyn = True
 isDyn (TyMerge a b) = isDyn a && isDyn b
 isDyn _ = False
 
-isProd (TyProd _ _) = True
-isProd (TyMerge a b) = isProd a && isProd b
-isProd _ = False
-
-isSum (TySum _ _) = True
-isSum (TyMerge a b) = isSum a && isSum b
-isSum _ = False
-
-isBlock (TyBlock _ _) = True
-isBlock (TyMerge a b) = isBlock a && isBlock b
-isBlock _ = False
-
-isNum (TyNum _) = True
-isNum (TyMerge a b) = isNum a && isNum b
-isNum _ = False
-
-isObs (TySeal _ _) = False
-isObs (TyUnit) = False
-isObs (TyMerge a b) = isObs a && isObs b
-isObs _ = True
-
-isSealed (TySeal _ _) = True
-isSealed (TyMerge a b) = isSealed a && isSealed b
-isSealed _ = False
+isUnit TyUnit = True
+isUnit _ = False
 
 runOp_digit :: Int -> Ty -> TyM Ty
 runOp_digit d vne =
@@ -313,7 +286,7 @@ runOp_l, runOp_r, runOp_w, runOp_z, runOp_v, runOp_c,
  runOp_ap, runOp_comp, runOp_quote, runOp_rel, runOp_aff,
  runOp_add, runOp_neg, runOp_mul, runOp_inv, runOp_div,
  runOp_condap, runOp_distrib, runOp_factor, runOp_merge, runOp_assert,
- runOp_isProd, runOp_isSum, runOp_isBlock, runOp_isNum, runOp_gt
+ runOp_gt
     :: Ty -> TyM Ty
 
 runOp_l abc =
@@ -574,53 +547,6 @@ runOp_assert se =
     if staticAssertFailure then fail msgFail else
     return $ TyProd (snd b) e
 
-asObsProd :: Ty -> TyM (Ty, Ty)
-asObsProd oe =
-    asProd oe >>= \ (o,e) ->    
-    asObs o >>
-    return (o,e)
-
-asObs :: Ty -> TyM ()
-asObs o = 
-    if isObs o then return () else
-    fail $ "expecting observable @ " ++ show o
-
-runOp_isProd ve =
-    asObsProd ve >>= \ (v,e) ->
-    let dynProd = TyProd TyDyn TyDyn in
-    let vo = if isDyn v then TySum dynOpt (True,dynProd) else
-             if isProd v then TySum sumVoid (True,v) else
-             TySum (True,v) (False,dynProd)
-    in
-    return $ TyProd vo e
-
-runOp_isSum ve = 
-    asObsProd ve >>= \ (v,e) ->
-    let dynSum = TySum dynOpt dynOpt in
-    let vo = if isDyn v then TySum dynOpt (True,dynSum) else
-             if isSum v then TySum sumVoid (True,v) else
-             TySum (True,v) (False,dynSum)
-    in
-    return $ TyProd vo e
-
-runOp_isNum ve =
-    asObsProd ve >>= \ (v,e) ->
-    let dynNum = TyNum Nothing in
-    let vo = if isDyn v then TySum dynOpt (True, dynNum) else
-             if isNum v then TySum sumVoid (True, v) else
-             TySum (True, v) (False, dynNum)
-    in
-    return $ TyProd vo e
-
-runOp_isBlock ve =
-    asObsProd ve >>= \ (v,e) ->
-    let dynBlock = TyBlock kf0 Nothing in
-    let vo = if isDyn v then TySum dynOpt (True, dynBlock) else
-             if isBlock v then TySum sumVoid (True, v) else
-             TySum (True, v) (False, dynBlock)
-    in
-    return $ TyProd vo e
-
 runOp_gt abe =  -- test if b > a in (a*(b*e))
     asProd abe >>= \ (a,be) ->
     asProd be >>= \ (b,e) ->
@@ -640,10 +566,6 @@ runOp_gt abe =  -- test if b > a in (a*(b*e))
             return $ TyProd vgt e
 
 tyGT :: Ty -> Ty -> TyM (Maybe Bool)
-tyGT TyDyn TyDyn = return Nothing
-tyGT TyUnit TyUnit = return (Just False)
-tyGT TyUnit v = fail $ "compare unit (inL) with " ++ show v
-tyGT v TyUnit = fail $ "compare unit (inR) with " ++ show v
 tyGT (TyNum x) (TyNum y) = return $ (>) <$> x <*> y
 tyGT (TyProd x1 x2) (TyProd y1 y2) =
     tyGT x1 y1 >>= \ mbGT ->
@@ -666,14 +588,10 @@ tyGT (TySum x1 x2) (TySum y1 y2) =
     if (xInR && yInR) then tyGT (snd x2) (snd y2) else
     if (xInL && yInR) then return (Just False) else
     return Nothing
-tyGT x y | (isBlock x || isBlock y) = fail "cannot compare blocks"
-tyGT x y | (isSealed x || isSealed y) = fail "cannot compare sealed values"
-tyGT p ns | isProd p && (isNum ns || isSum ns) = return (Just True)
-tyGT ns p | isProd p && (isNum ns || isSum ns) = return (Just False)
-tyGT n s | isNum n && isSum s = return (Just True)
-tyGT s n | isNum n && isSum s = return (Just False)
-tyGT _ _ = return Nothing -- compare at runtime
-
+tyGT TyUnit v | (isDyn v || isUnit v) = return $ Just False
+tyGT v TyUnit | (isDyn v || isUnit v) = return $ Just False
+tyGT a b | (isDyn a || isDyn b) = return Nothing
+tyGT x y = fail $ "cannot compare types " ++ show x ++ " with " ++ show y
 
 -- revOp is 'op -> expected input -> output -> TyM refined input'
 --  the expected output is mostly to leverage partial evaluations
@@ -726,10 +644,6 @@ revOpC 'D'  = revOp_distrib
 revOpC 'F'  = revOp_factor
 revOpC 'M'  = revOp_merge
 revOpC 'K'  = revOp_assert
-revOpC 'P'  = revOp_isProd
-revOpC 'S'  = revOp_isSum
-revOpC 'B'  = revOp_isBlock
-revOpC 'N'  = revOp_isNum
 revOpC '>'  = revOp_gt
 revOpC  c   = \ v -> fail $ (c : " (unknown op) rev@ " ++ show v)
 
@@ -737,7 +651,7 @@ revOp_copy, revOp_drop,
  revOp_comp, revOp_quote, revOp_rel, revOp_aff,
  revOp_add, revOp_neg, revOp_mul, revOp_inv, revOp_div,
  revOp_distrib, revOp_factor, revOp_merge, revOp_assert,
- revOp_isProd, revOp_isSum, revOp_isBlock, revOp_isNum, revOp_gt
+ revOp_gt
     :: Ty -> TyM Ty
 
 revOp_textLit  :: Text -> Ty -> TyM Ty
@@ -889,38 +803,6 @@ revOp_assert ve =
     asProd ve >>= \ (v,e) ->
     let s = TySum (False,TyDyn) (True,v) in
     return $ TyProd s e
-
-revOp_isProd se =
-    asProd se >>= \ (s,e) ->
-    asSum s >>= \ (l,r) ->
-    asObs (snd l) >>
-    asProd (snd r) >>= \ (ra,rb) ->
-    let r' = (fst r, TyProd ra rb) in
-    return $ TyProd (snd $ tyMerge' l r') e
- 
-revOp_isSum se =
-    asProd se >>= \ (s,e) ->
-    asSum s >>= \ (l,r) ->
-    asObs (snd l) >>
-    asSum (snd r) >>= \ (rl, rr) ->
-    let r' = (fst r, TySum rl rr) in
-    return $ TyProd (snd $ tyMerge' l r') e
-
-revOp_isBlock se =
-    asProd se >>= \ (s,e) ->
-    asSum s >>= \ (l,r) ->
-    asObs (snd l) >>
-    asBlock (snd r) >>= \ (kf,ops) ->
-    let r' = (fst r, TyBlock kf ops) in
-    return $ TyProd (snd $ tyMerge' l r') e
-    
-revOp_isNum se =
-    asProd se >>= \ (s,e) ->
-    asSum s >>= \ (l,r) ->
-    asObs (snd l) >>
-    asNum (snd r) >>= \ mbn ->
-    let r' = (fst r, TyNum mbn) in
-    return $ TyProd (snd $ tyMerge' l r') e
 
 revOp_gt se =
     asProd se >>= \ (s,e) ->
