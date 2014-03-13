@@ -49,6 +49,7 @@
 @reverseAppend.l [cons.l] fold.l
 
 @length.l 0 empty.l rot [cons.l incd] [each.l] apply4to2 reverse.l swap
+@id.length.l length.l drop
 
 @test.each.l 0 "World" [.add] fold.l 520 assertEQ1
 @test.reverse.l 
@@ -68,6 +69,7 @@
  5 assertEQ1 swap
  "hello" assertEQ1 swap
 @id.reverse.l reverse.l reverse.l
+@eqv.dropReverse.l [drop] [reverse.l drop]
 @id.append.l.empty empty.l append.l
 @id.appendl.l.empty empty.l appendl.l
 
@@ -91,8 +93,6 @@
  [compose mapP.l] 
  [unrot mapP.l swap mapP.l]
 
-
-
 @doc.take.l "a`L N -- a`L; take first N elements of list (or the full list, if N >= length), drop rest of list"
 @doc.copy.l "a`L N -- a(orig)`L a(first N)`L; copy first N elements of list"
 @doc.drop.l "a`L N -- a`L; drop first N elements of list (or result in empty list, if N >= length)"
@@ -107,15 +107,11 @@
 @split.l splitReverse.l reverse.l
 @splitReverse.l splitReverseN.l drop
 @splitReverseN.l assertNatural [inner.splitReverseN.l] apply2to3
-@inner.splitReverseN.l 
-  swap 0 swap 
-  [cons.l decd] [counter.splitReverseN.l] eachUntil.l
-  swap rot
+@inner.splitReverseN.l
+ swap 0 swap 
+ [cons.l decd] [counter.splitReverseN.l] eachUntil.l 
+ swap rot
 @counter.splitReverseN.l swap dup 1 lt swapd
-
-@takeText.l splitReverse.l reverseText.l dropd
-@copyText.l splitReverse.l copy reverseAppend.l put reverseText.l
-
 
 @doc.unzip.l "(a*b)`L -- a`L b`L"
 @doc.scan.l "s a`L [s a -- s b] -- s b`L"
@@ -138,25 +134,24 @@
  * association lists
  * list to/from stream
 ~
-
-@doc.partitionAppendReverseT.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L (as+bs)`Nel" 
 @doc.partition.l "(a+b)`L -- a`L b`L"
-@partitionAppendReverseT.l unrot pw swap [pushrv.partition.l] eachTP.l dwx
+@doc.partitionAppendReverse.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L" 
+@partitionAppendReverse.l unrot pw swap [pushrv.partition.l] fold.l wx
 @pushrv.partition.l [dx cons.l p] [dwx cons.l pw] if
-@partitionReverseT.l 0 0 rot partitionAppendReverseT.l
-@partition.l partitionReverseT.l dup rot reverseAppend.l unrot swap reverseAppend.l
+@partitionReverse.l empty.l empty.l rot partitionAppendReverse.l
+@partition.l partitionReverse.l reverse.l swap reverse.l swap
 
 @doc.partitionBy.l   "a`L [a--Bool] -- a`L a`L; Copyable a"
-@doc.partitionWith.l "a`L [a--(b+c)] -- a`L b`L"
+@doc.partitionWith.l "a`L [a--(b+c)] -- b`L c`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L; Comparable a"
-@partitionWith.l mapReverseT.l dup rot partitionAppendReverseT.l drop
+@partitionWith.l mapReverse.l partitionReverse.l
 @partitionElem.l [lte1] bind partitionWith.l swap
 @partitionBy.l wrapObserver.b partitionWith.l
 
 @test.partition.l 
  "hello, World!" [106 gt1] 
  partitionWith.l
- "lloorl" assertEQ1 drop2
+ "lloorl" assertEQ1
 
 @doc.filterBy.l "a`L [a--Bool] -- a`L; Copyable&Droppable a"
 @doc.filterWith.l "a`L [a--(b+c)] -- c`L; Droppable b"
@@ -169,18 +164,18 @@
 
 @doc.nub.l "remove duplicate values from list"
 @nub.l [step.nub.l] fixpoint apply
-@step.nub.l
- swap isPair
- [dropd]
- [x copy remove.l swap inline put p]
- if
+@step.nub.l swap [nip inL] [action.nub.l] if
+@action.nub.l x copy remove.l swap inline put cons.l
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
+@eqv.nub.l.idempotent [nub.l] [nub.l nub.l]
 
 @doc.sort.l "sort a list of values"
 @sort.l [step.sort.l] fixpoint apply
-@step.sort.l swap isPair [dropd] [nonEmpty.sort.l] if
+@step.sort.l swap [nip inL] [nonEmpty.sort.l] if
 @nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
+@eqv.sort.idempotent.l [sort.l] [sort.l sort.l]
+@eqv.sort.nub.commutes.l [sort.l nub.l] [nub.l sort.l]
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
