@@ -48,6 +48,8 @@
 @reverse.l empty.l swap reverseAppend.l
 @reverseAppend.l [cons.l] fold.l
 
+@length.l 0 empty.l rot [cons.l incd] [each.l] apply4to2 reverse.l swap
+
 @test.each.l 0 "World" [.add] fold.l 520 assertEQ1
 @test.reverse.l 
  "hello, World!" reverse.l 
