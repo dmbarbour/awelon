@@ -110,11 +110,16 @@
 @take.l split.l dropd
 @drop.l split.l drop
 @copy.l splitReverse.l copy reverseAppend.l put reverse.l
+@test.take.l "hello world!" 5 take.l "hello" assertEQ1
+@test.drop.l "hello world!" 6 drop.l "world!" assertEQ1
+@test.copy.l "hello world!" 5 copy.l "hello" assertEQ1 
+ swap "hello world!" assertEQ1 swap
+
 @split.l splitReverse.l reverse.l
 @splitReverse.l splitReverseN.l drop
 @splitReverseN.l assertNatural [inner.splitReverseN.l] apply2to3
 @inner.splitReverseN.l
- swap 0 swap 
+ swap empty.l swap 
  [cons.l decd] [counter.splitReverseN.l] eachUntil.l 
  swap rot
 @counter.splitReverseN.l swap dup 1 lt swapd
@@ -175,6 +180,12 @@
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
 @eqv.nub.l.idempotent [nub.l] [nub.l nub.l]
 
+@doc.nubBy.l "a`L [eq(a a -- Bool)] -- a`L; value a, provide eq function"
+@nubBy.l [step.nubBy.l] bind fixpoint apply
+@step.nubBy.l rot [nip2 inL] [action.nubBy.l] if
+@action.nubBy.l x copy rot bind partitionBy.l drop swap inline put cons.l
+@test.nubBy.l "hello, world!" [eqb] nubBy.l "helo, wrd!" assertEQ1
+
 @doc.sort.l "sort a list of values"
 @sort.l [step.sort.l] fixpoint apply
 @step.sort.l swap [nip inL] [nonEmpty.sort.l] if
@@ -182,6 +193,15 @@
 @test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
 @eqv.sort.idempotent.l [sort.l] [sort.l sort.l]
 @eqv.sort.nub.commutes.l [sort.l nub.l] [nub.l sort.l]
+
+@doc.sortBy.l "a`L [lt(a a -- Bool)]; sort list of values given a less-than function (a a -- Bool)"
+@sortBy.l [step.sortBy.l] bind fixpoint apply
+@step.sortBy.l rot [nip2 inL] [nonEmpty.sortBy.l] if
+@nonEmpty.sortBy.l x copy rot bind partitionBy.l swap rot bi& put cons.l append.l
+@test.sortBy.l 
+    "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertEQ
+    dup reverse.l swap [gtb] sortBy.l assertEQ1
+
 
 @doc.AssocLists
 "An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
