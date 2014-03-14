@@ -355,8 +355,6 @@
 
 @test.quote  7 dup quote unquote assertEQ1
 @id.quoteUnquote quote unquote
-@id.unquoteQuote unquote quote
-@id.textDrop "text" drop
 
 @doc.relevant "mark block on stack as relevant (not Droppable)"
 @doc.affine "mark block on stack as affine (not Copyable)"

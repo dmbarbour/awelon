@@ -27,6 +27,7 @@
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
 @doc.mapP.l "a`L [a -- b] -- b`L; map elements in limited `apply` environment"
 @doc.fold.l "x a`L [x a -- x] -- x; process each element in constrained environment"
+@doc.scan.l "s a`L [s a -- s b] -- s b`L; simultaneous map & fold in limited env"
 @doc.length.l "a`L -- a`L integer; return length of list"
 @doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 @doc.reverse.l "a`L -- a`L; reverse order of elements in list"
@@ -42,6 +43,7 @@
 @mapReverseAppend.l wrapCons.mapReverseAppend.l each.l
 @wrapCons.mapReverseAppend.l [dip] bind [swap] [swap cons.l] wrapfn
 @mapP.l [apply] bind [map.l] apply2to1
+@scan.l [map.l] apply3to2
 
 @append.l swap reverse.l reverseAppend.l
 @appendl.l swap append.l
@@ -64,6 +66,10 @@
 @test.map.l 
  "hello" [4 .add] mapP.l 
  "lipps" assertEQ1
+@test.scan.l
+ 0 "hello" [dup rot .add swap 4 .add] scan.l
+ "lipps" assertEQ1 swap
+ 532 assertEQ1 swap
 @test.length.l
  "hello" length.l 
  5 assertEQ1 swap
@@ -89,8 +95,6 @@
  [.add] [dup 1200 gtb] eachUntil.l
  empty.l assertEQ1 swap
  1193 assertEQ1 swap
- 
-
 
 @doc.eqv.mapTwice.compMap
 "Rewriting from a composition of map operations to a map of compositions is a difficult challenge for an optimizer. And proving this is difficult for a prover. In general, if developers need this sort of optimization, they should be using a staged programming model that symbolically constructs the map operations, i.e. initially constructing a free, logical list/stream.
@@ -125,17 +129,42 @@
 @counter.splitReverseN.l swap dup 1 lt swapd
 
 @doc.unzip.l "(a*b)`L -- a`L b`L"
-@doc.scan.l "s a`L [s a -- s b] -- s b`L"
+@unzip.l unzipReverse.l swap reverse.l swap reverse.l
+@unzipReverse.l empty.l empty.l rot unzipReverseAppend.l
+@unzipReverseAppend.l [inner.unzipReverseAppend.l] apply3to2
+@inner.unzipReverseAppend.l [bicons.unzipReverseAppend.l] each.l
+@bicons.unzipReverseAppend.l wx swapd cons.l unrot cons.l swap
+
+@test.unzip.l
+  empty.l 
+  99 102 pw cons.l
+  98 101 pw cons.l
+  97 100 pw cons.l
+  unzip.l
+  "def" assertEQ1 swap
+  "abc" assertEQ1 swap
+
+
+@doc.zip.l "a`L b`L -- (a*b)`L; will truncate if one list is smaller than the other"
+@zip.l zipReverse.l reverse.l
+@zipReverse.l empty.l unrot zipReverseAppend.l
+@zipReverseAppend.l [inner.zipReverseAppend.l] apply3to1
+@inner.zipReverseAppend.l [openB.zipReverseAppend.l] fixpoint inline
+@openB.zipReverseAppend.l unroll [elim1 drop dropd] [openA.zipReverseAppend.l] if
+@openA.zipReverseAppend.l swap   [elim1 drop dropd] [jcons.zipReverseAppend.l] if
+@jcons.zipReverseAppend.l zip2 swapd cons.l swap wx roll inline
+@comments.zip.l
+"This is quite inelegant as is. I wonder if translating lists to streams, then zipping streams, would be cleaner."
+
+@id.unzip.zip.l unzip.l zip.l
 
 @doc.Lists.todo
-"
- * filter with boolean observer
- * nub with boolean comparison
- * compare length to a given number (length up to N, returning (N*n(<N))?
+"* compare length up to a given number (length up to N, returning (N+n(<N))?
  * 
- * split, take, drop? (
  * find, elem
- * match head of list? (need concept for 'match'; maybe part of grammar instead)
+ * match head of list? 
+ *   need concept for 'match' 
+ *   maybe part of stream-processing grammar instead? (could optimize better)
  * zip(2..N), unzip(2..N)
  * association lists (.al?)
  * t
@@ -145,7 +174,7 @@
  * association lists
  * list to/from stream
 ~
-@doc.partition.l "(a+b)`L -- a`L b`L"
+@doc.partition.l "(a+b)`L -- a`L b`L; lossy (loses info about interleave)"
 @doc.partitionAppendReverse.l "a0`L b0`L (as+bs)`L -- (as(reverse)+a0)`L (bs(reverse)+b0)`L" 
 @partitionAppendReverse.l unrot pw swap [pushrv.partition.l] fold.l wx
 @pushrv.partition.l [dx cons.l p] [dwx cons.l pw] if

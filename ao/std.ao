@@ -42,6 +42,8 @@
  "42" 
  empty.l 50 cons.l 52 cons.l
  assertEQ1
+@id.textDrop "text" drop
+
 
 @doc.prefix.eqv 
 "There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests, and provide hints or tests for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two subprograms should be equivalent.

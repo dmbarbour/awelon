@@ -32,7 +32,7 @@ std euler
 @doc.getEnv.iomsg "varname -- text; environment variable or empty text"
 @getEnv "getOSEnv" p iomsg.aoi
 
-@doc.randomBytes "count -- (list of octets); secure random source"
+@doc.randomBytes "count -- (vector of octets); secure random source"
 @randomBytes "randomBytes" p iomsg.aoi
 
 @rand8 1 randomBytes wx drop
@@ -48,7 +48,7 @@ std euler
 @doc.cle "(io) clear the current environment (except hand and powerblock)"
 @cle introE swapE destroy
 
-@doc.cls "(io) clear the current stack"
+@doc.cls "(io) clear the current stack (including relevant blocks)"
 @cls reifyStack destroy
 
 @doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
