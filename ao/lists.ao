@@ -5,7 +5,7 @@
  
  Of course, AO and ABC don't have direct support for type annotations (not yet, anyway). The list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops).
  
- Lists are simplistic data structures. Their extreme simplicity leads to akwardness and complexity for many use-cases: 
+ Lists are simplistic data structures. Their extreme simplicity leads to awkwardness and complexity for many use-cases: 
  
  * access to middle or end of a large list is expensive
  * very large lists can be expensive to hold in memory
