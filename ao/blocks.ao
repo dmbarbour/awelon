@@ -325,9 +325,19 @@
 @bi& dup bi*
 @bi2& dup bi2*
 @bi3& dup bi3*
-@tri& dup2 tri*
-@tri2& dup2 tri2*
-@tri3& dup2 tri3* 
+@tri&  dup dup tri*
+@tri2& dup dup tri2*
+@tri3& dup dup tri3* 
+
+@test.bi&
+ 4 7 [6 *] bi& 
+ 42 assertEQ1 swap
+ 24 assertEQ1 swap
+@test.tri2&
+ 1 2 3 4 5 6 [*] tri2&
+ 30 assertEQ1 unrot
+ 12 assertEQ1 unrot
+ 2  assertEQ1 unrot
 
 @doc.Quotable
 "Most values in AO are quotable. 
