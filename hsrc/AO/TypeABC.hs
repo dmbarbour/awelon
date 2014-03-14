@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE PatternGuards, ViewPatterns #-}
 -- | A simple tyepecheck and type annotator for ABC code. 
 --
 -- This is the one good thing that came from my early, simplistic
@@ -52,13 +52,11 @@ summaryTy _ (TyBlock kf mbOps) = (addDot . addF . addK) "B" where
     addK = if may_drop kf then id else (++ "k")
     addF = if may_copy kf then id else (++ "f")
     addDot = maybe id (const $ (++ ".")) mbOps
-summaryTy n v@(TyProd a b) =
-    case summaryText 24 v of
-        Just txt -> T.unpack $ '"' `T.cons` txt `T.snoc` '"'
-        Nothing -> 
-            let msga = summaryTy (n - 1) a in
-            let msgb = if (n < 1) then "..." else summaryTy (n - 1) b in
-            "(" ++ msga ++ "*" ++ msgb ++ ")"
+summaryTy _ (summaryText 24 -> Just txt) = T.unpack $ '"' `T.cons` txt `T.snoc` '"'
+summaryTy n (TyProd a b) =
+    let msga = summaryTy (n - 1) a in
+    let msgb = if (n < 1) then "..." else summaryTy (n - 1) b in
+    "(" ++ msga ++ "*" ++ msgb ++ ")"
 summaryTy n (TySum a b) =
     let msga = summarySTy (n-1) a in
     let msgb = if (n < 1) then "..." else summarySTy (n-1) b in
@@ -78,7 +76,7 @@ summaryText maxLen = tyToVal >=> valToText >=> pure . trimText where
     trimText t = 
         if (T.compareLength t maxLen) /= GT 
             then t 
-            else T.pack "text"
+            else T.take (maxLen - 3) t `T.append` T.pack "..."
 
 tyToVal :: Ty -> Maybe (V c)
 tyToVal TyDyn = Nothing
@@ -671,22 +669,21 @@ revOp_digit _ nv =
 
 asText, asChar :: Ty -> TyM Ty
 asText TyDyn = return TyDyn
-asText (TyProd c t) = 
+asText v =
+    asSum v >>= \ (u,ct) ->
+    asUnit (snd u) >>
+    asProd (snd ct) >>= \ (c,t) ->
     asChar c >>= \ c' ->
     asText t >>= \ t' ->
-    return (TyProd c' t')
-asText v@(TyNum (Just r)) = 
-    if (r == 3) then return v else
-    fail $ "expecting text, but terminates in " ++ show r
-asText v@(TyNum Nothing) = return v
-asText v = fail $ "expecting text @ " ++ show v
+    let ct' = TyProd c' t' in
+    let sum' = TySum (fst u, TyUnit) (fst ct, ct') in
+    return sum'
 
-asChar TyDyn = return (TyNum Nothing)
-asChar v@(TyNum Nothing) = return v
-asChar v@(TyNum (Just r)) =
-    if isChar r then return v else 
-    fail $ "text element is not a character"
-asChar v = fail $ "expecting character @ " ++ show v
+asChar v =
+    asNum v >>= \ mbr ->
+    case isChar <$> mbr of
+        Just False -> fail $ "expecting character @ " ++ show v
+        _ -> return (TyNum mbr)
 
 isChar :: Rational -> Bool
 isChar r = isInteger && inRange where
