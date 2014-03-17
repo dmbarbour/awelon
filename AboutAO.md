@@ -180,31 +180,25 @@ Independently of how a dictionary is maintained, it may be processed in several 
 *   programming environment extensions or configuration variables
 *   live services: web services, publish/subscribe, control systems
 
-By leveraging naming conventions to decide processing of words, a single AO dictionary can describe a whole system of services, applications, documents, tests, configurations, plugins or extensions (via capability secure reflection on a dictionary), and other outputs. In a suitable context, an AO dictionary can act much like the filesystem of a larger operating system, with words containing or accessing data.
+By leveraging naming conventions to determine external processing of words, a single AO dictionary can describe a whole system of services, applications, documents, tests, configurations, plugins or extensions (via capability secure reflection on a dictionary), and other outputs. In a suitable context, an AO dictionary can act much like the filesystem of a larger operating system, with words containing data or processes. (This would be an interesting direction to explore, OS as a dictionary in a PL.)
 
-AO does not have syntax for comments. Instead, developers must define documentation words. In general, each word may be associated with a documentation word through naming conventions. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible. 
+AO does not have syntax for comments. Instead, developers must define documentation words. In general, each word may be associated with a documentation word through naming conventions. These words can describe rich structure - templates, formatting, figures and graphs, potentially even interactive instruction. A good AO programming environment should make documentation readily accessible.
 
 Tests in AO potentially include unit tests, [QuickCheck](http://en.wikipedia.org/wiki/QuickCheck)-style property testing, and deep reflective analysis on the dictionary (via reflective capabilities). The capability-secure nature of AO can help with modeling mockup environments and configurations.
 
-*Aside:* The singular 'main' function of mainstream languages is a significant source of accidental complexity. Developers are forced to use external make systems and linkers to configure multiple applications. Further, applications are not reusable as software components. AO's flexible use of naming conventions should mitigate these issues.
+*Aside:* The singular 'main' function of mainstream languages is a significant source of accidental complexity. Developers are forced to use external make systems and linkers to configure multiple applications. Further, applications are not reusable as software components. AO's flexible use of naming conventions should mitigate these issues; e.g. by use of an `app.` prefix, a single dictionary can describe any number of 'applications' with distinct names and shared structure.
 
-*Note:* An interesting possibility is to disassemble an ABC stream relative to a dictionary, i.e. treating a dictionary as an implicit grammar. AO dictionaries can often be understood as large grammars for extracting structure from a stream.
+*Note:* An interesting possibility is to disassemble an ABC stream relative to a dictionary, i.e. treating a dictionary as an implicit grammar. In some sense, AO dictionaries can be understood as large grammars for extracting structure from a stream. The challenge here is that an ABC stream will often have already been partially evaluated and optimized, and so will not correspond directly to most dictionaries.
 
 ### Interactive AO
 
-My vision for interactive AO is closer in nature to a spreadsheet than a REPL. Developers manipulate definitions for a small, structured subset of dictionary words. A proposed naming convention is `a1$foo` and `b3$foo` naming cells that can be rendered together as spreadsheet 'foo'. Rendering may also hide a rendundant `$foo` suffix, instead displaying `a1` or `b3` with a configurable color. 
+The REPL `aoi` has been implemented for AO as part of the Haskell implementation. This operates in a conventional manner: developers can write some code, numbers, and text on a line. A summary of the stack is printed between commands. Developers cannot define new words in the REPL, but may modify and reload the dictionary on-the-fly. 
 
-A REPL can trivially be modeled in a spreadsheet by treating each command as sequentially defining a row in the spreadsheet. To represent a continuing session with lots of steps, each word simply starts with the previous word (leveraging a feature of concatenative programming). For example:
+However, my vision for AO development is closer in nature to spreadsheets than REPLs, leveraging tests for automatic display, and actually working in spreadsheet-like environments for developing difficult algorithms where a lot of internal debugging is useful. A proposed naming convention for spreadsheets is `a1$foo` and `b3$foo`, specifying cells that can be rendered together as a spreadsheet `foo`. When such words are rendered, the redundant `$foo` suffix could be hidden, instead displaying `a1` or `b3` with a configurable color. (Of course, `a1$foo` and the like would remain accessible as plain words in other contexts, including other spreadsheets.)
 
-        @a1 3       -- renders 3
-        @a2 a1 4 +  -- renders 7
-        @a3 a2 6 *  -- renders 42
+Spreadsheets generally contain a single value per cell. The same is true in AO, except in AO it is also convention for said value to represent a full stack or multi-stack environment (see below). And such a stack might contain complex values modeling documents or geometries or scene-graphs. An AO spreadsheet could be much richer than conventional spreadsheets.
 
-Of course, unlike traditional REPLs, one might redefine a word at any time.
-
-        @a1 5       -- renders 5; a2 renders 9; a3 renders 54
-
-A good AO programming environment should provide support for viewing 'live' spreadsheets, where cells in the spreadsheet may use any word from the dictionary - including other spreadsheets modeled in the same dictionary. Such spreadsheets can include information about tests, and basically provide some health information about the dictionary overall.
+It is not difficult to model a REPL above a spreadsheet metaphor: simply use a linear sequence of cells (one for each step in the REPL). This pattern could be optimized and have a dedicated entry mode. This live programming REPL has a lot of nice advantages over a conventional REPL - i.e. one can immediately see how changes in code will change the outputs at each step.
 
 *Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a rendering context for common views of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`. 
 
