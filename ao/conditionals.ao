@@ -18,6 +18,7 @@ boolean
 
 @doc..mirror "(a+b)*e→(b+a)*e"
 @.mirror %VRWLC
+@mirror not
 
 @doc.inR "b -- (0 + b); wrap 'b' in success, mark true, in the right"
 @doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
@@ -96,7 +97,7 @@ boolean
      ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
                       on left/false  on right/true  
  
- Only `if` and `if_` can be used if tail-call optimization is needed.
+ Only `if` and `if_` can be used where tail-call optimization is needed.
  
  The main weakness of 'if' behaviors is that they're difficult to extend or compose. They're effectively 'closed' syntactically. Developers are under pressure to push a lot of logic into those blocks. ABC is based on sum types (L+R) to better support composition of conditional behavior, but to leverage sum types requires alternative idioms (such as incremental processes or RDP). 
 ~
@@ -106,7 +107,7 @@ boolean
 
 @if  p distrib [%rwl] .left merge x wx drop inline
 @if_ p distrib [%rwl] .left fullFactor wx drop dropd inline
-@ifk p distrib [%rwl] .left fullFactor wx drop dupd merged swapd dip
+@ifk p dupd distrib [%rwl] .left merge x wx drop swapd dip
 @ifd p distrib [%rwl] .left fullFactor wx drop dip
 
 @doc.when  "..a (L+R) [..a R -- ..a] -- ..a"
@@ -177,6 +178,11 @@ boolean
 @assertEQ1  assertEQ drop
 @assertNEQ  neq assert [%vrwlc] .left merge x
 
+@doc.assertEQ1d "x y x -- x y; assert x's are equal, useful for testing"
+@assertEQ1d   swapd assertEQ1 swap
+@assertEQ1dd  rotd  assertEQ1 unrot
+@assertEQ1ddd rolld assertEQ1 unroll
+
 @assertLTz  0 assertLT drop
 @assertLTEz 0 assertLTE drop
 @assertGTz  0 assertGT drop
@@ -189,7 +195,7 @@ boolean
 
 @assertUnit   elim1 intro1
 @assertProd   w w
-@assertSum    not not
+@assertSum    mirror mirror
 @assertNumber 0 .add
 
 @assertInteger  dup 1 .rem assertEQz drop
