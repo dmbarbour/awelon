@@ -9,8 +9,8 @@
 ~
 @new.stats 0 0 0 pw pw seal.stats
 
-@sealer.stats [%{:stats}]
-@unsealer.stats [%{.stats}]
+@sealer.stats [{:stats}]
+@unsealer.stats [{.stats}]
 @seal.stats sealer.stats .apply
 @unseal.stats unsealer.stats .apply
 

@@ -11,8 +11,8 @@ lists
  The greater than function must describe a total order, and work for all keys. There is no assumed relationship between values in the list. This is to say, the type of each 'v' may depend on the value of the associated 'k', or even upon other 'v' values. 
 ~
 
-@sealer.al   [%{:al}]
-@unsealer.al [%{.al}]
+@sealer.al   [{:al}]
+@unsealer.al [{.al}]
 @seal.al   sealer.al .apply
 @unseal.al unsealer.al .apply
 

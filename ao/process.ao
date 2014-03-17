@@ -63,8 +63,8 @@
 
 @doc.suffix.p doc.Processes
 
-@sealer.p [%{:p}]
-@unsealer.p [%{.p}]
+@sealer.p [{:p}]
+@unsealer.p [{.p}]
 @seal.p sealer.p .apply
 @unseal.p unsealer.p .apply
 @unseal2.p swap unseal.p swap unseal.p

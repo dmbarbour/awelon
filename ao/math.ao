@@ -54,5 +54,5 @@
 
 @doc.useFloatingPoint32 "N--N; annotation; favor floating point with at least 32 bits"
 @doc.useFloatingPoint64 "N--N; annotation; favor floating point with at least 64 bits"
-@useFloatingPoint   assertNumber [%{&useFloatingPoint32}] inline
-@useFloatingPoint64 assertNumber [%{&useFloatingPoint64}] inline
+@useFloatingPoint   assertNumber [{&useFloatingPoint32}] inline
+@useFloatingPoint64 assertNumber [{&useFloatingPoint64}] inline

@@ -155,8 +155,8 @@
 @doc.ValueSealing
 "AO allows seal/unseal actions to be hard-coded using inline ABC. These are represented as:
  
-     %{:foo}       seal value with sealer 'foo'
-     %{.foo}       unseal value from sealer 'foo'
+     {:foo}       seal value with sealer 'foo'
+     {.foo}       unseal value from sealer 'foo'
  
  The token 'foo' may be replaced by any arbitrary text. A sealed value cannot be observed or manipulated without first unsealing it with the same token. Of course, hard-coded tokens are not secure. (Secure value sealing involves construction of unique sealer/unsealer pairs.) To avoid even the illusion of security, and to simplify debugging, hard-coded sealers should favor simple, self-documenting tokens.
  
@@ -170,8 +170,8 @@
 
 @doc.seal "guard a value against accidental observation"
 @doc.unseal "unseal a value guarded by 'seal'"
-@sealer [%{:}]
-@unsealer [%{.}]
+@sealer [{:}]
+@unsealer [{.}]
 @seal sealer .apply
 @unseal unsealer .apply
 

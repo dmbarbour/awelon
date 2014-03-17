@@ -271,8 +271,8 @@
 "Model a simple, queue object with a pair of lists.
 ~
 @doc.suffix.lq doc.ListQueue
-@sealer.lq [%{:lq}]
-@unsealer.lq [%{.lq}]
+@sealer.lq [{:lq}]
+@unsealer.lq [{.lq}]
 @seal.lq sealer.lq .apply
 @unseal.lq unsealer.lq .apply
 @empty.lq 0 0 pw [] pw seal.lq

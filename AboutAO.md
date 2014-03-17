@@ -78,11 +78,11 @@ The translation from AO to ABC is trivial, but offers a significant benefit. Wit
 
 ## Inline ABC
 
-ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In addition, capabilities may be syntactically represented using `%{` to following `}`.
+ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In addition, capabilities may be syntactically represented using `{` to following `}`.
 
         %vrwlc      (aka `swap`)
         %lwcwrwc    (aka `rot4`)
-        %{&par}     (an annotation)
+        {&par}      (an annotation)
 
 The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the definition of `%vrwlc` is effectively `%v %r %w %l %c`. Capabilities must always be in canonical form. 
 
@@ -108,7 +108,7 @@ There are a few exceptions to the general rule. Developers are free to hard-code
 
 Annotations potentially serve many roles - optimization, debugging, warnings, etc. (see [AboutABC](AboutABC.md)). The main restriction is that annotations cannot be *semantic* - i.e. they cannot impact formally observable behavior. If annotations are removed, performance characteristics might change but the formal results would not.
 
-Annotations are described via capabilities using prefix `&` for the token. For example, `%{&par}` would be an annotation, potentially suggesting parallelization of a computation. AO allows arbitrary annotations in code. A compiler or interpreter will generally ignore annotations it doesn't recognize. 
+Annotations are described via capabilities using prefix `&` for the token. For example, `{&par}` would be an annotation, potentially suggesting parallelization of a computation. AO allows arbitrary annotations in code. A compiler or interpreter will generally ignore annotations it doesn't recognize. 
 
 ### Discretionary Value Sealing
 
@@ -116,10 +116,10 @@ Value sealing with sealer/unsealer pairs is useful for many security patterns (s
 
 Value sealing is a form of annotation in the sense that it doesn't have any observable semantics. That is, for a correct program, all sealer/unsealer pairs can be removed from the program without changing its behavior. Value sealing only causes some incorrect programs to fail or be rejected, and thus serves a role similar to 'newtype' in other languages.
 
-Sealers and unsealers are represented as capabilities using inline ABC:
+Sealers and unsealers are represented as capabilities:
 
-        %{:foo}       sealer 'foo' seals the value
-        %{.foo}       unseal value from sealer 'foo'
+        {:foo}       sealer 'foo' seals the value
+        {.foo}       unseal value from sealer 'foo'
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
@@ -134,18 +134,18 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * numbers - decimal, fractional, hexadecimal, negatives
 * text - inline or block
 * inline ABC, e.g. `%vrwlc`
-* capability text `%{` to following `}`
+* capability text `{` to following `}`
 * blocks `[` ... `]`
 * ambiguous structure `(`, `|`, `)`
 
 The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, quoting, and streaming. So the following rules apply:
 
 * words may not start with `@`, `%`, or a digit
-* words may not contain `"`, `[`, `]`, `(`, `|`, `)`
+* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, `{`, `}`
 * words may not contain C0 or C1 control characters, SP, or DEL
 * words starting with `+`, `-`, or `.` may not follow with a digit
 
-The structure of a word is not interpreted by AO. (An experiment with inflection did not hold.) However, the structure of a word may have extrinsic meaning in the larger context, e.g. `test.foo` might be executed as an automatic test (see Processing, below). 
+Excepting inline ABC pseudo-words, the structure of a word is not interpreted by AO. However, the structure of a word may have extrinsic meaning in the larger context, e.g. `test.foo` might be executed as an automatic test (see Processing, below). In addition to white space (SP, LF), characters `[`, `]`, `(`, `|`, `)` act as word separators. 
 
 ### AO Dictionary File
 

@@ -144,22 +144,22 @@ validToken (c:_) = ('&' == c) || (':' == c) || ('.' == c)
 parseAction :: (P.Stream s m Char) => P.ParsecT s u m Action
 parseAction = parser P.<?> "word or primitive" where
     parser = word P.<|> spaces P.<|> aoblock P.<|> amb P.<|>
-             number P.<|> text P.<|> prim
+             number P.<|> text P.<|> abc P.<|> cap
     word = parseActionWord
     text = Lit <$> (parseInlineText P.<|> parseMultiLineText)
     spaces = (Prim . S.fromList . map Op) <$> P.many1 (P.satisfy isSpace)
-    prim = P.char '%' >> ((inlineTok P.<|> inlineABC) P.<?> "inline ABC")
-    inlineTok = 
+    abc = 
+        P.char '%' >>
+        P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
+        (expectWordSep P.<?> "word separator or ABC code") >>
+        return ((Prim . S.fromList . map Op) ops)
+    cap = 
         P.char '{' >> 
         P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ txt ->
         expectWordSep >> assertValidToken txt >> 
         return ((Prim . S.singleton . Invoke . T.pack) txt)
     assertValidToken t = unless (validToken t) $ P.unexpected 
-        ("unrecognized token %{" ++ t ++ "}")
-    inlineABC = 
-        P.many1 (P.oneOf inlineOpCodeList) >>= \ ops ->
-        (expectWordSep P.<?> "word separator or ABC code") >>
-        return ((Prim . S.fromList . map Op) ops)
+        ("unrecognized token {" ++ t ++ "}")
     number = parseNumber >>= \ r -> expectWordSep >> return (Num r)
     aoblock = 
         P.char '[' >> P.manyTill parseAction (P.char ']') >>= 
@@ -288,7 +288,11 @@ isWordSep, isWordStart, isWordCont :: Char -> Bool
 isWordSep c = isSpace c || bracket || amb where
     bracket = '[' == c || ']' == c
     amb = '(' == c || '|' == c || ')' == c
-isWordCont c = not (isWordSep c || isControl c || '"' == c)
+isWordCont c = not (sep || ctl || quote || cap) where
+    sep = isWordSep c
+    ctl = isControl c
+    quote = '"' == c
+    cap = '{' == c || '}' == c
 isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
 
 -- tokens in AO are described with %{...}. They can have most
