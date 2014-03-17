@@ -3,7 +3,7 @@
  
      λa.µL.(1+(a*L))       shorthand: a`L
  
- Of course, AO and ABC don't have direct support for type annotations (not yet, anyway). The list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops).
+ Of course, AO and ABC don't have direct support for type annotations (not yet, anyway). The list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops), though a large vocabulary of list processing words can cover most use cases so users don't need to deal with fixpoints directly.
  
  Lists are simplistic data structures. Their extreme simplicity leads to awkwardness and complexity for many use-cases: 
  
@@ -12,7 +12,7 @@
  * iterative operations on a list tend to reverse the list
  * direct list processing is not incremental or compositional
  
- Developers are encouraged to use alternative data structures - sequences, streams, functions, etc. - rather than struggle with lists in cases where they're awkward. The primary advantage of lists is they have a strong normal form, suitable for structural comparisons.
+ Developers are encouraged to use alternative data structures - sequences, streams, functions, etc. - rather than struggle with lists in cases where they're awkward. Text in AO or ABC is essentially shorthand for a list of small numbers (0-1114111, the unicode characters and codepoints). In many cases - e.g. if a text represents a program in a DSL - it is useful to process the text immediately into an alternative structure, such that it can be computed by compile-time partial evaluation. The primary advantage of lists is they have a strong normal form, suitable for structural comparisons.
 ~
 
 @doc.empty.l "empty list (has same structure as 'false')"
@@ -20,6 +20,9 @@
 
 @doc.cons.l "a`L a -- a`L; add element to list"
 @cons.l p inR
+
+@assertEmpty.l mirror assert inL
+@assertNonEmpty.l assert inR
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
@@ -72,8 +75,8 @@
  532 assertEQ1 swap
 @test.length.l
  "hello" length.l 
- 5 assertEQ1 swap
- "hello" assertEQ1 swap
+ "hello" assertEQ1d
+ 5 assertEQ1
 @id.reverse.l reverse.l reverse.l
 @eqv.dropReverse.l [drop] [reverse.l drop]
 @id.append.l.empty empty.l append.l
@@ -146,32 +149,64 @@
 
 
 @doc.zip.l "a`L b`L -- (a*b)`L; will truncate if one list is smaller than the other"
-@zip.l zipReverse.l reverse.l
-@zipReverse.l empty.l unrot zipReverseAppend.l
-@zipReverseAppend.l [inner.zipReverseAppend.l] apply3to1
-@inner.zipReverseAppend.l [openB.zipReverseAppend.l] fixpoint inline
-@openB.zipReverseAppend.l unroll [elim1 drop dropd] [openA.zipReverseAppend.l] if
-@openA.zipReverseAppend.l swap   [elim1 drop dropd] [jcons.zipReverseAppend.l] if
-@jcons.zipReverseAppend.l zip2 swapd cons.l swap wx roll inline
-@comments.zip.l
-"This is quite inelegant as is. I wonder if translating lists to streams, then zipping streams, would be cleaner."
+@doc.zipRem.l "a`L b`L -- (a*b)`L a(rem)`L b(rem)`L; zip with remainder (in case lists not equal)"
+@zip.l zipRem.l drop drop
+@zipRem.l zipRevRem.l rot reverse.l unrot
+@zipRevRem.l empty.l unrot zipRevRemApp.l
+@zipRevRemApp.l [inner.zipRRA.l] apply3to3
+@inner.zipRRA.l [openB.zipRRA.l] fixpoint inline
+@openB.zipRRA.l unroll [inL roll drop] [openA.zipRRA.l] if
+@openA.zipRRA.l swap [inL swap inR roll drop] [jcons.zipRRA.l] if
+@jcons.zipRRA.l zip2 swapd cons.l swap wx roll inline
 
+@test.zip.l.truncateLeft  
+  "abcdef" "ghi" zip.l 
+  unzip.l 
+  "ghi" assertEQ1 swap 
+  "abc" assertEQ1 swap
+@test.zip.l.truncateRight 
+  "abcdef" "ghijklmno" zip.l 
+  unzip.l 
+  "ghijkl" assertEQ1 swap 
+  "abcdef" assertEQ1 swap
+@test.zip.l.eqSize 
+  "abcdef" "ghijkl" zip.l
+  unzip.l
+  "ghijkl" assertEQ1 swap
+  "abcdef" assertEQ1 swap
 @id.unzip.zip.l unzip.l zip.l
+@id.zipRem.unzip.l zipRem.l rot unzip.l swapd appendl.l unrot appendl.l swap
+
+@doc.span.l "a`L [pred(a--Bool)] -- a(remainder)`L a(prefix)`L; split largest prefix for which predicate holds"
+@doc.break.l "a`L [pred(a--Bool)] -- a(remainder)`L a(prefix)`L; split largest prefix for which predicate does not hold"
+@break.l [not.b] compose span.l
+@span.l spanRev.l reverse.l
+@spanRev.l empty.l unrot spanRevApp.l 
+@spanRevApp.l applyWrap [open.spanRA.l] bind fixpoint apply2to2 swap
+@doc.open.spanRA.l "dst`L a`L [[pred] open.spanRA.l] [pred] -- dst(rev span)`L a(rem)`L"
+@open.spanRA.l swap take2 [inL discard2] [cond.spanRA.l] if
+@cond.spanRA.l x dup put .apply [cons.l discard] [next.spanRA.l] if_
+@next.spanRA.l swapd cons.l swap put inline
+
+@test.span.l.cut
+ "hello, world!" [32 neqb] span.l
+ " world!" assertEQ1d
+ "hello,"  assertEQ1
+@test.span.l.full
+ "hello, world!" [drop true.b] span.l
+ empty.l assertEQ1d
+ "hello, world!" assertEQ1
+@test.span.l.empty
+ "hello, world!" [drop false.b] span.l
+ "hello, world!" assertEQ1d
+ empty.l assertEQ1
 
 @doc.Lists.todo
 "* compare length up to a given number (length up to N, returning (N+n(<N))?
- * 
- * find, elem
- * match head of list? 
- *   need concept for 'match' 
- *   maybe part of stream-processing grammar instead? (could optimize better)
- * zip(2..N), unzip(2..N)
+ * find, elem, text processing - might be better to pursue a proper
+    model of grammars, i.e. such that lists can be split, tokenized, etc.
+    But support for 'words' and 'unwords' etc. might be useful.
  * association lists (.al?)
- * t
- * search lists (with short-circuit)
- * list to/from stream
- * stable-sort a list (with a given sort function)
- * association lists
  * list to/from stream
 ~
 @doc.partition.l "(a+b)`L -- a`L b`L; lossy (loses info about interleave)"
@@ -233,8 +268,23 @@
 
 
 @doc.AssocLists
-"An 'association list' is a list of (key*value) pairs, where all the keys are comparable. Association lists offer a simple model for data structures. In most cases, association lists are sorted on the key in order to avoid encoding irrelevant information about update order.
+"An association list in AO is an abstract list of (key*value) pairs together with a key comparison function. In general, keys in the list should be unique, and developers must be explicit about how they access or modify the list. There is no assumed relationship between values in the list.
+ 
+ An association list serves as a simple implementation of small records or rows. Association lists don't scale nicely, and are often more dynamic in nature than desirable, but they are convenient for rapid prototyping. 
+ 
+ Association list words use the suffix `.al`, and the shorthand type AL in docs. 
 ~
+@doc.AssocLists.rep "al:(list*[gt])"
+
+@sealer.al   [%{:al}]
+@unsealer.al [%{.al}]
+@seal.al   sealer.al .apply
+@unseal.al unsealer.al .apply
+
+
+
+
+
 
 @doc.ListQueue 
 "Model a simple, queue object with a pair of lists.
