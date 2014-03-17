@@ -1,0 +1,24 @@
+lists
+
+@doc.AssocLists
+"An association list in AO is an abstract list of (key*value) pairs, sorted by key, together with a key comparison function. Keys must be copyable and droppable, and keys are usually unique within a list (shadowing is feasible but doesn't have nice properties). An association list serves as a simple implementation of small records or rows. Association lists don't scale nicely, and are often more dynamic in nature than desirable, but they are convenient for rapid prototyping. 
+ 
+ Association list words use the suffix `.al`, and the shorthand type k`AL in docs. Implementation structure:  
+ 
+     ((k*v)`L * [gt]) {:al}  
+         where gt :: k k -- Bool
+ 
+ The greater than function must describe a total order, and work for all keys. There is no assumed relationship between values in the list. This is to say, the type of each 'v' may depend on the value of the associated 'k', or even upon other 'v' values. 
+~
+
+@sealer.al   [%{:al}]
+@unsealer.al [%{.al}]
+@seal.al   sealer.al .apply
+@unseal.al unsealer.al .apply
+
+@doc.init1.al "[k k -- Bool] -- k`AL; initialize an association list"
+@doc.init.al "-- k`AL; initialize association list with default comparison"
+@init1.al applyWrap empty.l p seal.al
+@init.al [gtb] init1.al
+
+

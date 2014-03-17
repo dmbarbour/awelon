@@ -267,25 +267,6 @@
     dup reverse.l swap [gtb] sortBy.l assertEQ1
 
 
-@doc.AssocLists
-"An association list in AO is an abstract list of (key*value) pairs together with a key comparison function. In general, keys in the list should be unique, and developers must be explicit about how they access or modify the list. There is no assumed relationship between values in the list.
- 
- An association list serves as a simple implementation of small records or rows. Association lists don't scale nicely, and are often more dynamic in nature than desirable, but they are convenient for rapid prototyping. 
- 
- Association list words use the suffix `.al`, and the shorthand type AL in docs. 
-~
-@doc.AssocLists.rep "al:(list*[gt])"
-
-@sealer.al   [%{:al}]
-@unsealer.al [%{.al}]
-@seal.al   sealer.al .apply
-@unseal.al unsealer.al .apply
-
-
-
-
-
-
 @doc.ListQueue 
 "Model a simple, queue object with a pair of lists.
 ~

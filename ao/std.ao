@@ -1,6 +1,6 @@
  plumbing conditionals blocks
  hands stdenv 
- lists sequences
+ lists assocLists sequences
  loops streams process
  math stats
 
