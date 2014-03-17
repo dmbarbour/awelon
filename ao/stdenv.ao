@@ -64,8 +64,8 @@
 @doc.introE "adds empty environment object to stack"
 @doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
 @doc.swapE "switch current environment with env on stack; keep hand and power"
-@introE "" %r %vrvrwvrr %vrwlc %l
-@elimE  %r %vrwlc %llcwlclc %l drop
+@introE intro1 inL %r %vrvrwvrr %vrwlc %l
+@elimE  %r %vrwlc %llcwlclc %l mirror assert elim1
 @swapE %zrzwlz %vrwlc %zrwzl
 
 @id.introElimE introE elimE
