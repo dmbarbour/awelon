@@ -186,7 +186,10 @@
 @doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
 @doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
 @.bind pw %rr'wol
-@bind [%l] composel swap %r'l composel
+@bind swap quote composel
+@bind.old [%l] composel swap %r'l composel
+
+@eqv.bind [bind] [bind.old]
 
 @bind2 bind bind
 @bind3 bind bind bind
