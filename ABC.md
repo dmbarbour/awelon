@@ -63,17 +63,13 @@ See AboutABC for full explanations and design. This file just records each code,
 
 Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible).
 
-Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
+Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. Comparison operator `>` is just sufficient to compare texts - i.e. comparing numbers, products, sums, and unit. 
 
-Comparisons with `>` are, by design, just flexible enough to directly compare texts (ensuring that texts are suitable as identifiers). Four basic types can be directly compared: numbers with numbers (numerical order), sums with sums (left is less than right), products with products (first before second), and unit with unit (always equal). The goal here is to ensure texts are first-class, suitable for use as identifiers. Blocks and sealed values may not be compared.
-
-Static sealers and unsealers are, by nature, relatively insecure. However, for use in open systems, they'll often be rewritten using HMAC or similar to secure them. 
-
-Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, ABCD begins at U+00C0.
+Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a potential in-band stream separator. 
 
 ## ABCD
 
-None yet!
+None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns.
 
 ## Desiderata
 
