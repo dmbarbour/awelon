@@ -5,8 +5,8 @@ lists
  
  Association list words use the suffix `.al`, and the shorthand type k`AL in docs. Implementation structure:  
  
-     ((k*v)`L * [gt]) {:al}  
-         where gt :: k k -- Bool
+     ((k*v)`L * [lt]) {:al}  
+         where lt :: k k -- Bool
  
  The greater than function must describe a total order, and work for all keys. There is no assumed relationship between values in the list. This is to say, the type of each 'v' may depend on the value of the associated 'k', or even upon other 'v' values. 
 ~
@@ -19,6 +19,35 @@ lists
 @doc.init1.al "[k k -- Bool] -- k`AL; initialize an association list"
 @doc.init.al "-- k`AL; initialize association list with default comparison"
 @init1.al applyWrap empty.l p seal.al
-@init.al [gtb] init1.al
+@init.al [ltb] init1.al
+
+@doc.fromList1.al "(k*v)`L -- k`AL; uses default comparison"
+@doc.fromList.al "(k*v)`L [k k -- Bool] -- k`AL"
+@doc.toList.al "k`AL -- (k*v)`L"
+@doc.keyComp.al "k`AL -- k`AL [k k -- Bool]"
+
+@keyComp.al unseal.al dupsnd swap seal.al swap
+@toList.al unseal.al fst
+@fromList.al tuck sortByKey.l p seal.al
+@fromList1.al [ltb] fromList.al
+
+@testing.al
+  init.al
+  "fries" "salty" insertKV.al
+  "apple" "crunchy" insertKV.al
+  "pickles" "sour" insertKV.al
+  "beer" "bitter" insertKV.al
+  "coffee" "black" insertKV.al
+
+@doc.insertVK.al "k`AL v k -- k`AL; add (k*v) to list, will shadow existing k"
+@doc.insertKV.al "k`AL k v -- k`AL; add (k*v) to list, will shadow existing k"
+@doc.insertP.al "k`AL (k*v) -- k`AL; add (k*v) to list, will shadow existing k"
+
+@insertVK.al p insertP.al
+@insertKV.al pw insertP.al
+@insertP.al dupfst swapd unseal.al
+ "TODO: span the list based on keys"
+
+
 
 
