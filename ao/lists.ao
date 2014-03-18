@@ -19,7 +19,9 @@
 @empty.l intro1 inL
 
 @doc.cons.l "a`L a -- a`L; add element to list"
+@doc.consd.l "a`L b a -- a`L b; add element to list"
 @cons.l p inR
+@consd.l swapd cons.l swap
 
 @assertEmpty.l mirror assert inL
 @assertNonEmpty.l assert inR
@@ -150,7 +152,7 @@
 
 @doc.zip.l "a`L b`L -- (a*b)`L; will truncate if one list is smaller than the other"
 @doc.zipRem.l "a`L b`L -- (a*b)`L a(rem)`L b(rem)`L; zip with remainder (in case lists not equal)"
-@zip.l zipRem.l drop drop
+@zip.l zipRevRem.l drop drop reverse.l
 @zipRem.l zipRevRem.l rot reverse.l unrot
 @zipRevRem.l empty.l unrot zipRevRemApp.l
 @zipRevRemApp.l [inner.zipRRA.l] apply3to3
@@ -177,16 +179,21 @@
 @id.unzip.zip.l unzip.l zip.l
 @id.zipRem.unzip.l zipRem.l rot unzip.l swapd appendl.l unrot appendl.l swap
 
-@doc.span.l "a`L [pred(a--Bool)] -- a(remainder)`L a(prefix)`L; split largest prefix for which predicate holds"
-@doc.break.l "a`L [pred(a--Bool)] -- a(remainder)`L a(prefix)`L; split largest prefix for which predicate does not hold"
+@doc.spanP "a`L [a--(a+b)] -- a`L b`L; split longest sequence of `b` results (on right)"
+@doc.breakP.l "a`L [a--(b+a)] -- a`L b`L; split longest sequence of `b` results (on left)"
+@doc.span.l "a`L [pred(a--Bool)] -- a(rem)`L a`L; split largest prefix for which predicate holds"
+@doc.break.l "a`L [pred(a--Bool)] -- a(rem)`L a`L; split largest prefix for which predicate does not hold"
 @break.l [not.b] compose span.l
-@span.l spanRev.l reverse.l
-@spanRev.l empty.l unrot spanRevApp.l 
-@spanRevApp.l applyWrap [open.spanRA.l] bind fixpoint apply2to2 swap
-@doc.open.spanRA.l "dst`L a`L [[pred] open.spanRA.l] [pred] -- dst(rev span)`L a(rem)`L"
-@open.spanRA.l swap take2 [inL discard2] [cond.spanRA.l] if
-@cond.spanRA.l x dup put .apply [cons.l discard] [next.spanRA.l] if_
-@next.spanRA.l swapd cons.l swap put inline
+@spanP.l spanRevP.l reverse.l
+@breakP.l [mirror] compose spanP.l
+@span.l wrapObserver.b spanP.l
+
+@doc.spanRevP "a`L [a--(a+b)] -- a`L b(rev)`L"
+@doc.spanRevAppP "b0`L a`L [a--(a+b)] -- (b(rev)++b0)`L a`L"
+@spanRevP.l empty.l unrot spanRevAppP.l swap
+@spanRevAppP.l applyWrap [open.spanRAP.l] bind fixpoint apply2to2
+@open.spanRAP.l swap take2 [inL discard2] [part.spanRAP.l] if
+@part.spanRAP.l x put .apply [cons.l discard] [consd.l put inline] if
 
 @test.span.l.cut
  "hello, world!" [32 neqb] span.l
@@ -219,9 +226,11 @@
 @doc.partitionBy.l   "a`L [a--Bool] -- a`L a`L; Copyable a"
 @doc.partitionWith.l "a`L [a--(b+c)] -- b`L c`L"
 @doc.partitionElem.l "a`L a(m) -- a(≤m)`L a(>m)`L; Comparable a"
+@doc.partitionByKey.l "(k*v)`L [k--Bool] -- (k*v)`L (k*v)`L; Copyable k"
 @partitionWith.l mapReverse.l partitionReverse.l
 @partitionElem.l [lte1] bind partitionWith.l swap
 @partitionBy.l wrapObserver.b partitionWith.l
+@partitionByKey.l wrapKeyObserver.b partitionWith.l
 
 @test.partition.l 
  "hello, World!" [106 gt1] 
@@ -266,6 +275,18 @@
     "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertEQ
     dup reverse.l swap [gtb] sortBy.l assertEQ1
 
+@doc.sortByKey.l "(k*v)`L [lt(k k -- Bool)]; sort a list by keys"
+@sortByKey.l [step.sortByKey.l] bind fixpoint apply
+@step.sortByKey.l swap take2 [inL discard2] [nonEmpty.sortByKey.l] if
+@nonEmpty.sortByKey.l 
+ x dupfst swapd put bind partitionByKey.l
+ swap put bi& rot cons.l append.l
+
+@test.sortByKey.l
+   "acebdf" "gikhjl"  zip.l
+   [ltb] sortByKey.l unzip.l
+   "abcdef" assertEQ1d
+   "ghijkl" assertEQ1
 
 @doc.ListQueue 
 "Model a simple, queue object with a pair of lists.
