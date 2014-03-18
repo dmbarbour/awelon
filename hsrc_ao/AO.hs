@@ -24,6 +24,7 @@ import Data.IORef
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
@@ -35,6 +36,7 @@ import qualified System.Environment as Env
 import qualified System.Exit as Exit
 import qualified System.IO.Error as Err
 import AO.AO
+import AO.ParseAO
 import AO.ABC
 import AO.TypeABC
 
@@ -42,7 +44,7 @@ import AO.TypeABC
 data Mode 
     = Test -- run all `test.` words
     | Type [W] -- report type for a set of words
-    | DumpABC Bool W -- dump bytecode for a word
+    | DumpABC Bool AODef -- dump bytecode for a word
     | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
@@ -59,7 +61,8 @@ cmdLineHelp =
     "ao type                 typecheck all words in dict\n" ++
     "ao type x y z           print type for a given list of words\n" ++
     "ao abc word             dump weakly simplified ABC for a given word\n" ++
-    "ao abcRaw word          dump raw ABC for a given word\n" ++
+    "ao abc \"1 2 3 + +\"    dump weakly simplified ABC for a command\n" ++
+    "ao abcRaw word          dump raw ABC for a given word (or command)\n" ++
     "ao help (or -?)         print these options\n" ++
     "\n" ++
     "Environment Variables:\n" ++
@@ -90,7 +93,7 @@ runMode :: Mode -> IO ()
 runMode Help = runHelp
 runMode Test = runTests 
 runMode (Type ws) = runType ws
-runMode (DumpABC bSimp w) = runDumpABC bSimp w
+runMode (DumpABC bSimp aoDef) = runDumpABC bSimp aoDef
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -234,18 +237,30 @@ runTypeW w code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
 
 --------------------------------------
 -- Dump bytecode for the compiler
+-- (may fail if one or more words is undefined)
 --------------------------------------
 
-runDumpABC :: Bool -> W -> IO ()
-runDumpABC bSimp w =
-    loadDictionary >>= \ dict ->
-    let dc = compileDictionary dict in
-    let simp = if bSimp then simplifyABC else id in
-    case M.lookup w dc of
-        Just abc -> Sys.putStrLn . T.unpack . showOps . simp $ abc
-        Nothing -> do
-            putErrLn $ "Word " ++ T.unpack w ++ " not found!"
-            Exit.exitWith $ Exit.ExitFailure 1
+runDumpABC :: Bool -> AODef -> IO ()
+runDumpABC bSimp = compile >=> simplify >=> printABC where
+    exitFailure = Exit.exitWith $ Exit.ExitFailure 1
+    compile aoSrc = 
+        loadDictionary >>= \ dict ->
+        let dc = compileDictionary dict in
+        case compileActions dc aoSrc of
+            Left err -> putErrLn (T.unpack err) >> exitFailure
+            Right abc -> return abc
+    simplify = return . if bSimp then simplifyABC else id
+    printABC = Sys.putStrLn . T.unpack . showOps
+
+compileActions :: DictC -> AODef -> Either Text (S.Seq Op)
+compileActions dc actions = 
+    let wNeed = aoWordsRequired actions in
+    let wMissed = Set.filter (`M.notMember` dc) wNeed in
+    if Set.null wMissed
+        then Right $ aoToABC dc actions
+        else Left $ 
+            T.pack "undefined words: " `T.append` 
+            T.unwords (Set.toList wMissed)
 
 ---------------------------------------
 -- Command Line Parser (Tok is command line argument)
@@ -271,14 +286,12 @@ parseTypeMode =
 
 parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseDumpABCMode = rawABC P.<|> simpABC where
-    simpABC = 
-        tok (== "abc") >>
-        fmap T.pack anyOneArg >>= \ targetWord ->
-        return (DumpABC True targetWord)
-    rawABC =
-        tok (== "abcRaw") >>
-        fmap T.pack anyOneArg >>= \ targetWord ->
-        return (DumpABC False targetWord)
+    simpABC = tok (== "abc") >> parseCmd True
+    rawABC  = tok (== "abcRaw") >> parseCmd False
+    parseCmd bSimp = DumpABC bSimp <$> (anyOneArg >>= parseDef)
+    parseDef str = case P.parse parseAODef "" str of
+        Left pe -> P.unexpected (show pe)
+        Right def -> return def
 
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> return Help where
