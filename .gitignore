@@ -6,3 +6,4 @@ tmp/
 *.prof
 cabal-dev/
 .shelly
+__pycache__/

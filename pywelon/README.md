@@ -11,4 +11,6 @@ So usage may currently look like:
 
 ... or similar. I'm not fluent with python, and I'll be learning as I go along. 
 
-If this works out really well, I might need to re-implement my REPL using pypy.
+If this works out really well, I might need to re-implement my REPL using pypy. It still won't be a good substitute for a proper compiler (there are quite a few dataflow optimizations that I doubt even pypy can perform). But even a 10x performance improvement would be extremely useful.
+
+
