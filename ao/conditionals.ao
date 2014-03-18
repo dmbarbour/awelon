@@ -142,6 +142,11 @@ boolean
 @doc.wrapObserver.b "[a--Bool] -- [a--(a+a)]; Copyable a"
 @wrapObserver.b [keep] bind [distrib [%c] .left [%c] .right] compose
 
+@doc.wrapKeyObserver.b "[k--Bool] -- [(k*v)--((k*v)+(k*v))]; Copyable k"
+@wrapKeyObserver.b 
+    quote [dupfst swap] composel 
+    [dip distrib [%c] .left [%c] .right] compose
+
 @doc.assert 
 "AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
  
