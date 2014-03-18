@@ -286,10 +286,14 @@ parseTypeMode =
 
 parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseDumpABCMode = rawABC P.<|> simpABC where
-    simpABC = tok (== "abc") >> parseCmd True
-    rawABC  = tok (== "abcRaw") >> parseCmd False
-    parseCmd bSimp = DumpABC bSimp <$> (anyOneArg >>= parseDef)
-    parseDef str = case P.parse parseAODef "" str of
+    simpABC = tok (== "abc") >> mode True
+    rawABC  = tok (== "abcRaw") >> mode False
+    mode bSimp = DumpABC bSimp <$> parseCmd 
+
+parseCmd :: (P.Stream s m Tok) => P.ParsecT s u m AODef
+parseCmd = 
+    anyOneArg >>= \ str ->
+    case P.parse parseAODef "" str of
         Left pe -> P.unexpected (show pe)
         Right def -> return def
 
