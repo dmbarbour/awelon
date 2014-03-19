@@ -7,3 +7,4 @@ tmp/
 cabal-dev/
 .shelly
 __pycache__/
+*.pyc
