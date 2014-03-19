@@ -3,9 +3,9 @@ PyPy and RPython has an interesting ability: we can implement an interpreter and
 
 This seems interesting. I'll give it a try, so long as it takes at most a few days. :)
 
-This implementation is for a simple ABC interpreter, accepting the ABC stream via standard input. For now, the program starts in AO's standard environment. Eventually, I may add a persistence option, or support paragraphs. For now, the powerblock is quite limited.
+Note that python is not a dependency for any of the Haskell work, nor vice versa. The pywelon package is an independent implementation, currently only of the ABC interpreter.
 
-So usage may currently look like:
+I currently expect to provide the input program on standard input, so usage may currently look like:
 
      ao abc command | pypy runABC.py ...
 
