@@ -7,3 +7,6 @@ An interesting possibility I'm considering is to introduce a concept of a virtua
         X :: a*e → ((a+a)*e)  
 
 Where, in this case, the result is certainly in the right-hand side, but (unlike `V`) we have some assumed type relationship to the left-hand side. The result could be merged with `K` or `M` (but not `C`).
+
+Essentially, this allows us to say that some function *should* be applicable to a value, without actually applying it.
+
