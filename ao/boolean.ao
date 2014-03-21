@@ -16,6 +16,9 @@
 @doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- Bool"
 @toBoolean %rVR [%v%] %r?W [%v%] %r?WLCl
 
+@doc.trimBoolean "(x*1 + y*1) -- (x+y); may be useful after distrib"
+@trimBoolean %rVR [%c] %r?W [%c] %r?WLCl
+
 @doc.assertBoolean "Bool -- Bool; enforces boolean argument"
 @assertBoolean %rVR [.assertUnit] %r?W [.assertUnit] %r?WLCl
 

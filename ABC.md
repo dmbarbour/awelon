@@ -75,10 +75,6 @@ None yet! ABCD will begin after U+00C0, and will develop according to empirical 
 
 I would like to find simpler alternatives for `F` and `M` operators, with respect to static analysis. Suggestions are welcome.
 
-## Under Evaluation
-
-I have a very recent idea (19 March 2014): to introduce virtual sums to support typechecking. This is in the wake of removing `PSBN` operators, which served the role MUCH less effectively. See [type decl](doc/TypeDecl.md).
-
 ## Deprecated
 
 Originally, ABC had some introspection operators.

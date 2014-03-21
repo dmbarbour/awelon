@@ -27,6 +27,13 @@ boolean
 @inRd swap inR swap
 @inLd swap inL swap
 
+@doc.distribInR "b -- (b + b); in right; as `inR` but preserves x's type info in left"
+@doc.distribInL "a -- (a + a); in left; as `inL` but preserves x's type info in right"
+@distribInL false.b swap distrib trimBoolean
+@distribInR distribInL mirror
+@distribInLd swap distribInL swap
+@distribInRd swap distribInR swap
+
 @doc.gt "a b -- ((a*b) + (b*a)); a > b?"
 @doc.lt "a b -- ((b*a) + (a*b)); a < b?"
 @doc.gte "a b -- ((a*b) + (b*a)); a ≥ b?"
