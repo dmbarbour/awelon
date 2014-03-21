@@ -425,7 +425,7 @@ Between these two features, ABC can be minimal without concern for performance o
 
 Ambiguous ABC (AMBC), is an extension to ABC to directly express AO's ambiguity feature. AMBC serves primarily as an intermediate language for AO.
 
-AMBC extends ABC with with `(|)` characters, which represents a choice of subprograms separated by the `|` bar. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). The resolution of this ambiguous meaning is not deterministic, but is constrained by typeful context (i.e. meanings with obvious errors should be eliminated) and may further be guided by heuristics (i.e. weighted preferences or probabilities via annotations). 
+AMBC extends ABC with with `(|)` characters, which represents a choice of subprograms separated by the `|` bar. E.g. `vr(wl|>M)c` has two potential meanings - `vrwlc` (swap) or `vr>Mc` (sort2). The resolution of this ambiguous meaning is not deterministic, but is constrained by typeful context (i.e. meanings with obvious type errors or assertion failures should be eliminated) and may further be guided by heuristics (i.e. weighted preferences or probabilities via annotations). 
 
 Ambiguity is a potential asset for rapid prototyping, exploratory programming, adaptive code, and incremental refinement. Developers can represent a very large *space* of programs or data structures in a small volume of code, and may further implicitly constrain this space by use of types and assertions. This space can feasibly be explored by a number of mechanisms - i.e. satisfiability solvers, genetic programming, iterative hill climbing. 
 
