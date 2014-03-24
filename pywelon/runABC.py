@@ -2,7 +2,12 @@
 import sys
 import io
 from .abcTypes import *
+from .parseABC import *
 
+# abstract class for invocations and annotations
+class Invoker(object):
+  def anno(self,tok,val): return val
+  def invoke(self,tok,val): raise error('unknown power: ' + tok)
 
 # runABC takes a 'source' (for the program) and an
 # 'environment' (an initial value). It returns the
@@ -23,11 +28,11 @@ def defaultEnv(): return aoStdEnv()
 def aoStdEnv():
   s   = unit
   h   = unit
-  pb  = block([invocation("~power~")])
+  pb  = B(False,False,(Inv('~power~'),))
   sn  = textToVal("")
   rns = unit
-  ex  = unit
-  stdenv = P(s,P(h,P(pb,P(P(sn,rns),ex))))
+  ex  = P(P(sn,rns),unit)
+  stdenv = P(s,P(h,P(pb,ex)))
   return stdenv
 
 def defaultInvoker():

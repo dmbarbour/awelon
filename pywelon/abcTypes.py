@@ -10,14 +10,16 @@
 #   float - current implementation of numbers (might switch to fractions)
 #
 # Code Types:
-#   int - an ABC operator
+#   int - ABC operator
 #   Inv - invocations contain a string {foo}
 #   Lit - literals contain a value type (e→(L*e))
+#
+# Todo: Find an alternative model for code and values to respect RPython's
+#  constraint on variables having a single type. 
 #
 # Code and values should not bind to the Python environment, at least
 # not strongly. E.g. blocks can be serialized to ABC and recovered.
 #
-# Todo: validate that this is all cool for PyPy's RPython
 #
 
 from collections import namedtuple
@@ -115,7 +117,9 @@ def droppable(x):
 
 # Blocks are very simple in pywelon:
 #   affine and relevant are boolean
-#   code is a tuple of Ops/Lit/Inv values.
+#   code is a list of int/Lit/Inv values
+#     this list should be considered immutable
+#     (pypy doesn't support variable-length tuples)
 B = namedtuple('B', ('affine','relevant','code'))
 
 def compose(b1,b2):
@@ -127,43 +131,14 @@ def composeCode(c1,c2):
   return (c1 + c2) # no simplification for now
 
 
-# Code types, plus 'int' for ABC operators
+# Code types for ABC operators
 Lit = namedtuple('Lit',('val',)) # literal value (e → (L*e))
 Inv = namedtuple('Inv',('tok',)) # {token}
 
 def isOp(x):  return type(x) is int
 def isLit(x): return type(x) is Lit
 def isInv(x): return type(x) is Inv
-
-
-
-
-
-
-
-### MISCELLANEOUS UTILITIES
-
-
-# join two operation strings with limited simplification
-#  (I'm not sure this is worthwhile. But implementing it was cathartic.)
-def joinOpStrings(l,r):
-  if (not l): return r
-  elif (not r): return l
-  elif (opsCancel(ord(l[-1]),ord(r[0]))): return joinOpStrings(l[:-1],r[1:])
-  else: return (l + r)
-def opsCancel(op1,op2): 
-  return ((op1 == op1) and selfCancel(op1)) \
-      or asymOpsCancel(op1,op2) \
-      or asymOpsCancel(op2,op1)
-def selfCancel(op):  # ww, zz, WW, ZZ
-  return (op == 119) or (op == 122) \
-      or (op == 87)  or (op == 90)
-def asymOpsCancel(op1,op2): # lr, cv, LR, CV
-  return ((op1 == 108) and (op2 == 114)) \
-      or ((op1 == 99)  and (op2 == 118)) \
-      or ((op1 == 76)  and (op2 == 82))  \
-      or ((op1 == 67)  and (op2 == 86))
-  
+ 
 
 
 
