@@ -3,6 +3,7 @@ import os
 from .abcTypes import *
 
 # abstract class for invocations and annotations
+# note: sealers/unsealers are handled outside of invoker
 class Invoker(object):
   def anno(self,tok,val): return val
   def invoke(self,tok,val): raise error('unknown power: ' + tok)
@@ -10,10 +11,12 @@ class Invoker(object):
 powerToken = '~power~'
 powerBlock = B(True,True,[Inv(powerToken)])
 
+# a very basic set of side-effects.
+# might be useful to support python moduless?
 class DefaultInvoker(Invoker):
   def invoke(self, tok, val):
     if (tok is powerToken): return P(powerBlock, self.power(val))
-    else: raise error('unknown power: ' + tok)
+    else: raise error('unknown token: ' + tok)
   def power(self,val):
     assert isProd(val)
     args = val.r
@@ -46,7 +49,10 @@ class DefaultInvoker(Invoker):
     count = int(args)
     assert(count >= 0),'invalid count for random bytes'
     bytes = os.urandom(count)
-    return bytesToList(bytes)
+    val = L(unit)
+    for b in bytes:
+      val = R(P(number(ord(b)),val))
+    return val
   def destroy(self,args): # arg is object to be destroyed
     return unit
   def getOSEnv(self,args): # args is environment variable

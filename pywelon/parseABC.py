@@ -18,7 +18,9 @@ def stepParseABC(loc,src):
   while(loc < len(src)):
     op = s[loc]
     if((' ' == op) or ('\n' == op)): loc += 1
-    elif op in abcOps: codes.append(ord(op)); loc += 1
+    elif op in abcOps: 
+       codes.append(ord(op))
+       loc += 1
     elif ('[' == op):
        loc,body = stepParseABC(loc+1,s) 
        assert isEndOfBlock(loc,s)
@@ -68,3 +70,8 @@ def isEndOfInvoke(loc,s): return (loc < len(s)) and ('}' == ord(s[loc]))
 def isEndOfText(loc,s):
   return (loc < len(s)) and (loc>0) \
      and (s[loc] == '~') and (s[loc-1] == '\n')
+
+
+
+
+
