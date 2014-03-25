@@ -65,25 +65,34 @@
 
 @doc.TODO
 "Much to do about AO
-  * automatic testing (run all 'test' words)
-  * functions for lists, streams
-  * functions for association lists, maps, records
+  * functions for streams and processes
+  *   which concept for streams?
+  *   would it be better to model streams using processes?
+  * functions for association lists, maps, records, or similar
+  *   maybe support for tables, too; relational algebra
+  *     ideally a DSL supporting composition, optimization, compilation 
+  * functions for matrices and vector
   * functions for sequences (finger-trees/ropes)
-  * functions for parser combinators
+  * functions for parser combinators; grammar DSL
+  *   should support derivative grammars & deep optimizations
   * AO bootstrap; optimizers and compilers for ABC, AO
   *   eventually do typechecking
   *   eventually get to AMBC
-  * develop a colors model? 
+  * develop a colors/materials model? 
   *   named palette plus RGB? meh. 
   *   a DSL for mixing, lightening, and darkening colors?
   *   maybe a richer 'materials' model (cf. POV-ray) 
   *     with shine, roughness, transparency, etc.
   *     procedural texture generation, perlin noise
   *     automatic generation from images
+  *     suitable for use in games...
   * functions for text, utf-8, binary, base64
+  *   implement as stream transformers?
   * functions for kd-trees, geometries, scene-graphs
+  * functions for textures, jpegs, gifs, compression and decompression
   * contraint models for staged dependency/policy/typeclass injection 
   * project euler? rosetta code? a simple tetris/breakout game?
+  *   need a lot more performance, first!
   * simplified app type for quick integration with Haskell? (use plugins?)
   * 2D-3D scene-graphs based on enneatrees and zippers
   * secure pseduo-random number generators; probabilistic programs
