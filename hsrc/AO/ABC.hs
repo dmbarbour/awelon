@@ -188,6 +188,7 @@ simpl (Op 'r' : Op 'l' : ops) = simpl ops
 simpl (Op 'w' : Op 'w' : ops) = simpl ops
 simpl (Op 'z' : Op 'z' : ops) = simpl ops
 simpl (Op 'v' : Op 'c' : ops) = simpl ops 
+simpl (Op 'c' : Op 'v' : ops) = simpl ops
 -- from wzw = zwz
 simpl (Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'w' : Op 'z' : Op 'w' : ops)
 -- from lzrw = wlzr
@@ -195,6 +196,14 @@ simpl (Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'w' : Op 'z' : Op 'w' : ops)
 --simpl (Op 'r' : Op 'w' : Op 'l' : Op 'z' : Op 'r' : ops) = simpl (Op 'z' : Op 'r' : Op 'w' : ops)
 --simpl (Op 'w' : Op 'l' : Op 'z' : Op 'r' : Op 'w' : ops) = simpl (Op 'l' : Op 'z' : Op 'r' : ops)
 -- continue simplification (single pass)
+simpl (Op 'R' : Op 'L' : ops) = simpl ops
+simpl (Op 'L' : Op 'R' : ops) = simpl ops
+simpl (Op 'W' : Op 'W' : ops) = simpl ops
+simpl (Op 'Z' : Op 'Z' : ops) = simpl ops
+simpl (Op 'V' : Op 'C' : ops) = simpl ops
+simpl (Op 'C' : Op 'V' : ops) = simpl ops
+simpl (Op 'Z' : Op 'W' : Op 'Z' : ops) = simpl (Op 'W' : Op 'Z' : Op 'W' : ops)
+
 simpl (AMBC [singleton] : ops) = simpl ((S.toList singleton) ++ ops)
 simpl (op : ops) = 
     let ops' = simpl ops in
