@@ -1,0 +1,6 @@
+@doc.Records
+"A simple way to model small records is as vector of field*value pairs.
+
+~
+ 
+ 
