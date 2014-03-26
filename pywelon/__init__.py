@@ -1,1 +1,1 @@
-__all__ = ["abcTypes","runABC","parseABC","effects.py"]
+__all__ = ["abcTypes","runABC","parseABC","effects"]

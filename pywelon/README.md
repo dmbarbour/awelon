@@ -7,7 +7,7 @@ Note that python is not a dependency for any of the Haskell work, nor vice versa
 
 I currently expect to provide the input program on standard input, so usage may currently look like:
 
-     ao abc command | pypy runABC.py ...
+     ao abc command | pypy -m pywelon
 
 ... or similar. I'm not fluent with python, and I'll be learning as I go along. 
 

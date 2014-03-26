@@ -19,7 +19,7 @@ def runABC(source, env, invoker):
   return loopABC(parseABC(source),0,env,invoker)
 
 # reify stack for runABC
-Stack = namedtuple('Stack',['code','loc','context','next'])
+Stack = namedtuple('Stack',['code','pc','context','next'])
 
 def loopABC(code,pc,env,invoker):
   stack = None # affected by '$' and '?' ops
@@ -104,7 +104,9 @@ def loopABC(code,pc,env,invoker):
     # repeat forever
 
 def printEnvSummary(env): 
-  print env # should aim to do a better job, here!
+  # currently, just print top object on stack
+  if isProd(env) and isProd(env.l): 
+    sys.stdout.write(showVal(env.l.l,16) + u'\n')
 
 # defaultEnv will return the default initial environment.
 # for now, this is just a constant. However, I'd like to
@@ -119,7 +121,7 @@ def aoStdEnv():
   stdenv = P(s,P(h,P(pb,ex)))
   return stdenv
 
-def defaultInvoker: return DefaultInvoker()
+def defaultInvoker(): return DefaultInvoker()
 def defaultEnv(): return aoStdEnv()
 def defaultProgram(): return sys.stdin.read()
 

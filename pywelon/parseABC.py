@@ -16,26 +16,26 @@ abcOps = 'lrwzvcLRWZVC%^$kfo\'+*/-Q?DFMK>\n #0123456789'
 def stepParseABC(loc,src):
   codes = []
   while(loc < len(src)):
-    op = s[loc]
+    op = src[loc]
     if((' ' == op) or ('\n' == op)): loc += 1
     elif op in abcOps: 
        codes.append(ord(op))
        loc += 1
     elif ('[' == op):
-       loc,body = stepParseABC(loc+1,s) 
-       assert isEndOfBlock(loc,s)
+       loc,body = stepParseABC(loc+1,src) 
+       assert isEndOfBlock(loc,src)
        loc += 1
        codes.append(Lit(B(False,False,body)))
     elif (']' == op):
        return loc,codes
     elif ('"' == op):
-       loc,text = parseText(loc,s)
-       assert isEndOfText(loc,s)
+       loc,text = parseText(loc,src)
+       assert isEndOfText(loc,src)
        loc += 1
-       codes.append(Lit(textToVal(text))
+       codes.append(Lit(textToVal(text)))
     elif ('{' == op):
-       loc,tok = parseInvocation(loc,s)
-       assert isEndOfInvoke(loc,s)
+       loc,tok = parseInvocation(loc,src)
+       assert isEndOfInvoke(loc,src),'expecting }; got ' + src[loc]
        loc += 1
        codes.append(Inv(tok))
     else: raise error('unknown operator: ' ++ op)
@@ -66,7 +66,7 @@ def parseText(loc,src):
       return (eol+1),(result + src[loc:eol])
 
 def isEndOfBlock(loc,s): return (loc < len(s)) and (']' == s[loc])
-def isEndOfInvoke(loc,s): return (loc < len(s)) and ('}' == ord(s[loc]))
+def isEndOfInvoke(loc,s): return (loc < len(s)) and ('}' == s[loc])
 def isEndOfText(loc,s):
   return (loc < len(s)) and (loc>0) \
      and (s[loc] == '~') and (s[loc-1] == '\n')
