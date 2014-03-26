@@ -39,12 +39,15 @@ import AO.AO
 import AO.ParseAO
 import AO.ABC
 import AO.TypeABC
+import AO2HS(runAO2HS, runDict2HS)
 
 -- not many modes to parse at the moment.
 data Mode 
     = Test -- run all `test.` words
     | Type [W] -- report type for a set of words
     | DumpABC Bool AODef -- dump bytecode for a word
+    | AO2HS AODef -- generate Haskell code for a given command
+    | Dict2HS     -- generate Haskell code for each word 
     | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
@@ -63,11 +66,13 @@ cmdLineHelp =
     "ao abc word             dump weakly simplified ABC for a given word\n" ++
     "ao abc \"1 2 3 + +\"    dump weakly simplified ABC for a command\n" ++
     "ao abcRaw word          dump raw ABC for a given word (or command)\n" ++
+    "ao ao2hs word           emit Haskell code to run word (or command)\n" ++
+    "ao dict2hs              emit Haskell code for every word in dictionary\n" ++
     "ao help (or -?)         print these options\n" ++
     "\n" ++
     "Environment Variables:\n" ++
     "    AO_PATH: list of directories, searched for .ao files\n" ++
-    "    AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n" 
+    "    AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n"
 
 main :: IO ()
 main = getMode >>= runMode
@@ -94,6 +99,8 @@ runMode Help = runHelp
 runMode Test = runTests 
 runMode (Type ws) = runType ws
 runMode (DumpABC bSimp aoDef) = runDumpABC bSimp aoDef
+runMode (AO2HS action) = runAO2HS action
+runMode (Dict2HS) = runDict2HS
 
 runHelp :: IO ()
 runHelp = putErrLn cmdLineHelp >> return ()
@@ -297,6 +304,15 @@ parseCmd =
         Left pe -> P.unexpected (show pe)
         Right def -> return def
 
+parseDict2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
+parseDict2HSMode = tok (== "dict2hs") >> return Dict2HS
+
+parseAO2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
+parseAO2HSMode =
+    tok (== "ao2hs") >>
+    parseCmd >>= \ cmd ->
+    return (AO2HS cmd)
+
 parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseHelpMode = tok anyHelp >> return Help where
     anyHelp s = ("help" == s) || ("-help" == s) || ("-?" == s)
@@ -307,4 +323,6 @@ parseCmdLine = parseMode >>= \ m -> P.eof >> return m where
         parseTestMode    P.<|>
         parseTypeMode    P.<|>
         parseDumpABCMode P.<|>
+        parseAO2HSMode   P.<|>
+        parseDict2HSMode P.<|>
         parseHelpMode

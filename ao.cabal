@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.12.1
+Version: 0.12.2
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -23,7 +23,7 @@ Maintainer: dmbarbour@gmail.com
 Homepage: http://github.com/dmbarbour/awelon
 
 Package-Url: 
-Copyright: (c) 2014 by David Barbour
+Copyright: (c) 2013-2014 by David Barbour
 License: BSD3
 license-file: LICENSE.txt
 Stability: experimental
