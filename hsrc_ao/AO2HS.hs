@@ -21,6 +21,7 @@ module AO2HS
     ) where
 
 import Data.Maybe (mapMaybe)
+import Data.Ratio (numerator, denominator)
 import qualified Data.Char as C
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -114,9 +115,9 @@ ao2hs actions =
 action2hs :: Action -> Maybe Text
 action2hs (Word w) = Just $ ao2hs_mangle w
 action2hs (Num r) | (1 == denominator r) = Just $ T.pack "number " 
-    `T.append` T.pack (show (numerator r)) `T.append` " >>> op_l"
+    `T.append` T.pack (show (numerator r)) `T.append` T.pack " >>> op_l"
 action2hs (Num r) = Just $ T.pack "number ("
-    `T.append` T.pack (show r) `T.append` ") >>> op_l"
+    `T.append` T.pack (show r) `T.append` T.pack ") >>> op_l"
 action2hs (Lit txt) = Just $ T.pack "text " 
     `T.append` T.pack (show txt) `T.append` T.pack " >>> op_l" 
 action2hs (BAO def) = Just $ T.pack "block (" 
