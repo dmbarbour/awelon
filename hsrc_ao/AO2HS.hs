@@ -114,10 +114,7 @@ ao2hs actions =
 
 action2hs :: Action -> Maybe Text
 action2hs (Word w) = Just $ ao2hs_mangle w
-action2hs (Num r) | (1 == denominator r) = Just $ T.pack "number " 
-    `T.append` T.pack (show (numerator r)) `T.append` T.pack " >>> op_l"
-action2hs (Num r) = Just $ T.pack "number ("
-    `T.append` T.pack (show r) `T.append` T.pack ") >>> op_l"
+action2hs (Num r) = Just $ T.pack (num2hs r) `T.append` T.pack " >>> op_l"
 action2hs (Lit txt) = Just $ T.pack "text " 
     `T.append` T.pack (show txt) `T.append` T.pack " >>> op_l" 
 action2hs (BAO def) = Just $ T.pack "block (" 
@@ -130,6 +127,11 @@ action2hs (Prim ops) =
     let hsOps = mapMaybe op2hs (S.toList ops) in
     if null hsOps then Nothing else
     Just $ T.intercalate (T.pack " >>> ") hsOps
+
+num2hs :: Rational -> String
+num2hs n | ((n >= 0) && (1 == denominator n)) = "number " ++ show (numerator n)
+num2hs n | (1 == denominator n) = "number (" ++ show (numerator n) ++ ")"
+num2hs r = "number (" ++ show r ++ ")"
 
 op2hs :: Op -> Maybe Text
 op2hs (Op c) | L.elem c inlineOpCodeList = Just $ opc2hs c
