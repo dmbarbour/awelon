@@ -109,7 +109,7 @@ runAO2HS = Sys.putStrLn . T.unpack . ao2hs
 ao2hs :: AODef -> Text
 ao2hs actions = 
     let hsActions = mapMaybe action2hs (S.toList actions) in
-    if null hsActions then T.pack "id" else
+    if null hsActions then T.pack "op_id" else
     T.intercalate (T.pack " >>> ") hsActions
 
 action2hs :: Action -> Maybe Text
