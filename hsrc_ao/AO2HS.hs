@@ -17,12 +17,16 @@
 --
 module AO2HS
     ( runAO2HS, runDict2HS
-    , ao2hs_mangle, ao2hs, dict2hs
+    , ao2hs_mangle, ao2hs, action2hs, dict2hs
     ) where
 
+import Data.Maybe (mapMaybe)
 import qualified Data.Char as C
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.List as L
+-- import qualified Data.Sequence as S
+import qualified Data.Foldable as S
 import Data.Text (Text)
 import qualified System.IO as Sys
 import AO.AO
@@ -53,7 +57,6 @@ runDict2HS =
 
 dict2hs :: Dictionary -> Text
 dict2hs dict = prefix `before` body where
-    mdict = mangleWords ao2hs_mangle dict
     before x y = (x `T.snoc` '\n' `T.snoc` '\n') `T.append` y
     prefix = lang `before` opts `before` openingComment 
              `before` moduleDecl `before` importsList
@@ -64,18 +67,22 @@ dict2hs dict = prefix `before` body where
         \-- regenerate it, assuming the ao package is installed and configured.\n\
         \-- Avoid direct modification; if a fix is needed, fix the ao package.\n\
         \-- \n\
-        \-- This file contains the contents of an AO dictionary, translated into\n\
+        \-- This file contains the full contents of an AO dictionary, translated into\n\
         \-- Haskell for further compilation or performance. In addition, it exports\n\
         \-- an 'allWords' association list to access words as dynamic values.\n\
         \-- \n\
         \-- The client of this file should define `AOPrelude`, which will be imported\n\
         \-- as the only dependency (no implicit prelude). This prelude should define\n\
-        \-- some words, such as `dynWord` (used by `allWords`) and `abcOp_v` (and all\n\
-        \-- the ABC primitives), and various types for number and text literals. An\n\
-        \-- example AOPrelude, with inline documentation, should be available."
+        \-- ABC primitive words, plus a few extras like `dynWord` and `>>>`. The prelude\n\
+        \-- determines the types for the AO code, whether it is interpreted reactively,\n\
+        \-- and so on. An example AOPrelude will provide inline documentation.\n\
+        \-- \n\
+        \-- Note that 'number', 'text', and 'block' explicitly include the 'op_l' that\n\
+        \-- was implicit in AO. Invocations are reduced to 'seal', 'unseal', and 'anno'."
+    mangledWords = fmap ao2hs_mangle $ M.keys dict
     moduleDecl = 
-        T.pack  "module AODict\n    (" `T.append` 
-        T.intercalate (T.pack "\n    ,") (M.keys mdict) `T.append`
+        T.pack   "module AODict\n    (" `T.append` 
+        T.intercalate (T.pack "\n    ,") mangledWords `T.append`
         T.pack                "\n    ,allWords) where"
     importsList = T.pack "import AOPrelude"
     body = allWordsList `before` wordDefs
@@ -86,18 +93,85 @@ dict2hs dict = prefix `before` body where
     wordPair w =
         T.pack "(\"" `T.append` w `T.append` T.pack "\", dynWord " 
         `T.append` ao2hs_mangle w `T.append` T.singleton ')'
-    wordDefs = T.unlines (fmap wordDef (M.toList mdict))
+    wordDefs = T.unlines (fmap wordDef (M.toList dict))
     wordDef (w,(loc,def)) =
-        w `T.append` T.pack " = -- " `T.append` 
-        locatorText loc `T.append` T.pack "\n" 
+        ao2hs_mangle w `T.append` T.pack " = -- " `T.append` 
+        wordLocatorText w loc `T.append` T.pack "\n" 
         `T.append` indent (T.pack "  ") (ao2hs def)
 
 indent :: Text -> Text -> Text
 indent sp txt = T.unlines $ fmap (sp `T.append`) (T.lines txt)
 
-ao2hs :: AODef -> Text
-ao2hs _actions = T.pack "error \"TODO!\""
-     
 runAO2HS :: AODef -> IO ()
 runAO2HS = Sys.putStrLn . T.unpack . ao2hs 
+
+ao2hs :: AODef -> Text
+ao2hs actions = 
+    let hsActions = mapMaybe action2hs (S.toList actions) in
+    if null hsActions then T.pack "id" else
+    T.intercalate (T.pack " >>> ") hsActions
+
+action2hs :: Action -> Maybe Text
+action2hs (Word w) = Just $ ao2hs_mangle w
+action2hs (Num r) | (1 == denominator r) = Just $ T.pack "number " 
+    `T.append` T.pack (show (numerator r)) `T.append` " >>> op_l"
+action2hs (Num r) = Just $ T.pack "number ("
+    `T.append` T.pack (show r) `T.append` ") >>> op_l"
+action2hs (Lit txt) = Just $ T.pack "text " 
+    `T.append` T.pack (show txt) `T.append` T.pack " >>> op_l" 
+action2hs (BAO def) = Just $ T.pack "block (" 
+    `T.append` ao2hs def `T.append` T.pack ") >>> op_l"
+action2hs (Amb [singleton]) = Just $ '(' `T.cons` ao2hs singleton `T.snoc` ')'
+action2hs (Amb options) = Just $ T.pack "amb [" 
+    `T.append` T.intercalate (T.pack ", ") (fmap ao2hs options)
+    `T.snoc` ']'
+action2hs (Prim ops) =
+    let hsOps = mapMaybe op2hs (S.toList ops) in
+    if null hsOps then Nothing else
+    Just $ T.intercalate (T.pack " >>> ") hsOps
+
+op2hs :: Op -> Maybe Text
+op2hs (Op c) | L.elem c inlineOpCodeList = Just $ opc2hs c
+op2hs (Op ' ')  = Nothing
+op2hs (Op '\n') = Nothing
+op2hs op@(Invoke txt) = case T.uncons txt of
+    Just ('&',anno) -> Just $ T.pack "anno " `T.append` T.pack (show anno)
+    Just (':',sealer) -> Just $ T.pack "seal " `T.append` T.pack (show sealer)
+    Just ('.',sealer) -> Just $ T.pack "unseal " `T.append` T.pack (show sealer)
+    _ -> error ("cannot convert AO invocation: " ++ show op)
+op2hs op = error ("illegal inline ABC: " ++ show op)
+
+opc2hs :: Char -> Text
+opc2hs 'l' = T.pack "op_l"
+opc2hs 'r' = T.pack "op_r"
+opc2hs 'w' = T.pack "op_w"
+opc2hs 'z' = T.pack "op_z"
+opc2hs 'v' = T.pack "op_v"
+opc2hs 'c' = T.pack "op_c"
+opc2hs 'L' = T.pack "op_L"
+opc2hs 'R' = T.pack "op_R"
+opc2hs 'W' = T.pack "op_W"
+opc2hs 'Z' = T.pack "op_Z"
+opc2hs 'V' = T.pack "op_V"
+opc2hs 'C' = T.pack "op_C"
+opc2hs '%' = T.pack "op_drop"
+opc2hs '^' = T.pack "op_copy"
+opc2hs '$' = T.pack "op_ap"
+opc2hs '\'' = T.pack "op_quote"
+opc2hs 'o' = T.pack "op_comp"
+opc2hs 'k' = T.pack "op_rel"
+opc2hs 'f' = T.pack "op_aff"
+opc2hs '+' = T.pack "op_add"
+opc2hs '*' = T.pack "op_mul"
+opc2hs '-' = T.pack "op_neg"
+opc2hs '/' = T.pack "op_inv"
+opc2hs 'Q' = T.pack "op_div"
+opc2hs '?' = T.pack "op_condap"
+opc2hs 'D' = T.pack "op_distrib"
+opc2hs 'F' = T.pack "op_factor"
+opc2hs 'M' = T.pack "op_merge"
+opc2hs 'K' = T.pack "op_assert"
+opc2hs '>' = T.pack "op_gt"
+opc2hs c = error ("unrecognized inline ABC operation: " ++ [c]) 
+
 
