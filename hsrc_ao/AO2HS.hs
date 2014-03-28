@@ -109,7 +109,7 @@ runAO2HS = Sys.putStrLn . T.unpack . ao2hs
 ao2hs :: AODef -> Text
 ao2hs actions = 
     let hsActions = mapMaybe action2hs (S.toList actions) in
-    if null hsActions then T.pack "op_id" else
+    if null hsActions then T.pack "pass" else
     T.intercalate (T.pack " >>> ") hsActions
 
 action2hs :: Action -> Maybe Text
@@ -120,9 +120,7 @@ action2hs (Lit txt) = Just $ T.pack "text "
 action2hs (BAO def) = Just $ T.pack "block (" 
     `T.append` ao2hs def `T.append` T.pack ") >>> op_l"
 action2hs (Amb [singleton]) = Just $ '(' `T.cons` ao2hs singleton `T.snoc` ')'
-action2hs (Amb options) = Just $ T.pack "amb [" 
-    `T.append` T.intercalate (T.pack ", ") (fmap ao2hs options)
-    `T.snoc` ']'
+action2hs (Amb options) = error "ambiguous code not yet supported"
 action2hs (Prim ops) =
     let hsOps = mapMaybe op2hs (S.toList ops) in
     if null hsOps then Nothing else
