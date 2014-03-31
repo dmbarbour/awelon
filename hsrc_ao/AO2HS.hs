@@ -3,7 +3,7 @@
 -- | AO2HS will compile AO code into a syntax suitable for a Haskell
 -- operation. However, it doesn't currently specify that interpretation.
 -- Eventually, it might. As it matures. For now, however, it simply
--- requires an `AO.Prelude` import be provided by the developer, with
+-- requires an `AOPrelude` import be provided by the developer, with
 -- an appropriate set of primitives (and ideally some nice rewrite rules).
 -- 
 -- The `runDict2HS` command will emit Haskell code for the full dictionary,
