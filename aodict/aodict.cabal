@@ -29,7 +29,7 @@ Homepage: http://github.com/dmbarbour/awelon
 Package-Url: 
 Copyright: (c) 2013-2014 by David Barbour
 License: BSD3
-license-file: LICENSE.txt
+license-file: ../LICENSE.txt
 Stability: experimental
 build-type: Simple
 cabal-version: >= 1.18
