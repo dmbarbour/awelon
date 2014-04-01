@@ -15,7 +15,10 @@ Description:
   developers must run `ao dict2hs` by hand. :(
   
   The resulting dictionary has very few dependencies, just base.
-  Developers can `import AODict` and almost immediately use it.
+  Developers can `import AODict` and almost immediately use it,
+  or use this with ghci. In addition, `aoTest` will run all test
+  words at the time of compile, and `aoExec` will run any one
+  word in the library. 
   
   When calling `ao dict2hs`, the AO_PATH and AO_DICT environment
   variables determine what is loaded. AO_PATH is a typical path
@@ -46,4 +49,18 @@ Library
     AOPrelude
     AODict
   ghc-options: -Wall -auto-all
+
+Executable aoExec
+  hs-source-dirs: aoExec
+  default-language: Haskell2010
+  build-depends: base (>= 4.5 && < 5), aodict
+  main-is: AOExec.hs
+  ghc-options: -auto-all -Wall -rtsopts -threaded
+
+Executable aoTest
+  hs-source-dirs: aoTest
+  default-language: Haskell2010
+  build-depends: base (>= 4.5 && < 5), aodict
+  main-is: AOTest.hs
+  ghc-options: -auto-all -Wall -rtsopts -threaded
 
