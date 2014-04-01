@@ -328,8 +328,7 @@ pop_comp (P (B yz) (P (B xy) e)) = (P (B xz) e) where
     prog = b_prog xy >>> b_prog yz
 
 -- | op_rel: ABC operator 'k' has type (block*e)→(block*e), modifying an
--- attribute of the block so that it may not be dropped (not Droppable). But
--- since droppability isn't checked, this is undefined for now. 
+-- attribute of the block so that it may not be dropped (not Droppable).
 op_rel :: Program -- (Block:*:e) (Block:*:e) 
 op_rel = fmap (onFst (onBlock mkRel))
 
@@ -341,8 +340,7 @@ mkRel :: Block -> Block
 mkRel b = b { b_rel = True }
 
 -- | op_aff: ABC operator 'f' has type (block*e)→(block*e), modifying an
--- attribute of the block so that it may not be copied (not Copyable). But
--- since copyability isn't checked, this is  
+-- attribute of the block so that it may not be copied (not Copyable).
 op_aff :: Program -- (Block:*:e) (Block:*:e)
 op_aff = fmap (onFst (onBlock mkAff))
 
