@@ -84,7 +84,7 @@ dict2hs dict = prefix `before` body where
     moduleDecl = 
         T.pack   "module AODict\n    (" `T.append` 
         T.intercalate (T.pack "\n    ,") mangledWords `T.append`
-        T.pack                "\n    ,allWords) where"
+        T.pack                "\n    ,allWords, module AOPrelude) where"
     importsList = T.pack "import AOPrelude"
     body = allWordsList `before` wordDefs
     allWordsList =
