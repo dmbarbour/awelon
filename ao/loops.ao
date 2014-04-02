@@ -60,6 +60,16 @@
 @test.until1.1  0 [inc]  0 [dupd gteb] bind until1 1 assertEQ1
 @test.until1.0  0 [inc]  0 [dupd gteb] bind until  0 assertEQ1
 
+@doc.prefix.bench 
+"benchmarks; not part of the usual test suite
+ 
+ note: these may cause trouble for partial evaluators (but they're also a nice validation that partial evaluators don't do too much work)
+~
+@bench.repeat10k   0 [4 .add] 10000        repeat 40000        assertEQ1
+@bench.repeat100k  0 [4 .add] 100000       repeat 400000       assertEQ1
+@bench.repeat1M    0 [4 .add] 1000000      repeat 4000000      assertEQ1
+@bench.repeat10M   0 [4 .add] 10000000     repeat 40000000     assertEQ1
+
 @repeatWhile swap [not] compose swap repeatUntil
 @repeatUntil assertNatural unrot [tryCount.repeatUntil] bind2 fixpoint inline
 @tryCount.repeatUntil over4 0 gt [drop4] [tryCond.repeatUntil] if_
