@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards, ViewPatterns, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PatternGuards, ViewPatterns, GeneralizedNewtypeDeriving, CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | The AOPrelude module provides dependencies for AODict, which is
@@ -31,7 +31,7 @@ module AOPrelude
     , (>>>), pass, dynWord
 
     -- For clients (not used by AODict)
-    , V(..), summaryV
+    , V(..), summaryV, copyable, droppable
     , Number, Program, Block(..)
     , runAO, stdEnvPure, stdEnvWithPB
     , textToV, charToV, vToText, vToChar
@@ -51,7 +51,12 @@ import Control.Concurrent
 
 type AO = IO -- for now
 type Program = AO V -> AO V
-type Number = Rational
+
+#ifdef USE_DOUBLE
+type Number = Double -- performance option (flag(fp))
+#else
+type Number = Rational -- default
+#endif
 
 data V
     = P V V -- pair
@@ -62,7 +67,7 @@ data V
     | S String V -- sealed value
     | B Block
 
-data Block = Block 
+data Block = Block
     { b_aff  :: Bool
     , b_rel  :: Bool
     , b_prog :: Program 
@@ -88,7 +93,19 @@ summaryV _ (B b) =
     (addF . addK) "[fn]"
 
 runAO :: V -> Program -> IO V
-runAO v prog = prog (pure v)
+runAO v prog = prog (pure v) >>= finish
+
+finish :: V -> IO V
+finish v = deepEval v `seq` return v
+
+deepEval :: V -> ()
+deepEval (P a b) = deepEval a `seq` deepEval b
+deepEval U = ()
+deepEval (N _) = ()
+deepEval (L a) = deepEval a
+deepEval (R b) = deepEval b
+deepEval (S _ v) = deepEval v
+deepEval (B b) = b_aff b `seq` b_rel b `seq` b_prog b `seq` ()
 
 stdEnvPure :: V
 stdEnvPure = stdEnvWithPB pbReject where
@@ -243,14 +260,18 @@ pop_C (L a) = a
 pop_C v = opError 'C' v
 
 -- | op_drop: ABC operator '%' has type (Droppable a) ⇒ (a*e)→e
+--
+-- Enforcement of 'Droppable' can be disabled (for performance reasons)
+-- by use of configuration flags. The property is still tracked, but
+-- will not be enforced for drop operations.
 op_drop :: Program -- (a:*:e) e
 op_drop = fmap pop_drop
 
 pop_drop :: V -> V
-pop_drop (P a e) | droppable a = e
+pop_drop (P a e) | enforceDroppable a = e
 pop_drop v = opError '%' v
 
-droppable :: V -> Bool
+droppable, enforceDroppable :: V -> Bool
 droppable (P a b) = droppable a && droppable b
 droppable (R b) = droppable b
 droppable (N _) = True
@@ -260,14 +281,19 @@ droppable (B b) = not (b_rel b) where
 droppable (S _ v) = droppable v
 
 -- | op_copy: ABC operator '^' has type (Copyable a) ⇒ (a*e)→(a*(a*e))
+--
+-- Enforcement of 'Copyable' can be disabled (for performance reasons)
+-- by use of configuration flags. The property is still tracked, but
+-- will not be enforced for copy operations.
 op_copy :: Program -- (a:*:e) (a:*:(a:*:e))
 op_copy = fmap pop_copy
 
 pop_copy :: V -> V
-pop_copy v@(P a _e) | copyable a = (P a v)
+pop_copy v@(P a _e) | enforceCopyable a = (P a v)
+pop_copy v@(P a _e) = (P a v)
 pop_copy v = opError '^' v
 
-copyable :: V -> Bool
+copyable, enforceCopyable :: V -> Bool
 copyable (P a b) = copyable a && copyable b
 copyable (R b) = copyable b
 copyable (N _) = True
@@ -275,6 +301,15 @@ copyable (L a) = copyable a
 copyable U = True
 copyable (B b) = not (b_aff b)
 copyable (S _ v) = copyable v
+
+#ifdef ENFORCE_SUBSTRUCTURE
+enforceCopyable = copyable
+enforceDroppable = droppable
+#else
+enforceCopyable = const True
+enforceDroppable = const True
+#endif
+
 
 -- | op_ap: ABC operator '$' has type ([a→a']*(a*e))→(a'*e)
 -- Type [a→a'] means a Block (roughly, a Haskell function).
@@ -292,7 +327,7 @@ op_ap = (=<<) run where
 -- to inline application; most relevant for tail-call optimization.
 ops_apc :: Program
 ops_apc = (=<<) run where
-    run (P (B b) (P a U)) = b_prog b (return a)
+    run (P (B b) (P a U)) = b_prog b (pure a)
     run v = error ("$c @ " ++ show v)
 
 -- | op_quote: ABC operator '\'' has type (Quotable a) ⇒ (a*e)→([s→(a*s)]*e)
@@ -330,14 +365,15 @@ pop_comp (P (B yz) (P (B xy) e)) = (P (B xz) e) where
     prog = b_prog xy >>> b_prog yz
 pop_comp v = opError 'o' v
 
+onBlock :: (Block -> Block) -> (V -> V)
+onBlock f (B b) = B (f b)
+onBlock _ v = error $ "block expected @ " ++ show v
+
+
 -- | op_rel: ABC operator 'k' has type (block*e)→(block*e), modifying an
 -- attribute of the block so that it may not be dropped (not Droppable).
 op_rel :: Program -- (Block:*:e) (Block:*:e) 
 op_rel = fmap (onFst (onBlock mkRel))
-
-onBlock :: (Block -> Block) -> (V -> V)
-onBlock f (B b) = B (f b)
-onBlock _ v = error $ "block expected @ " ++ show v
 
 mkRel :: Block -> Block
 mkRel b = b { b_rel = True }
@@ -396,6 +432,13 @@ pop_div (P (N divisor) (P (N dividend) e)) | (0 /= divisor) =
     (P (N remainder) (P (N (fromInteger quotient)) e))
 pop_div v = opError 'Q' v
 
+#ifdef USE_DOUBLE
+divModQ :: Double -> Double -> (Integer, Double)
+divModQ dividend divisor =
+    let quotient = floor (dividend / divisor) in
+    let remainder = dividend - (divisor * fromInteger quotient) in
+    (quotient, remainder)
+#else
 divModQ :: Rational -> Rational -> (Integer, Rational)
 divModQ dividend divisor = 
     let num = numerator dividend * denominator divisor in
@@ -403,6 +446,7 @@ divModQ dividend divisor =
     let (quotient, rNum) = num `divMod` den in
     let rDen = denominator dividend * denominator divisor in
     (quotient, rNum % rDen)
+#endif
 
 op_condap :: Program -- (Block:*:((a:+:b):*:e)) ((a':+:b):*:e)
 op_condap = (=<<) run where
@@ -436,34 +480,37 @@ pop_merge (P (L a) e) = (P a e)
 pop_merge (P (R a') e) = (P a' e)
 pop_merge v = opError 'M' v
 
+-- op_assert will force immediately (unlike other pure ops)
+-- this ensures predictable partial failure upon assert
 op_assert :: Program -- ((a:+:b):*:e) (b:*:e)
-op_assert = fmap pop_assert
-
-pop_assert :: V -> V
-pop_assert (P (R b) e) = (P b e)
-pop_assert v = opError 'K' v
+op_assert = (=<<) run where
+    run (P (R b) e) = return (P b e)
+    run v = fail $ "K @ " ++ show v
 
 op_gt :: Program -- (a:*:(b:*:e)) (((b:*:a):+:(a:*:b)):*:e)
 op_gt = fmap pop_gt
 
 pop_gt :: V -> V
 pop_gt (P a (P b e)) = 
-    if testGT b a then (P (R (P a b)) e) 
-                  else (P (L (P b a)) e)
+    case orderV b a of
+        GT -> (P (R (P a b)) e)
+        _  -> (P (L (P b a)) e)
 pop_gt v = opError '>' v
 
-testGT :: V -> V -> Bool
-testGT (R a) (R b) = testGT a b
-testGT (P a1 a2) (P b1 b2) =
-    if testGT a1 b1 then True else
-    if testGT b1 a1 then False else
-    testGT a2 b2
-testGT (N a) (N b) = (a > b)
-testGT (L a) (L b) = testGT a b
-testGT U U = False
-testGT (L _) (R _) = False
-testGT (R _) (L _) = True
-testGT a b = error ("cannot compare " ++ show a ++ " with " ++ show b)
+-- orderV is a partial ordering function
+-- an error is raised if compared values are not ordered
+orderV :: V -> V -> Ordering
+orderV (P a1 a2) (P b1 b2) =
+    case orderV a1 b1 of
+        EQ -> orderV a2 b2
+        ordering -> ordering
+orderV (R a) (R b) = orderV a b
+orderV (N a) (N b) = compare a b
+orderV (L a) (L b) = orderV a b
+orderV U U = EQ
+orderV (L _) (R _) = LT
+orderV (R _) (L _) = GT
+orderV a b = error ("cannot compare " ++ show a ++ " with " ++ show b)
 
 
 -- | 'number' here corresponds to a number literal in AO or ABC. The
@@ -472,7 +519,7 @@ testGT a b = error ("cannot compare " ++ show a ++ " with " ++ show b)
 -- is handled by the `ao dict2hs` conversion program, which will add
 -- '>>> op_l' after each number, text, or block literal.
 number :: Rational -> Program
-number = fmap . P . N
+number = fmap . P . N . fromRational
 
 -- | 'text' corresponds to a text literal in ABC, with type e→(Text*e).
 -- The type of Text is µT.(1+(Char*T)), where Char is a natural number
@@ -508,8 +555,10 @@ p_unseal s v = error $ "{." ++ s ++ "} @ " ++ show v
 -- Though, it is also acceptable if an annotation fails to return,
 -- e.g. due to a type error.
 --
--- Annotations can be used for debugging, memoizations, to guide
--- parallelism, etc.. 
+-- Annotations can be used for debugging, memoization, to guide
+-- parallelism, etc.. Currently, very few annotations are supported.
+--
+-- TODO: consider generating `anno_async` instead of `anno "async"`
 anno :: String -> Program
 anno "async" = fmap (onFst (onBlock mkAsync))
 anno _ = pass
@@ -522,8 +571,10 @@ mkAsync :: Block -> Block
 mkAsync b = b { b_prog = wrap (b_prog b) } where
     wrap prog arg = 
         newEmptyMVar >>= \ mv -> 
-        forkIO (prog arg >>= putMVar mv) >>
+        forkIO (prog arg >>= finish >>= putMVar mv) >>
         unsafeInterleaveIO (takeMVar mv)
+    -- thoughts: an alternative would be to 'finish' after 'putMVar'.
+    --   but, for now, I'd rather have only one thread observing a value.
 
 -- | dynWord is used by the 'allWords' list, and is only relevant if
 -- programs track Haskell types. In which case the types of words
@@ -538,6 +589,8 @@ dynWord = id
 {-# RULES
 ".id" forall f. f . id = f
 "id." forall f. id . f = f
+"pass>>>" forall f. pass >>> f = f
+">>>pass" forall f. f >>> pass = f
 "fmap.fmap"   forall f g . fmap f . fmap g = fmap (f . g)
 "fmap id"     fmap id = id
 "onFst.onFst" forall f g . onFst f . onFst g = onFst (f . g)
