@@ -336,7 +336,10 @@ ops_apc = (=<<) run where
 -- Type 'a' is only unquotable in rare circumstances, involving distributed
 -- data models. In this Haskell implementation, all values are quotable.
 op_quote :: Program -- (a:*:e) (Block:*:e)
-op_quote = fmap (onFst quoteVal)
+op_quote = fmap pop_quote
+
+pop_quote :: V -> V
+pop_quote = onFst quoteVal
 
 quoteVal :: V -> V
 quoteVal v = B b where
@@ -584,59 +587,14 @@ mkAsync b = b { b_prog = wrap (b_prog b) } where
 dynWord :: Program -> Program
 dynWord = id
 
--- optimization rules
--- some may be redundant with standard library, but that's okay.
+-- OPTIMIZATION RULES
+-- basic data plumbing rules cut costs in about half
 {-# RULES
-".id" forall f. f . id = f
-"id." forall f. id . f = f
-"pass>>>" forall f. pass >>> f = f
-">>>pass" forall f. f >>> pass = f
-"fmap.fmap"   forall f g . fmap f . fmap g = fmap (f . g)
-"fmap id"     fmap id = id
-"onFst.onFst" forall f g . onFst f . onFst g = onFst (f . g)
-"onFst id"    onFst id = id
-"onBlock.onBlock" forall f g . onBlock f . onBlock g = onBlock (f . g)
-
-"%lr" op_l >>> op_r = pass
-"%rl" op_r >>> op_l = pass
-"%ww" op_w >>> op_w = pass
-"%zz" op_z >>> op_z = pass
-"%vc" op_v >>> op_c = pass
-"%cv" op_c >>> op_v = pass
-"%LR" op_L >>> op_R = pass
-"%RL" op_R >>> op_L = pass
-"%WW" op_W >>> op_W = pass
-"%ZZ" op_Z >>> op_Z = pass
-"%VC" op_V >>> op_C = pass
-"%CV" op_C >>> op_V = pass
-
-"%$c" op_ap >>> op_c = ops_apc
-".$c" op_c . op_ap = ops_apc
-
-".lr" op_l . op_r = pass
-".rl" op_r . op_l = pass
-".ww" op_w . op_w = pass
-".zz" op_z . op_z = pass
-".vc" op_v . op_c = pass
-".cv" op_c . op_v = pass
-".LR" op_L . op_R = pass
-".RL" op_R . op_L = pass
-".WW" op_W . op_W = pass
-".ZZ" op_Z . op_Z = pass
-".VC" op_V . op_C = pass
-".CV" op_C . op_V = pass
-
-"lr" pop_l . pop_r = id
-"rl" pop_r . pop_l = id
-"ww" pop_w . pop_w = id
-"zz" pop_z . pop_z = id
-"vc" pop_v . pop_c = id
-"cv" pop_c . pop_v = id
-"LR" pop_L . pop_R = id
-"RL" pop_R . pop_L = id
-"WW" pop_W . pop_W = id
-"ZZ" pop_Z . pop_Z = id
-"VC" pop_V . pop_C = id
-"CV" pop_C . pop_V = id
+"l.r" pop_l . pop_r = id
+"r.l" pop_r . pop_l = id
+"v.c" pop_v . pop_c = id
+"c.v" pop_c . pop_v = id
+"w.w" pop_w . pop_w = id
+"z.z" pop_z . pop_z = id
+"z.w.z" pop_z . pop_w . pop_z = pop_w . pop_z . pop_w
  #-}
-
