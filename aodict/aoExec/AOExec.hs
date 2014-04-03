@@ -19,17 +19,18 @@ import AODict
 
 helpMsg :: String
 helpMsg = 
-    "USAGE: aoExec flag* word arg1 arg2 ... argN\n\
+    "USAGE: aoExec flag* word arg1 arg2 .. argN\n\
     \\n\
-    \  'word' must have been pre-compiled into 'aodict' package\n\
-    \  arguments become a list of strings on the stack\n\
+    \  aoExec may only use words from the precompiled dictionary\n\
+    \  additional arguments become a list of text on the stack\n\
     \\n\
     \FLAGS: any argument starting with '-'\n\
     \  -p    print top element on the stack when finished\n\
     \\n\
-    \In practice, the word must be designed for this usage!\n\
-    \Words that look like flags cannot be executed.\n\
-    \Peruse 'exec.ao' for information and utilities.\n"
+    \aoExec is not very flexible, but could become more flexible if\n\
+    \the AO dictionary is developed appropriately. See 'exec.ao' for\n\
+    \information and utilities. Try `aox` for flexible interaction.\n\
+    \"
 
 flagPrint :: String
 flagPrint = "-p"
