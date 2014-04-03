@@ -29,7 +29,7 @@ helpMsg =
     \\n\
     \aoExec is not very flexible, but could become more flexible if\n\
     \the AO dictionary is developed appropriately. See 'exec.ao' for\n\
-    \information and utilities. Try `aox` for flexible interaction.\n\
+    \information and utilities.\n\
     \"
 
 flagPrint :: String
