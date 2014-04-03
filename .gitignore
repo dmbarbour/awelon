@@ -9,4 +9,6 @@ cabal-dev/
 __pycache__/
 *.pyc
 AODict.hs
+AOProg.hs
+
 
