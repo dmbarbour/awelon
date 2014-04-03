@@ -64,21 +64,22 @@ cmdLineHelp =
     "ao test                 run all `test.` words in dict\n\
     \ao type                 typecheck all words in dict\n\
     \ao type x y z           print type for a given list of words\n\
-    \ao abc word             dump weakly simplified ABC for a given word\n\
-    \ao abc \"1 2 3 + +\"      dump weakly simplified ABC for a command\n\
-    \ao abcRaw word          dump raw ABC for a given word (or command)\n\
-    \ao dict2hs              emit AODict module with all words in AO dictionary\n\
-    \ao ao2hs command        emit Haskell code for command *assuming* AODict\n\
-    \ao prog2hs command      emit AOProg module with minimal code for program\n\
+    \ao abc command*         dump weakly simplified ABC for given command\n\
+    \  Each command must parse independently as AO code. Output is\n\
+    \  the trivial, concatenative composition of these subprograms.\n\
     \ao help (or -?)         print these options\n\
+    \n\
+    \Emitting Haskell Code:\n\
+    \  ao dict2hs              emits AODict module containing full dictionary\n\
+    \  ao ao2hs command*       emits code for command *assuming* AODict\n\
+    \  ao prog2hs command*     emits AOProg module for given command\n\
     \\n\
     \Environment Variables:\n\
-    \    AO_PATH: list of directories, searched for .ao files\n\
-    \    AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n\
+    \  AO_PATH: list of directories, searched for .ao files\n\
+    \  AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n\
     \\n\
-    \NOTE: AODict and AOProg depend on a user-provided AOPrelude.\n\
+    \NOTE: AODict and AOProg depend on user-provided AOPrelude.\n\
     \"
-
 
 main :: IO ()
 main = getMode >>= runMode
@@ -302,14 +303,16 @@ parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseDumpABCMode = rawABC P.<|> simpABC where
     simpABC = tok (== "abc") >> mode True
     rawABC  = tok (== "abcRaw") >> mode False
-    mode bSimp = DumpABC bSimp <$> parseCmd 
+    mode bSimp = DumpABC bSimp <$> parseCmd
 
 parseCmd :: (P.Stream s m Tok) => P.ParsecT s u m AODef
-parseCmd =  
-    anyOneArg >>= \ str ->
-    case P.parse parseAODef "" str of
-        Left pe -> P.unexpected (show pe)
-        Right def -> return def
+parseCmd = concatCmds <$> P.manyTill parseOneCmd P.eof where
+    concatCmds = foldr (S.><) S.empty
+    parseOneCmd = 
+        anyOneArg >>= \ str ->
+        case P.parse parseAODef "" str of
+            Left pe -> P.unexpected (show pe)
+            Right def -> return def
 
 parseDict2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
 parseDict2HSMode = tok (== "dict2hs") >> return Dict2HS
