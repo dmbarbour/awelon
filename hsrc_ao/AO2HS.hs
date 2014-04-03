@@ -16,7 +16,7 @@
 -- dictionary is already available and no words are missing.
 --
 module AO2HS
-    ( runAO2HS, runDict2HS
+    ( runAO2HS, runDict2HS, runProg2HS
     , ao2hs_mangle, ao2hs, action2hs, dict2hs
     ) where
 
@@ -24,12 +24,15 @@ import Data.Maybe (mapMaybe)
 import Data.Ratio (numerator, denominator)
 import qualified Data.Char as C
 import qualified Data.Map as M
+import qualified Data.Set as Set
+import Data.Set (Set)
 import qualified Data.Text as T
+import Data.Text (Text)
 -- import qualified Data.List as L
 -- import qualified Data.Sequence as S
 import qualified Data.Foldable as S
-import Data.Text (Text)
 import qualified System.IO as Sys
+import qualified System.Exit as Sys
 import AO.AO
 
 -- mangle a word for use in Haskell
@@ -184,4 +187,73 @@ opc2hs 'K' = T.pack "op_assert"
 opc2hs '>' = T.pack "op_gt"
 opc2hs c = error ("unrecognized inline ABC operation: " ++ [c]) 
 
+-------------------------------------
+-- Program to Haskell
+-- 
+-- Unlike ao2hs and dict2hs, converting a single program lends itself 
+-- very well to simplification, loop recognition, partial evaluation. 
+-- Long term, I should leverage this. For now, however, I'll just make
+-- it work ASAP, which involves emitting a minimal dictionary.
+-- 
+-------------------------------------
 
+runProg2HS :: AODef -> IO ()
+runProg2HS action =
+    loadDictionary >>= \ dictAO ->
+    let wNeed = aoWordsRequired action in
+    let wMissed = Set.filter (`M.notMember` dictAO) wNeed in
+    if Set.null wMissed
+       then let hsCode = prog2hs dictAO action in
+            Sys.writeFile "AOProg.hs" (T.unpack hsCode) >>
+            Sys.putStrLn "wrote program to AOProg.hs"
+       else let mwTxt = T.unwords $ Set.toList wMissed in
+            let emsg = "failure, undefined words: " ++ T.unpack mwTxt in
+            Sys.hPutStrLn Sys.stderr emsg >>
+            Sys.exitFailure
+
+-- find all words required, transitively
+deepWordsRequired :: Dictionary -> AODef -> Set W
+deepWordsRequired dict = foldl addWords Set.empty . listWords where
+    addWords sw w = 
+        if Set.member w sw then sw else
+        foldl addWords (Set.insert w sw) (deepWords w)
+    deepWords w = case M.lookup w dict of
+        Nothing -> error ("(unexpected) missing definition for " ++ T.unpack w)
+        Just (_loc,def) -> listWords def
+    listWords = Set.toList . aoWordsRequired
+
+prog2hs :: Dictionary -> AODef -> Text
+prog2hs fullDict action = prefix `before` body where
+    wordsRequired = deepWordsRequired fullDict action
+    isRequired w _ = Set.member w wordsRequired
+    miniDict = M.filterWithKey isRequired fullDict
+    before x y = (x `T.snoc` '\n' `T.snoc` '\n') `T.append` y
+    prefix = lang `before` opts `before` openingComment 
+             `before` moduleDecl `before` importsList
+    lang = T.pack "{-# LANGUAGE NoImplicitPrelude, NoMonomorphismRestriction #-}"
+    opts = T.pack "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}"
+    openingComment = T.pack $
+        -- todo
+        "-- This code was automatically generated from `ao prog2hs <command>`.\n\
+        \-- \n\
+        \--     (TODO: record actual command used.)\n\
+        \-- \n\
+        \-- It should be regenerated rather than hand-modified.\n\
+        \-- \n\
+        \-- This file exports a single AO program with name 'program' in addition\n\
+        \-- to re-exporting a dependency module AOPrelude. The internal structure\n\
+        \-- of this module may change at later dates, e.g. to support a degree of\n\
+        \-- generation-time optimizations.\n\
+        \-- \n\
+        \-- Developers must provide an appropriate AOPrelude, though at least one\n\
+        \-- implementation should already be available.\n\
+        \-- "
+    moduleDecl = T.pack "module AOProg (program, module AOPrelude) where"
+    importsList = T.pack "import AOPrelude"
+    body = progDef `before` wordDefs
+    progDef = T.pack "program = -- from command line\n" `T.append` indent (T.pack "  ") (ao2hs action)
+    wordDefs = T.unlines (fmap wordDef (M.toList miniDict))
+    wordDef (w,(loc,def)) =
+        ao2hs_mangle w `T.append` T.pack " = -- " `T.append` 
+        wordLocatorText w loc `T.append` T.pack "\n" 
+        `T.append` indent (T.pack "  ") (ao2hs def)
