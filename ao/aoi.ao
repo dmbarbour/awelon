@@ -27,31 +27,31 @@ std euler
  
  This is coarse-grained at the level of lines and blocks. The new reader will be used to process the next block. The motivation for switchAOI is to simplify bootstrapping of an AO REPL or interactive mode from within AO.
 ~ 
-@switchAOI "switchAOI" p iomsg.aoi
+@switch.aoi "switchAOI" p iomsg.aoi
 
-@doc.getEnv.iomsg "varname -- text; environment variable or empty text"
-@getEnv "getOSEnv" p iomsg.aoi
+@doc.getEnv.aoi "varname -- text; environment variable or empty text"
+@getEnv.aoi "getOSEnv" p iomsg.aoi
 
-@doc.randomBytes "count -- (vector of octets); secure random source"
-@randomBytes "randomBytes" p iomsg.aoi
+@doc.randomBytes.aoi "count -- (vector of octets); secure random source"
+@randomBytes.aoi "randomBytes" p iomsg.aoi
 
-@rand8 1 randomBytes wx drop
+@rand8.aoi 1 randomBytes.aoi wx drop
 
-@doc.readFile "(io) filename -- (1(err) + text)"
-@doc.writeFile "(io) text filename -- (1(err) + 1(ok))"
-@readFile "readFile" p iomsg.aoi
-@writeFile p "writeFile" p iomsg.aoi
+@doc.readFile.aoi "(io) filename -- (1(err) + text)"
+@doc.writeFile.aoi "(io) text filename -- (1(err) + 1(ok))"
+@readFile.aoi "readFile" p iomsg.aoi
+@writeFile.aoi p "writeFile" p iomsg.aoi
 
-@doc.destroy "(io) destroy will drop any input, including relevant blocks (unsafe)"
-@destroy "destroy" p iomsg.aoi elim1
+@doc.destroy.aoi "(io) destroy will drop any input, including relevant blocks (unsafe)"
+@destroy.aoi "destroy" p iomsg.aoi elim1
 
-@doc.cle "(io) clear the current environment (except hand and powerblock)"
-@cle introE swapE destroy
+@doc.cle.aoi "(io) clear the current environment (except hand and powerblock)"
+@cle.aoi introE swapE destroy.aoi
 
-@doc.cls "(io) clear the current stack (including relevant blocks)"
-@cls reifyStack destroy
+@doc.cls.aoi "(io) clear the current stack (including relevant blocks)"
+@cls.aoi reifyStack destroy.aoi
 
-@doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
-@debugOut "debugOut" p iomsg.aoi
-@debugStack reifyStack debugOut restoreStack
+@doc.debugOut.aoi "(io) val -- val; prints given value on stderr; returns it unchanged"
+@debugOut.aoi "debugOut" p iomsg.aoi
+@debugStack.aoi reifyStack debugOut.aoi restoreStack
 

@@ -1,110 +1,144 @@
 
-@assocl.abc %l
-@assocr.abc %r
-@swapw.abc  %w
-@swapz.abc  %z
-@intro1.abc %v
-@elim1.abc  %c
+@doc.suffix.abc "A word for each of the ABC codes."
 
-@doc.assocl.abc "(a * (y * z)) → ((a * y) * z)"
-@doc.assocr.abc "((a * y) * z) → (a * (y * z))"
-@doc.swapw.abc  "(a * (y * z)) → (y * (a * z))"
-@doc.swapz.abc  "(a * (b * (c * d))) → (a * (c * (b * d)))"
-@doc.intro1.abc "a → a * 1"
-@doc.elim1.abc  "a * 1 → a"
+@doc.l.abc "(a*(b*c))→((a*b)*c); associate left"
+@doc.r.abc "((a*b)*c)→(a*(b*c)); associate right"
+@doc.w.abc "(a*(b*c))→(b*(a*c)); swap first"
+@doc.z.abc "(a*(b*(c*d)))→(a*(c*(b*d))); swap second"
+@doc.v.abc "a→(a*1); intro unit right"
+@doc.c.abc "(a*1)→a; elim unit right"
 
-@swap.abc %vrwlc
-@rot2.abc %w
-@rot3.abc %zw
-@rot4.abc %l rot3.abc %wrzw
-@rot5.abc %l rot4.abc %wrzw
-@rot6.abc %l rot5.abc %wrzw
-@rot7.abc %l rot6.abc %wrzw
-@zip2.abc %rzl
+@l.abc %l
+@r.abc %r
+@w.abc %w
+@z.abc %z
+@v.abc %v
+@c.abc %c
 
-@doc.swap.abc "(a * b) → (b * a)"
-@doc.rot3.abc "(a * (b * (c * d))) → (c * (a * (b * d)))"
-@doc.zip2.abc "((a * b) * (c * d)) → ((a * c) * (b * d))"
+@doc.copy.abc "(a*e)→(a*(a*e)); copy; requires copyable a"
+@doc.drop.abc "(a*e)→e; drop; requires droppable a"
 
-@assocl+.abc %L
-@assocr+.abc %R
-@swapw+.abc  %W
-@swapz+.abc  %Z
-@intro0.abc  %V
-@elim0.abc   %C
-
-@doc.assocl+.abc "((a + (b + c)) * e) → (((a + b) + c) * e)"
-@doc.assocr+.abc "(((a + b) + c) * e) → ((a + (b + c)) * e)"
-@doc.swapw+.abc  "((a + (b + c)) * e) → ((b + (a + c)) * e)"
-@doc.swapz+.abc  "((a + (b + (c + d))) * e) → ((a + (c + (b + d))) * e)"
-@doc.intro0.abc  "(a * e) → ((a + 0) * e)"
-@doc.elim0.abc   "((a + 0) * e) → (a * e)"
-
-@mirror.abc %VRWLC
-@not.abc    mirror.abc
-@rot2+.abc  %W
-@rot3+.abc  %ZW
-@rot4+.abc  %L rot3+.abc %WRZW
-@rot5+.abc  %L rot4+.abc %WRZW
-@rot6+.abc  %L rot5+.abc %WRZW
-@rot7+.abc  %L rot6+.abc %WRZW
-@zip2+.abc  %RZL
-
-@drop.abc %%
 @copy.abc %^
+@drop.abc %%
 
-@doc.drop.abc "(Droppable x) ⇒ (x * e) → e"
-@doc.copy.abc "(Copyable x) ⇒ (x * e) → (x * (x * e))"
+@doc.L.abc "((a+(b+c))*e)→(((a+b)+c)*e); associate sum left"
+@doc.R.abc "(((a+b)+c)*e)→((a+(b+c))*e); associate sum right"
+@doc.W.abc "((a+(b+c))*e)→((b+(a+c))*e); swap sum first"
+@doc.Z.abc "((a+(b+(c+d)))*e)→((a+(c+(b+d)))*e); swap sum second"
+@doc.V.abc "(a*e)→((a+0)*e); intro void right"
+@doc.C.abc "((a+0)*e)→(a*e); elim void right"
 
-@apply.abc %$
-@compose.abc %o
+@L.abc %L
+@R.abc %R
+@W.abc %W
+@Z.abc %Z
+@V.abc %V
+@C.abc %C
+
+@doc.ap.abc "([a→a']*(a*e))→(a'*e); apply"
+@doc.comp.abc "([y→z]*([x→y]*e))→([x→z]*e); compose"
+@doc.quote.abc "(a*e)→([s→(a*s)]*e); quote non-distributed value"
+@doc.rel.abc "([x→y]*e)→([x→y]k*e); adds relevance (no drop) attribute to block"
+@doc.aff.abc "([x→y]*e)→([x→y]f*e); adds affine (no copy) attribute to block"
+
+@ap.abc %$
+@comp.abc %o
 @quote.abc %'
-@unquote.abc %vvrwlcw$
-@markRelevant.abc %k
-@markAffine.abc %f
-@markLinear.abc %kf 
+@rel.abc %k
+@aff.abc %f
+
+@doc.#.abc  "e→(N(0)*e); intro number 0" 
+@doc.d0.abc "(N(x)*e)→(N(10x+0)*e); digit"
+@doc.d1.abc "(N(x)*e)→(N(10x+1)*e); digit"
+@doc.d2.abc "(N(x)*e)→(N(10x+2)*e); digit"
+@doc.d3.abc "(N(x)*e)→(N(10x+3)*e); digit"
+@doc.d4.abc "(N(x)*e)→(N(10x+4)*e); digit"
+@doc.d5.abc "(N(x)*e)→(N(10x+5)*e); digit"
+@doc.d6.abc "(N(x)*e)→(N(10x+6)*e); digit"
+@doc.d7.abc "(N(x)*e)→(N(10x+7)*e); digit"
+@doc.d8.abc "(N(x)*e)→(N(10x+8)*e); digit"
+@doc.d9.abc "(N(x)*e)→(N(10x+9)*e); digit"
+
+@#.abc %v 0 %c
+@d0.abc 0 digit.abc
+@d1.abc 1 digit.abc
+@d2.abc 2 digit.abc
+@d3.abc 3 digit.abc
+@d4.abc 4 digit.abc
+@d5.abc 5 digit.abc
+@d6.abc 6 digit.abc
+@d7.abc 7 digit.abc
+@d8.abc 8 digit.abc
+@d9.abc 9 digit.abc
+@digit.abc %rw 10 %r*+
+
+@doc.add.abc "(N(a)*(N(b)*e))→(N(a+b)*e); add numbers"
+@doc.mul.abc "(N(a)*(N(b)*e))→(N(a*b)*e); multiply numbers"
+@doc.inv.abc "(N(a)*e)→(N(1/a)*e); multiplicative inverse (requires non-zero)"
+@doc.neg.abc "(N(a)*e)→(N(-a)*e); additive inverse"
+@doc.divMod.abc 
+"(N(divisor)*(N(dividend)*e))→(N(remainder)*(N(quotient)*e)) ;
+   such that: quotient * divisor + remainder = dividend
+              quotient is integral
+              remainder/divisor is a proper fraction (in [0,1)).
+~
 
 @add.abc %+
-@multiply.abc %*
-@negate.abc %-
-@invert.abc %/
-@divmod.abc %Q
+@mul.abc %*
+@inv.abc %/
+@neg.abc %-
+@divMod.abc %Q
 
-@cond.abc %?
+@doc.condap.abc 
+"([a→a']*((a+b)*e))→((a'+b)*e); conditional application
+ 
+ The block in this case cannot be relevant or linear; i.e. it must be droppable, because the block will be dropped in the 'b' condition.
+~
+@doc.distrib.abc "(a*((b+c)*e)→(((a*b)+(a*c))*e); distribute"
+@doc.factor.abc "(((a*b)+(c*d))*e)→((a+c)*((b+d)*e)); partial factor"
+@doc.merge.abc 
+"((a+a')*e → (a*e); merge
+ 
+ In this case, a and a' must be "future compatible." This doesn't imply the exact same type, and typecheckers may need to track type a and a' together for some steps before fully merging them.
+~
+@doc.assert.abc 
+"((a+b)*e)→(b*e); assert
+ 
+ Assertions are ideally validated at compile-time, i.e. representing dependent type declarations or contracts. It is preferable that developers be warned when assertions cannot be proven. A runtime assertion failure will halt the AO or ABC program as quickly and cleanly as readily feasible without significantly compromising simplicity or performance. 
+ 
+ It is feasible to run sub-programs in partitions, such that failure only takes out a partition and not the entire program. However, to discourage dependence upon this technique, it is usually a generally a controlled effect provided through the powerblock.
+~
+@doc.gt.abc 
+"(x₁*(x₂*e))→(((x₂*x₁)+(x₁*x₂))*e); compare (greater than)
+ 
+ Not all values are comparable. Just enough is comparable to compare texts: numbers with numbers, sums with sums, products with products and unit with unit. Taking left as false and right as true, comparisons are transitive and irreflexive.
+~
+
+@condap.abc %?
 @distrib.abc %D
-@pfactor.abc %F
-@factor.abc %FM
+@factor.abc %F
 @merge.abc %M
 @assert.abc %K
-
-@isPair.abc %P
-@isSum.abc  %S
-@isBlock.abc %B
-@isNumber.abc %N
-
 @gt.abc %>
-@leq.abc  gt.abc    not.abc
-@lt.abc   swapw.abc gt.abc   mirror.abc
-@geq.abc  lt.abc    not.abc
 
 @doc.whitespace.abc
 "ABC permits whitespace to simplify formatting. Only SP (32) and LF (10) are permitted. These are understood as operators with type (∀a.a→a). Whitespace may also express paragraphs (see @doc.paragraph.abc).
  
  AO doesn't offer direct access to ABC whitespace, though some parsers may translate AO's whitespace directly into ABC whitespace (doing so simplifies the AO parser). Paragraphs aren't useful in AO, so this whitespace will typically be eliminated.
  
- The main role of whitespace in ABC is to support more readable ABC code, and nice formatting.
+ The main role of whitespace in ABC is to support formatting of ABC code for legibility.
 ~
 
 @doc.paragraph.abc
-"Paragraphs in ABC are an informal concept. Streaming ABC code can be divided into chunks called 'paragraphs', then one or more complete paragraphs will be compiled and evaluated at a time. Well chosen paragraphs can improve performance and ensure clean intermediate states between paragraphs.
+"Paragraphs in ABC are an informal concept for stream processing of ABC. The ABC stream is broken (heuristically) into reasonably sized chunks called paragraphs. The stream processor will favor executing a whole number of paragraphs at a time.  Expressing a paragraph is trivial: LF LF (10 10) in the ABC stream. The formal meaning is just identity.
  
- Paragraphs are expressed much as they are in natural language text files: a blank line between blocks of code, i.e. LF LF (encoded as 10 10). 
+ Using paragraphs offers many advantages for performance, maintenance, and predictable partial failure. The environment can often be kept in a 'clean' condition between paragraphs, suitable for rendering, and eliminating some bulky intermediate constructs that would otherwise be kept in memory. Typechecking can often occur at paragraph boundaries, and side-effects can often be delayed such that paragraphs represent atomic failure boundaries.
  
- Paragraphs are discretionary. An ABC stream interpreter is under no obligation to respect paragraphs, nor is a streaming source under an obligation to provide them. However, an ABC stream interpreter should aim to respect paragraphs up to a reasonable maximum size (e.g. 64 kB), and strongly prefer to compute a whole number of paragraphs at a time.
+ In practice, if paragraphs are too large there may be issues with buffering. I think most ABC stream readers should be expected to readily support paragraphs of 32 kB, with the failure mode to process fractions of a paragraph. I imagine (without empirical evidence) that most paragraphs will be well under 4 kB.
 ~
 
 @doc.numbers.abc
-"ABC favors legibility over parsimony. One aspect of this regards how numbers are represented. ABC uses eleven basic number operators:
+"ABC slightly favors legibility over parsimony. One aspect of this regards how numbers are represented, using decimal digits instead of binary. ABC uses eleven basic number operators:
  
      # :: e → N(0) * e  (constructs a new number)
      0 :: N(x) * e → N(10x + 0) * e
@@ -113,9 +147,7 @@
      ...
      9 :: N(x) * e → N(10x + 9) * e
  
- This design enables natural numbers to be expressed legibly, as in `#42` constructing the number 42. Richer numbers must be represented using operations on natural numbers, e.g. 2/3 as `#2#3/*`.
- 
- AO provides its own literal numbers, with a variety of more conventional formats. These are translated to ABC in a trivial manner. AO does not offer direct access to ABC's number primitives.
+ This design enables natural numbers to be expressed legibly, as in `#42` constructing the number 42. Richer numbers must be represented using operations on natural numbers, e.g. 2/3 as `#2#3/*`. Large scientific numbers (e.g. 10^100) can be expensive to express in AO... but should at least compress well.
 ~
 
 @doc.text.abc
@@ -127,76 +159,57 @@
       Terminate by starting the next line with `~`.
      ~
  
- By design, only LF (10) must be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. Within an ABC stream, text should typically be formatted to start at a new line (to simplify debugging). 
+ By design, only LF (10) is to be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. Within an ABC stream, text should typically be formatted to start at a new line (to simplify debugging). 
  
- ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a list of small integers (see @doc.Lists).  
+ ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a list of small integers, e.g. of type µT.(1+(N*T)). The numbers correspond directly to the unicode codepoints, i.e. between 0 and 1114111 inclusive. While ABC permits encoding non-characters (such as U+FFFE or U+D800), it is discouraged. For the common use-cases, text represents labels, human natural language text, or DSL code, none of which require unusual characters. 
  
- AO has two modes for reading text. AO's multi-line mode requires text start in the first column, and exactly matches ABC's text mode. AO's inline text mode requires text start after the first column, and is useful for short identifiers or labels (e.g. "foo"). AO text has no escapes, so inline text cannot use the double quote or newline (LF) characters.
+ ABC doesn't have a binary mode. Binary might be represented using text, perhaps packing it into base64url or a compressed form plus a deflation algorithm.
 ~
 
 @doc.block.abc
-"A literal block may be represented in ABC using square brackets
- like so: `[vrwlc]`. This constructs a first-class function:
- 
-     [vrwlc] :: e → [(a*b)→(b*a)] * e
- 
- AO uses a similar format, simply using AO words instead of ABC.
+"A block is simply a finite sequence of ABC. A literal block may be represented in ABC using square brackets like so: `[vrwlc]`. This constructs a first-class function: [vrwlc] :: e → [(a*b)→(b*a)] * e
 ~
 
 @doc.ambiguous.abc
-"AO models ambiguous behaviors using (foo|bar) constructs. This 
- would indicate either foo or bar. This ambiguity may be resolved
- based on type safety analysis and heuristic weighting based on
- ad-hoc attributes (modeled with `{&attrib}`). 
+"(EXPERIMENTAL)
  
- When compiled, AO actually targets an extended ABC called AMBC that
- preserves these ambiguous forms. AMBC is simply ABC extended with 
- '(', '|', and ')', with the same meanings possessed in AO. 
+ There are plans for AO to express ambiguous behavior using a syntactic (foo|bar) construct. This would indicate that the program is either foo or bar. Ideally, the program would be selected based on type safety (i.e. if 'foo' doesn't make sense in context, exclude it), and the remaining choices would be selected heuristically. Heuristics would be based on attribute annotations and perhaps stability (favoring choices that worked well in the past).
  
- AMBC is unsuitable for streaming code. 
+ Developers could then refine the choices in many ways: 
+ 
+ * by modifying code to add or remove choices
+ * by modifying attribute annotations
+ * by modifying the heuristic scoring algorithm
+ * by favoring simpler and more precise types
+ 
+ The potential utility of ambiguous code is to express a large space of possible programs, and shift the burden to the compiler to pick a suitable program in context. This can feasibly result in robustly adaptable code. But it comes with risks of high overheads and more challenging failure modes.
 ~
 
 @doc.invocations.abc
-"ABC can call out to the environment by using special curly brace
- operators of the form `{foo}`. This will invoke the environment
- with token 'foo' and the tacit value. 
+"ABC can call out to the environment by using special curly brace operators of the form `{foo}`. This will invoke the environment with token 'foo' and the tacit value. ABC cannot forge the token, i.e. no primitive ABC operators permit moving from "foo" as text to {foo} as an operator. 
  
- ABC cannot forge the token, i.e. no primitive ABC operators permit 
- moving from "foo" as text to {foo} as an operator. In addition, it
- is recommended that implementations favor cryptographically secure
- text - i.e. encrypted or signed text, or secure random GUIDs - for
- open systems where code distribution is common. When wrapped in a 
- block like [{foo}], these invocations become first-class securable 
- capabilities. 
+ It is recommended that implementations for open systems favor cryptographically secure text - i.e. encrypted or signed text, or secure random GUIDs. Consequently, the text between the curly braces is often called "capability text". When wrapped in a block like [{foo}], these invocations become first-class, securable capabilities.
  
- AO does not permit most tokens to be hard-wired in code. The main
- exception is annotations, of the form {&...}. Annotations may help
- an optimizer, typechecker, or debugger.
+ AO permits hard-wiring a few classes of invocations. Specifically:
+ 
+ * {&foo} - annotations. These have identity behavior but may tweak non-observable behaviors like memoization, parallel computation, debug output, typechecking.
+ * {:foo} - value sealing; AO allows ad-hoc discretionary sealers
+ * {.foo} - unseal a value previously sealed with {:foo}
 ~
 
 @doc.linking.abc
-"ABC has its own layer for reusing, linking, and compiling code. 
- Linking an external source is represented by:
+"ABC has a non-conventional model for separate compilation and linking, designed for compatibility with streaming code and security concerns.
  
-     {#secureHash}
+ An external source is referenced by `{#secureHash}` where 'secureHash' is a representation of a secure hash of external ABC source code. (I'm imagining a base64url representation and SHA3-384 secure hash.) A large secure hash can effectively act as a unique identifier for the ABC code, which is loaded (or downloaded) then executed.
  
- Where 'secureHash' is actually the base64url representation of an
- SHA3-384 of external ABC source. The meaning is to load the named
- code and apply it in place. The loaded code may contain more such
- references.
+ This mechanism is somewhat bulky for low-level functions, but quite useful for large data structures or software components, documents or web pages in a hypothetical ABC-based web, application libraries or plugins, and so on. Separate compilation is achievable by pre-compiling and caching code associated with the secure hash. So there is some play where a small but expensive-to-compile structure is a good choice for a named component.
  
- Naming code by secure hash avoids potential problems. There is no
- risk of cyclic dependencies. The name becomes location independent.
- Distribution may use proxies, P2P, or content distribution networks.
- Any update and versioning concerns are cleanly separated. Caches are
- very easily implemented. Separate compilation is modeled by caching
- precompiled forms.
+ Because ABC uses a secure hash for naming:
  
- AO does not directly support secure hash sources. These are instead
- generated from a raw ABC stream as a postprocess. Ideally, services
- will help factor code into optimally reusable components based on 
- observations of large systems over time.
+ * negligible risk of cyclic references or name collisions
+ * location independent names; download code from anywhere
+ * no concerns for update, versioning, or cache invalidation
+ 
+ By default, we might expect the sender of ABC containing a secure hash to also provide the named code upon request. However, the same ABC code may include `{&annotations}` that suggest searching elsewhere. So it is not difficult to separate the concerns of hosting bulky code from referencing it.
 ~
-
-
 
