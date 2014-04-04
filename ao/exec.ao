@@ -1,0 +1,23 @@
+std
+
+@doc.aoExec 
+"aoExec is a command line utility to help bootstrap AO development. Usage:
+ 
+     aoExec word arg1 arg2 .. argN [+RTS options]
+ 
+ The meaning of this invocation is to execute the first word in AO's standard environment after placing the extra (non-RTS) arguments as a list of strings on the stack. This is analogous to the Unix process model. By default, this isn't especially flexible. But the goal is to construct flexible programs atop it, e.g. developing some words that parse the arguments or standard input to construct a dynamic program. To simplify development of dynamic programs, the aoExec powerblock offers easy access to the built-in AO dictionary.
+ 
+ The aoExec powerblock presents an imperative view of resources. That is, effects are mostly modeled in terms of reads and writes. However, there are significant differences from a conventional imperative environment:
+ 
+ First, aoExec adapts the RDP resource model to the imperative paradigm. Rather than 'creating' resources, we 'identify' resources that are conceptually external to the imperative program. Some resources are 'abundant' in the sense that we can have as many as we need, so long as each has a unique identifier. To control aliasing and enable encapsulation-like benefits, many resources are linear in nature: the capability for that resource may only be acquired once by the program, or perhaps once per timestep.
+ 
+ Second, aoExec does not permit an infinite loop as the process model. Without exception, infinite loops expressed in AO code are considered to be bugs. Long-running behaviors are instead modeled by installing AO code in a context with an implicit top-level loop. For aoExec, these contexts are modeled as reprogrammable resources, and the installation is explicit. (The exact nature of these resources may vary.) 
+ 
+ Third, to encourage use of the proper process model, aoExec manages time. Writes to a stateful resource are typically delayed until the next time step. Reads within a time step all return the same value. (This approach can be adapted to most non-state resources.) Local time only advances after the AO subprogram terminates. The initial word must terminate before sub-processes are created.
+ 
+ Beyond these, one might note AO's lack of ambient authority. Use of a 'power block' and capability model for effects has a significant impact on how code is organized and modularized compared to FFI or ambient authority. Ultimately, AO with aoExec is likely not the imperative model you're familiar with... and this is mostly a good thing. Conventional imperative programming has a lot of weaknesses with respect to concurrency and extensibility.
+ 
+ Details of aoExec's resource model will be made available in other documents. 
+ 
+ In addition to a rich resource model, `aoExec` supports a few annotations that `aoi` does not (yet) support. These include `{&async}` which enables parallelism within a step, and `{&debug print}`, which prints a value to standard error (or whichever error console or log is available). 
+~
