@@ -43,8 +43,8 @@ import Control.Applicative
 --import Control.Monad
 import Control.Category
 import Data.Ratio
-
--- Quick and Dirty '{&async}' implementation
+-- for {&async} and {&debug print}
+import qualified System.IO as Sys
 import System.IO.Unsafe (unsafeInterleaveIO)
 import Control.Concurrent
 --import Control.Concurrent.MVar
@@ -303,6 +303,7 @@ copyable (B b) = not (b_aff b)
 copyable (S _ v) = copyable v
 
 #ifdef ENFORCE_SUBSTRUCTURE
+-- default is to enforce substructure
 enforceCopyable = copyable
 enforceDroppable = droppable
 #else
@@ -564,7 +565,15 @@ p_unseal s v = error $ "{." ++ s ++ "} @ " ++ show v
 -- TODO: consider generating `anno_async` instead of `anno "async"`
 anno :: String -> Program
 anno "async" = fmap (onFst (onBlock mkAsync))
+anno "debug print" = (=<<) debugPrint
 anno _ = pass
+
+-- {&debug print} is a relatively trivial printer for stderr.
+-- It simply prints a summary of whatever value is passed to it.
+--
+-- Conceptually, stderr is not considered to be 'observable'.
+debugPrint :: V -> IO V
+debugPrint v = Sys.hPutStrLn Sys.stderr (show v) >> return v
 
 -- For now, {&async} will mark a block on the stack to operate 
 -- asynchronously, such that `{&async}$` will fork a new thread 
