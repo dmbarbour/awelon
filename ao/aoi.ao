@@ -32,10 +32,10 @@ std euler
 @doc.getEnv.aoi "varname -- text; environment variable or empty text"
 @getEnv.aoi "getOSEnv" p iomsg.aoi
 
-@doc.randomBytes.aoi "count -- (vector of octets); secure random source"
+@doc.randomBytes.aoi "count -- (list of octets); secure random source"
 @randomBytes.aoi "randomBytes" p iomsg.aoi
 
-@rand8.aoi 1 randomBytes.aoi wx drop
+@rand8.aoi 1 randomBytes.aoi assert wx drop
 
 @doc.readFile.aoi "(io) filename -- (1(err) + text)"
 @doc.writeFile.aoi "(io) text filename -- (1(err) + 1(ok))"
