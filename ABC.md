@@ -69,20 +69,4 @@ Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It
 
 ## ABCD
 
-None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns.
-
-## Desiderata
-
-I would like to find simpler alternatives for `F` and `M` operators, with respect to static analysis. Suggestions are welcome.
-
-## Deprecated
-
-Originally, ABC had some introspection operators.
-
-        P :: (Observable x) ⇒ x * e → (x+(a*b)) * e -- x is pair?
-        S :: (Observable x) ⇒ x * e → (x+(a+b)) * e -- x is sum?
-        B :: (Observable x) ⇒ x * e → (x+[a→b]) * e -- x is block?
-        N :: (Observable x) ⇒ x * e → (x+N(a)) * e -- x is number?
-
-However, these are being removed because they introduce a lot of complexity for static analysis, without offering significant benefits. In addition, the older definition of `>` would apply to many types, not just numbers.
-
+None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits.
