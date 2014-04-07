@@ -6,5 +6,7 @@ aoi exec std
      AO_PATH: a colon separated list of directories (semicolon for Windows)
      AO_DICT: the initial import, main dictionary
  
- Environment variables are favored because AO is designed to use a global dictionary for many projects, i.e. as opposed to a dictionary per project. The `lang` import is significant primarily as the default value of AO_DICT.
+ Environment variables are favored because AO is designed to exist as an environment, a global dictionary for thousands of projects with ad-hoc cross-project refactoring and pollination (as opposed to dictionary per project). The `lang` import is significant primarily as the default value of AO_DICT. 
+ 
+ The **.ao** file format exists primarily to support bootstrap using a conventional text editors programming environment. Ultimately, the **.ao** file format should be supplanted by use of wiki databases or structures independent of a filesystem (though it may continue to serve as an import/export serialization format).
 ~
