@@ -33,8 +33,8 @@ helpMsg :: String
 helpMsg = 
     "USAGE: aoExec word arg1 arg2 .. argN [+RTS options]\n\
     \ \n\
-    \  aoExec may only use words from the precompiled dictionary\n\
-    \  additional arguments become a list of text on the stack\n\
+    \  run 'word' from precompiled AO dictionary\n\
+    \  arguments becomes list of texts on the stack\n\
     \ \n\
     \Peruse exec.ao and doc.aoExec for information, idioms, and utilities\n\
     \See GHC documentation for RTS options (multi-threading, profiling, etc.)\n\
@@ -64,10 +64,11 @@ listToV [] = L U
 listToV (v:vs) = R (P v (listToV vs))
 
 -- run the initial program in the standard environment
+-- then continues to process resources (possibly 'forever')
 execute :: Program -> IO ()
 execute prog =
     newDefaultContext >>= \ cx ->
     let pb  = executivePowers cx in
     let env = stdEnvWithPB pb in
-    runAO env prog >> -- ignore result
-    processContext cx -- potentially runs forever
+    runAO env prog >> -- compute but ignore result
+    processContext cx -- process writes and resources

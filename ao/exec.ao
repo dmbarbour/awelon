@@ -7,17 +7,52 @@ std
  
  The meaning of this invocation is to execute the first word in AO's standard environment after placing the extra (non-RTS) arguments as a list of strings on the stack. This is analogous to the Unix process model. By default, this isn't especially flexible. But the goal is to construct flexible programs atop it, e.g. developing some words that parse the arguments or standard input to construct a dynamic program. To simplify development of dynamic programs, the aoExec powerblock offers easy access to the built-in AO dictionary.
  
- The aoExec powerblock presents an imperative view of resources. That is, effects are mostly modeled in terms of reads and writes. However, there are significant differences from a conventional imperative environment:
+ The aoExec powerblock presents an imperative view of resources (see @doc.Powers.aoExec). That is, effects are mostly modeled in terms of reads and writes. The powerblock itself receives messages as simple (method*args) pairs, similar to an OOP object. However, there are significant differences from a conventional imperative/OOP environment:
  
- First, aoExec adapts the RDP resource model to the imperative paradigm. Rather than 'creating' resources, we 'identify' resources that are conceptually external to the imperative program. Some resources are 'abundant' in the sense that we can have as many as we need, so long as each has a unique identifier. To control aliasing and enable encapsulation-like benefits, many resources are linear in nature: the capability for that resource may only be acquired once by the program, or perhaps once per timestep.
+ 1. aoExec adapts the RDP resource model to the imperative paradigm. Rather than 'creating' resources or local state, users must 'identify' resources that are conceptually external to the imperative program. Some resources are 'abundant' in the sense that we can have as many as we identify. Substructural types can limit aliasing and provide benefits similar to encapsulation.
  
- Second, aoExec does not permit an infinite loop as the process model. Without exception, infinite loops expressed in AO code are considered to be bugs. Long-running behaviors are instead modeled by installing AO code in a context with an implicit top-level loop. For aoExec, these contexts are modeled as reprogrammable resources, and the installation is explicit. (The exact nature of these resources may vary.) 
+ 2. aoExec does not use infinite loops to model long-running processes (e.g. servers or user interface applications). In AO, infinite loops are considered bugs. Instead, long running behaviors are modeled by manipulation of programmable resources, to adjust their future behaviors.
  
- Third, to encourage use of the proper process model, aoExec manages time. Writes to a stateful resource are typically delayed until the next time step. Reads within a time step all return the same value. (This approach can be adapted to most non-state resources.) Local time only advances after the AO subprogram terminates. The initial word must terminate before sub-processes are created.
+ 3. aoExec manages time. Long-running processes are divided implicitly into logical time steps. Within each time step, reads on a resource return the same value. Writes become visible at the next time step. For the program to progress, each time step must finish. This greatly simplifies reasoning about concurrency... and further discourages use of infinite loops. The initial word essentially serves as the first time step.
  
- Beyond these, one might note AO's lack of ambient authority. Use of a 'power block' and capability model for effects has a significant impact on how code is organized and modularized compared to FFI or ambient authority. Ultimately, AO with aoExec is likely not the imperative model you're familiar with... and this is mostly a good thing. Conventional imperative programming has a lot of weaknesses with respect to concurrency and extensibility.
+ Additionally, AO doesn't offer ambient authority - i.e. no foreign function interface, no generic access to network or filesystem, no globally visible state. This has a significant impact on how code is organized and modularized. It also simplifies reasoning about portability, security, and isolation of errors.
  
- Details of aoExec's resource model will be made available in other documents. 
+ Ultimately, AO with aoExec is not the imperative model you're likely familiar with... and this is mostly a good thing! Conventional imperative programming has a lot of weaknesses with respect to concurrency and extensibility.
  
- In addition to a rich resource model, `aoExec` supports a few annotations that `aoi` does not (yet) support. These include `{&async}` which enables parallelism within a step, and `{&debug print}`, which prints a value to standard error (or whichever error console or log is available). 
+ See @doc.Powers.aoExec for details on available effects.
 ~
+
+@doc.prefix.exec "'exec.' identifies words designed for toplevel use with aoExec; see @doc.aoExec"
+@doc.suffix.aoExec "'.aoExec' - utilities associated with aoExec"
+
+@doc.Powers.aoExec
+"The aoExec powerblock expects commands of the form (command * arguments) where 'command' is a simple text. The output is (powerblock * result), where the powerblock may have been updated. The arguments depend on the command. The results may depend on the command and arguments.
+ 
+ Eventually, there may be opportunities to split simple capabilities from the original powerblock.
+ 
+ Existing powers include:
+ 
+ * read access to the dictionary (see @getDictWord.aoExec, @getDictList.aoExec)
+ * simple debug output
+~
+
+@doc.invoke.aoExec "(method*arguments) -- result; (io) invokes powerblock"
+@invoke.aoExec %zwl .apply x %rwz
+
+@doc.debugOut.aoExec "v -- v; (io) print a value from the stack"
+@debugOut.aoExec "debugOut" p invoke.aoExec 
+
+@doc.getDictWord.aoExec "text -- (text+block); (io) access word from dictionary"
+@getDictWord.aoExec "dict.word" p invoke.aoExec
+
+@doc.getDictList.aoExec "-- (word*block)`L; (io) access dictionary as association list"
+@getDictList.aoExec "dict.wordList" pw invoke.aoExec
+
+@doc.exec.print "takes word from arguments list, executes it, prints top value on stack"
+@exec.print [failNeedArg.exec.print] [execFirstArg.exec.print] if
+@failNeedArg.exec.print "required argument: word to execute" debugOut.aoExec
+@failUndefined.exec.print " not found in dictionary" append.l debugOut.aoExec 
+@execFirstArg.exec.print 
+ x dup getDictWord.aoExec 
+ [drop failUndefined.exec.print] [dropd inline debugOut.aoExec] if
+

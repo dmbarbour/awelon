@@ -35,7 +35,7 @@ module AOPrelude
     , Number, Program, Block(..)
     , runAO, stdEnvPure, stdEnvWithPB
     , textToV, charToV, vToText, vToChar
-    , divModQ, quoteVal, mkAsync
+    , divModQ, quoteVal
     ) where
 
 import Prelude hiding ((.),id)
@@ -43,11 +43,6 @@ import Control.Applicative
 --import Control.Monad
 import Control.Category
 import Data.Ratio
--- for {&async} and {&debug print}
-import qualified System.IO as Sys
-import System.IO.Unsafe (unsafeInterleaveIO)
-import Control.Concurrent
---import Control.Concurrent.MVar
 
 type AO = IO -- for now
 type Program = AO V -> AO V
@@ -93,19 +88,7 @@ summaryV _ (B b) =
     (addF . addK) "[fn]"
 
 runAO :: V -> Program -> IO V
-runAO v prog = prog (pure v) >>= finish
-
-finish :: V -> IO V
-finish v = deepEval v `seq` return v
-
-deepEval :: V -> ()
-deepEval (P a b) = deepEval a `seq` deepEval b
-deepEval U = ()
-deepEval (N _) = ()
-deepEval (L a) = deepEval a
-deepEval (R b) = deepEval b
-deepEval (S _ v) = deepEval v
-deepEval (B b) = b_aff b `seq` b_rel b `seq` b_prog b `seq` ()
+runAO v prog = prog (pure v)
 
 stdEnvPure :: V
 stdEnvPure = stdEnvWithPB pbReject where
@@ -554,39 +537,9 @@ p_unseal :: String -> V -> V
 p_unseal s (S s' v) | (s == s') = v
 p_unseal s v = error $ "{." ++ s ++ "} @ " ++ show v
 
--- | annotate code or value; string is type of annotation {&anno}
--- Annotations must return their input without any observable changes.
--- Though, it is also acceptable if an annotation fails to return,
--- e.g. due to a type error.
---
--- Annotations can be used for debugging, memoization, to guide
--- parallelism, etc.. Currently, very few annotations are supported.
---
--- TODO: consider generating `anno_async` instead of `anno "async"`
+-- | annotate code or value; currently an NOP
 anno :: String -> Program
-anno "async" = fmap (onFst (onBlock mkAsync))
-anno "debug print" = (=<<) debugPrint
-anno _ = pass
-
--- {&debug print} is a relatively trivial printer for stderr.
--- It simply prints a summary of whatever value is passed to it.
---
--- Conceptually, stderr is not considered to be 'observable'.
-debugPrint :: V -> IO V
-debugPrint v = Sys.hPutStrLn Sys.stderr (show v) >> return v
-
--- For now, {&async} will mark a block on the stack to operate 
--- asynchronously, such that `{&async}$` will fork a new thread 
--- to apply the block. 'async' can be applied to just part of a
--- block via composition of async pieces. 
-mkAsync :: Block -> Block
-mkAsync b = b { b_prog = wrap (b_prog b) } where
-    wrap prog arg = 
-        newEmptyMVar >>= \ mv -> 
-        forkIO (prog arg >>= finish >>= putMVar mv) >>
-        unsafeInterleaveIO (takeMVar mv)
-    -- thoughts: an alternative would be to 'finish' after 'putMVar'.
-    --   but, for now, I'd rather have only one thread observing a value.
+anno = const id
 
 -- | dynWord is used by the 'allWords' list, and is only relevant if
 -- programs track Haskell types. In which case the types of words
