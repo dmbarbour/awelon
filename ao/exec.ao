@@ -46,7 +46,7 @@ std
 @getDictWord.aoExec "dict.word" p invoke.aoExec
 
 @doc.getDictList.aoExec "-- (word*block)`L; (io) access dictionary as association list"
-@getDictList.aoExec "dict.wordList" pw invoke.aoExec
+@getDictList.aoExec "dict.wordList" intro1 pw invoke.aoExec
 
 @doc.exec.print "takes word from arguments list, executes it, prints top value on stack"
 @exec.print [failNeedArg.exec.print] [execFirstArg.exec.print] if
