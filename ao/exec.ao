@@ -7,6 +7,8 @@ std
  
  The meaning of this invocation is to execute the first word in AO's standard environment after placing the extra (non-RTS) arguments as a list of strings on the stack. This is analogous to the Unix process model. By default, this isn't especially flexible. But the goal is to construct flexible programs atop it, e.g. developing some words that parse the arguments or standard input to construct a dynamic program. To simplify development of dynamic programs, the aoExec powerblock offers easy access to the built-in AO dictionary.
  
+ A current weakness of aoExec is that it is much too static. I need an alternative approach at least during development, and perhaps at runtime.
+ 
  The aoExec powerblock presents an imperative view of resources (see @doc.Powers.aoExec). That is, effects are mostly modeled in terms of reads and writes. The powerblock itself receives messages as simple (method*args) pairs, similar to an OOP object. However, there are significant differences from a conventional imperative/OOP environment:
  
  1. aoExec adapts the RDP resource model to the imperative paradigm. Rather than 'creating' resources or local state, users must 'identify' resources that are conceptually external to the imperative program. Some resources are 'abundant' in the sense that we can have as many as we identify. Substructural types can limit aliasing and provide benefits similar to encapsulation.
@@ -26,20 +28,26 @@ std
 @doc.suffix.aoExec "'.aoExec' - utilities associated with aoExec"
 
 @doc.Powers.aoExec
-"The aoExec powerblock expects commands of the form (command * arguments) where 'command' is a simple text. The output is (powerblock * result), where the powerblock may have been updated. The arguments depend on the command. The results may depend on the command and arguments.
+"In general, the aoExec powerblock expects commands of the form (command * arguments) where 'command' is simple text. The output is (powerblock * result). The resulting powerblock may be updated. The word `invoke.aoExec` will use the powerblock from its standard location, leaving the result on the stack. The typical command for aoExec involves acquiring a resource, represented as a block. 
+ 
+ Effects are then achieved through observing or manipulating these resources. Shared state manipulations of resources are generally not visible until a future time step. This protects AO's spatial idempotence and causal commutativity while enabling a fair degree of concurrent behavior.
+ 
+ Most resources are affine, meaning they can only be acquired once from the powerblock (further attempts for that specific resource will fail). Other resources may be requested any number of times. Resources, in turn, are typically modeled as blocks that accept commands using the same basic structure: (command * arguments) returning (resource * result). 
  
  Eventually, there may be opportunities to split simple capabilities from the original powerblock.
  
  Existing powers include:
  
  * read access to the dictionary (see @getDictWord.aoExec, @getDictList.aoExec)
- * simple debug output
+ * simple debug output (see @debugOut.aoExec)
+ 
+ Many elements are still under design. I'd like a more uniform model for channels and broadcasts that will respect AO's causal commutativity and spatial idempotence without binding to a linear powerblock.
 ~
 
-@doc.invoke.aoExec "(method*arguments) -- result; (io) invokes powerblock"
+@doc.invoke.aoExec "(command * arguments) -- result; (io) invokes powerblock"
 @invoke.aoExec %zwl .apply x %rwz
 
-@doc.debugOut.aoExec "v -- v; (io) print a value from the stack"
+@doc.debugOut.aoExec "v -- v; (io) print a value from stack to debug console (e.g. stderr)"
 @debugOut.aoExec "debugOut" p invoke.aoExec 
 
 @doc.getDictWord.aoExec "text -- (text+block); (io) access word from dictionary"
@@ -48,7 +56,7 @@ std
 @doc.getDictList.aoExec "-- (word*block)`L; (io) access dictionary as association list"
 @getDictList.aoExec "dict.wordList" intro1 pw invoke.aoExec
 
-@doc.exec.print "takes word from arguments list, executes it, prints top value on stack"
+@doc.exec.print "takes word from arguments list, executes it (per aoExec), prints top value on stack"
 @exec.print [failNeedArg.exec.print] [execFirstArg.exec.print] if
 @failNeedArg.exec.print "required argument: word to execute" debugOut.aoExec
 @failUndefined.exec.print " not found in dictionary" append.l debugOut.aoExec 

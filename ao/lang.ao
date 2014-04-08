@@ -1,4 +1,4 @@
-aoi exec std
+aoi std
 
 @doc.import.lang 
 "The **.ao** file format is configured by two environment variables:
