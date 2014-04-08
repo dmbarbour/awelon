@@ -1,4 +1,12 @@
 
+## DESIGN
+
+The 'aodict' package compiles the entire AO dictionary into Haskell.
+
+Upon review, I'm not much enjoying this package. The extra steps to use a new or updated definition, and the long dictionary compile time, are simply not very tolerable. I need to seek an alternative design, perhaps leveraging Haskell's System.Plugins.
+
+## USAGE
+
 To use this 'aodict' package:
 
 In this directory, call `ao dict2hs`, which should create an `AODict.hs` file. (You'll need to repeat this step whenever you have updates to the dictionary.) Then simply invoke `cabal install`. Eventually, construction of the dictionary may be automated.
