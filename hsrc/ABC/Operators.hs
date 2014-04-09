@@ -8,8 +8,6 @@ module ABC.Operators
     , abcQuoteNum
     ) where
 
---import Text.Show
--- import qualified Text.Read
 import Control.Applicative ((<$>))
 import Text.Read (Read(..))
 import qualified Text.ParserCombinators.ReadP as R
@@ -26,9 +24,9 @@ data OpC
     | Op_ap | Op_cond | Op_quote | Op_rel | Op_aff | Op_comp -- higher order
     | Op_distrib | Op_factor | Op_merge | Op_assert -- working with sums
     | Op_gt -- value observations
-    | Op_N0 -- '#'
-    | Op_d0 | Op_d1 | Op_d2 | Op_d3 | Op_d4 -- '0'-'4'
-    | Op_d5 | Op_d6 | Op_d7 | Op_d8 | Op_d9 -- '5'-'9'
+    | Op_introNum -- '#'
+    | Op_0 | Op_1 | Op_2 | Op_3 | Op_4 -- '0'-'4'
+    | Op_5 | Op_6 | Op_7 | Op_8 | Op_9 -- '5'-'9'
     | Op_SP | Op_LF -- ' ' and '\n' (identity)
     deriving (Eq, Ord)
 
@@ -50,39 +48,44 @@ opCharList =
     ,(Op_add,'+'),(Op_neg,'-'),(Op_mul,'*'),(Op_inv,'/'),(Op_divMod,'Q')
     ,(Op_ap,'$'),(Op_cond,'?'),(Op_quote,'\''),(Op_rel,'k'),(Op_aff,'f'),(Op_comp,'o')
     ,(Op_distrib,'D'),(Op_factor,'F'),(Op_merge,'M'),(Op_assert,'K')
-    ,(Op_N0,'#')
-    ,(Op_d0,'0'),(Op_d1,'1'),(Op_d2,'2'),(Op_d3,'3'),(Op_d4,'4')
-    ,(Op_d5,'5'),(Op_d6,'6'),(Op_d7,'7'),(Op_d8,'8'),(Op_d9,'9')
+    ,(Op_introNum,'#')
+    ,(Op_0,'0'),(Op_1,'1'),(Op_2,'2'),(Op_3,'3'),(Op_4,'4')
+    ,(Op_5,'5'),(Op_6,'6'),(Op_7,'7'),(Op_8,'8'),(Op_9,'9')
     ,(Op_SP,' '),(Op_LF,'\n')
     ]
 
+type QuoteOps = [Op] -> [Op]
+
+qOp :: Op -> QuoteOps
+qOp = (:)
+
+qOpC :: OpC -> QuoteOps
+qOpC = qOp . OpC
+
 -- | translate a number into ABC's pseudo-literal syntax
-abcQuoteNum :: Rational -> [Op]
-abcQuoteNum r =
-    let denOps = 
-            if (1 == denominator r) then [] else
-            qi (denominator r) [OpC Op_inv, OpC Op_mul]
-    in qi (numerator r) denOps
+abcQuoteNum :: Rational -> [Op] -> [Op]
+abcQuoteNum r = quoteNum . quoteDen where
+    quoteNum  = qi (numerator r)
+    quoteDen  = if (1 == denominator r) then id else quoteDen'
+    quoteDen' = qi (denominator r) . qOpC Op_inv . qOpC Op_mul
 
 -- quote an integer into ABC, building from right to left
-qi :: Integer -> [Op] -> [Op]
-qi n ops | (n > 0) =
-    let (q,r) = n `divMod` 10 in
-    qi q (OpC (opd r) : ops)
-qi n ops | (0 == n) = (OpC Op_N0 : ops)
-qi n ops = qi (negate n) (OpC Op_neg : ops)
+qi :: Integer -> QuoteOps
+qi n | (n > 0) = let (q,r) = n `divMod` 10 in qi q . (qOpC (opd r))
+     | (0 == n) = qOpC Op_introNum
+     | otherwise = qi (negate n) . qOpC Op_neg
 
 opd :: Integer -> OpC
-opd 0 = Op_d0
-opd 1 = Op_d1
-opd 2 = Op_d2
-opd 3 = Op_d3
-opd 4 = Op_d4
-opd 5 = Op_d5
-opd 6 = Op_d6
-opd 7 = Op_d7
-opd 8 = Op_d8
-opd 9 = Op_d9
+opd 0 = Op_0
+opd 1 = Op_1
+opd 2 = Op_2
+opd 3 = Op_3
+opd 4 = Op_4
+opd 5 = Op_5
+opd 6 = Op_6
+opd 7 = Op_7
+opd 8 = Op_8
+opd 9 = Op_9
 opd _ = error "invalid digit"
 
 instance Show OpC where 
