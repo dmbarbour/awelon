@@ -79,7 +79,7 @@ Library
   Exposed-Modules:
 
     ABC.Operators
-    -- ABC.Imperative.Value
+    ABC.Imperative.Value
     -- ABC.Imperative.Operations
     -- ABC.Imperative.Prelude
 
