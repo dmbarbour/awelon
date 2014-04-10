@@ -21,7 +21,8 @@ data OpC
     | Op_L | Op_R | Op_W | Op_Z | Op_V | Op_C -- sum-type data plumbing
     | Op_copy | Op_drop -- '^' and '%'
     | Op_add | Op_neg | Op_mul | Op_inv | Op_divMod -- basic math
-    | Op_ap | Op_cond | Op_quote | Op_rel | Op_aff | Op_comp -- higher order
+    | Op_ap | Op_cond | Op_quote | Op_comp -- higher order programming
+    | Op_rel | Op_aff -- substructural types
     | Op_distrib | Op_factor | Op_merge | Op_assert -- working with sums
     | Op_gt -- value observations
     | Op_introNum -- '#'
@@ -46,7 +47,8 @@ opCharList =
     ,(Op_L,'L'),(Op_R,'R'),(Op_W,'W'),(Op_Z,'Z'),(Op_V,'V'),(Op_C,'C')
     ,(Op_copy,'^'),(Op_drop,'%')
     ,(Op_add,'+'),(Op_neg,'-'),(Op_mul,'*'),(Op_inv,'/'),(Op_divMod,'Q')
-    ,(Op_ap,'$'),(Op_cond,'?'),(Op_quote,'\''),(Op_rel,'k'),(Op_aff,'f'),(Op_comp,'o')
+    ,(Op_ap,'$'),(Op_cond,'?'),(Op_quote,'\''),(Op_comp,'o')
+    ,(Op_rel,'k'),(Op_aff,'f')
     ,(Op_distrib,'D'),(Op_factor,'F'),(Op_merge,'M'),(Op_assert,'K')
     ,(Op_introNum,'#')
     ,(Op_0,'0'),(Op_1,'1'),(Op_2,'2'),(Op_3,'3'),(Op_4,'4')
