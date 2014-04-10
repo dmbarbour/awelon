@@ -201,13 +201,11 @@ When a relevant block is copied, both copies are relevant. (*Note:* Technically,
 
 A sum type, `(a + b)`, represents that we're either right with `b` or left with `a`. Convention is to pun 'right' with 'true', i.e. `(false+true)` ordering. A sum type is the typical result of making an observation, such as comparing two numbers:
 
-        > :: (Comparable x) ⇒ x₁ * (x₂ * e) → ((x₂*x₁)+(x₁*x₂)) * e -- x₂ > x₁
+        > :: N(x) * (N(y) * e) → ((N(y)*N(x))+(N(x)*N(y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-In addition, a sum type can model data structures, e.g. list is `µL.(1+(a*L))`. 
+Technically, `>` is the only observer operator built into ABC. However, it is assumed that invocation of capabilities will often result in sum type observations, e.g. indicating failure vs. success. Sums are also used to model algebraic data structures, e.g. a list can be modeled with `µL.(1+(a*L))`.
 
-Comparisons are sufficiently flexible to directly compare texts, i.e. such that texts are suitable as first-class identifiers. Texts are simply lists of numbers. Comparing texts can involve comparing sums with sums, units with units, numbers with numbers, and products with products. Sums compare right as greater than left, and products compare first elements before second elements.
- 
 Sum types have their own set of data shuffling operators:
 
         L :: (a + (b + c)) * e → ((a + b) + c) * e
