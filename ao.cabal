@@ -85,6 +85,7 @@ Library
 
     ABC.Operators
     ABC.Quote
+    ABC.Simplify
     ABC.Imperative.Value
     -- ABC.Imperative.Operations
     -- ABC.Imperative.Prelude
