@@ -1,22 +1,26 @@
 Name: ao
-Version: 0.13
+Version: 0.14
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
   Awelon Object (AO) is a simple language that expands into Awelon
   Byte Code (ABC), or an ambiguous variation thereof (AMBC). AO is
   ultimately designed for Reactive Demand Programming (RDP) but is
-  suitable for procedural and functional programming (depending on
-  the effects model, which is determined by capabilities passed to
-  the program).
+  suitable for procedural and functional programming. The paradigm
+  can change based on the implementation and provided capabilities.
+  This particular implementation is imperative in nature.
   
-  This package includes a library and a couple executables to work
-  with '.ao' files. Developers can use the 'aoi' REPL to experiment
-  with words, and the 'ao' executable to perform automatic testing.
-  The goal is to bootstrap AO to native code or LLVM. These Haskell
-  programs are relatively inefficient interpreters.
+  This package includes library `ao` and executables `ao` and `aoi`
+  for working with AO code. `aoi` is a simple REPL, while `ao` will
+  run tests or provide quick introspection of the AO dictionary. AO
+  uses a global dictionary concept instead of importing libraries. 
   
-  The AO_PATH environment variable control search for '.ao' files.
+  This package currently supports a filesystem based dictionary with
+  '.ao' files. Environment variable AO_PATH determines where we look
+  for these files; AO_DICT (default "lang") determines the root file.
+  
+  The long term goal of this package is to get AO development into a
+  state where it can easily bootstrap.
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
