@@ -9,9 +9,9 @@
 -- dynamic values indefinitely (until we bootstrap, anyway).
 module ABC.Imperative.Value
     ( V(..), Prog, Block(..)
-    , copyable, droppable, compareVal
-    , divModQ, valToText, quoteVal
-    , textToVal
+    , copyable, droppable
+    , divModQ
+    , valToText, textToVal
     ) where
 
 import Control.Applicative
@@ -21,6 +21,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 
 import ABC.Operators
+import ABC.Quote
 
 -- | a value in imperative context cx
 data V cx
@@ -98,31 +99,23 @@ showNumber :: Rational -> ShowS
 showNumber r | (1 == denominator r) = shows (numerator r)
 showNumber r = shows (numerator r) . showChar '/' . shows (denominator r)
 
-type QuoteOps = [Op] -> [Op]
-
-qOp :: Op -> QuoteOps
-qOp = (:)
-
-qOpC :: OpC -> QuoteOps
-qOpC = qOp . OpC
-
--- | generate ABC code to regenerate input value; (e → (V*e))
-quoteVal :: V cx -> QuoteOps
-quoteVal (N r) = abcQuoteNum r
-quoteVal (P a b) = quoteVal a . quoteVal b . qOpC Op_w . qOpC Op_l
-quoteVal (R b) = quoteVal b . inR where
-    inR = qOpC Op_V . qOpC Op_V . qOpC Op_R . qOpC Op_W . qOpC Op_L . qOpC Op_C
-quoteVal (L a) = quoteVal a . inL where
-    inL = qOpC Op_V
-quoteVal U = qOpC Op_v . swap where
-    swap = qOpC Op_v . qOpC Op_r . qOpC Op_w . qOpC Op_l . qOpC Op_c
-quoteVal (B b) = code . k . f where
-    code = qOp (BL (b_code b))
-    k = if (b_rel b) then qOpC Op_rel else id
-    f = if (b_aff b) then qOpC Op_aff else id
-quoteVal (S s v) = quoteVal v . sealer . qOpC Op_ap where
-    sealer = qOp (BL [invoke])
-    invoke = Tok (':' : T.unpack s)
+instance Quotable (V cx) where
+    quotes (valToText -> Just txt) = quotes (TL txt)
+    quotes (N r) = quotes r
+    quotes (P a b) = quotes a . quotes b . quotes Op_w . quotes Op_l
+    quotes (R b) = quotes b . qinR where
+        qinR = concatQuotes [Op_V, Op_V, Op_R, Op_W, Op_L, Op_C]
+    quotes (L a) = quotes a . qinL where
+        qinL = quotes Op_V
+    quotes U = quotes Op_v . qswap where
+        qswap = concatQuotes [Op_v, Op_w, Op_r, Op_l, Op_c]
+    quotes (B b) = code . k . f where
+        code = quotes (BL (b_code b))
+        k = if (b_rel b) then quotes Op_rel else id
+        f = if (b_aff b) then quotes Op_aff else id
+    quotes (S s v) = quotes v . sealer . quotes Op_ap where
+        sealer = quotes (BL [invoke])
+        invoke = Tok (':' : T.unpack s) 
 
 copyable :: V cx -> Bool
 copyable (N _) = True
@@ -142,19 +135,3 @@ droppable U = True
 droppable (B b) = not (b_rel b)
 droppable (S _ v) = droppable v
 
--- | compareVal will Either succeed (Right) with an ordering
---     or fail (Left) returning the incomparable child values
--- sums may be compared with sums, and products with products
--- blocks and sealed values may not be compared with anything
-compareVal :: V cx -> V cx -> Either (V cx, V cx) Ordering
-compareVal (N a) (N b) = Right (compare a b)
-compareVal (P x1 x2) (P y1 y2) = 
-    case compareVal x1 y1 of
-        Right EQ -> compareVal x2 y2
-        other -> other
-compareVal (R x) (R y) = compareVal x y
-compareVal (L x) (L y) = compareVal x y
-compareVal (R _) (L _) = Right GT
-compareVal (L _) (R _) = Right LT
-compareVal U U = Right EQ
-compareVal x y = Left (x,y)

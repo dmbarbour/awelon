@@ -84,6 +84,7 @@ Library
   Exposed-Modules:
 
     ABC.Operators
+    ABC.Quote
     ABC.Imperative.Value
     -- ABC.Imperative.Operations
     -- ABC.Imperative.Prelude

@@ -3,16 +3,13 @@
 -- | pure description of ABC operators
 --   plus useful Show and Read instances
 module ABC.Operators
-    ( OpC(..), Op(..)
-    , opCharList
-    , abcQuoteNum
+    ( OpC(..), Op(..), opCharList
     ) where
 
 import Control.Applicative ((<$>))
 import Text.Read (Read(..))
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Text.ParserCombinators.ReadPrec as RP
-import Data.Ratio
 import qualified Data.List as L
 
 -- | ABC's single character operators
@@ -55,40 +52,6 @@ opCharList =
     ,(Op_5,'5'),(Op_6,'6'),(Op_7,'7'),(Op_8,'8'),(Op_9,'9')
     ,(Op_SP,' '),(Op_LF,'\n')
     ]
-
-type QuoteOps = [Op] -> [Op]
-
-qOp :: Op -> QuoteOps
-qOp = (:)
-
-qOpC :: OpC -> QuoteOps
-qOpC = qOp . OpC
-
--- | translate a number into ABC's pseudo-literal syntax
-abcQuoteNum :: Rational -> [Op] -> [Op]
-abcQuoteNum r = quoteNum . quoteDen where
-    quoteNum  = qi (numerator r)
-    quoteDen  = if (1 == denominator r) then id else quoteDen'
-    quoteDen' = qi (denominator r) . qOpC Op_inv . qOpC Op_mul
-
--- quote an integer into ABC, building from right to left
-qi :: Integer -> QuoteOps
-qi n | (n > 0) = let (q,r) = n `divMod` 10 in qi q . (qOpC (opd r))
-     | (0 == n) = qOpC Op_introNum
-     | otherwise = qi (negate n) . qOpC Op_neg
-
-opd :: Integer -> OpC
-opd 0 = Op_0
-opd 1 = Op_1
-opd 2 = Op_2
-opd 3 = Op_3
-opd 4 = Op_4
-opd 5 = Op_5
-opd 6 = Op_6
-opd 7 = Op_7
-opd 8 = Op_8
-opd 9 = Op_9
-opd _ = error "invalid digit"
 
 instance Show OpC where 
     showsPrec _ opc = case L.lookup opc opCharList of
