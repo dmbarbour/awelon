@@ -14,6 +14,7 @@ Description:
   for working with AO code. `aoi` is a simple REPL, while `ao` will
   run tests or provide quick introspection of the AO dictionary. AO
   uses a global dictionary concept instead of importing libraries. 
+  This implementation uses both interpreters and JIT (via 'plugins').
   
   This package currently supports a filesystem based dictionary with
   '.ao' files. Environment variable AO_PATH determines where we look
