@@ -33,7 +33,7 @@ data V cx
     | B (Block cx)  -- block
     | S !Text (V cx) -- sealed value
 
--- | an imperative program... 
+-- | an imperative program with context 'cx' 
 -- 'cx' should be Monadic and Applicative
 type Prog cx = cx (V cx) -> cx (V cx)
 

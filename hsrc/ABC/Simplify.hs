@@ -11,8 +11,8 @@ module ABC.Simplify
 
 import ABC.Operators
 
--- remove spaces from the entire operations sequence
--- (doesn't touch deep blocks)
+-- single pass to remove spaces
+-- only one pass is needed
 removeSpaces :: [Op] -> [Op]
 removeSpaces (OpC Op_LF : ops) = removeSpaces ops
 removeSpaces (OpC Op_SP : ops) = removeSpaces ops
@@ -20,6 +20,9 @@ removeSpaces (op:ops) = op:(removeSpaces ops)
 removeSpaces [] = []
 
 -- single pass to remove common data plumbing
+--
+-- this may require multiple passes due to eliminations
+-- of intermediate structures
 simplifyP :: [Op] -> [Op]
 simplifyP (OpC Op_w : OpC Op_w : ops) = simplifyP ops
 simplifyP (OpC Op_l : OpC Op_r : ops) = simplifyP ops
@@ -54,8 +57,9 @@ onBlocks _ op = op
 -- It won't simplify completely, but it can simplify a
 -- reasonable depth with predictable linear performance.
 simplify :: [Op] -> [Op]
-simplify = p.p.s.p.p.s.d.c where
+simplify = r.r.r.d.c where
     c = removeSpaces
     d = fmap (onBlocks simplify)
     s = simplifyS
     p = simplifyP
+    r = p.s.p.s.p
