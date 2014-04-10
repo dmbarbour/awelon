@@ -87,7 +87,7 @@ Library
     ABC.Quote
     ABC.Simplify
     ABC.Imperative.Value
-    -- ABC.Imperative.Operations
+    ABC.Imperative.Operations
     -- ABC.Imperative.Prelude
 
     AO.V
