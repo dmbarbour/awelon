@@ -196,31 +196,10 @@ op_K (P (R b) e) = return (P b e)
 op_K v = opFail 'K' v
 
 op_GT :: (Monad c) => V c -> c (V c)
-op_GT v@(P x (P y e)) = 
-    case tryGT y x of
-        Just True -> return (P (R (P x y)) e)
-        Just False -> return (P (L (P y x)) e)
-        Nothing -> opFail '>' v
+op_GT (P x@(N nx) (P y@(N ny) e)) =
+    if (ny > nx) then return (P (R (P x y)) e)
+                 else return (P (L (P y x)) e)
 op_GT v = opFail '>' v
-
--- comparisons now only operate between like structures 
--- (e.g. no comparison between product and sum).
-tryGT :: V c -> V c -> Maybe Bool
-tryGT (N y) (N x) = Just (y > x)
-tryGT (P y1 y2) (P x1 x2) =
-    case tryGT y1 x1 of
-        Nothing -> Nothing
-        Just True -> Just True
-        Just False -> case tryGT x1 y1 of
-            Nothing -> Nothing
-            Just True -> Just False
-            Just False -> tryGT y2 x2
-tryGT (R y) (R x) = tryGT y x
-tryGT (L y) (L x) = tryGT y x
-tryGT (R _) (L _) = Just True
-tryGT (L _) (R _) = Just False
-tryGT U U = Just False
-tryGT _ _ = Nothing
 
 op_invoke_seal, op_invoke_unseal :: (Monad c) => Text -> V c -> c (V c)
 

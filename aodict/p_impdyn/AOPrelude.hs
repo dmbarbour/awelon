@@ -474,31 +474,14 @@ op_assert = (=<<) run where
     run (P (R b) e) = return (P b e)
     run v = fail $ "K @ " ++ show v
 
-op_gt :: Program -- (a:*:(b:*:e)) (((b:*:a):+:(a:*:b)):*:e)
+op_gt :: Program -- compare two numbers
 op_gt = fmap pop_gt
 
 pop_gt :: V -> V
-pop_gt (P a (P b e)) = 
-    case orderV b a of
-        GT -> (P (R (P a b)) e)
-        _  -> (P (L (P b a)) e)
+pop_gt (P x@(N nx) (P y@(N ny) e)) = 
+    if (ny > nx) then (P (R (P x y)) e)
+                 else (P (L (P y x)) e)
 pop_gt v = opError '>' v
-
--- orderV is a partial ordering function
--- an error is raised if compared values are not ordered
-orderV :: V -> V -> Ordering
-orderV (P a1 a2) (P b1 b2) =
-    case orderV a1 b1 of
-        EQ -> orderV a2 b2
-        ordering -> ordering
-orderV (R a) (R b) = orderV a b
-orderV (N a) (N b) = compare a b
-orderV (L a) (L b) = orderV a b
-orderV U U = EQ
-orderV (L _) (R _) = LT
-orderV (R _) (L _) = GT
-orderV a b = error ("cannot compare " ++ show a ++ " with " ++ show b)
-
 
 -- | 'number' here corresponds to a number literal in AO or ABC. The
 -- resulting subprogram should have type e→(Number*e). In AO, the 

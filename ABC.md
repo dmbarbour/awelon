@@ -54,19 +54,26 @@ See AboutABC for full explanations and design. This file just records each code,
         M :: (a + a') * e → a * e -- merge; a and a' compatible
         K :: (a + b ) * e → b * e -- assert; must be in b
 
-        > :: (Comparable x) ⇒ x₁ * (x₂ * e) → ((x₂*x₁)+(x₁*x₂)) * e -- x₂ > x₁
+        > :: N(x) * (N(y) * e) → ((N(y)*N(x))+(N(x)*N(y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
         {:foo} :: a → Sealed foo a      -- sealer capability
         {.foo} :: Sealed foo a → a      -- unsealer capability
         {&foo} :: a → a                 -- annotation capability
 
-Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible).
+Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
 
-Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. Comparison operator `>` is just sufficient to compare texts - i.e. comparing numbers, products, sums, and unit. 
+Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
 
-Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a potential in-band stream separator. 
+Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a visible in-band stream separator.
+
+## CHANGE LOG
+
+March 2014: eliminated operators `PSBN`, which would observe type information
+April 2014: made `>` monomorphic, so it operates only on a pair of numbers
+  (`>` was polymorphic to operate on texts, but required runtime type info)
 
 ## ABCD
 
 None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits.
+

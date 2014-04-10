@@ -2,7 +2,7 @@
 -- dynamic AO/ABC values
 module AO.V
     ( V(..), Op(..), ABC(..), KF(..), kf0
-    , copyable, droppable, observable
+    , copyable, droppable
     -- , ToABCV(..), FromABCV(..), toABCVL, fromABCVL
     , valToText, textToVal
     , abcQuote, abcLit
@@ -142,7 +142,7 @@ divModQ b a =
     let denR = denominator a * denominator b in
     (rN % denR, qN)
 
-droppable, copyable, observable :: V c -> Bool
+droppable, copyable :: V c -> Bool
 
 -- may we drop this value?
 droppable (B kf _) = may_drop kf
@@ -164,11 +164,6 @@ copyable (S _ v) = copyable v
 copyable U = True
 copyable (TC _) = False
 
--- may we introspect the value's structure?
-observable U = False
-observable (S _ _) = False
-observable (TC _) = False
-observable _ = True
 
 -- parse text from a list of numbers
 -- list has type µL.(1+(a*L)).
