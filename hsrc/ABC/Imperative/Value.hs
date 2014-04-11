@@ -15,6 +15,7 @@ module ABC.Imperative.Value
     ) where
 
 import Control.Applicative
+import Data.Ord
 import Data.Monoid
 import Data.Ratio
 import Data.Text (Text)
@@ -34,6 +35,7 @@ data V cx
     | U -- unit
     | B (Block cx)  -- block
     | S !Text (V cx) -- sealed value
+    deriving (Eq, Ord)
 
 -- | an imperative program with context 'cx' 
 -- 'cx' should be Monadic and Applicative
@@ -44,7 +46,18 @@ data Block cx = Block
     , b_rel  :: Bool
     , b_code :: S.Seq Op
     , b_prog :: Prog cx
-    }
+    } 
+
+instance Eq (Block cx) where
+    (==) b1 b2 = (b_code b1 == b_code b2)
+              && (b_rel b1 == b_rel b2)
+              && (b_aff b1 == b_aff b2)
+
+instance Ord (Block cx) where
+    compare b1 b2 = 
+        comparing b_code b1 b2 `mappend`
+        comparing b_rel  b1 b2 `mappend`
+        comparing b_aff  b1 b2
 
 instance Monoid (Block cx) where
     mempty = Block { b_aff = False, b_rel = False, b_code = S.empty, b_prog = id }

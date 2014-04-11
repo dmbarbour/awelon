@@ -47,6 +47,7 @@ opCharList =
     ,(Op_ap,'$'),(Op_cond,'?'),(Op_quote,'\''),(Op_comp,'o')
     ,(Op_rel,'k'),(Op_aff,'f')
     ,(Op_distrib,'D'),(Op_factor,'F'),(Op_merge,'M'),(Op_assert,'K')
+    ,(Op_gt,'>')
     ,(Op_introNum,'#')
     ,(Op_0,'0'),(Op_1,'1'),(Op_2,'2'),(Op_3,'3'),(Op_4,'4')
     ,(Op_5,'5'),(Op_6,'6'),(Op_7,'7'),(Op_8,'8'),(Op_9,'9')
