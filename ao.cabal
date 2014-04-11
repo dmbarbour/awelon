@@ -96,6 +96,9 @@ Library
     ABC.Imperative.Runtime
     ABC.Imperative.Prelude
 
+    AO.Code
+    -- AO.Dict
+
   Other-Modules:
   
   ghc-options: -Wall -auto-all
