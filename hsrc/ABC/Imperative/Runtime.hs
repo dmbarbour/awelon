@@ -20,3 +20,7 @@ class (Monad cx, Applicative cx) => Runtime cx where
 invokeFails :: (Monad cx) => String -> Prog cx
 invokeFails ('&':_) = id -- 
 invokeFails tok = fail $ "{" ++ tok ++ "} token not recognized"
+
+
+instance Runtime IO
+

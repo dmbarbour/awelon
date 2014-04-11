@@ -88,6 +88,8 @@ Library
     ABC.Simplify
     ABC.Imperative.Value
     ABC.Imperative.Operations
+    ABC.Imperative.Runtime
+    ABC.Imperative.Prelude
     -- ABC.Imperative.Prelude
 
     AO.V
