@@ -86,11 +86,12 @@ Library
     ABC.Operators
     ABC.Quote
     ABC.Simplify
+
     ABC.Imperative.Value
     ABC.Imperative.Operations
+    ABC.Imperative.Interpreter
     ABC.Imperative.Runtime
     ABC.Imperative.Prelude
-    -- ABC.Imperative.Prelude
 
     AO.V
     AO.Op
@@ -100,6 +101,8 @@ Library
     AO.ParseAO
     AO.LoadAO
     AO.AO
+
+  Other-Modules:
   
   ghc-options: -Wall -auto-all
 

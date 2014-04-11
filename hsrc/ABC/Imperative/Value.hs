@@ -48,11 +48,15 @@ data Block cx = Block
     , b_prog :: Prog cx
     } 
 
+-- structural equality for blocks
+-- implies behavioral equality (but not vice versa)
 instance Eq (Block cx) where
     (==) b1 b2 = (b_code b1 == b_code b2)
               && (b_rel b1 == b_rel b2)
               && (b_aff b1 == b_aff b2)
 
+-- structural comparison for blocks... 
+-- not very semantic, but useful for memoization, maps, etc. 
 instance Ord (Block cx) where
     compare b1 b2 = 
         comparing b_code b1 b2 `mappend`
