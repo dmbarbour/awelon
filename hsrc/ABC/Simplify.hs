@@ -1,5 +1,5 @@
 
--- | Trivial 'peephole' simplifiers for ABC
+-- | Trivial 'peephole' simplifier for ABC
 --
 -- This doesn't address partial evaluation, cycle recognition,
 -- or other rich optimizations that ABC can support. However, 
@@ -11,55 +11,32 @@ module ABC.Simplify
 
 import ABC.Operators
 
--- single pass to remove spaces
--- only one pass is needed
-removeSpaces :: [Op] -> [Op]
-removeSpaces (OpC Op_LF : ops) = removeSpaces ops
-removeSpaces (OpC Op_SP : ops) = removeSpaces ops
-removeSpaces (op:ops) = op:(removeSpaces ops)
-removeSpaces [] = []
+-- | eliminates all reversible subprograms, single pass!
+simplify :: [Op] -> [Op] 
+simplify = sz []
 
--- single pass to remove common data plumbing
---
--- this may require multiple passes due to eliminations
--- of intermediate structures
-simplifyP :: [Op] -> [Op]
-simplifyP (OpC Op_w : OpC Op_w : ops) = simplifyP ops
-simplifyP (OpC Op_l : OpC Op_r : ops) = simplifyP ops
-simplifyP (OpC Op_r : OpC Op_l : ops) = simplifyP ops
-simplifyP (OpC Op_v : OpC Op_c : ops) = simplifyP ops
-simplifyP (OpC Op_c : OpC Op_v : ops) = simplifyP ops
-simplifyP (OpC Op_z : OpC Op_z : ops) = simplifyP ops
-simplifyP (OpC Op_z : OpC Op_w : OpC Op_z : ops) =
-    (OpC Op_w : simplifyP (OpC Op_z : OpC Op_w : ops))
-simplifyP (op : ops) = op : (simplifyP ops)
-simplifyP [] = []
-
--- single pass to remove common data plumbing for sums
-simplifyS :: [Op] -> [Op]
-simplifyS (OpC Op_W : OpC Op_W : ops) = simplifyS ops
-simplifyS (OpC Op_L : OpC Op_R : ops) = simplifyS ops
-simplifyS (OpC Op_R : OpC Op_L : ops) = simplifyS ops
-simplifyS (OpC Op_V : OpC Op_C : ops) = simplifyS ops
-simplifyS (OpC Op_C : OpC Op_V : ops) = simplifyS ops
-simplifyS (OpC Op_Z : OpC Op_Z : ops) = simplifyS ops
-simplifyS (OpC Op_Z : OpC Op_W : OpC Op_Z : ops) =
-    (OpC Op_W : simplifyS (OpC Op_Z : OpC Op_W : ops))
-simplifyS (op : ops) = op : (simplifyS ops)
-simplifyS [] = []
-
-onBlocks :: ([Op] -> [Op]) -> Op -> Op
-onBlocks f (BL ops) = BL (f ops)
-onBlocks _ op = op
-
--- | 'simplify' is a fixed pipeline peephole optimizer
---
--- It won't simplify completely, but it can simplify a
--- reasonable depth with predictable linear performance.
-simplify :: [Op] -> [Op]
-simplify = r.r.r.d.c where
-    c = removeSpaces
-    d = fmap (onBlocks simplify)
-    s = simplifyS
-    p = simplifyP
-    r = p.s.p.s.p
+-- zipper-based simplifier 'walks' the list 
+-- and simplifies between left and right
+sz :: [Op] -> [Op] -> [Op]
+sz l (OpC Op_SP : r) = sz l r -- elim SP
+sz l (OpC Op_LF : r) = sz l r -- elim LF
+sz l (BL ops : r) = sz (BL ops' : l) r where
+    ops' = simplify ops -- deep simplify
+sz (OpC Op_w : l) (OpC Op_w : r) = sz l r
+sz (OpC Op_l : l) (OpC Op_r : r) = sz l r
+sz (OpC Op_r : l) (OpC Op_l : r) = sz l r
+sz (OpC Op_v : l) (OpC Op_c : r) = sz l r
+sz (OpC Op_c : l) (OpC Op_v : r) = sz l r
+sz (OpC Op_z : l) (OpC Op_z : r) = sz l r
+sz (OpC Op_w : OpC Op_z : l) (OpC Op_z : r) = -- zwz = wzw
+    sz l (OpC Op_w : OpC Op_z : OpC Op_w : r) 
+sz (OpC Op_W : l) (OpC Op_W : r) = sz l r
+sz (OpC Op_L : l) (OpC Op_R : r) = sz l r
+sz (OpC Op_R : l) (OpC Op_L : r) = sz l r
+sz (OpC Op_V : l) (OpC Op_C : r) = sz l r
+sz (OpC Op_C : l) (OpC Op_V : r) = sz l r
+sz (OpC Op_Z : l) (OpC Op_Z : r) = sz l r
+sz (OpC Op_W : OpC Op_Z : l) (OpC Op_Z : r) = -- ZWZ = WZW
+    sz l (OpC Op_W : OpC Op_Z : OpC Op_W : r) 
+sz l (op:r) = sz (op:l) r -- no simplifications found; move on
+sz l [] = reverse l -- all done!
