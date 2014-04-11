@@ -369,7 +369,7 @@ Value sealing is a simple technique with very wide applications. The setup is si
 
 In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. Value sealing has no observable impact on behavior of a correct program. Often, sealers can be completely eliminated by a compiler. 
 
-Developers cannot observe, compare, or operate upon a sealed value without first unsealing it. But a few whole-value operations - e.g. data shuffling, copy and drop, quotation, distribution - are permitted, assuming the same operation is also permitted on the underlying value type.
+Developers cannot observe, compare, or operate upon a sealed value without first unsealing it. But a few whole-value operations - e.g. data shuffling, copy and drop, quotation, communication - are permitted, assuming the same operation is also permitted on the underlying value type.
 
 Developers can reason about sealed values by reasoning about distribution of sealers and unsealers. This is potentially useful for:
 
@@ -379,7 +379,9 @@ Developers can reason about sealed values by reasoning about distribution of sea
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
 
-NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. However, for use in open systems, it is possible (and useful) to systematically secure these sealers against foreign code by rewriting them using an HMAC or similar.
+NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. To protect against untrusted foreign code in open systems, it is also reasonable to have a variation that rewrites for each application instance, e.g. `{:$myFoo}`. 
+
+NOTE: if serialized, sealed values might be represented as encrypted capability text. This won't apply to low-security discretionary sealers, but it can apply to instance specific or runtime generated sealers. Prefix `$` is tentatively reserved for this purpose. 
 
 ### ABC Paragraphs
 

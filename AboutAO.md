@@ -74,7 +74,7 @@ AO literals have a slightly different type than ABC literals.
         In ABC: e -> L * e
         In AO: (s * e) -> ((L * s) * e)
 
-The translation from AO to ABC is trivial, but offers a significant benefit. With this change, type `e` has a stable, relative location and is not "buried" when literals are introduced. This enables words to be developed that assume access to resources in environment `e`. Element `s` might be understood as "the current stack". 
+By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after everly literal in AO. Conversely, AO developers may regain ABC behavior with simple bracketing: `%v [foo] %c`. The codes `%l`, `%v`, and `%c` are examples of inline ABC.
 
 ## Inline ABC
 
@@ -84,9 +84,9 @@ ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In add
         %lwcwrwc    (aka `rot4`)
         {&par}      (an annotation)
 
-The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the definition of `%vrwlc` is effectively `%v %r %w %l %c`. Capabilities must always be in canonical form. 
+The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the definition of `%vrwlc` is effectively `%v %r %w %l %c`. ABC's drop operator would be represented as `%%`. 
 
-AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. Of course, AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers will forbid all except annotations. The restriction on capabilities is discussed below.
+AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and discretionary sealers... preferably at parse-time. This restriction on capabilities is discussed below. 
 
 *Note:* AO does not allow inlining of ABCD. ABCD extends ABC with a fixed dictionary, which is redundant in context of AO's own dictionary feature. Instead, ABCD should always be generated as a postprocess to compress a raw ABC stream.
 
@@ -112,18 +112,25 @@ Annotations are described via capabilities using prefix `&` for the token. For e
 
 ### Discretionary Value Sealing
 
-Value sealing with sealer/unsealer pairs is useful for many security patterns (see [AboutABC](AboutABC.md)). Even an insecure sealer can guard against much *accidental* behavior. 
+Value sealing with sealer/unsealer pairs is useful for many security patterns (see [AboutABC](AboutABC.md)). Even an insecure sealer can guard against much *accidental* behavior, and thus serve a role similar to 'newtype' in other languages.
 
-Value sealing is a form of annotation in the sense that it doesn't have any observable semantics. That is, for a correct program, all sealer/unsealer pairs can be removed from the program without changing its behavior. Value sealing only causes some incorrect programs to fail or be rejected, and thus serves a role similar to 'newtype' in other languages.
+Value sealing is a form of annotation in the sense that it doesn't have any observable semantics. That is, for a correct program, all sealer/unsealer pairs can be removed from the program without changing its behavior. Value sealing only causes some incorrect programs to fail or be rejected.
 
 Sealers and unsealers are represented as capabilities:
 
-        {:foo}       sealer 'foo' seals the value
-        {.foo}       unseal value from sealer 'foo'
+        {:foo}      sealer 'foo' seals the value
+        {.foo}      unseal value from sealer 'foo'
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
-While these discretionary sealers are insecure with respect to static subprograms, they may be secured against foreign code in an open system, e.g. by rewriting the sealer names at compile time using an HMAC. This would ensure that one service's `foo` cannot be forged by another service. 
+As an intermediate level of security, developers can also express *instance specific* sealers, i.e. which secure against *foreign code* (e.g. blocks or ABC streams received from a network or external file). Syntactically, this involves an extra prefix character `$`. For example:
+
+        {:$myFoo}   sealer 'myFoo' specific to application instance
+        {.$myFoo}   unseal 'myFoo' specific to application instance
+
+If exposed to the network, such an instance specific sealers would be rewritten - in a cryptographically secure manner (e.g. HMAC or PKI) - based on an ad-hoc, external, VM-layer notion of origin, ownership, or application instance. Introspection on the dictionary through a powerblock might also be associated with new 'child' instances. No other instance will have exactly the same `$myFoo`. 
+
+For full security, developers must generate sealers through a powerblock or related capability.
 
 ## Processing AO
 

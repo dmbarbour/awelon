@@ -1,9 +1,11 @@
 
 See AboutABC for full explanations and design. This file just records each code, and a pseudocode representation of its type.
 
-        [] :: (special - block reader mode)
-        "~ :: (special - text reader mode)
-        {} :: (special - capability reader mode)
+## Operators and Literals
+
+        [] :: (special - block literal)
+        "~ :: (special - text literal)
+        {} :: (special - token or capability; see below)
         (|) :: (special - AMBC; extension to ABC)
         SP,LF :: x → x (whitespace as identity)
 
@@ -57,15 +59,29 @@ See AboutABC for full explanations and design. This file just records each code,
         > :: N(x) * (N(y) * e) → ((N(y)*N(x))+(N(x)*N(y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-        {:foo} :: a → Sealed foo a      -- sealer capability
-        {.foo} :: Sealed foo a → a      -- unsealer capability
-        {&foo} :: a → a                 -- annotation capability
-
 Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
 
 Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a visible in-band stream separator.
+
+## Tokens and Capabilities
+
+Tokens in ABC are simply expressed using text between curly braces, `{foo}`. The token is unforgeable from within ABC, and the text is often cryptographically secure from outside ABC. A capability can be expressed by wrapping a token in a block, e.g. `[{foo}]`. When invoked, the token's text is passed to the current environment to determine its effect. In many cases, capability text is specific to an environment. 
+
+There are some common conventions based on prefix characters. For example:
+
+        {&foo} :: a → a                 -- annotation capability
+
+        {:foo} :: a → Sealed foo a      -- sealer capability
+        {.foo} :: Sealed foo a → a      -- unsealer capability
+        {:$foo} :: a → Sealed $foo a    -- instance specific sealer
+        {.$foo} :: Sealed $foo a → a    -- instance specific unsealer
+
+        {#323weAHSn085j9uj9u...} :: ∃a b.a→b -- secure hash source
+        {$3025uy0u3SKLHn3i3e...} :: ∃foo.s→(Sealed foo a * s) -- encrypted value
+
+Annotations can support debugging and performance. Secure hash sources are an important basis for separate compilation and linking in ABC. The encoding of sealed remains tentative, but the basic idea - that value-level encryption should be implicitly guided by value sealing - is excellent for simplicity and optimizability. 
 
 ## CHANGE LOG
 
