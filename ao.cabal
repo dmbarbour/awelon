@@ -97,6 +97,8 @@ Library
     ABC.Imperative.Prelude
 
     AO.Code
+    AO.Parser
+    AO.Simplify
     -- AO.Dict
 
   Other-Modules:

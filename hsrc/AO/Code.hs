@@ -7,17 +7,21 @@
 --  aren't preserved. 'show' generates code suitable for parsing.
 --
 module AO.Code
-    ( AO_Action(..), Word
+    ( AO_Action(..), Word, AO_Code
     ) where
 
 import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.List as L
-import ABC.Operators
+import ABC.Operators (OpC(..))
 
 -- | Word is Text (to support fast comparisons)
 type Word = Text
+
+-- | AO code is simply a list of actions
+-- (usually, this is a very short list)
+type AO_Code = [AO_Action]
 
 -- | an AO operation
 data AO_Action 
