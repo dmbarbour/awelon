@@ -19,6 +19,8 @@ import Data.Monoid
 import Data.Ratio
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Sequence as S
+import qualified Data.Foldable as S
 
 import ABC.Operators
 import ABC.Quote
@@ -38,19 +40,19 @@ data V cx
 type Prog cx = cx (V cx) -> cx (V cx)
 
 data Block cx = Block
-    { b_aff :: Bool
-    , b_rel :: Bool
-    , b_code :: [Op]
+    { b_aff  :: Bool
+    , b_rel  :: Bool
+    , b_code :: S.Seq Op
     , b_prog :: Prog cx
     }
 
 instance Monoid (Block cx) where
-    mempty = Block { b_aff = False, b_rel = False, b_code = [], b_prog = id }
+    mempty = Block { b_aff = False, b_rel = False, b_code = S.empty, b_prog = id }
     mappend xy yz = xz where
         xz = Block { b_aff = aff', b_rel = rel', b_code = code', b_prog = prog' }
         aff' = b_aff xy || b_aff yz
         rel' = b_rel xy || b_rel yz
-        code' = b_code xy ++ b_code yz
+        code' = b_code xy S.>< b_code yz
         prog' = b_prog yz . b_prog xy
 
 -- | divModQ :: dividend -> divisor -> (quotient, remainder)
@@ -91,9 +93,9 @@ instance Show (V cx) where
     showsPrec _ (P a b) = showChar '(' . shows a . showChar '*' . shows b . showChar ')'
     showsPrec _ (L a) = showChar '(' . shows a . showString "+_)"
     showsPrec _ (R b) = showString "(_+" . shows b . showChar ')'
-    showsPrec _ (B block) = shows (BL (b_code block))
-    showsPrec _ (S sealer v) = shows v . shows tok where
-        tok = Tok (':' : T.unpack sealer)
+    showsPrec _ b@(B _) = (shows . quote) b -- show as block literal + kf
+    showsPrec _ (S seal v) = shows v . shows tok where
+        tok = Tok (':' : T.unpack seal)
 
 showNumber :: Rational -> ShowS
 showNumber r | (1 == denominator r) = shows (numerator r)
@@ -109,8 +111,8 @@ instance Quotable (V cx) where
         qinL = quotes Op_V
     quotes U = quotes Op_v . qswap where
         qswap = concatQuotes [Op_v, Op_w, Op_r, Op_l, Op_c]
-    quotes (B b) = code . k . f where
-        code = quotes (BL (b_code b))
+    quotes (B b) = code b . k . f where
+        code = quotes . BL . S.toList . b_code 
         k = if (b_rel b) then quotes Op_rel else id
         f = if (b_aff b) then quotes Op_aff else id
     quotes (S s v) = quotes v . sealer . quotes Op_ap where
