@@ -7,7 +7,6 @@
 module AO.Simplify (simplifyCode) where
 
 import AO.Code
-import ABC.Operators
 
 simplifyCode :: AO_Code -> AO_Code
 simplifyCode = sz []

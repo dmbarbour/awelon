@@ -8,6 +8,7 @@
 --
 module AO.Code
     ( AO_Action(..), Word, AO_Code
+    , module ABC.Operators
     ) where
 
 import Data.Ratio
@@ -28,14 +29,14 @@ data AO_Action
     = AO_Word Word
     | AO_Block [AO_Action]
     | AO_Num Rational
-    | AO_Txt String
+    | AO_Text String
     | AO_ABC OpC
     | AO_Tok String    -- {token}
     deriving (Eq, Ord)
 
 instance Show AO_Action where
     showsPrec _ op = showList [op]        -- always display as a list
-    showList ops@(AO_Txt _ : _) = sSP ops -- safe inline vs. multi-line text
+    showList ops@(AO_Text _ : _) = sSP ops -- safe inline vs. multi-line text
     showList ops = sa False ops           -- nothing else is space sensitive
 
 type AtNewLine = Bool
@@ -47,9 +48,9 @@ sa _ (AO_ABC Op_LF : more) = sLF more -- consume LF
 sa _ [] = id -- all done
 sa _ (AO_Block ops : more) =
     showChar '[' . sa False ops . showChar ']' . sWithSP more
-sa False (AO_Txt s : more) | inlineableTxt s = 
+sa False (AO_Text s : more) | inlineableTxt s = 
     showChar '"' . showString s . showChar '"' . sWithSP more
-sa bAtNL (AO_Txt s : more) = 
+sa bAtNL (AO_Text s : more) = 
     let enterNL = if bAtNL then id else showChar '\n' in
     enterNL . showChar '"' . showEscaped s . 
     showChar '\n' . showChar '~' . sWithSP more
