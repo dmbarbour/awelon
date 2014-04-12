@@ -102,6 +102,9 @@ Library
     -- AO.Dict
 
   Other-Modules:
+
+    AO.Char
+
   
   ghc-options: -Wall -auto-all
 

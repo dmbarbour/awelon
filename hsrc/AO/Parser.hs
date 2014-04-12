@@ -20,6 +20,7 @@ import qualified Data.List as L
 import qualified Text.Parsec as P
 
 import AO.Code
+import AO.Char
 import ABC.Operators (opCharList)
 
 -- test existence of a word separator without consuming it
@@ -27,23 +28,12 @@ expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
 expectWordSep = (wordSep P.<|> P.eof) P.<?> "separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
--- most word separators are spaces, but [] and (|) are also okay
--- (this parser doesn't actually support ambiguous (foo|bar) code)
-isWordSep :: Char -> Bool
-isWordSep c = sp || block || amb where
-    sp = (' ' == c) || ('\n' == c)
-    block = ('[' == c) || (']' == c)
-    amb = ('(' == c) || ('|' == c) || (')' == c)
 
 -- | parse a regular AO word
 -- 
--- To avoid confusion with numbers, words starting with '+', '-', or '.'
--- may not be immediately followed by a digit. 
---
--- To avoid confusion with entry separators in '.ao' files or streams,
--- words may not start with '@'.
---
--- In general, words cannot contain [ ] ( | ) " SP LF C0 or C1.
+-- Words may not contain [](|)" SP LF C0 or C1. Words may not start
+-- with @. A word starting with + . or - must not be followed by a
+-- digit.
 -- 
 parseWord :: P.Stream s m Char => P.ParsecT s u m Word
 parseWord = (P.try mathyWord) P.<|> normalWord where
@@ -66,14 +56,6 @@ parseWord = (P.try mathyWord) P.<|> normalWord where
         expectWordSep >>
         return (T.pack (c1:cs))
     wc = P.satisfy isWordCont
-
-isWordStart, isWordCont :: Char -> Bool
-isWordCont c = not (sep || ctl || txt || tok) where
-    sep = isWordSep c
-    ctl = isControl c
-    txt = '"' == c
-    tok = '{' == c || '}' == c
-isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
 
 -- parse some text, either inline or multi-line
 parseText :: (P.Stream s m Char) => P.ParsecT s u m String
@@ -105,11 +87,6 @@ parseTokenText =
     let badTokMsg = "illegal token: {" ++ tok ++ "}" in
     unless (isValidToken tok) (P.unexpected badTokMsg) >>
     expectWordSep >> return tok
-
-isTokenChar :: Char -> Bool
-isTokenChar c = not (lf || cb) where
-    lf = ('\n' == c)
-    cb = ('{' == c) || ('}' == c)
 
 isValidToken :: String -> Bool
 isValidToken ('&':_) = True -- annotation
@@ -226,16 +203,4 @@ parseActions = L.concat <$> P.many actions where
     number = AO_Num <$> parseNumber
     text = AO_Text <$> parseText
     token = AO_Tok <$> parseTokenText
-
-isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
-isControl c = isC0 || isC1orDEL where
-    n = fromEnum c
-    isC0 = n <= 0x1F
-    isC1orDEL = n >= 0x7F && n <= 0x9F
-isDigit c = ('0' <= c) && (c <= '9')
-isNZDigit c = isDigit c && not ('0' == c)
-isHexDigit c = isDigit c || smallAF || bigAF where
-    smallAF = ('a' <= c) && (c <= 'f')
-    bigAF = ('A' <= c) && (c <= 'F')
-
 
