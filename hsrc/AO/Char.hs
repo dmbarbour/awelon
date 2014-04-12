@@ -1,12 +1,12 @@
-
+{-# LANGUAGE CPP #-}
 -- just a few classifiers for characters
 -- (I use this instead of Data.Char for stability and control of AO)
 module AO.Char
     ( isWordSep, isWordStart, isWordCont
     , isTokenChar
     , isControl, isDigit, isNZDigit, isHexDigit
+    , isPathSep
     ) where
-
 
 -- most word separators are spaces, but [] and (|) are also okay
 -- (this parser doesn't actually support ambiguous (foo|bar) code)
@@ -43,6 +43,14 @@ isHexDigit c = isDigit c || smallAF || bigAF where
     smallAF = ('a' <= c) && (c <= 'f')
     bigAF = ('A' <= c) && (c <= 'F')
 
+
+-- OS-dependent AO_PATH separator (used by AOFile)
+isPathSep :: Char -> Bool
+#if defined(WinPathFmt)
+isPathSep = (== ';') -- flag defined if os(windows) in cabal file
+#else
+isPathSep = (== ':') -- suitable for most *nix systems and Mac
+#endif
 
 
 

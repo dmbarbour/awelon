@@ -99,12 +99,12 @@ Library
     AO.Code
     AO.Parser
     AO.Simplify
-    -- AO.Dict
+    AO.Dictionary
+    AO.AOFile
 
   Other-Modules:
 
     AO.Char
-
   
   ghc-options: -Wall -auto-all
 
