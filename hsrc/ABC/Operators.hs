@@ -4,6 +4,7 @@
 --   plus useful Show and Read instances
 module ABC.Operators
     ( OpC(..), Op(..), opCharList
+    , opsCancel
     ) where
 
 import Control.Applicative ((<$>))
@@ -38,6 +39,7 @@ data Op
 -- Note: ABC token strings may not contain '{', '}', or LF ('\n')
 --   tokens are typically prefixed to indicate interpretation
 
+-- | table of associations between ABC ops and ABC characters
 opCharList :: [(OpC,Char)]
 opCharList =
     [(Op_l,'l'),(Op_r,'r'),(Op_w,'w'),(Op_z,'z'),(Op_v,'v'),(Op_c,'c')
@@ -53,6 +55,25 @@ opCharList =
     ,(Op_5,'5'),(Op_6,'6'),(Op_7,'7'),(Op_8,'8'),(Op_9,'9')
     ,(Op_SP,' '),(Op_LF,'\n')
     ]
+
+-- | test whether a sequence of two operations 'cancel'
+-- where they cancel if their composition is identity 
+-- (excluding spaces)
+opsCancel :: OpC -> OpC -> Bool
+opsCancel Op_w Op_w = True
+opsCancel Op_l Op_r = True
+opsCancel Op_r Op_l = True
+opsCancel Op_c Op_v = True
+opsCancel Op_v Op_c = True
+opsCancel Op_z Op_z = True
+opsCancel Op_W Op_W = True
+opsCancel Op_L Op_R = True
+opsCancel Op_R Op_L = True
+opsCancel Op_C Op_V = True
+opsCancel Op_V Op_C = True
+opsCancel Op_Z Op_Z = True
+opsCancel _ _ = False
+
 
 instance Show OpC where 
     showsPrec _ opc = case L.lookup opc opCharList of
