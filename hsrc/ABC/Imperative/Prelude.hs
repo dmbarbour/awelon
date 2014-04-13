@@ -2,12 +2,11 @@
 -- | Imperative (dynamic) ABC interpretation
 --
 -- Centralizes imports for compiling generated Haskell code.
--- Currently, only the operations need be exposed.
 module ABC.Imperative.Prelude
-    ( module ABC.Imperative.Operations
+    ( module ABC.Imperative.Value
+    , module ABC.Imperative.Operations
     ) where
 
+import ABC.Imperative.Value
 import ABC.Imperative.Operations
-
-
 

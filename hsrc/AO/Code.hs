@@ -35,9 +35,9 @@ data AO_Action
     deriving (Eq, Ord)
 
 instance Show AO_Action where
-    showsPrec _ op = showList [op]        -- always display as a list
+    showsPrec _ op = showList [op]         -- always display as a list
     showList ops@(AO_Text _ : _) = sSP ops -- safe inline vs. multi-line text
-    showList ops = sa False ops           -- nothing else is space sensitive
+    showList ops = sa False ops            -- otherwise not space sensitive
 
 type AtNewLine = Bool
 

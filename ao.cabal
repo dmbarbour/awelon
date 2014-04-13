@@ -102,6 +102,8 @@ Library
     AO.Dictionary
     AO.AOFile
 
+    -- AO.Imperative.Interpreter
+
   Other-Modules:
 
     AO.Char

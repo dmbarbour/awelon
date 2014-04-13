@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 
 -- | The '.ao' file is a format for developing an AO dictionary in
 -- the conventiona filesystem + text editor. It is also a suitable
@@ -18,70 +19,221 @@
 -- The '@' at each new line is an entry separator. It isolates any
 -- parse errors. Imports correspond to other '.ao' files that can
 -- be found in the AO_PATH. The '.ao' suffix is implicit. The full
--- dictionary is specified by providing an imports section (which
--- may depend on the project). Cyclic or redundant imports are not 
--- a problem; each file is loaded at most once.
--- 
--- Definitions are processed almost independently. For example, a
--- word needs not be defined or imported before use; it only needs
--- to be part of the final dictionary. Cyclic or missing words are
--- detected at the dictionary level. However, in case of multiple
--- definitions, the 'last' definition is favored (and a warning is
--- issued). 
+-- dictionary is specified by providing a root file (oft by text).
+-- Usually, this initial file is just an initial imports section,
+-- e.g. the `aoi` executable loads "aoi".
+--
+-- Cyclic and redundant imports are not an issue. A file is loaded
+-- at most once. Identical definitions do not conflict. The order
+-- in which files or definitions are loaded is weakly significant:
+-- if definitions conflict, the last one wins. But a warning will
+-- still be emitted.
 --
 module AO.AOFile
     ( loadAOFiles
+    , AOFile(..)
     ) where
 
-import Control.Applicative
 import Control.Monad
-
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
-
 import Data.Either
 import Data.Text (Text)
 import qualified Data.List as L
 import qualified Data.Text as T
+import qualified Text.Parsec as P
+import qualified Text.Parsec.Pos as P
+import Text.Parsec.Text() 
 import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
-
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 
-import AO.Code
 import AO.Char (isPathSep)
 import AO.Parser
+import AO.Dictionary
 
-type Import = String
-type LoadAO = StateT LoaderState
-data LoaderState = LoaderState
-    { ld_path :: [FS.FilePath] -- 
-    , ld_todo :: [Import]      -- upcoming work (FIFO)
-    , ld_warn :: [String]      -- warnings (in reverse)
-    , ld_done :: [(Import,AOFile)]
+type Import   = Text
+type Line     = Int
+type LoadAO m = StateT (LoaderState m) m
+data LoaderState m = LoaderState
+    { ld_path :: [FS.FilePath]      -- 
+    , ld_warn :: (String -> m ())   -- 
+    , ld_todo :: [Import]           -- upcoming work (FIFO)
+    , ld_completed :: [AOFile]
     }
 
--- | Load AO files based on an initial import or list thereof.
+data AOFile = AOFile
+    { aof_this :: Import
+    , aof_path :: FS.FilePath
+    , aof_imps :: [Import]
+    , aof_defs :: [(Line, AODef)]
+    }
+
+-- show will not print file contents, just the location (for debugging)
+instance Show AOFile where showsPrec _ = shows . aof_path
+
+-- | Load AO files based on an initial file text. Usually, this
+-- root is just a singleton imports section like "aoi" or "std",
+-- so (for convenience) string based arguments are supported.
+class AOFileRoot src where 
+    -- | loadAOFiles takes two arguments:
+    --    a root source (e.g. string or filepath)
+    --    an operation to output warning messages (String -> m ()).
+    loadAOFiles 
+        :: (MonadIO m) 
+        => src -> (String -> m ()) 
+        -> m [AOFile]
+
+instance AOFileRoot String where loadAOFiles = loadAOFiles . T.pack
+instance AOFileRoot Text where 
+    loadAOFiles = loadAO . importFileT root rootF where
+        root = T.pack "root text"
+        rootF = FS.fromText root
+instance AOFileRoot FS.FilePath where 
+    loadAOFiles = loadAO . importFileP root where
+        root = T.pack "root file"
+
+loadAO :: (MonadIO m) => LoadAO m () -> (String -> m ()) -> m [AOFile]
+loadAO ldRoot warn = ld_completed `liftM` execStateT ldDeep st0 where
+    st0 = LoaderState [] warn [] []
+    ldDeep = initAO_PATH >> ldRoot >> runUntilDone
+
+-- Process AO_PATH once per toplevel load. Emit warnings for any issues
+-- with the AO_PATH environment variable. Reduces path to canonical
+-- directories.
+initAO_PATH :: (MonadIO m) => LoadAO m ()
+initAO_PATH = getAO_PATH >>= procPaths where
+    getAO_PATH = liftIO $ Err.tryIOError (Env.getEnv "AO_PATH")
+    procPaths (Left _) = emitWarning eNoPath >> setPath []
+    procPaths (Right envString) =
+        let paths = splitPath envString in
+        mapM (liftIO . Err.tryIOError . toCanonDir) paths >>= \ lErrOrDir ->
+        let (errs, dirs) = partitionEithers lErrOrDir in
+        mapM_ (emitWarning . show) errs >>
+        when (null dirs) (emitWarning eNoDirsInPath) >>
+        setPath dirs
+    setPath p = modify $ \ ld -> ld { ld_path = p }
+    eNoPath = "Environment variable AO_PATH is not defined."
+    eNoDirsInPath = "No accessible directories in AO_PATH!"
+    splitPath = map FS.fromText . T.split isPathSep . T.pack 
+    toCanonDir :: FS.FilePath -> IO FS.FilePath -- or raises IOError
+    toCanonDir fp = 
+        FS.canonicalizePath fp >>= \ cfp ->
+        FS.isDirectory cfp >>= \ bDir ->
+        if bDir then return cfp else -- success case
+        let emsg = show cfp ++ " is not a directory." in
+        let etype = Err.doesNotExistErrorType in
+        Err.ioError $ Err.mkIOError etype emsg Nothing (Just (show fp))
+
+-- Import AO file(s) associated with a given import name.
 --
--- This first argument is parsed as an import section for
--- consistency purposes. So "foo" would import a dictionary
--- starting with "foo.ao", while "foo bar baz" would import
--- all three (favoring definitions from 'baz'). 
---
+-- If more than one, we'll favor first elements in list
+-- for conventional behavior with PATH environment vars.
+loadImport :: (MonadIO m) => Import -> LoadAO m ()
+loadImport imp = 
+    gets ld_path >>= \ dirs ->
+    let fn = FS.fromText imp FS.<.> T.pack "ao" in
+    let fpaths = map (FS.</> fn) dirs in
+    filterM (liftIO . FS.isFile) fpaths >>= \ lFound ->
+    specialIfNotUnique imp lFound >>
+    mapM_ (importFileP imp) lFound -- import all files found
+
+-- special handling or warnings for non-unique import
 -- 
---
--- This  files will return a list of warnings and a list of
+-- I want to discourage ambiguity. The AO dictionary concept isn't
+-- about 'overloading' at the dictionary layer. So I emit warnings.
+specialIfNotUnique :: (Monad m) => Import -> [FS.FilePath] -> LoadAO m ()
+specialIfNotUnique _ (_:[]) = return () -- unique, no special action
+specialIfNotUnique imp [] = 
+    emitWarning (T.unpack imp ++ " import not found!") >>
+    emitFile (AOFile imp FS.empty [] []) -- prevent retry 
+specialIfNotUnique imp locations = emitWarning emsg where
+    emsg = L.concat (header:body)
+    header = T.unpack imp ++ " import ambiguous. Locations: "
+    body = fmap (showString "\n  " . show) locations
 
-loadAOFiles :: String -> IO ([String],[AOFile])
+-- load a specific import file.
+importFileP :: (MonadIO m) => Import -> FS.FilePath -> LoadAO m ()
+importFileP imp fpath = load >>= proc where
+    load = liftIO $ Err.tryIOError $ FS.readTextFile fpath
+    proc (Left e) = emitWarning (show e)
+    proc (Right code) = importFileT imp fpath code
 
+-- load a specific file after possessing the text.
+importFileT :: (Monad m) => Import -> FS.FilePath -> Text -> LoadAO m ()
+importFileT thisImp fpath code =
+    readAOFileText fpath code >>= \ (imps,defs) ->
+    emitFile (AOFile thisImp fpath imps defs) >>
+    mapM_ addTodo imps -- add imports to task list
 
+-- extract basic entries from a file text; emit a warning for
+-- any entry that fails to parse
+readAOFileText :: (Monad m) => FS.FilePath -> Text -> LoadAO m ([Import], [(Line,AODef)])
+readAOFileText fp code = case splitEntries $ dropTheBOM code of
+    [] -> return ([],[]) -- not possible, but also not a problem
+    ((_,impEnt):defEnts) -> 
+        let src = T.unpack $ either id id $ FS.toText fp in
+        let imps = T.words impEnt in
+        let (errs,defs) = partitionEithers $ fmap (parseEntry src) defEnts in
+        mapM_ (emitWarning . show) errs >>
+        return (imps, defs)
 
--- add a warning to the list of warnings
+-- parse an entry, correcting for line and column (for error reporting)
+parseEntry :: String -> (Line, Text) -> Either P.ParseError (Line,AODef)
+parseEntry src (ln, entry) = P.parse parser "" entry where
+    parser = 
+        P.setPosition (P.newPos src ln 2) >>
+        parseWord >>= \ word ->
+        parseCode >>= \ code -> 
+        return (ln, AODef word code)
+
+-- remove initial byte order mark (BOM) if necessary
+-- (a BOM is automatically added to unicode text by some editors)
+dropTheBOM :: Text -> Text
+dropTheBOM t = case T.uncons t of 
+    Just ('\xfeff', t') -> t'
+    _ -> t -- no BOM
+
+-- entries are separated by "\n@". Exceptional case if the first
+-- character is '@', so handle that.
+splitEntries :: Text -> [(Line,Text)]
+splitEntries t = case T.uncons t of 
+    Just ('@', t') -> (0, T.empty) : numberTheLines 1 (T.splitOn eSep t') 
+    _ -> numberTheLines 1 (T.splitOn eSep t)
+
+-- Entry separator is the "\n@" sequence. Entries are separated 
+-- prior to parsing in order to isolate parse errors. 
+eSep :: Text
+eSep = T.pack "\n@"
+
+-- recover line numbers for each entry
+numberTheLines :: Line -> [Text] -> [(Line,Text)]
+numberTheLines _ [] = []
+numberTheLines n (e:es) = (n,e) : numberTheLines n' es where
+    n' = T.foldl accumLF (1 + n) e
+    accumLF ct '\n' = 1 + ct
+    accumLF ct _ = ct
+
+-- runUntilDone will handle tasks (imports) on the stack
+-- until said stack is empty. The stack based ordering 
+-- results in the desired final order where the 'last'
+-- def for any word is closest to the end of the list.
+runUntilDone :: (MonadIO m) => LoadAO m ()
+runUntilDone = getNextTodo >>= doAndRepeat where
+    doAndRepeat Nothing = return ()
+    doAndRepeat (Just imp) = loadImport imp >> runUntilDone
+    
+-- emit a warning through a provided capability.
 emitWarning :: (Monad m) => String -> LoadAO m ()
-emitWarning w = modify $ \ ld ->
-    let ws' = (w:ld_warn ld) in
-    ld { ld_warn = ws' }
+emitWarning w = gets ld_warn >>= \ warnOp -> lift (warnOp w)
+
+-- add a file to the output.
+emitFile :: (Monad m) => AOFile -> LoadAO m ()
+emitFile f = modify $ \ ld ->
+    let fs' = (f : ld_completed ld) in
+    ld { ld_completed = fs' }
 
 -- add an import to the 'todo' list. This is a LIFO stack.
 addTodo :: (Monad m) => Import -> LoadAO m ()
@@ -89,180 +241,18 @@ addTodo imp = modify $ \ ld ->
     let td' = (imp : ld_todo ld) in
     ld { ld_todo = td' }
 
--- obtain the next 'todo' item, filtering those that
--- have already been completed.
+-- obtain the next 'todo' import, filtering those imports 
+-- that have already been processed. This ensures each file
+-- is loaded at most once regardless of dups or cycles.
 getNextTodo :: (Monad m) => LoadAO m (Maybe Import)
 getNextTodo =
     get >>= \ ld ->
     case ld_todo ld of
         [] -> return Nothing
         (x:xs) ->
+            let lCompleted = map aof_this (ld_completed ld) in
+            let beenDone = L.elem x lCompleted in
             let ld' = ld { ld_todo = xs } in
             put ld' >>
-            let beenDone = L.elem x (map fst (ld_done ld)) in
             if beenDone then getNextTodo 
                         else return (Just x)
-
--- Process AO_PATH once per toplevel load. Emit warnings into list.
-initAO_PATH :: (MonadIO m) => LoadAO m ()
-initAO_PATH = getAO_PATH >>= procPaths where
-    getAO_PATH = liftIO $ Err.tryIOError (Env.getEnv "AO_PATH")
-    procPaths (Left _) =
-        emitWarning "Environment variable AO_PATH is not defined." >>
-        setEmptyPath
-    procPaths (Right str) =
-        let paths = splitPath str in
-        mapM tryCanonicalize paths >>= 
-        filterM keepGoodDirectories >>=
-        setNonEmptyPath 
-    splitPath = map FS.fromText . T.split isPathSep . T.pack 
-    tryCanonicalize = liftIO $ Err.tryIOError . FS.canonicalizePath
-    keepGoodDirectories (Left error) = emitWarning (show error) >> return False
-    keepGoodDirectories (Right path) = (liftIO . FS.isDirectory) path
-    setNonEmptyPath [] =
-        emitWarning "No directories found in AO_PATH." >>
-        setEmptyPath
-    setNonEmptyPath dirs = setLoaderPath (L.nub dirs)
-    setEmptyPath =
-        emitWarning "Please set AO_PATH to a directory of '.ao' files." >>
-        setLoaderPath []
-    setLoaderPath p = modify $ \ ld -> ld { ld_path = p }
-
-
-
-
-splitImports :: String -> [String]
-splitImports = L.words
-
-{-
-
--- load text for a given import.
--- (will print error then return empty text if import not found.)
-importText :: Import -> IO Text
-importText imp =
-    getAO_PATH >>= \ fdirs ->
-    let fn = FS.fromText imp FS.<.> T.pack "ao" in
-    let fpaths = map (FS.</> fn) fdirs in
-    firstM (map FS.readTextFile fpaths) >>= \ mbT ->
-    case mbT of
-        Just txt -> return txt
-        Nothing -> 
-            let eMsg = "unable find `" ++ T.unpack imp 
-                       ++ "` for import"
-            in
-            reportError eMsg >> 
-            return T.empty
-
--- return first success from list of actions)
-firstM :: [IO a] -> IO (Maybe a)
-firstM [] = return Nothing
-firstM (op:ops) = 
-    Err.tryIOError op >>= 
-    either (const (firstM ops)) (return . Just)
-
--- import then parse.
-importDictFile :: Import -> IO DictFile
-importDictFile imp = readDictFileText imp <$> importText imp
-
--- deep load a dictionary from an initial import
---   loads each import exactly once (no cycles or redundancies)
---   order in list is such that rightmost words should override leftmost
-importDictFiles :: Import -> IO [(Import,DictFile)]
-importDictFiles = importDictFiles' [] . (:[])
-
-importDictFiles' :: [(Import,DictFile)] -> [Import] -> IO [(Import,DictFile)]
-importDictFiles' done [] = return done
-importDictFiles' done (imp:imps) =
-    let alreadyImported = L.elem imp (map fst done) in
-    if alreadyImported then importDictFiles' done imps else
-    importDictFile imp >>= \ df ->
-    let imps' = L.reverse (df_imports df) ++ imps in
-    importDictFiles' ((imp,df):done) imps'
-
-
-module AO.ParseAO
-    ( readDictFileText
-    , parseEntry, parseAODef, parseAction
-    , parseNumber, parseMultiLineText, parseInlineText
-    ) where
-
-import Control.Applicative
-import Control.Arrow (second)
-import Control.Monad
-import Data.Ratio
-import Data.Text (Text)
-import Data.Either (partitionEithers)
-import qualified Data.Text as T
-import qualified Data.Sequence as S
-import qualified Text.Parsec as P
-import qualified Text.Parsec.Error as P
-import Text.Parsec.Text()
-import AO.AOTypes
-import AO.V
-
-readDictFileText :: Import -> Text -> DictFile
-readDictFileText imp = readDictFileE imp . splitEntries . dropBOM
-
--- ignore a leading byte order mark (added by some text editors)
-dropBOM :: Text -> Text
-dropBOM t = case T.uncons t of { Just ('\xfeff', t') -> t' ; _ -> t }
-
--- entries are separated by "\n@". Exceptional case if the first
--- character is '@', so handle that.
-splitEntries :: Text -> [(Line,Text)]
-splitEntries t = 
-    case T.uncons t of 
-        Just ('@', t') -> (0, T.empty) : lnum 1 (T.splitOn eSep t') 
-        _ -> lnum 1 (T.splitOn eSep t)
-    where eSep = T.pack "\n@"
-
--- recover line numbers for each entry
-lnum :: Line -> [Text] -> [(Line,Text)]
-lnum _ [] = []
-lnum n (e:es) = (n,e) : lnum n' es where
-    n' = T.foldl accumLF (1 + n) e
-    accumLF ct '\n' = 1 + ct
-    accumLF ct _ = ct
-
--- first entry is imports, other entries are definitions
-readDictFileE :: Import -> [(Line,Text)] -> DictFile
-readDictFileE _ [] = DictFile [] [] []
-readDictFileE imp (impEnt:defEnts) = DictFile imps defs errs where
-    imps = splitImports (snd impEnt)
-    (errL,defL) = (partitionEithers . map readEnt) defEnts
-    readEnt = distrib . second (P.parse parseEntry "")
-    errs = map etext errL
-    defs = map swizzle defL
-    swizzle (ln,(w,aodef)) = (w,(ln,aodef))
-    fixSrc = (`P.setSourceName` T.unpack imp)
-    fixLn ln = (`P.incSourceLine` (ln - 1))
-    fixCol 1 = (`P.incSourceColumn` 1) -- offset for the '@'
-    fixCol _ = id 
-    etext (ln,pe) =
-        let fixPos = fixCol ln . fixLn ln . fixSrc in
-        let pe' = P.setErrorPos (fixPos (P.errorPos pe)) pe in
-        (ln, T.pack (show pe'))
-
-distrib :: (a,Either b c) -> Either (a,b) (a,c)
-distrib (a,Left b) = Left (a,b)
-distrib (a,Right c) = Right (a,c)
-
-
--- | Each entry consists of: 'word definition'. The '@' separating
--- entries has already been removed. The initial word is followed
--- by any word separator - usually a space or newline.
-parseEntry :: P.Stream s m Char => P.ParsecT s u m (W,AODef)
-parseEntry =
-    parseEntryWord >>= \ w ->
-    expectWordSep >>
-    parseAODef >>= \ def ->
-    return (w,def)
-
--- enforce word separator without consuming anything
-expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
-expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
-    wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
-
-
--}
-
