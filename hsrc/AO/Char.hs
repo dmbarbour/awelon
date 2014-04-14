@@ -3,8 +3,8 @@
 -- (I use this instead of Data.Char for stability and control of AO)
 module AO.Char
     ( isWordSep, isWordStart, isWordCont
-    , isTokenChar
-    , isControl, isDigit, isNZDigit, isHexDigit
+    , isTokenChar, isInlineTextChar
+    , isSpace, isControl, isDigit, isNZDigit, isHexDigit
     , isPathSep
     ) where
 
@@ -12,7 +12,7 @@ module AO.Char
 -- (this parser doesn't actually support ambiguous (foo|bar) code)
 isWordSep :: Char -> Bool
 isWordSep c = sp || block || amb where
-    sp = (' ' == c) || ('\n' == c)
+    sp = isSpace c
     block = ('[' == c) || (']' == c)
     amb = ('(' == c) || ('|' == c) || (')' == c)
 
@@ -31,8 +31,14 @@ isTokenChar c = not (lf || cb) where
     lf = ('\n' == c)
     cb = ('{' == c) || ('}' == c)
 
+-- inline text may not contain '"' or '\n'
+isInlineTextChar :: Char -> Bool
+isInlineTextChar c = not (lf || qu) where
+    lf = ('\n' == c)
+    qu = ('"' == c)
 
-isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
+isSpace, isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
+isSpace c = (' ' == c) || ('\n' == c) -- the only spaces recognized by AO & ABC
 isControl c = isC0 || isC1orDEL where
     n = fromEnum c
     isC0 = n <= 0x1F

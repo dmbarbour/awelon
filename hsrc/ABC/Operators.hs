@@ -3,8 +3,7 @@
 -- | pure description of ABC operators
 --   plus useful Show and Read instances
 module ABC.Operators
-    ( OpC(..), Op(..), opCharList
-    , opsCancel
+    ( Op(..), opCharList, opsCancel
     ) where
 
 import Control.Applicative ((<$>))
@@ -13,10 +12,13 @@ import qualified Text.ParserCombinators.ReadP as R
 import qualified Text.ParserCombinators.ReadPrec as RP
 import qualified Data.List as L
 
--- | ABC's single character operators
-data OpC
+-- | all of ABC's operators
+data Op
     = Op_l | Op_r | Op_w | Op_z | Op_v | Op_c -- basic data plumbing
     | Op_L | Op_R | Op_W | Op_Z | Op_V | Op_C -- sum-type data plumbing
+    | BL [Op]    -- block literal 
+    | TL String  -- text literal
+    | Tok String -- invocation token {xyzzy} 
     | Op_copy | Op_drop -- '^' and '%'
     | Op_add | Op_neg | Op_mul | Op_inv | Op_divMod -- basic math
     | Op_ap | Op_cond | Op_quote | Op_comp -- higher order programming
@@ -29,18 +31,11 @@ data OpC
     | Op_SP | Op_LF -- ' ' and '\n' (identity)
     deriving (Eq, Ord)
 
--- Op: pure ABC operations
-data Op
-    = OpC !OpC    -- single character op
-    | BL  [Op]    -- block literals, e.g.  `[r[^'wol]wo^'wol]`
-    | TL  String  -- text literal (with escapes removed)
-    | Tok String  -- {foo}; invoke capability with given token
-    deriving (Eq, Ord)
 -- Note: ABC token strings may not contain '{', '}', or LF ('\n')
 --   tokens are typically prefixed to indicate interpretation
 
 -- | table of associations between ABC ops and ABC characters
-opCharList :: [(OpC,Char)]
+opCharList :: [(Op,Char)]
 opCharList =
     [(Op_l,'l'),(Op_r,'r'),(Op_w,'w'),(Op_z,'z'),(Op_v,'v'),(Op_c,'c')
     ,(Op_L,'L'),(Op_R,'R'),(Op_W,'W'),(Op_Z,'Z'),(Op_V,'V'),(Op_C,'C')
@@ -59,7 +54,7 @@ opCharList =
 -- | test whether a sequence of two operations 'cancel'
 -- where they cancel if their composition is identity 
 -- (excluding spaces)
-opsCancel :: OpC -> OpC -> Bool
+opsCancel :: Op -> Op -> Bool
 opsCancel Op_w Op_w = True
 opsCancel Op_l Op_r = True
 opsCancel Op_r Op_l = True
@@ -74,14 +69,7 @@ opsCancel Op_V Op_C = True
 opsCancel Op_Z Op_Z = True
 opsCancel _ _ = False
 
-
-instance Show OpC where 
-    showsPrec _ opc = case L.lookup opc opCharList of
-        Nothing -> error "opCharList is missing an operator"
-        Just c -> (c:)
-    showList = showConcatList
-instance Show Op where
-    showsPrec _ (OpC opc) = shows opc
+instance Show Op where 
     showsPrec _ (BL ops) =
         showChar '[' .
         showList ops .
@@ -91,13 +79,11 @@ instance Show Op where
         showEscaped txt .
         showChar '\n' . showChar '~'
     showsPrec _ (Tok txt) = showChar '{' . showString txt . showChar '}'
-    showList = showConcatList
-
--- show a list without the square brackets or commas
--- requires 'showsPrec' to be defined, for best performance
-showConcatList :: (Show a) => [a] -> ShowS
-showConcatList (x:xs) = shows x . showConcatList xs
-showConcatList [] = id
+    showsPrec _ opc = case L.lookup opc opCharList of
+        Nothing -> error "opCharList is missing an operator"
+        Just c -> (c:)
+    showList (x:xs) = shows x . showList xs
+    showList [] = id
 
 -- escape text for showing a text literal
 -- in ABC, only the '\n' characters need be escaped
@@ -107,9 +93,6 @@ showEscaped ('\n':ss) = showChar '\n' . showChar ' ' . showEscaped ss
 showEscaped (c:ss) = showChar c . showEscaped ss
 showEscaped [] = id
 
-instance Read OpC where
-    readPrec = RP.lift readOpC
-    readListPrec = RP.lift (R.many readOpC)
 instance Read Op where
     readPrec = RP.lift readOp
     readListPrec = RP.lift (R.many readOp)
@@ -117,7 +100,7 @@ instance Read Op where
 swap2 :: (a,b) -> (b,a)
 swap2 (a,b) = (b,a)
 
-readOpC :: R.ReadP OpC
+readOpC :: R.ReadP Op
 readOpC =
     R.get >>= \ c ->
     case L.lookup c (fmap swap2 opCharList) of
@@ -129,7 +112,7 @@ readOp =
     (BL <$> readBlock) R.<++
     (TL <$> readText) R.<++
     (Tok <$> readTok) R.<++
-    (OpC <$> readOpC) 
+    (readOpC) 
 
 readBlock :: R.ReadP [Op]
 readBlock =

@@ -7,7 +7,7 @@
 -- and also to help track column (for inline vs. multi-line text).
 --
 module AO.Parser
-    ( parseCode
+    ( parseAO
     , parseWord
     , parseNumber
     ) where
@@ -15,17 +15,18 @@ module AO.Parser
 import Control.Applicative
 import Control.Monad
 import Data.Ratio
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.List as L
 import qualified Text.Parsec as P
 
 import AO.Code
 import AO.Char
-import ABC.Operators (opCharList)
 
--- test existence of a word separator without consuming it
+-- Test existence of a word separator without consuming it.
+-- End of input is also acceptable as a word separator.
 expectWordSep :: (P.Stream s m Char) => P.ParsecT s u m ()
-expectWordSep = (wordSep P.<|> P.eof) P.<?> "separator" where
+expectWordSep = (wordSep P.<|> P.eof) P.<?> "word separator" where
     wordSep = P.lookAhead (P.satisfy isWordSep) >> return ()
 
 
@@ -36,7 +37,7 @@ expectWordSep = (wordSep P.<|> P.eof) P.<?> "separator" where
 -- digit.
 -- 
 parseWord :: P.Stream s m Char => P.ParsecT s u m Word
-parseWord = (P.try mathyWord) P.<|> normalWord where
+parseWord = ((P.try mathyWord) P.<|> normalWord) P.<?> "word" where
     -- words starting with plus, minus, or dot (PMD)
     -- cannot follow with a digit, to avoid confusion with numbers
     isPMD c = ('+' == c) || ('-' == c) || ('.' == c)
@@ -48,7 +49,7 @@ parseWord = (P.try mathyWord) P.<|> normalWord where
         return (T.pack (c1:cs))
     startsWithDigit [] = False
     startsWithDigit (c:_) = isDigit c
-    pmdReqMsg = "words starting with + - . may not follow with digit"
+    pmdReqMsg = "digit; word starting with '+','-','.' could be confused with number"
     isNPMD c = isWordStart c && not (isPMD c)
     normalWord =
         P.satisfy isNPMD >>= \ c1 ->
@@ -67,24 +68,24 @@ parseText = multiLineText P.<|> inlineText where
     multiLineText = 
         atLineStart True >>
         P.char '"' >> lineOfText >>= \ l0 ->
-        P.manyTill (P.char ' ' >> lineOfText) (P.char '~') >>= \ ls ->
+        P.manyTill (sp >> lineOfText) mlTerm >>= \ ls ->
         expectWordSep >> return (L.intercalate "\n" (l0:ls))
-    lineOfText = P.manyTill P.anyChar (P.char '\n')
+    lineOfText = P.manyTill P.anyChar lf
+    sp = P.char ' ' P.<?> "SP to escape prior LF"
+    lf = P.char '\n' P.<?> "LF for multi-line text"
+    mlTerm = P.char '~' P.<?> "~ to end multi-line text"
     inlineText =
         atLineStart False >>
         P.char '"' >> P.manyTill ilchr (P.char '"') >>= \ s ->
         expectWordSep >> return s
-    ilchr = P.satisfy isInlineTextChar
-
-isInlineTextChar :: Char -> Bool
-isInlineTextChar c = not ('"' == c || '\n' == c)
+    ilchr = (P.satisfy isInlineTextChar P.<?> "inline text characters")
 
 -- parse '{token}' of a known class
 parseTokenText :: (P.Stream s m Char) => P.ParsecT s u m String
 parseTokenText = 
     P.char '{' >> 
     P.manyTill (P.satisfy isTokenChar) (P.char '}') >>= \ tok ->
-    let badTokMsg = "illegal token: {" ++ tok ++ "}" in
+    let badTokMsg = "unrecognized token: {" ++ tok ++ "}" in
     unless (isValidToken tok) (P.unexpected badTokMsg) >>
     expectWordSep >> return tok
 
@@ -165,26 +166,22 @@ decToNum = foldl addDecDigit 0 where
     d2i c | (('0' <= c) && (c <= '9')) = fromEnum c - fromEnum '0'
           | otherwise = error "illegal decimal digit"
 
-parseInlineABC :: (P.Stream s m Char) => P.ParsecT s u m [OpC]
-parseInlineABC = P.char '%' >> parser where
-    parser = P.many1 abcOp >>= \ ops -> expectWordSep >> return ops
-    abcOp = (P.satisfy isInlineABC >>= getOp) P.<?> inlineABCOps
-    isInlineABC = flip L.elem inlineABCOps
-    getOp c = case L.lookup c charOpList of
-        Nothing -> P.unexpected (c : " is no longer a recognized ABC operator")
-        Just op -> return op
+parseAOp :: (P.Stream s m Char) => P.ParsecT s u m AOp
+parseAOp = asAOp <$> P.oneOf inlineABCList where
+    inlineABCList = fmap snd aopCharList
+    charAOpList = fmap (\(a,b)->(b,a)) aopCharList
+    asAOp = fromJust . flip L.lookup charAOpList
 
-inlineABCOps :: [Char]
-inlineABCOps = "lrwzvcLRWZVC^%+-*/Q$?'okfDFMK>"
-charOpList :: [(Char,OpC)]
-charOpList = fmap swap2 opCharList where
-    swap2 (a,b) = (b,a)
+parseInlineABC :: (P.Stream s m Char) => P.ParsecT s u m [AOp]
+parseInlineABC = 
+    P.char '%' >> P.many1 parseAOp >>= \ ops ->
+    expectWordSep >> return ops
 
 -- | AO code is almost a trivial sequence of actions. This function
 -- expects to parse the entire input, and will preserve spaces by
 -- encoding AO_ABC Op_SP or AO_ABC Op_LF.
-parseCode :: (P.Stream s m Char) => P.ParsecT s u m [AO_Action]
-parseCode = actionsToEOF P.<?> "AO code until end of input" where
+parseAO :: (P.Stream s m Char) => P.ParsecT s u m [AO_Action]
+parseAO = actionsToEOF P.<?> "AO code until end of input" where
     actionsToEOF = parseActions >>= \ ao -> P.eof >> return ao 
 
 parseBlock :: (P.Stream s m Char) => P.ParsecT s u m [AO_Action]
@@ -192,15 +189,12 @@ parseBlock = P.char '[' >> parseActions >>= \ ao -> P.char ']' >> return ao
 
 parseActions :: (P.Stream s m Char) => P.ParsecT s u m [AO_Action]
 parseActions = L.concat <$> P.many actions where
-    actions = abcActions P.<|> (pure<$>action)
-    abcActions = fmap AO_ABC <$> (preserveSpaces P.<|> parseInlineABC)
-    preserveSpaces = P.many1 space
-    space = (P.char ' '  >> return Op_SP) P.<|> 
-            (P.char '\n' >> return Op_LF)
-    action = word P.<|> block P.<|> number P.<|> text P.<|> token
+    actions = spaces P.<|> abc P.<|> (pure<$>action) 
+    spaces = (P.many1 (P.satisfy isSpace) >> return []) P.<?> "spaces"
+    abc = fmap AO_ABC <$> parseInlineABC
+    action = word P.<|> block P.<|> text P.<|> number P.<|> token
     word = AO_Word <$> parseWord
     block = AO_Block <$> parseBlock
     number = AO_Num <$> parseNumber
     text = AO_Text <$> parseText
     token = AO_Tok <$> parseTokenText
-

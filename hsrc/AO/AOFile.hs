@@ -189,7 +189,7 @@ parseEntry src (ln, entry) = P.parse parser "" entry where
     parser = 
         P.setPosition (P.newPos src ln 2) >>
         parseWord >>= \ word ->
-        parseCode >>= \ code -> 
+        parseAO >>= \ code -> 
         return (ln, AODef word code)
 
 -- remove initial byte order mark (BOM) if necessary

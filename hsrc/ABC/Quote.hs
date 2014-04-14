@@ -20,7 +20,6 @@ type QuoteS = [Op] -> [Op]
 quote :: (Quotable v) => v -> [Op]
 quote = flip quotes []
 
-instance Quotable OpC where quotes = quotes . OpC
 instance Quotable Op where quotes = (:)
 instance Quotable Integer where quotes = qi'
 instance (Integral i) => Quotable (Ratio i) where 
@@ -39,7 +38,7 @@ qi' n | (n > 0) = let (q,r) = n `divMod` 10 in qi q . quotes (opd r)
       | otherwise = qi (negate n) . quotes Op_neg
 
 -- quote an integer into ABC, building from right to left
-opd :: Integer -> OpC
+opd :: Integer -> Op
 opd 0 = Op_0
 opd 1 = Op_1
 opd 2 = Op_2

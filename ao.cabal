@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.14
+Version: 0.15
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -98,7 +98,6 @@ Library
 
     AO.Code
     AO.Parser
-    AO.Simplify
     AO.Dict
     AO.AOFile
 
