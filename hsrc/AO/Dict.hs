@@ -2,7 +2,7 @@
 -- | simple definition for a dictionary, plus some pure utilities to
 -- manipulate it. A dictionary typically has a definition plus metadata
 -- for each word. 
-module AO.Dictionary
+module AO.Dict
     ( AODef(..)
     ) where
 

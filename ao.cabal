@@ -99,7 +99,7 @@ Library
     AO.Code
     AO.Parser
     AO.Simplify
-    AO.Dictionary
+    AO.Dict
     AO.AOFile
 
     -- AO.Imperative.Interpreter

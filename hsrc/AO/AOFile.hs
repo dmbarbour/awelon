@@ -52,7 +52,7 @@ import qualified System.IO.Error as Err
 
 import AO.Char (isPathSep)
 import AO.Parser
-import AO.Dictionary
+import AO.Dict
 
 type Import   = Text
 type Line     = Int
