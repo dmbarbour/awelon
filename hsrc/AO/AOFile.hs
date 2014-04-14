@@ -60,8 +60,8 @@ type LoadAO m = StateT (LoaderState m) m
 data LoaderState m = LoaderState
     { ld_path :: [FS.FilePath]      -- 
     , ld_warn :: (String -> m ())   -- 
-    , ld_todo :: [Import]           -- upcoming work (FIFO)
-    , ld_completed :: [AOFile]
+    , ld_todo :: ![Import]           -- upcoming work (FIFO)
+    , ld_completed :: ![AOFile]
     }
 
 data AOFile = AOFile
