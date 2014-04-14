@@ -63,7 +63,7 @@ Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y
 
 Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
 
-Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a visible in-band stream separator.
+Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, use of `@` (64) and backquote (96) will be avoided to support hosting ABC in external streams or texts.
 
 ## Tokens and Capabilities
 

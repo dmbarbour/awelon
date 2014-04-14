@@ -30,8 +30,9 @@
 -- still be emitted.
 --
 module AO.AOFile
-    ( loadAOFiles
-    , AOFile(..)
+    ( loadAOFiles, AOFile(..)
+    , aoFilesToDefs, AOFMeta(..)
+    , loadAODict
     ) where
 
 import Control.Monad
@@ -64,11 +65,19 @@ data LoaderState m = LoaderState
     , ld_completed :: ![AOFile]
     }
 
+-- contents of a specific file
 data AOFile = AOFile
-    { aof_this :: Import
+    { aof_imp :: Import
     , aof_path :: FS.FilePath
     , aof_imps :: [Import]
     , aof_defs :: [(Line, AODef)]
+    }
+
+-- metadata associated with a particular definition
+data AOFMeta = AOFMeta 
+    { aofm_import :: !Import
+    , aofm_path   :: !FS.FilePath
+    , aofm_line   :: {-# UNPACK #-} !Line
     }
 
 -- show will not print file contents, just the location (for debugging)
@@ -190,7 +199,7 @@ parseEntry src (ln, entry) = P.parse parser "" entry where
         P.setPosition (P.newPos src ln 2) >>
         parseWord >>= \ word ->
         parseAO >>= \ code -> 
-        return (ln, AODef word code)
+        return (ln, (word,code))
 
 -- remove initial byte order mark (BOM) if necessary
 -- (a BOM is automatically added to unicode text by some editors)
@@ -253,9 +262,51 @@ getNextTodo =
     case ld_todo ld of
         [] -> return Nothing
         (x:xs) ->
-            let lCompleted = map aof_this (ld_completed ld) in
+            let lCompleted = fmap aof_imp (ld_completed ld) in
             let beenDone = L.elem x lCompleted in
             let ld' = ld { ld_todo = xs } in
             put ld' >>
             if beenDone then getNextTodo 
                         else return (Just x)
+
+
+-- | translate a list of files into a list of definitions.
+aoFilesToDefs :: [AOFile] -> [(AODef,AOFMeta)]
+aoFilesToDefs = L.concatMap defsInFile where
+    addMeta imp fp (ln,def) = (def,AOFMeta imp fp ln) 
+    defsInFile aof = 
+        let imp = aof_imp aof in
+        let path = aof_path aof in
+        imp `seq` path `seq`
+        fmap (addMeta imp path) (aof_defs aof)
+
+-- | Load an AO dictionary from a root source, then process this
+-- into an AODict. All errors are reported through the same 
+-- interface. 
+loadAODict :: (AOFileRoot s, MonadIO m) 
+           => s -> (String -> m ()) -> m (AODict AOFMeta)
+loadAODict src warnOp =
+    loadAOFiles src warnOp >>=  
+    buildAODict (warnOp . showDictIssue) . aoFilesToDefs
+
+showDictIssue :: AODictIssue AOFMeta -> String
+showDictIssue (AODefOverride w defs) = 
+    let msgHdr = "word " ++ T.unpack w ++ " has override(s)" in
+    let locations = fmap (("\n  " ++) . wordLocStr w . snd) defs in
+    L.concat (msgHdr:locations)
+showDictIssue (AODefCycle defs) = 
+    let wordsInCycle = fmap (T.unpack . fst . fst) defs in
+    let msgHdr = "cycle detected involving: " ++ L.unwords wordsInCycle in
+    let defToLoc ((w,_),m) = wordLocStr w m in
+    let locations = fmap (("\n  " ++) . defToLoc) defs in
+    L.concat (msgHdr:locations)
+showDictIssue (AODefMissing ((w,_),_) missingWords) = 
+    let wl = L.unwords (fmap T.unpack missingWords) in
+    "word " ++ T.unpack w ++ " needs definitions for: " ++ wl
+
+locStr :: AOFMeta -> String
+locStr meta = show (aofm_path meta) ++ ":" ++ show (aofm_line meta)
+
+wordLocStr :: Word -> AOFMeta -> String
+wordLocStr word meta = T.unpack word ++ "@" ++ locStr meta
+

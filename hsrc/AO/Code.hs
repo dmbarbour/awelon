@@ -4,6 +4,7 @@
 module AO.Code
     ( AO_Action(..), AOp(..), Word, AO_Code
     , aopCharList
+    , aoWords
     ) where
 
 import Data.Ratio
@@ -120,3 +121,19 @@ inlinableChr c = not ('\n' == c || '"' == c)
 showNumber :: Rational -> ShowS
 showNumber r | (1 == denominator r) = shows (numerator r) 
              | otherwise = shows (numerator r) . showChar '/' . shows (denominator r)
+
+
+-- | Extract the words used by AO code. For example:
+--     foo "hello" [42 bar baz] %vrwlc bar → [foo,bar,baz,bar]
+-- Duplicates are still part of the list at this point.
+aoWords :: [AO_Action] -> [Word]
+aoWords = flip lw [] where
+    lw (x:xs) = ew x . lw xs
+    lw [] = id
+    ew (AO_Word w) = (w:)
+    ew (AO_Block ops) = lw ops
+    ew _ = id
+
+
+
+

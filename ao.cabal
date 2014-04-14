@@ -99,13 +99,13 @@ Library
     AO.Code
     AO.Parser
     AO.Dict
+    AO.Compile
     AO.AOFile
-
-    -- AO.Imperative.Interpreter
 
   Other-Modules:
 
     AO.Char
+    AO.InnerDict
   
   ghc-options: -Wall -auto-all
 
