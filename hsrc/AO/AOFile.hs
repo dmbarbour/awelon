@@ -109,7 +109,7 @@ initAO_PATH = getAO_PATH >>= procPaths where
     procPaths (Left _) = emitWarning eNoPath >> setPath []
     procPaths (Right envString) =
         let paths = splitPath envString in
-        mapM (liftIO . Err.tryIOError . toCanonDir) paths >>= \ lErrOrDir ->
+        mapM getCanonDir paths >>= \ lErrOrDir ->
         let (errs, dirs) = partitionEithers lErrOrDir in
         mapM_ (emitWarning . show) errs >>
         when (null dirs) (emitWarning eNoDirsInPath) >>
@@ -117,15 +117,18 @@ initAO_PATH = getAO_PATH >>= procPaths where
     setPath p = modify $ \ ld -> ld { ld_path = p }
     eNoPath = "Environment variable AO_PATH is not defined."
     eNoDirsInPath = "No accessible directories in AO_PATH!"
-    splitPath = map FS.fromText . T.split isPathSep . T.pack 
-    toCanonDir :: FS.FilePath -> IO FS.FilePath -- or raises IOError
-    toCanonDir fp = 
-        FS.canonicalizePath fp >>= \ cfp ->
-        FS.isDirectory cfp >>= \ bDir ->
-        if bDir then return cfp else -- success case
-        let emsg = show cfp ++ " is not a directory." in
-        let etype = Err.doesNotExistErrorType in
-        Err.ioError $ Err.mkIOError etype emsg Nothing (Just (show fp))
+    splitPath = map FS.fromText . T.split isPathSep . T.pack
+    getCanonDir = liftIO . Err.tryIOError . canonicalizeDirPath
+
+-- canonizalize + assert isDirectory (may fail with IOError)
+canonicalizeDirPath :: FS.FilePath -> IO FS.FilePath 
+canonicalizeDirPath fp = 
+    FS.canonicalizePath fp >>= \ cfp ->
+    FS.isDirectory cfp >>= \ bDir ->
+    if bDir then return cfp else -- success case
+    let emsg = show cfp ++ " is not a directory." in
+    let etype = Err.doesNotExistErrorType in
+    Err.ioError $ Err.mkIOError etype emsg Nothing (Just (show fp))
 
 -- Import AO file(s) associated with a given import name.
 --
