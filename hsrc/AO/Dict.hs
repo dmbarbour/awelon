@@ -1,8 +1,8 @@
 
 -- | Tools to build and access an AO dictionary.
 module AO.Dict
-    ( AODef, DictMap
-    , AODict, buildAODict, readAODict
+    ( AODef, AODictMap
+    , AODict, buildAODict, cleanAODict, readAODict
     , AODictIssue(..)
     , module AO.Code
     ) where
@@ -18,10 +18,10 @@ import AO.Code
 type AODef meta = (Word,(AO_Code,meta))
 
 -- | A dictionary map is simply a map formed of AO definitions.
-type DictMap meta = M.Map Word (AO_Code,meta)
+type AODictMap meta = M.Map Word (AO_Code,meta)
 
 -- | Access the clean definitions within an AO dictionary.
-readAODict :: AODict meta -> DictMap meta
+readAODict :: AODict meta -> AODictMap meta
 readAODict (AODict d) = d
 
 -- | to report problems with a dictionary while cleaning it up.
@@ -60,7 +60,7 @@ buildAODict warn defs =
 
 -- build a map while tracking definition overrides
 -- then build 
-getFinalDefs :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (DictMap meta)
+getFinalDefs :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (AODictMap meta)
 getFinalDefs warn defs =
     let mdict = L.foldl mmins M.empty defs in -- (word,(cm,[cm]))
     let dictOfFinalDefs = fmap fst mdict in -- (word,cm) 
@@ -76,24 +76,12 @@ mmins d (k,a) = M.alter (mmcons a) k d where
     mmcons a0 (Just (a1,as)) = Just (a0,(a1:as))
 
 -- cleanup the AO dictionary
-cleanAODict :: (Monad m) => ReportIssue m meta -> DictMap meta -> m (DictMap meta) 
+cleanAODict :: (Monad m) => ReportIssue m meta -> AODictMap meta -> m (AODictMap meta) 
 cleanAODict _warn = return -- TODO!  
     
     
 {-
 
--- raw dictionary from files; warns for parse errors and overrides
-buildRawDictionary :: [(Import, DictFile)] -> (S.Seq ErrorText, Dictionary)
-buildRawDictionary dfs = (errors, rawDict) where
-    errors = parseErrors S.>< overrideWarnings 
-    dfsErrorTexts = map (S.fromList . map snd . df_errors . snd) dfs
-    parseErrors = foldr (S.><) S.empty dfsErrorTexts
-    miniDict (imp,df) = M.fromListWith (flip (S.><)) $ map (ent imp) (df_words df)
-    ent imp (w,(ln,def)) = (w, S.singleton ((imp,ln),def))
-    multiDict = M.unionsWith (S.><) $ map miniDict dfs
-    overrides = M.toList (M.filter ((> 1) . S.length) multiDict)
-    overrideWarnings = S.fromList (map warningOnOverride overrides)
-    rawDict = M.mapMaybe lastElem multiDict 
 
 -- last element from a sequence
 lastElem :: S.Seq a -> Maybe a
