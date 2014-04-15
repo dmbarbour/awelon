@@ -1,8 +1,9 @@
 
 -- | Tools to build and access an AO dictionary.
 module AO.Dict
-    ( AODef, AODictMap
-    , AODict, buildAODict, cleanAODict, readAODict
+    ( AODef, AODictMap, AODict
+    , buildAODict, cleanAODict
+    , readAODict, updateAODict
     , AODictIssue(..)
     , module AO.Code
     ) where
@@ -27,7 +28,13 @@ type AODictMap meta = M.Map Word (AO_Code,meta)
 readAODict :: AODict meta -> AODictMap meta
 readAODict (AODict d) = d
 
--- 
+-- | update metadata for a word (if it exists)
+updateAODict :: (AO_Code -> meta -> meta) -> Word -> AODict meta -> AODict meta
+updateAODict fn w (AODict d) = case M.lookup w d of
+    Nothing -> (AODict d)
+    Just (code,meta) -> 
+        let meta' = fn code meta in
+        AODict (M.insert w (code,meta') d)
 
 -- | to report problems with a dictionary while cleaning it up.
 --
