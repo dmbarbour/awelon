@@ -3,9 +3,9 @@
 -- (for safe casting, mostly)
 module AO.InnerDict 
     ( AODict(..)
-    , AODictT(..)
     ) where
 
+import Control.Arrow (second)
 import qualified Data.Map as M
 import AO.Code
 
@@ -18,15 +18,20 @@ import AO.Code
 -- * no incompletely defined words
 --
 -- In this AO library, these attributes are enforced by a smart
--- constructor, 'buildAODict'. Functions taking an `AODict` type
--- may then depend on a clean (but not necessarily type-safe) 
--- dictionary. 
+-- constructors, 'buildAODict' or 'cleanAODict'. Functions taking
+-- an `AODict` type may then depend on a clean (but not necessarily
+-- type-safe) dictionary. 
 --
 newtype AODict meta = AODict (M.Map Word (AO_Code, meta))
 
--- | An AO 'typed' dictionary is both clean and typesafe. It can be
--- cast to a merely clean dictionary. Construction of a typed 
--- dictionary also tends to add metadata for type information.
-newtype AODictT meta = AODictT (M.Map Word (AO_Code, meta))
+-- for debugging support, just counts the words.
+instance Show (AODict meta) where
+    showsPrec _ (AODict d) = 
+        showString "AO dictionary with " . 
+        shows (M.size d) . showString " words."
 
+-- users are free to manipulate metadata 
+-- without disturbing a clean AODict.
+instance Functor AODict where 
+    fmap fn (AODict d) = AODict (fmap (second fn) d)
 

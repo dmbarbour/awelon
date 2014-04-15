@@ -300,13 +300,15 @@ showDictIssue (AODefCycle defs) =
     let defToLoc (w,(_,aofm)) = wordLocStr w aofm in
     let locations = fmap (("\n  " ++) . defToLoc) defs in
     L.concat (msgHdr:locations)
-showDictIssue (AODefMissing (w,_) missingWords) = 
+showDictIssue (AODefMissing (w,(_,aofm)) missingWords) = 
     let wl = L.unwords (fmap T.unpack missingWords) in
     "word " ++ T.unpack w ++ " needs definitions for: " ++ wl
+      ++ "\n  " ++ wordLocStr w aofm
 
 locStr :: AOFMeta -> String
-locStr meta = show (aofm_path meta) ++ ":" ++ show (aofm_line meta)
+locStr aofm = pathStr ++ ":" ++ show (aofm_line aofm) where
+    pathStr = T.unpack $ either id id $ FS.toText (aofm_path aofm)
 
 wordLocStr :: Word -> AOFMeta -> String
-wordLocStr word meta = T.unpack word ++ "@" ++ locStr meta
+wordLocStr word aofm = T.unpack word ++ "@" ++ locStr aofm
 

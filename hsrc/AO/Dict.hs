@@ -7,8 +7,11 @@ module AO.Dict
     , module AO.Code
     ) where
 
+import Control.Monad ((>=>))
+import Data.Maybe (fromJust)
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.Set as Set
 import AO.InnerDict
 import AO.Code
 
@@ -53,13 +56,9 @@ type ReportIssue m meta = AODictIssue meta -> m ()
 -- | given a list of definitions, produce a 'clean' dictionary (no cycles, 
 -- no incompletely defined words) and also generate some warnings or errors.
 buildAODict :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (AODict meta)
-buildAODict warn defs = 
-    getFinalDefs warn defs >>= 
-    cleanAODict warn >>= 
-    return . AODict
+buildAODict warn = getFinalDefs warn >=> cleanAODict warn
 
--- build a map while tracking definition overrides
--- then build 
+-- build a map and report overrides 
 getFinalDefs :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (AODictMap meta)
 getFinalDefs warn defs =
     let mdict = L.foldl mmins M.empty defs in -- (word,(cm,[cm]))
@@ -75,40 +74,25 @@ mmins d (k,a) = M.alter (mmcons a) k d where
     mmcons a0 Nothing = Just (a0,[])
     mmcons a0 (Just (a1,as)) = Just (a0,(a1:as))
 
--- cleanup the AO dictionary
-cleanAODict :: (Monad m) => ReportIssue m meta -> AODictMap meta -> m (AODictMap meta) 
-cleanAODict _warn = return -- TODO!  
-    
-    
-{-
+-- | cleanup a map by removing words with cyclic or incomplete definitions
+cleanAODict :: (Monad m) => ReportIssue m meta -> AODictMap meta -> m (AODict meta) 
+cleanAODict warn = clearCycles warn >=> clearMissing warn >=> return . AODict
 
-
--- last element from a sequence
-lastElem :: S.Seq a -> Maybe a
-lastElem s =
-    case S.viewr s of
-        S.EmptyR -> Nothing
-        (_ S.:> e) -> Just e 
-
-
--- | cleanup dictionary to remove all words whose definitions are 
--- incomplete or part of a cycle. Also returns warnings for cycles
--- or incomplete definitions.
-cleanupDictionary :: Dictionary -> (S.Seq ErrorText, Dictionary)
-cleanupDictionary rawDict = (errors, cleanDict) where
-    errors = cycleErrors S.>< missingWordErrors
-    abstractGraph = M.map (aoWordsRequired . snd) rawDict
-    cyclesDetected = detectCycles abstractGraph
-    cycleErrors = S.fromList (map errorOnCycle cyclesDetected)
-    cycleFreeDict = L.foldr M.delete rawDict (L.concat cyclesDetected)
-    missingWordMap = incompleteWords $ M.map (aoWordsRequired . snd) cycleFreeDict
-    missingWordErrors = S.fromList $ map errorOnMissing $ M.toList missingWordMap 
-    cleanDict = L.foldr M.delete cycleFreeDict (M.keys missingWordMap)
-
+clearCycles :: (Monad m) => ReportIssue m meta -> AODictMap meta -> m (AODictMap meta) 
+clearCycles warn d0 = emitErrors >> return cycleFree where
+    g0 = fmap (aoWords . fst) d0 -- M.Map Word [Word]
+    cycles = detectCycles g0 -- [[Word]]
+    cycleFree = L.foldr M.delete d0 (L.concat cycles)
+    emitErrors = mapM_ reportCycle cycles
+    reportCycle = warn . AODefCycle . fmap getData 
+    getData w = (w, fromJust (M.lookup w d0)) -- recover def & meta
+        -- by nature, any word in a cycle must be defined
+        -- so 'fromJust' is safe here
 
 -- detect cycles in an abstract directed graph 
-detectCycles :: (Ord v) => M.Map v (Set v) -> [[v]]
-detectCycles = deforest . M.map (Set.toList) where
+-- using a depth-first search
+detectCycles :: (Ord v) => M.Map v [v] -> [[v]]
+detectCycles = deforest where
     deforest g = case M.minViewWithKey g of
         Nothing -> []
         Just ((v0,vs),_) -> 
@@ -129,71 +113,31 @@ detectCycles = deforest . M.map (Set.toList) where
                 (cxw,(cyc0:cycw))
     edgesFrom g v = maybe [] id $ M.lookup v g
 
+-- keep only words whose definitions are transitively fully defined
+clearMissing :: (Monad m) => ReportIssue m meta -> AODictMap meta -> m (AODictMap meta) 
+clearMissing warn d0 = emitErrors >> return fullyDefined where
+    g0 = fmap (aoWords . fst) d0 -- 
+    mwMap = incompleteWords g0
+    fullyDefined = L.foldr M.delete d0 (M.keys mwMap)
+    emitErrors = mapM_ reportError (M.toList mwMap)
+    reportError = warn . mkWarning
+    mkWarning (w,mws) = -- w is in dictionary; mws aren't
+        let defW = fromJust (M.lookup w d0) in
+        AODefMissing (w,defW) mws
+
 -- find incomplete words based on missing transitive dependencies
 -- the result is a map of word -> missing words.
-incompleteWords :: (Ord w) => M.Map w (Set w) -> M.Map w (Set w)
+incompleteWords :: (Ord w) => M.Map w [w] -> M.Map w [w]
 incompleteWords dict = dictMW where
-    (dictMW, _) = L.foldl cw (M.empty, Set.empty) (M.keys dict)
+    (dictMW, _okSet) = L.foldl cw (M.empty, Set.empty) (M.keys dict)
     cw r w = 
         if (M.member w (fst r) || Set.member w (snd r)) then r else
         case M.lookup w dict of
-            Nothing -> r -- word without a definition
+            Nothing -> r -- w is missing word; will capture in 'mdeps' below
             Just deps ->
-                let (dmw, dok) = L.foldl cw r (Set.toList deps) in
-                let mdeps = Set.filter (`Set.notMember` dok) deps in
-                if Set.null mdeps 
-                    then (dmw, Set.insert w dok) 
-                    else (M.insert w mdeps dmw, dok)
+                let (dmw, dok) = L.foldl cw r deps in
+                let mdeps = L.filter (`Set.notMember` dok) deps in
+                if null mdeps 
+                    then (dmw, Set.insert w dok) -- add word to OK set
+                    else (M.insert w mdeps dmw, dok) -- add word to missing words map
 
--- compile a clean (acyclic, fully defined) dictionary to ABC.
--- This is achieved by progressive inlining. 
-compileDictionary :: Dictionary -> DictC
-compileDictionary aoDict = abcDict where
-    abcDict = L.foldl cw M.empty (M.keys aoDict)
-    cw dc w =
-        if M.member w dc then dc else
-        maybe dc (cwd dc w) (M.lookup w aoDict)
-    cwd dc w (_,def) =
-        let deps = aoWordsRequired def in
-        let dc' = L.foldl cw dc (Set.toList deps) in
-        let abc = aoToABC dc' def in
-        M.insert w abc dc'
-
--- | compile a definition to ABC, given a dictionary that
--- already contains the necessary words. Any missing words will
--- result in an annotation `{&~word}`, but it's probably better
--- to avoid the situation and test for missing words in advance.
-aoToABC :: DictC -> S.Seq Action -> S.Seq Op
-aoToABC dc = S.foldr (S.><) S.empty . fmap (actionToABC dc)
-
-actionToABC :: DictC -> Action -> S.Seq Op
-actionToABC dc (Word w) = maybe (annoMW w) id (M.lookup w dc)
-actionToABC _ (Num r) = quoteNum r S.|> Op 'l'
-actionToABC _ (Lit txt) = S.empty S.|> TL txt S.|> Op 'l'
-actionToABC dc (BAO aoDef) = S.empty S.|> BL (aoToABC dc aoDef) S.|> Op 'l'
-actionToABC _ (Prim ops) = ops
-actionToABC dc (Amb [onlyOption]) = aoToABC dc onlyOption
-actionToABC dc (Amb options) = S.singleton $ AMBC $ map (aoToABC dc) options
-
-annoMW :: W -> S.Seq Op
-annoMW = S.singleton . Invoke . T.cons '&' . T.cons '~'
-
-
-
--- | mangleWords will apply a function to every word in a
--- dictionary. The function should be injective (no ambiguity).
--- If the function is not injective, the dictionary may silently 
--- lose a few definitions.
---
--- This is useful if compiling to a target with a more restrictive
--- identifier model than AO's.
-mangleWords :: (W -> W) -> Dictionary -> Dictionary
-mangleWords rename = M.fromList . map mangleWord . M.toList where
-    mangleWord (w,(loc,def)) = (rename w, (loc, mangleDef def))
-    mangleDef = fmap mangleAction
-    mangleAction (Word w) = Word $ rename w
-    mangleAction (Amb options) = Amb $ fmap mangleDef options
-    mangleAction (BAO code) = BAO $ fmap mangleAction code
-    mangleAction a = a
-
--}
