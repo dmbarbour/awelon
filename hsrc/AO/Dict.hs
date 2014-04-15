@@ -1,7 +1,7 @@
 
 -- | Tools to build and access an AO dictionary.
 module AO.Dict
-    ( AODef
+    ( AODef, DictMap
     , AODict, buildAODict, readAODict
     , AODictIssue(..)
     , module AO.Code
@@ -13,13 +13,15 @@ import AO.InnerDict
 import AO.Code
 
 -- | An AO definition is a trivial pairing of a word with the AO code
--- that is inlined wherever the word is used. In practice, we need some
--- extra metadata with each definition, but that is addressed at the
--- dictionary layer.
-type AODef = (Word,AO_Code)
+-- that is inlined wherever the word is used. In practice, we want some
+-- extra metadata with each definition (e.g. source location).
+type AODef meta = (Word,(AO_Code,meta))
+
+-- | A dictionary map is simply a map formed of AO definitions.
+type DictMap meta = M.Map Word (AO_Code,meta)
 
 -- | Access the clean definitions within an AO dictionary.
-readAODict :: AODict meta -> M.Map Word (AO_Code,meta)
+readAODict :: AODict meta -> DictMap meta
 readAODict (AODict d) = d
 
 -- | to report problems with a dictionary while cleaning it up.
@@ -42,25 +44,25 @@ readAODict (AODict d) = d
 -- 
 data AODictIssue meta
     = AODefOverride Word [(AO_Code,meta)] -- multiple definitions for one word.
-    | AODefCycle [(AODef,meta)] -- a cycle of words (all removed)
-    | AODefMissing (AODef,meta) [Word] -- definition is missing words in list
+    | AODefCycle [AODef meta] -- a cycle of words (all removed)
+    | AODefMissing (AODef meta) [Word] -- definition is missing words in list
 
 -- a warning capability
 type ReportIssue m meta = AODictIssue meta -> m ()
 
 -- | given a list of definitions, produce a 'clean' dictionary (no cycles, 
 -- no incompletely defined words) and also generate some warnings or errors.
-buildAODict :: (Monad m) => ReportIssue m meta -> [(AODef,meta)] -> m (AODict meta)
+buildAODict :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (AODict meta)
 buildAODict warn defs = 
-    return defs >>=
-    getFinalDefs warn >>= 
+    getFinalDefs warn defs >>= 
     cleanAODict warn >>= 
-    return . AODict 
+    return . AODict
 
-getFinalDefs :: (Monad m) => ReportIssue m meta -> [(AODef,meta)] -> m (M.Map Word (AO_Code,meta))
-getFinalDefs warn rawDefs =
-    let defs1 = fmap assocr rawDefs in -- (word,cm) where cm = (code,meta)
-    let mdict = L.foldl mmins M.empty defs1 in -- (word,(cm,[cm]))
+-- build a map while tracking definition overrides
+-- then build 
+getFinalDefs :: (Monad m) => ReportIssue m meta -> [AODef meta] -> m (DictMap meta)
+getFinalDefs warn defs =
+    let mdict = L.foldl mmins M.empty defs in -- (word,(cm,[cm]))
     let dictOfFinalDefs = fmap fst mdict in -- (word,cm) 
     let lOverrides = M.toList $ fmap (L.reverse . uncurry (:)) 
                               $ M.filter (not . null . snd) mdict 
@@ -68,19 +70,13 @@ getFinalDefs warn rawDefs =
     mapM_ (warn . uncurry AODefOverride) lOverrides >>
     return dictOfFinalDefs
 
-assocr :: ((a,b),c) -> (a,(b,c))
-assocr ((a,b),c) = (a,(b,c))
-
 mmins :: (Ord k) => M.Map k (a,[a]) -> (k,a) -> M.Map k (a,[a])
 mmins d (k,a) = M.alter (mmcons a) k d where
     mmcons a0 Nothing = Just (a0,[])
     mmcons a0 (Just (a1,as)) = Just (a0,(a1:as))
 
 -- cleanup the AO dictionary
-cleanAODict :: (Monad m) 
-            => ReportIssue m meta 
-            -> M.Map Word (AO_Code, meta) 
-            -> m (M.Map Word (AO_Code, meta))
+cleanAODict :: (Monad m) => ReportIssue m meta -> DictMap meta -> m (DictMap meta) 
 cleanAODict _warn = return -- TODO!  
     
     
@@ -106,12 +102,6 @@ lastElem s =
         S.EmptyR -> Nothing
         (_ S.:> e) -> Just e 
 
-warningOnOverride :: (W, S.Seq (Locator, AODef)) -> ErrorText
-warningOnOverride (w,defs) = 
-    let locations = S.toList $ fmap (locatorText . fst) defs in
-    w `T.append` T.pack " redefined @ " `T.append`
-    T.unwords locations
-
 
 -- | cleanup dictionary to remove all words whose definitions are 
 -- incomplete or part of a cycle. Also returns warnings for cycles
@@ -127,16 +117,6 @@ cleanupDictionary rawDict = (errors, cleanDict) where
     missingWordErrors = S.fromList $ map errorOnMissing $ M.toList missingWordMap 
     cleanDict = L.foldr M.delete cycleFreeDict (M.keys missingWordMap)
 
-errorOnCycle :: [W] -> ErrorText
-errorOnCycle wordsInCycle = 
-    T.pack "Error: cyclic definitions: " `T.append`
-    T.unwords wordsInCycle
-
-errorOnMissing :: (W, Set W) -> ErrorText
-errorOnMissing (w,mw) =
-    T.pack "Error: word " `T.append` w `T.append` 
-    T.pack " needs definitions for: " `T.append`
-    T.unwords (Set.toList mw)
 
 -- detect cycles in an abstract directed graph 
 detectCycles :: (Ord v) => M.Map v (Set v) -> [[v]]

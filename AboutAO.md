@@ -156,20 +156,19 @@ Excepting inline ABC pseudo-words, the structure of a word is not interpreted by
 
 ### AO Dictionary File
 
-To support early development using filesystem and text editor, AO defines a simple **.ao** dictionary file format - primarily for use with command-line tools. An **.ao** dictionary supports multiple definitions and imports of other dictionary files. This dictionary format looks like:
+To support early development using filesystem and text editor, AO has a simple **.ao** dictionary file format - primarily for use with command-line tools. Each **.ao** dictionary file supports multiple definitions plus imports of other dictionary files. This format looks like:
 
-        import list before first definition
+        import1 import2 import3
         @word1 definition1 using word2 word3
         @word2
-        definitions may use multiple lines
-        but line per def is a pretty good style
-        @word3 [definition3]
+        "some definitions require multiple lines
+         but one line definitions are good style
+        ~ 
+        @word3 uses a [block]
 
-Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. If a word is already defined, the earlier definition is replaced and a warning is issued (shouldn't happen silently). A word may be *undefined* by convention of placing it in a cycle with itself, e.g. `@foo foo`. 
+Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. If a word is already defined, the earlier definition is replaced and a warning is issued. Cyclic definitions are an error and are removed from the dictionary.
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Words from each import are loaded in order, albeit optimized to silently eliminate redundant loads or cycles. Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). The dictionary as a whole is specified from an initial list of imports, which may depend on the project.
-
-This format will become less relevant as AO environments grow to use databases.
+The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). Each import file is processed once, regardless of duplication or cycles, favoring an order such that those listed last are loaded last. A dictionary as a whole is specified from a root file or text.
 
 ### Processing of AO Dictionary
 

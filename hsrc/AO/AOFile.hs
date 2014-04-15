@@ -65,15 +65,15 @@ data LoaderState m = LoaderState
     , ld_completed :: ![AOFile]
     }
 
--- contents of a specific file
+-- | contents of a specific file
 data AOFile = AOFile
-    { aof_imp :: Import
-    , aof_path :: FS.FilePath
-    , aof_imps :: [Import]
-    , aof_defs :: [(Line, AODef)]
+    { aof_imp :: Import        -- this import 
+    , aof_path :: FS.FilePath  -- file source
+    , aof_imps :: [Import]     -- imports section
+    , aof_defs :: [AODef Line] -- definitions with line numbers
     }
 
--- metadata associated with a particular definition
+-- | metadata after extracting defs from the files
 data AOFMeta = AOFMeta 
     { aofm_import :: !Import
     , aofm_path   :: !FS.FilePath
@@ -182,24 +182,24 @@ importFileT thisImp fpath code =
 
 -- extract basic entries from a file text; emit a warning for
 -- any entry that fails to parse
-readAOFileText :: (Monad m) => FS.FilePath -> Text -> LoadAO m ([Import], [(Line,AODef)])
+readAOFileText :: (Monad m) => FS.FilePath -> Text -> LoadAO m ([Import], [AODef Line])
 readAOFileText fp code = case splitEntries $ dropTheBOM code of
     [] -> return ([],[]) -- not possible, but also not a problem
     ((_,impEnt):defEnts) -> 
         let src = T.unpack $ either id id $ FS.toText fp in
         let imps = T.words impEnt in
         let (errs,defs) = partitionEithers $ fmap (parseEntry src) defEnts in
-        mapM_ (emitWarning . show) errs >>
+        mapM_ (emitWarning . show) errs >> -- report parse errors
         return (imps, defs)
 
 -- parse an entry, correcting for line and column (for error reporting)
-parseEntry :: String -> (Line, Text) -> Either P.ParseError (Line,AODef)
+parseEntry :: String -> (Line, Text) -> Either P.ParseError (AODef Line)
 parseEntry src (ln, entry) = P.parse parser "" entry where
     parser = 
         P.setPosition (P.newPos src ln 2) >>
         parseWord >>= \ word ->
         parseAO >>= \ code -> 
-        return (ln, (word,code))
+        return (word, (code, ln))
 
 -- remove initial byte order mark (BOM) if necessary
 -- (a BOM is automatically added to unicode text by some editors)
@@ -271,9 +271,9 @@ getNextTodo =
 
 
 -- | translate a list of files into a list of definitions.
-aoFilesToDefs :: [AOFile] -> [(AODef,AOFMeta)]
+aoFilesToDefs :: [AOFile] -> [AODef AOFMeta]
 aoFilesToDefs = L.concatMap defsInFile where
-    addMeta imp fp (ln,def) = (def,AOFMeta imp fp ln) 
+    addMeta imp fp (w,(code,ln)) = (w,(code,AOFMeta imp fp ln))
     defsInFile aof = 
         let imp = aof_imp aof in
         let path = aof_path aof in
@@ -295,12 +295,12 @@ showDictIssue (AODefOverride w defs) =
     let locations = fmap (("\n  " ++) . wordLocStr w . snd) defs in
     L.concat (msgHdr:locations)
 showDictIssue (AODefCycle defs) = 
-    let wordsInCycle = fmap (T.unpack . fst . fst) defs in
-    let msgHdr = "cycle detected involving: " ++ L.unwords wordsInCycle in
-    let defToLoc ((w,_),m) = wordLocStr w m in
+    let wordsInCycle = T.unpack $ T.unwords $ fmap fst defs in
+    let msgHdr = "cycle detected involving: " ++ wordsInCycle in
+    let defToLoc (w,(_,aofm)) = wordLocStr w aofm in
     let locations = fmap (("\n  " ++) . defToLoc) defs in
     L.concat (msgHdr:locations)
-showDictIssue (AODefMissing ((w,_),_) missingWords) = 
+showDictIssue (AODefMissing (w,_) missingWords) = 
     let wl = L.unwords (fmap T.unpack missingWords) in
     "word " ++ T.unpack w ++ " needs definitions for: " ++ wl
 
