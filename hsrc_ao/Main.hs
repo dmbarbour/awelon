@@ -1,20 +1,41 @@
 {-# LANGUAGE FlexibleContexts, ViewPatterns #-}
 
--- | The `ao` command line executable
---
--- `ao` follows the modern convention of taking a second word
--- as its command, followed by any options for that word.
---
---     ao test -- run all 'test.' words in named dict
---
--- currently, there aren't many options! I might need to add some
--- verbosity options to testing, later.
---
--- I'm just using Parsec to handle the command line.
+-- | The `ao` command line executable, with many utilities for
+-- non-interactive programming. 
 module Main 
-    ( main, runMode
-    , parseCmdLine, cmdLineHelp
+    ( main
     ) where
+
+import AORT
+
+-- | All 'command' words follow a common pattern:
+--
+-- They either accept arbitrary AO code as a string or they
+-- process a paragraph at a time from standard input.
+--
+type AOCommand = Maybe [AO_Action]
+type ABCCommand = Maybe [Op]
+
+data Mode
+    = ABC AOCommand -- dump ABC for given AO command
+    | Exec AOCommand -- run AO command (same env as aoi)
+    | ABC_Exec ABCCommand -- run raw ABC code (same env as aoi)
+    | Test -- run all test words
+    | Type -- attempt to detect type errors
+    | Help -- print help information
+
+
+
+main :: IO ()
+main = getMode >>= runMode
+
+
+
+
+
+
+
+{-
 
 import Control.Applicative
 --import Control.Concurrent
@@ -64,7 +85,7 @@ cmdLineHelp =
     "ao test                 run all `test.` words in dict\n\
     \ao type                 typecheck all words in dict\n\
     \ao type x y z           print type for a given list of words\n\
-    \ao abc command*         dump weakly simplified ABC for given command\n\
+    \ao abc command         dump weakly simplified ABC for given command\n\
     \  Each command must parse independently as AO code. Output is\n\
     \  the trivial, concatenative composition of these subprograms.\n\
     \ao help (or -?)         print these options\n\
@@ -338,3 +359,7 @@ parseCmdLine = parseMode >>= \ m -> P.eof >> return m where
         parseDict2HSMode P.<|>
         parseProg2HSMode P.<|>
         parseHelpMode
+
+-}
+
+

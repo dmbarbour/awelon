@@ -40,16 +40,6 @@ Source-repository head
   location: http://github.com/dmbarbour/awelon.git
 
 {-
-Executable ao
-  hs-source-dirs: hsrc_ao hsrc_aort
-  default-language: Haskell2010
-  build-depends: base (>= 4.6 && < 5)
-     , ao
-     , text
-     , containers
-     , parsec
-  main-is: Main.hs
-  ghc-options: -auto-all -Wall -rtsopts -threaded
 
 Executable aoi
   hs-source-dirs: hsrc_aoi hsrc_aort
@@ -69,6 +59,17 @@ Executable aoi
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 -}
+
+Executable ao
+  hs-source-dirs: hsrc_ao hsrc_aort
+  default-language: Haskell2010
+  build-depends: base (>= 4.6 && < 5)
+     , ao
+     , text
+     , containers
+     , parsec
+  main-is: Main.hs
+  ghc-options: -auto-all -Wall -rtsopts -threaded
 
 Library
   hs-Source-Dirs: hsrc
