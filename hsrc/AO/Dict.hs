@@ -27,6 +27,8 @@ type AODictMap meta = M.Map Word (AO_Code,meta)
 readAODict :: AODict meta -> AODictMap meta
 readAODict (AODict d) = d
 
+-- 
+
 -- | to report problems with a dictionary while cleaning it up.
 --
 -- Override: multiple definitions are provided for a word, in the
@@ -47,8 +49,8 @@ readAODict (AODict d) = d
 -- 
 data AODictIssue meta
     = AODefOverride Word [(AO_Code,meta)] -- multiple definitions for one word.
-    | AODefCycle [AODef meta] -- a cycle of words (all removed)
-    | AODefMissing (AODef meta) [Word] -- definition is missing words in list
+    | AODefCycle [AODef meta]             -- a cycle of words 
+    | AODefMissing (AODef meta) [Word]    -- definition is missing words in list
 
 -- a warning capability
 type ReportIssue m meta = AODictIssue meta -> m ()
