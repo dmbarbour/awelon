@@ -7,6 +7,7 @@ module AO.Dict
     , module AO.Code
     ) where
 
+import qualified Data.List as L
 import qualified Data.Map as M
 import AO.InnerDict
 import AO.Code
@@ -47,35 +48,43 @@ data AODictIssue meta
 -- a warning capability
 type ReportIssue m meta = AODictIssue meta -> m ()
 
+-- | given a list of definitions, produce a 'clean' dictionary (no cycles, 
+-- no incompletely defined words) and also generate some warnings or errors.
 buildAODict :: (Monad m) => ReportIssue m meta -> [(AODef,meta)] -> m (AODict meta)
-buildAODict = error "TODO"
+buildAODict warn defs = 
+    return defs >>=
+    getFinalDefs warn >>= 
+    cleanAODict warn >>= 
+    return . AODict 
+
+getFinalDefs :: (Monad m) => ReportIssue m meta -> [(AODef,meta)] -> m (M.Map Word (AO_Code,meta))
+getFinalDefs warn rawDefs =
+    let defs1 = fmap assocr rawDefs in -- (word,cm) where cm = (code,meta)
+    let mdict = L.foldl mmins M.empty defs1 in -- (word,(cm,[cm]))
+    let dictOfFinalDefs = fmap fst mdict in -- (word,cm) 
+    let lOverrides = M.toList $ fmap (L.reverse . uncurry (:)) 
+                              $ M.filter (not . null . snd) mdict 
+    in
+    mapM_ (warn . uncurry AODefOverride) lOverrides >>
+    return dictOfFinalDefs
+
+assocr :: ((a,b),c) -> (a,(b,c))
+assocr ((a,b),c) = (a,(b,c))
+
+mmins :: (Ord k) => M.Map k (a,[a]) -> (k,a) -> M.Map k (a,[a])
+mmins d (k,a) = M.alter (mmcons a) k d where
+    mmcons a0 Nothing = Just (a0,[])
+    mmcons a0 (Just (a1,as)) = Just (a0,(a1:as))
+
+-- cleanup the AO dictionary
+cleanAODict :: (Monad m) 
+            => ReportIssue m meta 
+            -> M.Map Word (AO_Code, meta) 
+            -> m (M.Map Word (AO_Code, meta))
+cleanAODict _warn = return -- TODO!  
+    
     
 {-
-
-
--- | load dictionary from filesystem
---
--- Reports errors or warnings to stderr, but continues through them.
--- Will remove words with cyclic or incomplete definitions, so the
--- resulting dictionary is clean of those issues (though type errors
--- will remain).
-loadDictionary :: IO Dictionary
-loadDictionary = getAO_DICT >>= loadDictionaryI
- 
-loadDictionaryI :: Import -> IO Dictionary
-loadDictionaryI imp0 =
-    importDictFiles imp0 >>= \ dfs ->
-    let (issues, dict) = buildDictionary dfs in
-    S.mapM_ (reportError . T.unpack) issues >>
-    return dict
-
--- glue a raw dictionary together, then remove cycles and incomplete
--- words, resulting in a complete and acyclic subset of the dictionary.
-buildDictionary :: [(Import,DictFile)] -> (S.Seq ErrorText, Dictionary)
-buildDictionary dfs = 
-    let (e1, rawDict) = buildRawDictionary dfs in
-    let (e2, cleanDict) = cleanupDictionary rawDict in
-    (e1 S.>< e2, cleanDict)
 
 -- raw dictionary from files; warns for parse errors and overrides
 buildRawDictionary :: [(Import, DictFile)] -> (S.Seq ErrorText, Dictionary)
