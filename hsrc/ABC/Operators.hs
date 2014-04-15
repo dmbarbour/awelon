@@ -50,6 +50,7 @@ opCharList =
     ,(Op_5,'5'),(Op_6,'6'),(Op_7,'7'),(Op_8,'8'),(Op_9,'9')
     ,(Op_SP,' '),(Op_LF,'\n')
     ]
+-- to consider: hashtable lookups for performance
 
 -- | test whether a sequence of two operations 'cancel'
 -- where they cancel if their composition is identity 

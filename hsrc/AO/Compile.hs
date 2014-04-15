@@ -1,6 +1,6 @@
 
 -- | Efficiently obtain ABC code for a given AO command.
--- This is a 'pure' compilation, and ignores metadata.
+-- This is a pure compilation, and ignores metadata.
 module AO.Compile 
     ( compileAOtoABC
     , aopToABC
@@ -75,40 +75,3 @@ aopToABC AOp_merge = Op_merge
 aopToABC AOp_assert = Op_assert
 aopToABC AOp_gt = Op_gt
 
-
-{-
-
--- compile a clean (acyclic, fully defined) dictionary to ABC.
--- This is achieved by progressive inlining. 
-compileDictionary :: Dictionary -> DictC
-compileDictionary aoDict = abcDict where
-    abcDict = L.foldl cw M.empty (M.keys aoDict)
-    cw dc w =
-        if M.member w dc then dc else
-        maybe dc (cwd dc w) (M.lookup w aoDict)
-    cwd dc w (_,def) =
-        let deps = aoWordsRequired def in
-        let dc' = L.foldl cw dc (Set.toList deps) in
-        let abc = aoToABC dc' def in
-        M.insert w abc dc'
-
--- | compile a definition to ABC, given a dictionary that
--- already contains the necessary words. Any missing words will
--- result in an annotation `{&~word}`, but it's probably better
--- to avoid the situation and test for missing words in advance.
-aoToABC :: DictC -> S.Seq Action -> S.Seq Op
-aoToABC dc = S.foldr (S.><) S.empty . fmap (actionToABC dc)
-
-actionToABC :: DictC -> Action -> S.Seq Op
-actionToABC dc (Word w) = maybe (annoMW w) id (M.lookup w dc)
-actionToABC _ (Num r) = quoteNum r S.|> Op 'l'
-actionToABC _ (Lit txt) = S.empty S.|> TL txt S.|> Op 'l'
-actionToABC dc (BAO aoDef) = S.empty S.|> BL (aoToABC dc aoDef) S.|> Op 'l'
-actionToABC _ (Prim ops) = ops
-actionToABC dc (Amb [onlyOption]) = aoToABC dc onlyOption
-actionToABC dc (Amb options) = S.singleton $ AMBC $ map (aoToABC dc) options
-
-annoMW :: W -> S.Seq Op
-annoMW = S.singleton . Invoke . T.cons '&' . T.cons '~'
-
--}
