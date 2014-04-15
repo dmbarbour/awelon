@@ -25,11 +25,6 @@ import qualified Data.Sequence as S
 import qualified Text.Parsec as P
 import Text.Parsec.Text()
 
-import AO.AOTypes
-import AO.V
-import AO.ParseAO
-import AO.AO
-import AO.ABC
 -- import AO.TypeABC
 import HLS
 

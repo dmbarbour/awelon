@@ -40,36 +40,34 @@ Source-repository head
   location: http://github.com/dmbarbour/awelon.git
 
 {-
-Executable aoi
-  hs-source-dirs: hsrc_aoi
-  default-language: Haskell2010
-  build-depends: base (>= 4.5 && < 5)
-    , ao
-    , parsec
-    , system-fileio
-    , system-filepath
-    , text
-    , containers
-    , bytestring
-    -- , base64-bytestring (>= 1.0 && < 1.2)
-    , haskeline (>= 0.7.1 && < 0.9)
-    , transformers
-    , random (>= 1.0 && < 1.2)
-    , cprng-aes (>= 0.5 && < 0.7)
-  main-is: AOI.hs
-  ghc-options: -auto-all -Wall -rtsopts
-
 Executable ao
-  hs-source-dirs: hsrc_ao
+  hs-source-dirs: hsrc_ao hsrc_aort
   default-language: Haskell2010
   build-depends: base (>= 4.6 && < 5)
      , ao
      , text
      , containers
      , parsec
-  main-is: AO.hs
+  main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
+Executable aoi
+  hs-source-dirs: hsrc_aoi hsrc_aort
+  default-language: Haskell2010
+  build-depends: base (>= 4.5 && < 5)
+    , ao
+    , transformers
+    , parsec
+    , text
+    , bytestring
+    , containers
+    , system-fileio
+    , system-filepath
+    , haskeline (>= 0.7.1 && < 0.9)
+    , random (>= 1.0 && < 1.2)
+    , cprng-aes (>= 0.5 && < 0.7)
+  main-is: Main.hs
+  ghc-options: -auto-all -Wall -rtsopts -threaded
 -}
 
 Library
@@ -101,6 +99,16 @@ Library
     AO.Dict
     AO.Compile
     AO.AOFile
+    
+    --
+    -- todo: Typechecking
+    --       Partial Evaluation
+    --       Fixpoint Detection
+    --       Intermediate Language
+    --
+    --       JIT compilation (via annotation, plugins)
+    --           tracing & caching options (from runtime)
+    -- 
 
   Other-Modules:
 
