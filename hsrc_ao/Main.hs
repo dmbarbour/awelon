@@ -38,9 +38,9 @@ helpMsg =
     \\n\
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
-    \    AO_HOME: where to keep persistent state; default ./aostate \n\
     \    AO_DICT: root dictionary text; default \"ao\" \n\
     \"
+-- when persistence is working, perhaps add an AO_HOME or similar.
 
 main :: IO ()
 main = Env.getArgs >>= runMode

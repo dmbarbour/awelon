@@ -5,7 +5,6 @@ module AO.Dict
     , buildAODict, cleanAODict, emptyAODict
     , readAODict, updateAODict
     , AODictIssue(..)
-    , module AO.Code
     ) where
 
 import Control.Monad ((>=>))

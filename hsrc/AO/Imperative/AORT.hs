@@ -13,15 +13,24 @@
 --   configurable powers and annotations
 --   plugins support; extend features externally
 --   persistent state; stable state resources
+--
+-- AntiFeatures: discipline is required to
+--
+--   protect progress, avoid infinite loops
+--   protect causal commutativity, spatial idempotence 
+--   avoid persisting blocks in stateful resources
+--   ensure integrity of blocks for serialization or JIT
 -- 
 -- Access an AO or ABC runtime is achieved via `{tokens}` in byte code. 
 -- Tokens cannot be forged, and can be embedded within a block to form
--- a `[{secure capability}]`. In AORT, the actual token text will be
--- generated only when it must be serialized (e.g. for distribution,
--- just-in-time compilation, or the 'aoi' display). Modulo annotations,
--- AORT strongly favors linear (single-use) tokens to simplify reasoning
--- about garbage collection and concurrency.
--- 
+-- a `[{secure capability}]`. In AORT, token text will be generated only
+-- when it must be serialized - e.g. for display, distribution, or just-
+-- -in-time compilation.
+--
+-- Modulo annotations, AORT favors linear (single use) tokens to simplify
+-- reasoning about GC and concurrency. The cost of linear tokens is that
+-- 'undo' can become difficult to express. 
+--
 -- The main responsibility of AORT is to provide (via those tokens) safe,
 -- efficient, and useful models for resources, concurrency, and behavior.
 -- 
@@ -38,30 +47,33 @@
 -- observation in terms of discrete reads and writes over time.
 --
 module AO.Imperative.AORT
-    ( RtVal, readRtVal
-    , rtProd, rtUnit, rtInL, rtInR, rtText, rtNum
-    , expectProd, expectUnit, expectSum, expectText, expectNum
-
-    , AORT, AORT_CX
-    , readRT, liftRT
-    , aort_ecx -- , aort_anno
-    , loadRuntime
-    , module ABC.Imperative.Value
+    ( AORT, readRT, liftRT, runRT
+    , AORT_CX, newDefaultRuntime
     ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
-
 import Data.Typeable
-
 import ABC.Imperative.Runtime
-import ABC.Imperative.Value
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
 newtype AORT c a = AORT (ReaderT (AORT_CX c) IO a)
     deriving (Monad, MonadIO, Functor, Applicative, Typeable)
+
+-- | AORT_CX provides a global context for runtime operations.
+--
+-- At the moment, it's a place holder. But I expect I'll eventually
+-- need considerable context to manage concurrency and resources.
+data AORT_CX c = AORT_CX
+    { aort_ecx  :: !c -- extended context for client-specific features
+    -- , aort_anno :: 
+    }
+
+-- | run an arbitrary AORT program.
+runRT :: AORT_CX c -> AORT c a -> IO a
+runRT cx (AORT op) = runReaderT op cx
 
 -- | read the runtime context
 readRT :: (AORT_CX c -> a) -> AORT c a
@@ -71,96 +83,59 @@ readRT = AORT . asks
 liftRT :: (AORT_CX c -> IO a) -> AORT c a
 liftRT = AORT . ReaderT
 
--- | AORT_CX mostly keeps information needed to manage concurrency,
--- side-effects, and resources. It can support some simple extensions
--- to the environment.
-data AORT_CX c = AORT_CX
-    { aort_ecx  :: !c -- extended context
-    , aort_home :: !String -- for persistence
-    -- , aort_anno :: !(Powers c)
-    }
-
--- | Load a persistent runtime context with the given identifier.
-loadRuntime :: String -> IO (AORT_CX ())
-loadRuntime home = 
-    let rt = AORT_CX { aort_ecx = (), aort_home = home } in
+-- | a new runtime with default settings
+newDefaultRuntime :: c -> IO (AORT_CX c)
+newDefaultRuntime c = 
+    let rt = AORT_CX { aort_ecx = c } in
     return rt
 
+-- | create a new linear capability (a block with a one-use token).
+--
+-- Unlike a hand-crafted block, this one will be relatively safe for
+-- JIT or serialization. 
+--
+-- newLinearCap :: Prog (AORT c) -> AORT c (Block (AORT c))
+
+
 -- I'll eventually need a lot of logic, here, to support powers,
--- annotations, and so on. 
+-- annotations, and so on. For now, I just want enough to get
+-- started.
 instance Runtime (AORT c) where
     invoke = invokeFails -- for now 
       --  readRT (IORef.readIORef . aort_powers) >>=
       --  return . maybe (invokeFails s) id . ($ s)
 
--- | AORT uses the ABC.Imperative.Value type, but encapsulates uses
--- smart constructors with respect to blocks and some sealed values.
-newtype RtVal c = RtVal { readRtVal :: V (AORT c) }
-
-rtProd :: RtVal c -> RtVal c -> RtVal c
-rtProd a b = RtVal (P (readRtVal a) (readRtVal b))
-
-rtUnit :: RtVal c
-rtUnit = RtVal U
-
-rtInL, rtInR :: RtVal c -> RtVal c
-rtInL = RtVal . L . readRtVal
-rtInR = RtVal . R . readRtVal
-
-rtText :: String -> RtVal c
-rtText = RtVal . textToVal
-
-rtNum :: Rational -> RtVal c
-rtNum = RtVal . N 
-
-expectProd :: RtVal c -> AORT c (RtVal c, RtVal c)
-expectProd (RtVal (P a b)) = return (RtVal a, RtVal b)
-expectProd (RtVal v) = fail $ "product expected; received " ++ show v
-
-expectUnit :: RtVal c -> AORT c ()
-expectUnit (RtVal U) = return ()
-expectUnit (RtVal v) = fail $ "unit value expected; received " ++ show v
-
-expectSum :: RtVal c -> AORT c (Either (RtVal c) (RtVal c))
-expectSum (RtVal (L a)) = return (Left (RtVal a))
-expectSum (RtVal (R b)) = return (Right (RtVal b))
-expectSum (RtVal v) = fail $ "sum value expected; received " ++ show v
-
-expectText :: RtVal c -> AORT c String
-expectText (RtVal (valToText -> Just text)) = return text
-expectText (RtVal v) = fail $ "text expected; received " ++ show v
-
-expectNum :: RtVal c -> AORT c Rational
-expectNum (RtVal (N r)) = return r
-expectNum (RtVal v) = fail $ "number expected; received " ++ show v
-
--- | REGARDING EFFECTS AND CAPABILITIES
 --
--- AO was designed for reactive demand programming, where resources
--- are external to the process... and often persistent in nature.
--- Adapting AO to an imperative context is feasible, but requires
--- careful consideration of how to integrate side-effects.
+-- Thoughts: it may be worth adding yet another layer, an 'agent' concept,
+-- that does not permit direct access to the active value. Instead, a dev
+-- will send batches of ABC code at the agent, causing it to update and
+-- indirectly manage other resources. The main issue here would be how an
+-- agent advances through time when not being delivered any commands.
 --
--- One consideration is how tokens should interact with persistence.
+-- For now, such a feature isn't critical. I should just make the new
+-- runtime work, first.
+
+
+-- REGARDING PERSISTENCE AND PROCESSING
 --
--- I expect I'll need tokens to be divided between the volatile and 
--- the persistent. Volatile powers will be 'lost' after a restart or
--- other expiration event. Such restarts should be logically modeled,
--- and inherent in the 'static type' of the token and code.
+-- Persistence can become a challenge when we start throwing first
+-- class functions around, or even blocks containing capabilities.
+-- 
+-- To avoid problems, we should simply avoid persisting blocks. If
+-- persistent code is desired, we instead deliver a program that the
+-- remote resource can process into ABC. Blocks may be communicated,
+-- but must be 'volatile' in some sense - i.e. tied to the lifetime
+-- of a connection or other resource.
 --
--- Persistent tokens, OTOH, must contain or compose supplementary 
--- information to identify and recover target resources. This could
--- include plugin-based resources, persistent state, and more. It
--- might be acceptable for such powers to be directly provided by 
--- a client of AORT, assuming there is some stable identification
--- across resets.
+-- This matches the same requirement in RDP, where blocks are always
+-- considered revocable capabilities. I was thinking anyway that, to
+-- ease transition, it would be wise for AORT to closely follow the 
+-- resource model of RDP.
 --
--- If I can ensure that volatile tokens are never persisted, then it
--- is also feasible to use volatile tokens without failures. A good
--- question is whether to seek this assurance at the Haskell level or
--- at an AO layer (via assertions). 
+-- Anyhow, this means developers don't need to worry about 'persistent'
+-- vs. 'volatile' blocks. Blocks and tokens - those we communicate - are 
+-- always volatile, at least logically. (Caching might allow a generated
+-- block to be kept persistently.) In general, only stateful resources 
+-- may be persistent. 
 --
--- Anyhow, my decision to encapsulate `RtVal` was to protect the
--- relationships between block code and the corresponding program,
--- and to support persistence and safety features.
 

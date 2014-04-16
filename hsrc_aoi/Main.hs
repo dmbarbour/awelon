@@ -7,7 +7,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.State.Strict
 
---import Data.Text (Text)
+-- import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Sequence as S
 import qualified Data.Map as M
@@ -25,7 +25,11 @@ import qualified System.Console.Haskeline as HKL
 -- AO imports
 import AO.AOFile
 import AO.Dict
+import AO.Code
 import AO.Imperative.AORT
+import ABC.Operators
+import ABC.Imperative.Value
+import ABC.Imperative.Interpreter
 
 -- LOCAL UTILITIES (from ../hsrc_aort)
 import ShowEnv
@@ -38,35 +42,31 @@ helpMsg =
     \\n\
     \Environment Variables:\n\
     \    AO_PATH: where to search for '.ao' files \n\
-    \    AO_HOME: where to keep persistent state; default ./aostate \n\
     \    AOI_DICT: root dictionary text; default \"aoi\" \n\
     \\n\
     \Haskeline Configuration (history, edit mode, etc.): \n\
     \    see http://trac.haskell.org/haskeline/wiki/UserPrefs \n\
     \\n\
     \This REPL does not allow defining words. Developers instead edit \n\
-    \the dictionary then hit ctrl+c (interrupt) to reload it. Limited \n\
-    \undo is available using command `@undo`. \n\
+    \the dictionary then hit ctrl+c (interrupt) to reload it. \n\
     \"
+-- when persistence is working, perhaps add an AO_HOME or similar.
 
 -- | The AOI monad is above AORT but below Haskeline.
 -- It primarily manages the dictionaries and histories.
 type AOI = StateT AOI_CONTEXT RT
 data AOI_CONTEXT = AOI_CONTEXT 
     { aoi_dict    :: !Dict  -- loaded and compiled dictionary
-    , aoi_hist    :: !Hist  -- previous states 
-    , aoi_histLen :: !Int   -- how much history to keep
+    , aoi_dictSrc :: !String -- root dictionary text
+    , aoi_rtval   :: !RtVal -- active runtime value
+    , aoi_rtcx    :: !RTCX  -- current runtime context
     }
 
 type Dict = AODict AOFMeta  -- the current dictionary
 type RT = AORT ()           -- not using extended context (yet)
-type RTVal = V RT           -- a value in our AO runtime
-type Hist = S.Seq RTVal     -- a history of values for @undo
+type RTCX = AORT_CX ()
+type RtVal = V RT           -- a value in our AO runtime
 type HKL = HKL.InputT AOI   -- haskeline input monad
-
-emptyContext :: AOI_CONTEXT
-emptyContext = AOI_CONTEXT emptyAODict emptyHist 0 where
-    emptyHist = S.empty
 
 main :: IO ()
 main = Env.getArgs >>= runArgs
@@ -89,7 +89,7 @@ getAOI_DICT = Err.catchIOError (Env.getEnv "AOI_DICT") (const (pure "aoi"))
 -- permanent 'recovery loop'
 runAOI :: IO ()
 runAOI = 
-    getAOI_DICT >>= \ rootDict ->
+    newAOIContext >>= \ aoicx ->
     getHistoryFile >>= \ histFile ->
     let hklSettings = HKL.Settings
             { HKL.complete = aoiCompletion
@@ -99,6 +99,27 @@ runAOI =
     in
     error "TODO: main AOI loop!"
 
+-- for now, just create a dummy power block
+newPowers :: IO RtVal
+newPowers = return $ B b where
+    b = Block { b_code = S.fromList code, b_prog = prog
+              , b_rel = True, b_aff = True }
+    code = [Op_v, Op_V, Tok "&morituri te salutant", Op_assert]
+    prog = interpret code
+
+newAOIContext :: IO AOI_CONTEXT
+newAOIContext =
+    newPowers >>= \ pb ->
+    newDefaultRuntime () >>= \ rtcx ->
+    getAOI_DICT >>= \ dsrc ->
+    let sn = textToVal "" in
+    let env = (P U (P U (P pb (P (P sn U) U)))) in
+    return $ AOI_CONTEXT { aoi_dict = emptyAODict
+                         , aoi_dictSrc = dsrc
+                         , aoi_rtval = env
+                         , aoi_rtcx = rtcx 
+                         }
+    
 tryIO :: IO a -> IO (Maybe a)
 tryIO = liftM eitherToMaybe . Err.tryIOError where
     eitherToMaybe = either (const Nothing) Just
