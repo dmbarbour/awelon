@@ -2,14 +2,17 @@
 
 -- | Utilities for imperative AO or ABC computations. 
 --
--- Features shall include:
+-- Features:
 -- 
 --   pure parallelism (by annotation)
 --   concurrency (channels, publish-subscribe, shared state)
 --   just-in-time and tracing compilation (mostly by annotation)
---   configurable powers and annotations (see 'newRuntimeContext')
---   runtime plugins support, preferably - extend powers via plugins
---   persistent state... AO is ideally persistent by default
+--
+-- Desiderata:
+--
+--   configurable powers and annotations
+--   plugins support; extend features externally
+--   persistent state; stable state resources
 -- 
 -- Access an AO or ABC runtime is achieved via `{tokens}` in byte code. 
 -- Tokens cannot be forged, and can be embedded within a block to form
@@ -57,7 +60,6 @@ import ABC.Imperative.Value
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
--- 
 newtype AORT c a = AORT (ReaderT (AORT_CX c) IO a)
     deriving (Monad, MonadIO, Functor, Applicative, Typeable)
 
