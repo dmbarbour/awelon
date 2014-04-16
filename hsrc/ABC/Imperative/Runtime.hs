@@ -1,8 +1,8 @@
-
+{-# LANGUAGE PatternGuards #-}
 -- | Class for an imperative ABC runtime
 module ABC.Imperative.Runtime 
-    (Runtime(..)
-    ,invokeFails
+    ( Runtime(..)
+    , invokeFails
     ) where
 
 import Control.Applicative
@@ -14,13 +14,20 @@ class (Monad cx, Applicative cx) => Runtime cx where
     invoke :: String -> Prog cx
     invoke = invokeFails
 
--- | suitable call for an unrecognized token
--- will pass unrecognized annotations `{&anno}`
--- otherwise will fail with appropriate message
-invokeFails :: (Monad cx) => String -> Prog cx
-invokeFails ('&':_) = id -- 
+instance Runtime IO
+
+-- | invokeFails is a suitable call for unrecognized tokens
+--
+-- This will pass unrecognized annotations, and also handle the
+-- discretionary seal and unseal actions from AO. Otherwise, it
+-- will fail with a 'token not recognized' message.
+invokeFails :: (Monad cx, Functor cx) => String -> Prog cx
+invokeFails ('&':_) = id
+invokeFails s@(':':_) = fmap (S s)
+invokeFails ('.':s) = (=<<) (unseal s)
 invokeFails tok = fail $ "{" ++ tok ++ "} token not recognized"
 
-
-instance Runtime IO
+unseal :: (Monad cx) => String -> V cx -> cx (V cx)
+unseal s (S (':':s') v) | (s == s') = return v
+unseal s v = fail $ "{." ++ s ++ "} (unseal) @ " ++ show v
 

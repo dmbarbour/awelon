@@ -18,8 +18,6 @@ import Control.Applicative
 import Data.Ord
 import Data.Monoid
 import Data.Ratio
-import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 
@@ -34,8 +32,13 @@ data V cx
     | L (V cx) -- in left
     | U -- unit
     | B (Block cx)  -- block
-    | S !Text (V cx) -- sealed value
+    | S String (V cx) -- sealed value
     deriving (Eq, Ord)
+
+-- NOTE: Sealed values can also be used as a special class of token
+-- for value encapsulation. To support this usage, the sealer token
+-- should be preserved. Serialization of sealed values will often
+-- require special consideration.
 
 -- | an imperative program with context 'cx' 
 -- 'cx' should be Monadic and Applicative
@@ -112,7 +115,7 @@ instance Show (V cx) where
     showsPrec _ (R b) = showString "(_+" . shows b . showChar ')'
     showsPrec _ b@(B _) = (shows . quote) b -- show as block literal + kf
     showsPrec _ (S seal v) = shows v . shows tok where
-        tok = Tok (':' : T.unpack seal)
+        tok = Tok (seal)
 
 showNumber :: Rational -> ShowS
 showNumber r | (1 == denominator r) = shows (numerator r)
@@ -132,9 +135,8 @@ instance Quotable (V cx) where
         code = quotes . BL . S.toList . b_code 
         k = if (b_rel b) then quotes Op_rel else id
         f = if (b_aff b) then quotes Op_aff else id
-    quotes (S s v) = quotes v . sealer . quotes Op_ap where
-        sealer = quotes (BL [invoke])
-        invoke = Tok (':' : T.unpack s) 
+    quotes (S s v) = quotes v . quotes sealer . quotes Op_ap where
+        sealer = BL [Tok s]
 
 copyable :: V cx -> Bool
 copyable (N _) = True

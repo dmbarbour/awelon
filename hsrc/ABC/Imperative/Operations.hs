@@ -87,15 +87,9 @@ tl :: (Functor m) => String -> Prog m
 tl = fmap . P . textToVal
 
 -- | tokens will handle sealers before passing to `invoke`
+-- (note: I might shift this responsibility into the runtime)
 tok :: (Runtime m) => String -> Prog m
-tok (':':s) = fmap (S (T.pack s))
-tok ('.':s) = (=<<) (m_unseal (T.pack s))
-tok s = invoke s
-
--- m_unseal will evaluate immediately (to force early failure)
-m_unseal :: (Monad m) => Text -> V m -> m (V m)
-m_unseal s (S s' v) | (s == s') = return v
-m_unseal s v = opFail ("{." ++ T.unpack s ++ "}") v
+tok = invoke
 
 l = fmap fl
 r = fmap fr
