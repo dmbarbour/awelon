@@ -4,11 +4,14 @@
 module Main (main) where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.Trans.State.Strict
 
-import Data.Text (Text)
+--import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Sequence as S
+import qualified Data.Map as M
+import qualified Data.List as L
 
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
@@ -21,9 +24,10 @@ import qualified System.Console.Haskeline as HKL
 
 -- AO imports
 import AO.AOFile
+import AO.Dict
+import AO.Imperative.AORT
 
 -- LOCAL UTILITIES (from ../hsrc_aort)
-import AORT
 import ShowEnv
 
 -- a dubiously useful help message
@@ -85,7 +89,7 @@ getAOI_DICT = Err.catchIOError (Env.getEnv "AOI_DICT") (const (pure "aoi"))
 -- permanent 'recovery loop'
 runAOI :: IO ()
 runAOI = 
-    getAOI_Dict >>= \ rootDict ->
+    getAOI_DICT >>= \ rootDict ->
     getHistoryFile >>= \ histFile ->
     let hklSettings = HKL.Settings
             { HKL.complete = aoiCompletion
@@ -96,14 +100,15 @@ runAOI =
     error "TODO: main AOI loop!"
 
 tryIO :: IO a -> IO (Maybe a)
-tryIO = liftM (either (const Nothing) (Just)) . Err.tryIOError
+tryIO = liftM eitherToMaybe . Err.tryIOError where
+    eitherToMaybe = either (const Nothing) Just
 
 getHistoryFile :: IO (Maybe Sys.FilePath)
 getHistoryFile = tryIO $
     FS.getAppDataDirectory (T.pack "aoi") >>= \ appDir ->
     FS.createTree appDir >>
     let fp = appDir FS.</> FS.fromText (T.pack "hist.haskeline") in
-    FS.appendFile fp B.empty >>
+    FS.appendTextFile fp T.empty >> -- create file if it does not exist
     return (FS.encodeString fp)
 
 

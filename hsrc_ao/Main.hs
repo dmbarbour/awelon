@@ -13,7 +13,7 @@ import qualified System.IO.Error as Err
 import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
-import AORT
+import AO.Imperative.AORT
 
 helpMsg :: String
 helpMsg =
