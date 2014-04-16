@@ -1,15 +1,15 @@
 
-The 'ao' executable provides quick, non-interactive access to AO programs. 
+The `ao` executable provides quick, non-interactive access to AO programs. 
 
 Usage:
 
 * `ao help` or any unrecognized command, will display options
-* `ao abc` generate ABC output stream from an AO input stream
 * `ao abc command` generate ABC code for AO command (provided as string)
-* `ao exec` execute AO code provided on input stream
 * `ao exec command` execute a specific AO command
-* `ao abc.exec command` execute a command provided as ABC
-* `ao abc.exec` execute an input stream provided as ABC
+* `ao exec.abc command` execute a command provided as ABC
+* `ao abc.s` generate ABC output stream from an AO input stream
+* `ao exec.s` execute AO code provided on input stream
+* `ao exec.abc.s` execute an input stream provided as ABC
 * `ao test` process all `test.` words
 * `ao type` attempt to detect type errors in dictionary
 

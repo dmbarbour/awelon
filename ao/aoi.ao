@@ -1,57 +1,19 @@
-std euler
-@doc.import.aoi "default import by aoi interpreter; see @doc.aoi"
+ao
+@doc.import.aoi "default root import by aoi REPL; see @doc.aoi.utility"
 
-@doc.aoi
-"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH) though a alternative root dictionary file may be specified on the command line. The aoi REPL is NOT intended for long-term use, and it should eventually be replaced by a spreadsheet metaphor with better effects models, continuous/live updates, and proper compilation.
+@doc.aoi.utility
+"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH) though a alternative root can be configured by setting the environment variable AOI_DICT. Developers issue a command on each line (no support for multi-line text). Updates to the dictionary must be performed through the filesystem, then reloaded with ctrl+c.
  
- The aoi application and effects model is simplistic. The application starts in a standard environment that is empty except for a linear powerblock. The powerblock has type roughly `µP.[msg→(P*ans)]` where 'msg' is a `(label * contents)` pair. Use of `iomsg.aoi` will send an ad-hoc message to the powerblock and leave the answer on the stack. However, a vocabulary of acceptable commands is also available through this aoi dictionary file.
- 
- The aoi effects model is inadequate for safety, efficiency, scalability, and open system security. Because it is not safe, it also isn't compatible with ambiguity. It is not recommended in general. I would not use it even in aoi, if it were not for how trivial it is to implement as a bootstrap model.
- 
- AOI does have a little extra support to help bootstrap a proper REPL/interpreter. See @doc.switchAOI for more information!
+ Programs start an an empty standard environment. The powerblock provides the same effects model as the `ao exec` command. See @doc.ao
 ~
 
-@doc.iomsg.aoi "invoke linear powerblock with message from stack"
-@iomsg.aoi %zwl .apply x %rwz
+@doc.cle "(io) clear the current environment (except hand and powerblock)"
+@cle introE swapE destroy.exec
 
-@doc.switchAOI 
-"The AOI reader incrementally compiles lines or paragraphs of user input (text) into a blocks that will be applied in the current user environment. Compilation may return error and fail, in which case no action is taken and the text is returned to the user for further editing. The incremental interpreter function has roughly type:
- 
-     type IFN = (text * eIC) → (errorText + ([eU → eU'] * eIC'))
- 
- Here, `eIC` is any extra context the incremental compiler decides to keep from step to step. Type `eU` represents the user's environment. On error, neither eIC nor eU will be modified, and the input is ideally (perhaps via history) returned to the user for further editing. AOI does not currently validate the sanity of the resulting block - i.e. no typechecking internally, no testing against eU. However, the design here makes it feasible to introduce a few features to prevent runtime errors.
- 
- Developers may modify the AOI reader (from within eU) by use of switchAOI word and command. 
- 
-     switchAOI :: ([IFN] * eIC) -- ([IFN]' * eIC')
- 
- This is coarse-grained at the level of lines and blocks. The new reader will be used to process the next block. The motivation for switchAOI is to simplify bootstrapping of an AO REPL or interactive mode from within AO.
-~ 
-@switch.aoi "switchAOI" p iomsg.aoi
+@doc.cls "(io) clear the current stack (including relevant blocks)"
+@cls reifyStack destroy.exec
 
-@doc.getEnv.aoi "varname -- text; environment variable or empty text"
-@getEnv.aoi "getOSEnv" p iomsg.aoi
-
-@doc.randomBytes.aoi "count -- (list of octets); secure random source"
-@randomBytes.aoi "randomBytes" p iomsg.aoi
-
-@rand8.aoi 1 randomBytes.aoi assert wx drop
-
-@doc.readFile.aoi "(io) filename -- (1(err) + text)"
-@doc.writeFile.aoi "(io) text filename -- (1(err) + 1(ok))"
-@readFile.aoi "readFile" p iomsg.aoi
-@writeFile.aoi p "writeFile" p iomsg.aoi
-
-@doc.destroy.aoi "(io) destroy will drop any input, including relevant blocks (unsafe)"
-@destroy.aoi "destroy" p iomsg.aoi elim1
-
-@doc.cle.aoi "(io) clear the current environment (except hand and powerblock)"
-@cle.aoi introE swapE destroy.aoi
-
-@doc.cls.aoi "(io) clear the current stack (including relevant blocks)"
-@cls.aoi reifyStack destroy.aoi
-
-@doc.debugOut.aoi "(io) val -- val; prints given value on stderr; returns it unchanged"
-@debugOut.aoi "debugOut" p iomsg.aoi
-@debugStack.aoi reifyStack debugOut.aoi restoreStack
+@doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
+@debugOut "debugOut" p iomsg.exec
+@debugStack reifyStack debugOut restoreStack
 

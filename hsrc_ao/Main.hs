@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
+{-# LANGUAGE PatternGuards, ViewPatterns #-}
 
 -- | The `ao` command line executable, with many utilities for
 -- non-interactive programming. 
@@ -6,71 +6,111 @@ module Main
     ( main
     ) where
 
+import Control.Applicative
+import qualified Data.List as L
+import qualified System.IO as Sys
+import qualified System.IO.Error as Err
+import System.IO.Unsafe (unsafeInterleaveIO)
+import qualified System.Exit as Sys
+import qualified System.Environment as Env
 import AORT
 
--- | All 'command' words follow a common pattern:
---
--- They either accept arbitrary AO code as a string or they
--- process a paragraph at a time from standard input.
---
-type AOCommand = Maybe [AO_Action]
-type ABCCommand = Maybe [Op]
-
-data Mode
-    = ABC AOCommand -- dump ABC for given AO command
-    | Exec AOCommand -- run AO command (same env as aoi)
-    | ABC_Exec ABCCommand -- run raw ABC code (same env as aoi)
-    | Test -- run all test words
-    | Type -- attempt to detect type errors
-    | Help -- print help information
-
-
+helpMsg :: String
+helpMsg =
+    "The `ao` executable provides many utilities for non-interactive\n\
+    \operations involving AO or ABC code. Usage:\n\
+    \\n\
+    \    ao help               print this message \n\
+    \    \n\
+    \    ao abc command        dump ABC for AO command \n\
+    \    ao exec command       execute AO command \n\
+    \    ao exec.abc command   execute ABC code \n\
+    \    \n\
+    \    ao abc.s              dump ABC for AO on input stream \n\
+    \    ao exec.s             execute AO command from input stream \n\
+    \    ao exec.abc.s         execute ABC from input stream \n\
+    \    \n\
+    \    ao test               run all `test.` words in test environment \n\
+    \    ao type               attempt to detect type errors \n\
+    \\n\
+    \All 'exec' operations use the same powers and environment as `aoi`.\n\
+    \The input stream is stdin, processed one paragraph at a time.\n\
+    \\n\
+    \Environment Variables: \n\
+    \    AO_PATH: where to search for '.ao' files \n\
+    \    AO_HOME: where to keep persistent state; default ./aostate \n\
+    \    AO_DICT: root dictionary text; default \"ao\" \n\
+    \"
 
 main :: IO ()
-main = getMode >>= runMode
+main = Env.getArgs >>= runMode
 
+-- very simple command line processing
+runMode :: [String] -> IO ()
+runMode ["help"]         = Sys.putStrLn helpMsg
+runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC 
+runMode ["exec",cmd]     = mkCmdS cmd >>= execAO
+runMode ["exec.abc",cmd] = mkCmdS cmd >>= execABC
+runMode ["abc.s"]        = stdCmdS >>= dumpABC
+runMode ["exec.s"]       = stdCmdS >>= execAO
+runMode ["exec.abc.s"]   = stdCmdS >>= execABC
+runMode ["test"]         = runAOTests
+runMode ["type"]         = runAOType
+runMode _ = putErrLn eMsg >> Sys.exitFailure where
+    eMsg = "arguments not recognized; try `ao help`"
 
+getAO_DICT :: IO String
+getAO_DICT = Err.catchIOError (Env.getEnv "AO_DICT") (const (pure "ao"))
 
+putErrLn :: String -> IO ()
+putErrLn = Sys.hPutStrLn Sys.stderr
 
+-- for now, modeling input stream as list of strings
+mkCmdS :: String -> IO [String]
+mkCmdS s = Sys.hClose Sys.stdin >> return [s]
 
+-- obtain a paragraph at a time from 
+stdCmdS :: IO [String]
+stdCmdS = hGetParagraphs Sys.stdin
 
+-- obtain paragraphs from input (lazy IO)
+hGetParagraphs :: Sys.Handle -> IO [String]
+hGetParagraphs h =
+    hGetParagraph h >>= \ p ->
+    if (null p) then return [] else
+    unsafeInterleaveIO (hGetParagraphs h) >>= \ ps ->
+    return (p:ps)
+
+-- read the return one non-empty paragraph.
+-- at end-of-file, will return empty string.
+hGetParagraph :: Sys.Handle -> IO String
+hGetParagraph h = L.reverse <$> getc [] where
+    getc cs = 
+        Err.tryIOError (Sys.hGetChar h) >>=
+        either (onErr cs) (onChr cs)
+    onChr cs@('\n':_) ('\n') = return cs -- non-empty
+    onChr cs c = getc (c:cs)
+    onErr cs e | Err.isEOFError e = return cs -- done
+               | otherwise = ioError e
+
+-- dump ABC code, paragraph at a time, to standard output
+dumpABC :: [String] -> IO ()
+dumpABC _s = fail "todo abc"
+
+execAO :: [String] -> IO ()
+execAO _s = fail "todo exec"
+
+execABC :: [String] -> IO ()
+execABC _s = fail "todo exec.abc"
+
+runAOTests :: IO ()
+runAOTests = fail "todo test"
+
+runAOType :: IO ()
+runAOType = fail "todo type"
 
 {-
 
-import Control.Applicative
---import Control.Concurrent
---import System.IO.Unsafe (unsafeInterleaveIO)
-import Control.Monad
-import Data.IORef
-import qualified Data.List as L
-import qualified Data.Map as M
-import qualified Data.Text as T
-import qualified Data.Set as Set
-import Data.Text (Text)
-import qualified Data.Sequence as S
-import qualified Data.Foldable as S
-import qualified Text.Parsec as P
--- import qualified Text.Parsec.Pos as P
--- import qualified Text.Parsec.Token as P
-import qualified System.IO as Sys
-import qualified System.Environment as Env
-import qualified System.Exit as Exit
-import qualified System.IO.Error as Err
-import AO.AO
-import AO.ParseAO
-import AO.ABC
-import AO.TypeABC
-import AO2HS (runAO2HS, runDict2HS, runProg2HS)
-
--- not many modes to parse at the moment.
-data Mode 
-    = Test -- run all `test.` words
-    | Type [W] -- report type for a set of words
-    | DumpABC Bool AODef -- dump bytecode for a word or command
-    | AO2HS AODef -- generate Haskell code for a given command
-    | Prog2HS AODef -- generate Haskell program for given command
-    | Dict2HS     -- generate Haskell code for each word in dictionary
-    | Help
 data TestState = TestState 
     { ts_emsg :: S.Seq Text -- explicit warnings or errors
     }
@@ -79,60 +119,6 @@ data TestStatus = Pass | Warn | Fail deriving(Eq)
 type TestResult = (TestState, Maybe (V IO))
 ts0 :: TestState
 ts0 = TestState S.empty
-
-cmdLineHelp :: String
-cmdLineHelp = 
-    "ao test                 run all `test.` words in dict\n\
-    \ao type                 typecheck all words in dict\n\
-    \ao type x y z           print type for a given list of words\n\
-    \ao abc command         dump weakly simplified ABC for given command\n\
-    \  Each command must parse independently as AO code. Output is\n\
-    \  the trivial, concatenative composition of these subprograms.\n\
-    \ao help (or -?)         print these options\n\
-    \n\
-    \Emitting Haskell Code:\n\
-    \  ao dict2hs              emits AODict module containing full dictionary\n\
-    \  ao ao2hs command*       emits code for command *assuming* AODict\n\
-    \  ao prog2hs command*     emits AOProg module for given command\n\
-    \\n\
-    \Environment Variables:\n\
-    \  AO_PATH: list of directories, searched for .ao files\n\
-    \  AO_DICT: root import, e.g. `std` or `aoi`. Default `lang`.\n\
-    \\n\
-    \NOTE: AODict and AOProg depend on user-provided AOPrelude.\n\
-    \"
-
-main :: IO ()
-main = getMode >>= runMode
-
------------------------------
--- Initial Setup 
------------------------------
-
-getMode :: IO Mode
-getMode =
-    Env.getArgs >>= \ args ->
-    case P.parse parseCmdLine "" args of
-        Left parseErr ->
-            putErrLn (show parseErr) >>
-            return Help -- default to help mode
-        Right mode -> return mode
-
-
-putErrLn :: String -> IO ()
-putErrLn = Sys.hPutStrLn Sys.stderr
-
-runMode :: Mode -> IO ()
-runMode Help = runHelp
-runMode Test = runTests 
-runMode (Type ws) = runType ws
-runMode (DumpABC bSimp aoDef) = runDumpABC bSimp aoDef
-runMode (AO2HS action) = runAO2HS action
-runMode (Dict2HS) = runDict2HS
-runMode (Prog2HS action) = runProg2HS action
-
-runHelp :: IO ()
-runHelp = putErrLn cmdLineHelp >> return ()
 
 --------------------------------
 -- Running Tests
@@ -210,18 +196,6 @@ runTest code =
             readIORef rf >>= \ tsf ->
             return (tsf, Just vf)
 
-{-
--- fork test in a thread; lazily obtain result from MVar
---
--- TODO: consider introducing a thread worker pool so at 
--- most K tests run at any given time.
-runTestAsync :: S.Seq Op -> IO TestResult
-runTestAsync code =
-    newEmptyMVar >>= \ mvResult ->
-    forkIO (runTest code >>= putMVar mvResult) >>
-    unsafeInterleaveIO (readMVar mvResult)
--}
-
 -- standard environment with given powerblock.
 stdEnv :: (Monad m) => V m -> V m
 stdEnv pb = (P U (P U (P pb (P (P (N 3) U) U))))
@@ -297,68 +271,6 @@ compileActions dc actions =
         else Left $ 
             T.pack "undefined words: " `T.append` 
             T.unwords (Set.toList wMissed)
-
----------------------------------------
--- Command Line Parser (Tok is command line argument)
----------------------------------------
-type Tok = String
-
-tok :: (P.Stream s m Tok) => (Tok -> Bool) -> P.ParsecT s u m Tok
-tok match = P.tokenPrim id nextPos matchTok where
-    nextPos pos _ _ = P.incSourceColumn pos 1
-    matchTok t = if (match t) then Just t else Nothing
-
-anyOneArg :: (P.Stream s m Tok) => P.ParsecT s u m Tok
-anyOneArg = tok (const True)
-
-parseTestMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseTestMode = tok (== "test") >> return Test
-
-parseTypeMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseTypeMode =
-    tok (== "type") >>
-    liftM (map T.pack) (P.many anyOneArg) >>= \ targetWords ->
-    return (Type targetWords)
-
-parseDumpABCMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseDumpABCMode = rawABC P.<|> simpABC where
-    simpABC = tok (== "abc") >> mode True
-    rawABC  = tok (== "abcRaw") >> mode False
-    mode bSimp = DumpABC bSimp <$> parseCmd
-
-parseCmd :: (P.Stream s m Tok) => P.ParsecT s u m AODef
-parseCmd = concatCmds <$> P.manyTill parseOneCmd P.eof where
-    concatCmds = foldr (S.><) S.empty
-    parseOneCmd = 
-        anyOneArg >>= \ str ->
-        case P.parse parseAODef "" str of
-            Left pe -> P.unexpected (show pe)
-            Right def -> return def
-
-parseDict2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseDict2HSMode = tok (== "dict2hs") >> return Dict2HS
-
-parseAO2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseAO2HSMode = tok (== "ao2hs") >> (AO2HS <$> parseCmd)
-
-parseProg2HSMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseProg2HSMode = tok (== "prog2hs") >> (Prog2HS <$> parseCmd)
-
-parseHelpMode :: (P.Stream s m Tok) => P.ParsecT s u m Mode
-parseHelpMode = (P.eof P.<|> helpTok) >> return Help where
-    helpTok = tok anyHelp >> return ()
-    anyHelp s = ("help" == s) || ("-help" == s) || ("-?" == s)
-
-parseCmdLine :: P.Stream s m Tok => P.ParsecT s u m Mode
-parseCmdLine = parseMode >>= \ m -> P.eof >> return m where
-    parseMode = 
-        parseTestMode    P.<|>
-        parseTypeMode    P.<|>
-        parseDumpABCMode P.<|>
-        parseAO2HSMode   P.<|>
-        parseDict2HSMode P.<|>
-        parseProg2HSMode P.<|>
-        parseHelpMode
 
 -}
 

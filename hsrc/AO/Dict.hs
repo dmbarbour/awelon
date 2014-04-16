@@ -2,7 +2,7 @@
 -- | Tools to build and access an AO dictionary.
 module AO.Dict
     ( AODef, AODictMap, AODict
-    , buildAODict, cleanAODict
+    , buildAODict, cleanAODict, emptyAODict
     , readAODict, updateAODict
     , AODictIssue(..)
     , module AO.Code
@@ -35,6 +35,10 @@ updateAODict fn w (AODict d) = case M.lookup w d of
     Just (code,meta) -> 
         let meta' = fn code meta in
         AODict (M.insert w (code,meta') d)
+
+-- | useful for initializations
+emptyAODict :: AODict meta
+emptyAODict = AODict (M.empty)
 
 -- | to report problems with a dictionary while cleaning it up.
 --

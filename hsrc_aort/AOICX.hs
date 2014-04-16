@@ -15,8 +15,6 @@ import Control.Applicative
 import Control.Monad
 import qualified Control.Monad.Trans.State.Strict as MT
 import qualified Control.Monad.Trans.Error as MT 
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Map as M

@@ -1,0 +1,30 @@
+std
+@doc.import.ao "default root import for `ao` executable. See @doc.ao.utility ."
+
+@doc.ao.utility
+"The `ao` command line executable provides a number of non-interactive utilities (see `ao help`). One option is to execute an AO command string (e.g. `ao exec "6 7 * 42 assertEQ"`) or to incrementally execute AO code received via standard input. AO code starts with a standard environment and a powerblock, which provides access to imperative effects. 
+ 
+ The ao effects model is under development.
+ 
+ At the moment, all effects are squeezed through a linear powerblock of type `µP.[command → (P * result)]`, i.e. each command resulting in a powerblock that may receive the next command. This linear structure is useful because it implicitly provides a centralized notion of 'time'. If powers are decentralized, we need a more explicit model of time in order to correlate observations on resources. 
+ 
+ The suffix `exec` is used for utility words related to the ` powerblock.
+~
+
+@doc.iomsg.exec "invoke linear powerblock with message from stack"
+@iomsg.exec %zwl .apply x %rwz
+
+@doc.getEnv.exec "text -- text; (io) obtain environment variable"
+@getEnv.exec "getOSEnv" p iomsg.exec
+
+@doc.randomBytes.exec "count -- (list of octets); secure random source"
+@randomBytes.exec "randomBytes" p iomsg.exec
+@rand8.exec 1 randomBytes.exec assert wx drop
+
+@doc.readFile.exec "(io) filename -- (1(err) + text)"
+@doc.writeFile.exec "(io) text filename -- (1(err) + 1(ok))"
+@readFile.exec "readFile" p iomsg.exec
+@writeFile.exec p "writeFile" p iomsg.exec
+
+@doc.destroy.exec "(io) destroy will drop any input, including relevant blocks (unsafe)"
+@destroy.exec "destroy" p iomsg.exec elim1
