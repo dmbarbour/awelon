@@ -36,9 +36,13 @@ data V cx
     deriving (Eq, Ord)
 
 -- NOTE: Sealed values can also be used as a special class of token
--- for value encapsulation. To support this usage, the sealer token
--- should be preserved. Serialization of sealed values will often
--- require special consideration.
+-- for value encapsulation. Essentially, the sealer token can support
+-- an 'unforgeable' lookup when used in an invocation. It could also
+-- be used together with the value, of course.
+--
+-- Different uses of sealers may be distinguished by a prefix on the
+-- sealer token. For example, discretionary sealers start with ':'.
+-- This prefix is not stripped.
 
 -- | an imperative program with context 'cx' 
 -- 'cx' should be Monadic and Applicative

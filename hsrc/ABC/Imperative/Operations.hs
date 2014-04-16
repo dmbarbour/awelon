@@ -24,8 +24,6 @@ module ABC.Imperative.Operations
     ) where
 
 import Data.Monoid
-import qualified Data.Text as T
-import Data.Text(Text)
 import qualified Data.Sequence as S
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
@@ -82,12 +80,11 @@ bl = fmap . P . B . mkB where
 -- | text literals are relatively trivial. They quote a text value,
 -- which has type `µT.(1+(Chr*T))` where Chr is a small integer in
 -- range 0..0x10ffff. We translate the given string into the target
--- text type.
+-- text value.
 tl :: (Functor m) => String -> Prog m
 tl = fmap . P . textToVal
 
--- | tokens will handle sealers before passing to `invoke`
--- (note: I might shift this responsibility into the runtime)
+-- | tokens go straight to the Runtime
 tok :: (Runtime m) => String -> Prog m
 tok = invoke
 

@@ -9,6 +9,7 @@
 --   just-in-time and tracing compilation (mostly by annotation)
 --   configurable powers and annotations (see 'newRuntimeContext')
 --   runtime plugins support, preferably - extend powers via plugins
+--   persistent state... AO is ideally persistent by default
 -- 
 -- Access an AO or ABC runtime is achieved via `{tokens}` in byte code. 
 -- Tokens cannot be forged, and can be embedded within a block to form
@@ -41,7 +42,7 @@ module AO.Imperative.AORT
     , AORT, AORT_CX
     , readRT, liftRT
     , aort_ecx -- , aort_anno
-    , newRuntimeContext
+    , loadRuntime
     , module ABC.Imperative.Value
     ) where
 
@@ -73,15 +74,15 @@ liftRT = AORT . ReaderT
 -- to the environment.
 data AORT_CX c = AORT_CX
     { aort_ecx  :: !c -- extended context
+    , aort_home :: !String -- for persistence
     -- , aort_anno :: !(Powers c)
     }
 
--- | Build a new runtime context for AO and ABC executions.
--- This will build state for safe concurrent interaction, and
--- a resource context for useful caching.
-newRuntimeContext :: (Typeable c) => c -> IO (AORT_CX c)
-newRuntimeContext c = 
-    return $ AORT_CX c 
+-- | Load a persistent runtime context with the given identifier.
+loadRuntime :: String -> IO (AORT_CX ())
+loadRuntime home = 
+    let rt = AORT_CX { aort_ecx = (), aort_home = home } in
+    return rt
 
 -- I'll eventually need a lot of logic, here, to support powers,
 -- annotations, and so on. 
@@ -131,82 +132,33 @@ expectNum :: RtVal c -> AORT c Rational
 expectNum (RtVal (N r)) = return r
 expectNum (RtVal v) = fail $ "number expected; received " ++ show v
 
+-- | REGARDING EFFECTS AND CAPABILITIES
+--
+-- AO was designed for reactive demand programming, where resources
+-- are external to the process... and often persistent in nature.
+-- Adapting AO to an imperative context is feasible, but requires
+-- careful consideration of how to integrate side-effects.
+--
+-- One consideration is how tokens should interact with persistence.
+--
+-- I expect I'll need tokens to be divided between the volatile and 
+-- the persistent. Volatile powers will be 'lost' after a restart or
+-- other expiration event. Such restarts should be logically modeled,
+-- and inherent in the 'static type' of the token and code.
+--
+-- Persistent tokens, OTOH, must contain or compose supplementary 
+-- information to identify and recover target resources. This could
+-- include plugin-based resources, persistent state, and more. It
+-- might be acceptable for such powers to be directly provided by 
+-- a client of AORT, assuming there is some stable identification
+-- across resets.
+--
+-- If I can ensure that volatile tokens are never persisted, then it
+-- is also feasible to use volatile tokens without failures. A good
+-- question is whether to seek this assurance at the Haskell level or
+-- at an AO layer (via assertions). 
+--
+-- Anyhow, my decision to encapsulate `RtVal` was to protect the
+-- relationships between block code and the corresponding program,
+-- and to support persistence and safety features.
 
-
-
-    -- eventually it will do all those things...
-
--- NOTES:
---
---  I probably want annotations to be supplied by the client.
---
---  I'd also like the initial powerblock to be supplied by the
---  client. 
-
--- Powers are computed from text. Usually, this is a simple 'match
--- the string', but it might be useful to recognize path-based powers
--- or cases where the power is partially matched and the rest becomes
--- an argument. So, AORT provides freedom to experiment.
---
--- Note that these powers are associated with the ABC token text:
---
---     {token}
---
--- AO only exposes a small subset of tokens: annotations, sealers,
--- and unsealers. However, at runtime, more tokens may be generated
--- from a central powerblock. AORT requires a strong relationship
--- between tokens and powers because AORT may 'serialize' powers
--- to support just-in-time compilation.
---
--- That said, AORT also supports a concept of 'single-use' powers. 
---
--- 
---
--- The type of 'Prog' (from ABC.Imperative.Value) is:
---
---     AORT (V (AORT c)) ->  AORT (V (AORT c))
---
--- i.e. a function from one 'promised' value to another. 
---
--- In general, powers must always be kept accessible by string due
--- to the challenges surrounding 
--- type Powers = String -> Maybe (Prog (AORT c))
-
--- | obtain a powers object from a map.
--- powerMap :: M.Map String (Prog (AORT c)) -> Powers c
--- powerMap = flip M.lookup
-
--- | Build the AO standard environment, given the powerblock's
--- capability text. Note that the powerblock is responsible for
--- returning a new instance of itself when invoked, after which 
--- point the lookup step might be removed.
--- 
-{-
-aoStdEnv :: String -> V (AORT c)
-aoStdEnv pbTok = (P s (P h (P pb (P (P sn ns) ex)))) where
-    s = U -- empty stack
-    h = U -- initial hand
-    pb = B $ Block { b_code = pbCode, b_prog = pbProg
-                   , b_aff = True, b_rel = True }
-    pbCode = Tok pbTok
-    pbProg = invoke pbTok
-    sn = textToVal ""
-    ns = U -- named stacks
-    ex = U -- extended environment
--}
-
--- A simple runtime implementation for AORT.
-
--- DESIGN CONSIDERATIONS:
---
---  I would like to externally configure how 'debug' annotations will be
---  processed. 
---
---  Should I have any introspection of the dictionary?
---
---    Pros: could be convenient for metaprogramming
---    Cons: update of dictionary via AOI could be problematic wrgt. time
---
---  I think that I'll need a proper model of the dictionary as a
---  resource, which might change independently of program execution.
---    
