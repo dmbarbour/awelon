@@ -1,73 +1,39 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, ViewPatterns #-}
 
--- | Utilities for imperative AO or ABC computations. 
---
--- Features:
+-- | A runtime monad for the 'ao' and 'aoi' executables, i.e. such
+-- that they have common behavior. 
 -- 
---   pure parallelism (by annotation)
---   concurrency (channels, publish-subscribe, shared state)
---   just-in-time and tracing compilation (mostly by annotation)
---
--- Desiderata:
---
---   configurable powers and annotations
---   plugins support; extend features externally
---   persistent state; stable state resources
---
--- AntiFeatures: discipline is required to
---
---   protect progress, avoid infinite loops
---   protect causal commutativity, spatial idempotence 
---   avoid persisting blocks in stateful resources
---   ensure integrity of blocks for serialization or JIT
--- 
--- Access an AO or ABC runtime is achieved via `{tokens}` in byte code. 
--- Tokens cannot be forged, and can be embedded within a block to form
--- a `[{secure capability}]`. In AORT, token text will be generated only
--- when it must be serialized - e.g. for display, distribution, or just-
--- -in-time compilation.
---
--- Modulo annotations, AORT favors linear (single use) tokens to simplify
--- reasoning about GC and concurrency. The cost of linear tokens is that
--- 'undo' can become difficult to express. 
---
--- The main responsibility of AORT is to provide (via those tokens) safe,
--- efficient, and useful models for resources, concurrency, and behavior.
--- 
--- Safety includes ABC requirements for causal commutativity, spatial
--- idempotence, and progress. The conventional imperative process model
--- is an infinite wait-do loop. However, such a loop would violate all
--- of the safety properties. AORT instead models long-running behavior
--- via use of managed time and a multi-agent concurrency concept.
--- 
--- AORT's resource model is built around the RDP resource concept: all
--- resources are 'external' to the runtime, at least conceptually. The
--- AO code will observe and influence those resources. The difference
--- from RDP is that AORT is imperative, and thus models influence and
--- observation in terms of discrete reads and writes over time.
---
 module AORT
     ( AORT, readRT, liftRT, runRT
-    , AORT_CX, newDefaultRuntime
+    , AORT_CX, aort_ecx
+    , newDefaultRuntime
+    , newDefaultEnvironment
+    , newDefaultPB, aoStdEnvWithPB
     ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
 import Data.Typeable
+import qualified Data.Sequence as S
+
+import ABC.Operators
+import ABC.Imperative.Value
 import ABC.Imperative.Runtime
+import ABC.Imperative.Interpreter
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
 newtype AORT c a = AORT (ReaderT (AORT_CX c) IO a)
     deriving (Monad, MonadIO, Functor, Applicative, Typeable)
 
--- | AORT_CX provides a global context for runtime operations.
+-- | AORT_CX is a structure containing global data for execution of an AO
+-- program. All IO performed should go through AORT_CX. 
 --
 -- At the moment, it's a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
 data AORT_CX c = AORT_CX
-    { aort_ecx  :: !c -- extended context for client-specific features
+    { aort_ecx :: !c -- extended context for client-specific features
     -- , aort_anno :: 
     }
 
@@ -88,6 +54,40 @@ newDefaultRuntime :: c -> IO (AORT_CX c)
 newDefaultRuntime c = 
     let rt = AORT_CX { aort_ecx = c } in
     return rt
+
+-- | an AO 'environment' is simply the first value passed to the
+-- program. The AO standard environment has the form:
+--
+--    (stack * (hand * (power * ((stackName * namedStacks) * ext)
+--
+-- which provides some useful scratch spaces for a running program. 
+--
+-- The normal use case is that this environment is initially empty
+-- except for a powerblock, and inputs are primarily supplied by 
+-- side-effects. However, a few initial arguments might be placed on
+-- the stack in some non-standard use cases.
+--
+aoStdEnvWithPB :: Block (AORT c) -> V (AORT c)
+aoStdEnvWithPB pb = (P U (P U (P (B pb) (P (P sn U) U))))
+    where sn = textToVal "" -- L U
+
+-- | create a standard environment with a default powerblock
+newDefaultEnvironment :: AORT c (V (AORT c))
+newDefaultEnvironment = aoStdEnvWithPB <$> newDefaultPB
+
+-- | obtain a block representing access to default AORT powers.
+--
+-- At the moment, AORT isn't very powerful. It will be upgraded
+-- over time to include various resource models, and perhaps even
+-- some access to plugin-based effects or persistent state.
+--
+newDefaultPB :: AORT c (Block (AORT c)) 
+newDefaultPB = return b where
+    code = [Op_v, Op_V, Tok "&morituri te salutant", Op_assert]
+    b = Block { b_aff = True, b_rel = True
+              , b_code = S.fromList code
+              , b_prog = interpret code
+              }
 
 -- | create a new linear capability (a block with a one-use token).
 --
@@ -138,4 +138,50 @@ instance Runtime (AORT c) where
 -- block to be kept persistently.) In general, only stateful resources 
 -- may be persistent. 
 --
+
+
+
+-- Features:
+-- 
+--   pure parallelism (by annotation)
+--   concurrency (channels, publish-subscribe, shared state)
+--   just-in-time and tracing compilation (mostly by annotation)
+--
+-- Desiderata:
+--
+--   configurable powers and annotations
+--   plugins support; extend features externally
+--   persistent state; stable state resources
+--
+-- AntiFeatures: discipline is required to
+--
+--   protect progress, avoid infinite loops
+--   protect causal commutativity, spatial idempotence 
+--   avoid persisting blocks in stateful resources
+--   ensure integrity of blocks for serialization or JIT
+-- 
+-- Access an AO or ABC runtime is achieved via `{tokens}` in byte code. 
+-- Tokens cannot be forged, and can be embedded within a block to form
+-- a `[{secure capability}]`. In AORT, token text will be generated only
+-- when it must be serialized - e.g. for display, distribution, or just-
+-- -in-time compilation.
+--
+-- Modulo annotations, AORT favors linear (single use) tokens to simplify
+-- reasoning about GC and concurrency. The cost of linear tokens is that
+-- 'undo' can become difficult to express. 
+--
+-- The main responsibility of AORT is to provide (via those tokens) safe,
+-- efficient, and useful models for resources, concurrency, and behavior.
+-- 
+-- Safety includes ABC requirements for causal commutativity, spatial
+-- idempotence, and progress. The conventional imperative process model
+-- is an infinite wait-do loop. However, such a loop would violate all
+-- of the safety properties. AORT instead models long-running behavior
+-- via use of managed time and a multi-agent concurrency concept.
+-- 
+-- AORT's resource model is built around the RDP resource concept: all
+-- resources are 'external' to the runtime, at least conceptually. The
+-- AO code will observe and influence those resources. The difference
+-- from RDP is that AORT is imperative, and thus models influence and
+-- observation in terms of discrete reads and writes over time.
 

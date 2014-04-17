@@ -99,25 +99,15 @@ runAOI =
     in
     error "TODO: main AOI loop!"
 
--- for now, just create a dummy power block
-newPowers :: IO RtVal
-newPowers = return $ B b where
-    b = Block { b_code = S.fromList code, b_prog = prog
-              , b_rel = True, b_aff = True }
-    code = [Op_v, Op_V, Tok "&morituri te salutant", Op_assert]
-    prog = interpret code
-
 newAOIContext :: IO AOI_CONTEXT
 newAOIContext =
-    newPowers >>= \ pb ->
-    newDefaultRuntime () >>= \ rtcx ->
+    newDefaultRuntime () >>= \ cx ->
+    runRT cx newDefaultEnvironment >>= \ v0 -> 
     getAOI_DICT >>= \ dsrc ->
-    let sn = textToVal "" in
-    let env = (P U (P U (P pb (P (P sn U) U)))) in
     return $ AOI_CONTEXT { aoi_dict = emptyAODict
                          , aoi_dictSrc = dsrc
-                         , aoi_rtval = env
-                         , aoi_rtcx = rtcx 
+                         , aoi_rtval = v0
+                         , aoi_rtcx = cx 
                          }
     
 tryIO :: IO a -> IO (Maybe a)
@@ -131,7 +121,6 @@ getHistoryFile = tryIO $
     let fp = appDir FS.</> FS.fromText (T.pack "hist.haskeline") in
     FS.appendTextFile fp T.empty >> -- create file if it does not exist
     return (FS.encodeString fp)
-
 
 -- for now, using a trivial prefix search on dictionary. I would
 -- prefer a 'fuzzy find' but Haskeline doesn't support it
@@ -150,4 +139,3 @@ dictCompletions dc str =
     let ws = fmap T.unpack $ M.keys dc in
     let wsP = L.filter (str `L.isPrefixOf`) ws in
     L.map HKL.simpleCompletion wsP
-

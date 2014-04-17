@@ -12,18 +12,21 @@ import qualified Data.Text as T
 import qualified Data.List as L
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
-import System.IO.Unsafe (unsafeInterleaveIO)
+-- import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
 import qualified Text.Parsec as P
 
 import ABC.Simplify (simplify)
 import ABC.Operators
+import ABC.Imperative.Value
+import ABC.Imperative.Interpreter
 import AO.Dict
 import AO.Code
 import AO.AOFile (loadAODict)
 import AO.Parser
 import AO.Compile
+import AORT
 
 
 helpMsg :: String
@@ -79,6 +82,7 @@ mkCmdS :: String -> IO [String]
 mkCmdS s = Sys.hClose Sys.stdin >> return (paragraphs s)
 
 -- lazily obtain paragraphs from stdin
+-- (I kind of hate lazy IO, but it's convenient here)
 stdCmdS :: IO [String]
 stdCmdS = paragraphs <$> Sys.hGetContents Sys.stdin
 
@@ -86,14 +90,15 @@ getAO_DICT :: IO String
 getAO_DICT = Err.catchIOError (Env.getEnv "AO_DICT") (const (pure "ao"))
 
 -- obtain a list of paragraphs. Each paragraph is recognized
--- by two sequential '\n' characters. There may be multiple
--- empty paragraphs in the result.
+-- by two or more sequential '\n' characters.
 paragraphs :: String -> [String]
-paragraphs = pp [] where
-    pp ('\n':p) ('\n':ss) = (L.reverse p : pp [] ss)
-    pp p (c:ss) = pp (c:p) ss
-    pp [] [] = []
-    pp p  [] = (L.reverse p : [])
+paragraphs = pp0 where
+    pp0 ('\n':ss) = pp0 ss
+    pp0 (c:ss) = pp1 [c] ss
+    pp0 [] = []
+    pp1 ('\n':p) ('\n':ss) = L.reverse p : pp0 ss
+    pp1 p (c:ss) = pp1 (c:p) ss
+    pp1 p [] = L.reverse p : []
 
 -- getDict will always succeed, but might return an empty
 -- dictionary... and might complain a lot on stderr
@@ -110,39 +115,65 @@ putErrLn = Sys.hPutStrLn Sys.stderr
 type SimplifyFn = [Op] -> [Op]
 
 dumpABC :: SimplifyFn -> [String] -> IO ()
-dumpABC f ss = getDict >>= \ d -> dumpABC' d f ss
+dumpABC f ss = 
+    getDict >>= \ d ->
+    let nss = L.zip [1..] ss in
+    mapM_ (uncurry (dumpABC' d f)) nss
 
-dumpABC' :: AODict md -> SimplifyFn -> [String] -> IO ()
-dumpABC' d fSimp = pp 1 where
-    pp _ [] = return ()
-    pp n (s:ss) = proc n s >> pp (n+1) ss
-    proc n s = 
-        when (n > 1) (Sys.putChar '\n') >>
-        compileOrDie d n s >>= \ rawABC ->
-        Sys.putStr (show (fSimp rawABC)) >>
-        Sys.putChar '\n' >>
-        Sys.hFlush Sys.stdout 
+dumpABC' :: AODict md -> SimplifyFn -> Int -> String -> IO ()
+dumpABC' dict fSimp nPara aoStr = 
+    when (nPara > 1) (Sys.putChar '\n') >>
+    compilePara dict nPara aoStr >>= \ ops ->
+    Sys.putStr (show (fSimp ops)) >>
+    Sys.putChar '\n' >> Sys.hFlush Sys.stdout 
 
--- compile a paragraph of AO or fail with error message
-compileOrDie :: AODict md -> Int {- paragraph # -} -> String -> IO [Op]
-compileOrDie d n s =
-    let srcLoc = "paragraph " ++ show n in
-    case P.parse parseAO srcLoc s of
-        Left parseErr -> putErrLn (show parseErr) >> Sys.exitFailure
-        Right ao -> case compileAOtoABC d ao of
-            Left mw -> putErrLn (undefWordsMsg mw) >> Sys.exitFailure
-            Right abc -> return abc
+compilePara :: AODict md -> Int -> String -> IO [Op]
+compilePara dict nPara aoStr =
+    case compileAOString dict aoStr of
+        Left err -> putErrLn ("paragraph " ++ show nPara) >>
+                    putErrLn err >> Sys.exitFailure
+        Right ops -> return ops
 
-undefWordsMsg :: [Word] -> String
-undefWordsMsg mw = "undefined words: " ++ mwStr where
+compileAOString :: AODict md -> String -> Either String [Op]
+compileAOString dict aoString = 
+    case P.parse parseAO "" aoString of
+        Left err -> Left $ show err
+        Right ao -> case compileAOtoABC dict ao of
+            Left mw -> Left $ undefinedWordsMsg mw
+            Right abc -> Right abc
+
+undefinedWordsMsg :: [Word] -> String
+undefinedWordsMsg mw = "undefined words: " ++ mwStr where
     mwStr = L.unwords $ fmap T.unpack mw
 
+
 execAO :: [String] -> IO ()
-execAO _s = fail "todo exec"
+execAO ss = 
+    getDict >>= \ d -> 
+    let compile (n,s) = simplify <$> compilePara d n s in
+    execOps $ fmap compile $ L.zip [1..] ss
 
 execABC :: [String] -> IO ()
-execABC _s = fail "todo exec.abc"
+execABC = execOps . fmap (return . simplify . read)  
 
+type ECX = ()
+type CX = AORT_CX ECX
+type RtVal = V (AORT ECX)
+
+execOps :: [IO [Op]] -> IO ()
+execOps ppOps =
+    newDefaultRuntime () >>= \ cx ->
+    runRT cx newDefaultEnvironment >>= \ v0 -> 
+    void (execOps' cx v0 ppOps)
+
+execOps' :: CX -> RtVal -> [IO [Op]] -> IO RtVal
+execOps' _ v [] = return v
+execOps' cx v (readPara:more) =
+    readPara >>= \ ops -> 
+    let prog = interpret ops in
+    runRT cx (prog (return v)) >>= \ v' ->
+    execOps' cx v' more
+        
 runAOTests :: IO ()
 runAOTests = fail "todo test"
 
