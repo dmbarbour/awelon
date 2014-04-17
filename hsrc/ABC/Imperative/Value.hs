@@ -48,11 +48,20 @@ data V cx
 -- 'cx' should be Monadic and Applicative
 type Prog cx = cx (V cx) -> cx (V cx)
 
+-- | A block is simply a finite sequence of ABC code. However, for
+-- performance reasons, the block includes a 'b_prog' field that
+-- should be equivalent to the code.
+--
+-- Unfortunately, this AO library does not enforce equivalence. A
+-- client must be careful and disciplined when working with the 
+-- b_prog field, otherwise the program may behave unexpectedly in
+-- contexts such as JIT or distribution.
+--
 data Block cx = Block
-    { b_aff  :: Bool
-    , b_rel  :: Bool
-    , b_code :: S.Seq Op
-    , b_prog :: Prog cx
+    { b_aff  :: Bool     -- ^ is this block affine (no copy)?
+    , b_rel  :: Bool     -- ^ is this block relevant (no drop)?
+    , b_code :: S.Seq Op -- ^ raw operations, in sequence for cheap compose.
+    , b_prog :: Prog cx  -- ^ be careful! must behave equivalently to b_code.
     } 
 
 -- structural equality for blocks
