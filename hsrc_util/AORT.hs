@@ -46,7 +46,7 @@
 -- from RDP is that AORT is imperative, and thus models influence and
 -- observation in terms of discrete reads and writes over time.
 --
-module AO.Imperative.AORT
+module AORT
     ( AORT, readRT, liftRT, runRT
     , AORT_CX, newDefaultRuntime
     ) where

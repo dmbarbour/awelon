@@ -7,13 +7,24 @@ module Main
     ) where
 
 import Control.Applicative
+import Control.Monad
+import qualified Data.Text as T
 import qualified Data.List as L
 import qualified System.IO as Sys
 import qualified System.IO.Error as Err
 import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
-import AO.Imperative.AORT
+import qualified Text.Parsec as P
+
+import ABC.Simplify (simplify)
+import ABC.Operators
+import AO.Dict
+import AO.Code
+import AO.AOFile (loadAODict)
+import AO.Parser
+import AO.Compile
+
 
 helpMsg :: String
 helpMsg =
@@ -22,19 +33,21 @@ helpMsg =
     \\n\
     \    ao help               print this message \n\
     \    \n\
-    \    ao abc command        dump ABC for AO command \n\
+    \    ao abc command        dump simplified ABC for AO command \n\
+    \    ao abc.raw command    dump raw ABC for AO command \n\
     \    ao exec command       execute AO command \n\
     \    ao exec.abc command   execute ABC code \n\
     \    \n\
-    \    ao abc.s              dump ABC for AO on input stream \n\
+    \    ao abc.s              dump simplified ABC for AO on input stream \n\
+    \    ao abc.raw.s          dump raw ABC for AO on input stream \n\
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
     \    ao test               run all `test.` words in test environment \n\
     \    ao type               attempt to detect type errors \n\
     \\n\
-    \All 'exec' operations use the same powers and environment as `aoi`.\n\
-    \The input stream is stdin, processed one paragraph at a time.\n\
+    \All 'exec' operations use the same powers and environment as `aoi`. \n\
+    \The input stream is stdin and is processed one paragraph at a time. \n\
     \\n\
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
@@ -48,10 +61,12 @@ main = Env.getArgs >>= runMode
 -- very simple command line processing
 runMode :: [String] -> IO ()
 runMode ["help"]         = Sys.putStrLn helpMsg
-runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC 
+runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC simplify
+runMode ["abc.raw",cmd]  = mkCmdS cmd >>= dumpABC id
 runMode ["exec",cmd]     = mkCmdS cmd >>= execAO
 runMode ["exec.abc",cmd] = mkCmdS cmd >>= execABC
-runMode ["abc.s"]        = stdCmdS >>= dumpABC
+runMode ["abc.s"]        = stdCmdS >>= dumpABC simplify
+runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["test"]         = runAOTests
@@ -59,43 +74,68 @@ runMode ["type"]         = runAOType
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
     eMsg = "arguments not recognized; try `ao help`"
 
+-- extract paragraphs from command string
+mkCmdS :: String -> IO [String]
+mkCmdS s = Sys.hClose Sys.stdin >> return (paragraphs s)
+
+-- lazily obtain paragraphs from stdin
+stdCmdS :: IO [String]
+stdCmdS = paragraphs <$> Sys.hGetContents Sys.stdin
+
 getAO_DICT :: IO String
 getAO_DICT = Err.catchIOError (Env.getEnv "AO_DICT") (const (pure "ao"))
+
+-- obtain a list of paragraphs. Each paragraph is recognized
+-- by two sequential '\n' characters. There may be multiple
+-- empty paragraphs in the result.
+paragraphs :: String -> [String]
+paragraphs = pp [] where
+    pp ('\n':p) ('\n':ss) = (L.reverse p : pp [] ss)
+    pp p (c:ss) = pp (c:p) ss
+    pp [] [] = []
+    pp p  [] = (L.reverse p : [])
+
+-- getDict will always succeed, but might return an empty
+-- dictionary... and might complain a lot on stderr
+getDict :: IO (AODict ())
+getDict = 
+    getAO_DICT >>= \ root ->
+    loadAODict root putErrLn >>= \ dict ->
+    return (fmap (const ()) dict)
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
 
--- for now, modeling input stream as list of strings
-mkCmdS :: String -> IO [String]
-mkCmdS s = Sys.hClose Sys.stdin >> return [s]
-
--- obtain a paragraph at a time from 
-stdCmdS :: IO [String]
-stdCmdS = hGetParagraphs Sys.stdin
-
--- obtain paragraphs from input (lazy IO)
-hGetParagraphs :: Sys.Handle -> IO [String]
-hGetParagraphs h =
-    hGetParagraph h >>= \ p ->
-    if (null p) then return [] else
-    unsafeInterleaveIO (hGetParagraphs h) >>= \ ps ->
-    return (p:ps)
-
--- read the return one non-empty paragraph.
--- at end-of-file, will return empty string.
-hGetParagraph :: Sys.Handle -> IO String
-hGetParagraph h = L.reverse <$> getc [] where
-    getc cs = 
-        Err.tryIOError (Sys.hGetChar h) >>=
-        either (onErr cs) (onChr cs)
-    onChr cs@('\n':_) ('\n') = return cs -- non-empty
-    onChr cs c = getc (c:cs)
-    onErr cs e | Err.isEOFError e = return cs -- done
-               | otherwise = ioError e
-
 -- dump ABC code, paragraph at a time, to standard output
-dumpABC :: [String] -> IO ()
-dumpABC _s = fail "todo abc"
+type SimplifyFn = [Op] -> [Op]
+
+dumpABC :: SimplifyFn -> [String] -> IO ()
+dumpABC f ss = getDict >>= \ d -> dumpABC' d f ss
+
+dumpABC' :: AODict md -> SimplifyFn -> [String] -> IO ()
+dumpABC' d fSimp = pp 1 where
+    pp _ [] = return ()
+    pp n (s:ss) = proc n s >> pp (n+1) ss
+    proc n s = 
+        when (n > 1) (Sys.putChar '\n') >>
+        compileOrDie d n s >>= \ rawABC ->
+        Sys.putStr (show (fSimp rawABC)) >>
+        Sys.putChar '\n' >>
+        Sys.hFlush Sys.stdout 
+
+-- compile a paragraph of AO or fail with error message
+compileOrDie :: AODict md -> Int {- paragraph # -} -> String -> IO [Op]
+compileOrDie d n s =
+    let srcLoc = "paragraph " ++ show n in
+    case P.parse parseAO srcLoc s of
+        Left parseErr -> putErrLn (show parseErr) >> Sys.exitFailure
+        Right ao -> case compileAOtoABC d ao of
+            Left mw -> putErrLn (undefWordsMsg mw) >> Sys.exitFailure
+            Right abc -> return abc
+
+undefWordsMsg :: [Word] -> String
+undefWordsMsg mw = "undefined words: " ++ mwStr where
+    mwStr = L.unwords $ fmap T.unpack mw
 
 execAO :: [String] -> IO ()
 execAO _s = fail "todo exec"

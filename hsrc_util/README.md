@@ -1,7 +1,3 @@
 
-This 'hsrc_aort' directory is simply a set of AO runtime utilities.
-
-It provides some common behaviors across the AO executables, but is
-not currently exposed via the 'ao' library. At some point, it might
-be worthwhile to develop a separate 'ao-runtime' library.
+This 'hsrc_util' directory is simply a set of common utilities for the `ao` and `aoi` executables. It is not used by the `ao` library package. If these mature a lot, they might be merged into the library.
 

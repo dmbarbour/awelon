@@ -26,12 +26,12 @@ import qualified System.Console.Haskeline as HKL
 import AO.AOFile
 import AO.Dict
 import AO.Code
-import AO.Imperative.AORT
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
 
 -- LOCAL UTILITIES (from ../hsrc_aort)
+import AORT
 import ShowEnv
 
 -- a dubiously useful help message
