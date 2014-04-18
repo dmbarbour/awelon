@@ -8,6 +8,7 @@ module Main
 
 import Control.Applicative
 import Control.Monad
+import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.List as L
 import qualified System.IO as Sys
@@ -28,7 +29,6 @@ import AO.Parser
 import AO.Compile
 import AORT
 
-
 helpMsg :: String
 helpMsg =
     "The `ao` executable provides many utilities for non-interactive\n\
@@ -48,6 +48,8 @@ helpMsg =
     \    \n\
     \    ao test               run all `test.` words in test environment \n\
     \    ao type               attempt to detect type errors \n\
+    \\n\
+    \    ao list pattern       words matching simple patterns (e.g. test.*) \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \The input stream is stdin and is processed one paragraph at a time. \n\
@@ -72,6 +74,7 @@ runMode ["abc.s"]        = stdCmdS >>= dumpABC simplify
 runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
+runMode ["list",ptrn]    = listWords ptrn
 runMode ["test"]         = runAOTests
 runMode ["type"]         = runAOType
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
@@ -166,6 +169,8 @@ execOps ppOps =
     runRT cx newDefaultEnvironment >>= \ v0 -> 
     void (execOps' cx v0 ppOps)
 
+-- the toplevel will simply interpret operations
+-- (leave JIT for inner loops!)
 execOps' :: CX -> RtVal -> [IO [Op]] -> IO RtVal
 execOps' _ v [] = return v
 execOps' cx v (readPara:more) =
@@ -173,9 +178,41 @@ execOps' cx v (readPara:more) =
     let prog = interpret ops in
     runRT cx (prog (return v)) >>= \ v' ->
     execOps' cx v' more
-        
+
+-- pattern with simple wildcards.
+-- may escape '*' using '\*'
+type Pattern = String
+matchStr :: Pattern -> String -> Bool
+matchStr ('*':[]) _ = True
+matchStr pp@('*':pp') ss@(_:ss') = matchStr pp' ss || matchStr pp ss'
+matchStr ('\\':'*':pp) (c:ss) = (c == '*') && matchStr pp ss
+matchStr (c:pp) (c':ss) = (c == c') && (matchStr pp ss)
+matchStr pp ss = null pp && null ss
+
+-- List words starting with a given regular expression.
+listWords :: String -> IO ()
+listWords pattern = 
+    (fmap T.unpack . M.keys . readAODict) <$> getDict >>= \ allWords ->
+    let matchingWords = L.filter (matchStr pattern) allWords in
+    mapM_ Sys.putStrLn matchingWords
+
 runAOTests :: IO ()
-runAOTests = fail "todo test"
+runAOTests = getDict >>= \ d -> mapM_ (runTest d) (testWords d)
+
+-- obtain words in dictionary starting with "test."
+testWords :: AODict md -> [Word]
+testWords = filter hasTestPrefix . M.keys . readAODict where
+    hasTestPrefix = (T.pack "test." `T.isPrefixOf`)
+
+-- assumes word is in dictionary
+runTest :: AODict md -> Word -> IO ()
+runTest d w = 
+    let (Right ops) = compileAOtoABC d [AO_Word w] in 
+    let msg = "@" ++ T.unpack w ++ " " ++ show (simplify ops) in
+    Sys.putStrLn msg -- TODO: actually run the test!
+
+
+
 
 runAOType :: IO ()
 runAOType = fail "todo type"
