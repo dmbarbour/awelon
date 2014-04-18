@@ -29,13 +29,18 @@ import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 import ABC.Quote
 
+import qualified System.IO.Unsafe as Sys
+import qualified System.IO.Error as Err
+
+
 type PureProg m = V m -> V m
 
 opFail :: (Monad m) => String -> V m -> m (V m)
 opFail s v = fail $ s ++ " @ " ++ show v
 
 opError :: String -> V m -> V m
-opError s v = error $ s ++ " @ " ++ show v
+opError s v = raiseIO $ s ++ " @ " ++ show v where
+    raiseIO = Sys.unsafePerformIO . Err.ioError . Err.userError 
 
 onFst :: String -> (V m -> V m) -> V m -> V m
 onFst _ f (P a e) = (P (f a) e)

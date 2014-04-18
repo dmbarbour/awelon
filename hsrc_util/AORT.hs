@@ -4,19 +4,27 @@
 -- that they have common behavior. 
 -- 
 module AORT
-    ( AORT, readRT, liftRT, runRT
-    , AORT_CX
+    ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
     , newDefaultRuntime
-    , newDefaultEnvironment
-    , newDefaultPB, aoStdEnvWithPB
+    , newDefaultEnvironment, newDefaultPB, aoStdEnv
+    , newLinearCap
     ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
 import Data.Typeable
+
+import Data.IORef (IORef)
+import qualified Data.IORef as IORef
+import Control.Concurrent.MVar (MVar)
+import qualified Control.Concurrent.MVar as MVar
+import System.IO.Unsafe (unsafeInterleaveIO)
+
 import qualified Data.Sequence as S
-import Data.IORef 
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Map as M
 
 import ABC.Operators
 import ABC.Imperative.Value
@@ -31,13 +39,19 @@ newtype AORT a = AORT (ReaderT AORT_CX IO a)
 -- | AORT_CX is the runtime context, global to each instance of the
 -- AORT runtime. The runtime context supports:
 --
---   * coordination of shared resources
 --   * token management across JIT or serialization
+--   * coordination of shared resources
 --   * configuration of annotation behaviors
 --
 -- At the moment, this is a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
 data AORT_CX = AORT_CX
+    { aort_lcaps  :: MVar (M.Map Token (Prog AORT)) -- linear capabilities
+    , aort_anno   :: Annotations
+    , aort_gensym :: IO Token
+    } 
+type Token = Text
+type Annotations = String -> Maybe (Prog AORT)
 
 -- | run an arbitrary AORT program.
 runRT :: AORT_CX -> AORT a -> IO a
@@ -53,7 +67,65 @@ liftRT = AORT . ReaderT
 
 -- | a new runtime with default settings
 newDefaultRuntime :: IO AORT_CX
-newDefaultRuntime = return AORT_CX
+newDefaultRuntime = 
+    MVar.newMVar M.empty >>= \ mvCaps ->
+    newDefaultGenSym >>= \ gensym ->
+    let cx = AORT_CX { aort_lcaps  = mvCaps
+                     , aort_anno   = defaultAnno
+                     , aort_gensym = gensym
+                     }
+    in return cx
+
+
+showsTok :: Token -> String -> ShowS
+showsTok t h = 
+    showChar '!' . showString (T.unpack t) .
+    showChar ' ' . showString (safeHint h)
+
+safeHint :: String -> String
+safeHint = fmap mc where
+    mc '{' = '('
+    mc '}' = ')'
+    mc '\n' = ';'
+    mc c = c
+
+-- | create a new single-use (linear) capability.
+-- 
+-- Generate a linear capability (a block with just a token)
+-- that will be stable across serialization, JIT, and other
+-- uses of the token. 
+--
+-- Developers may provide a 'debug hint' that may be included
+-- in the token for human clients. (Invalid characters in this
+-- hint will be replaced.) 
+newLinearCap :: String -> Prog AORT -> AORT (Block AORT)
+newLinearCap debugHint prog = 
+    readRT aort_gensym >>= \ gensym ->
+    liftIO gensym >>= \ t0 ->
+    let token = showsTok t0 debugHint [] in
+    -- TODO: lazily construct and install token!
+    let code = [Tok ('&':token), Op_v, Op_V, Op_assert] in
+    let b = Block { b_code = S.fromList code, b_prog = prog
+                  , b_aff = True, b_rel = True }
+    in
+    return b
+
+-- | default annotations support for AORT
+defaultAnno :: String -> Maybe (Prog AORT)
+defaultAnno = const Nothing
+
+-- | create a new unique-symbol generator
+-- (todo: create SECURE symbol generator)
+newDefaultGenSym :: IO (IO Token)
+newDefaultGenSym = incsym <$> MVar.newMVar 10000 where
+    incsym :: MVar Integer -> IO Token
+    incsym mv = 
+        MVar.takeMVar mv >>= \ n ->
+        let tok = T.pack (show n) in
+        let n' = (n+1) in
+        n' `seq` MVar.putMVar mv n' >>
+        return tok
+
 
 -- | an AO 'environment' is simply the first value passed to the
 -- program. The AO standard environment has the form:
@@ -67,13 +139,13 @@ newDefaultRuntime = return AORT_CX
 -- side-effects. However, a few initial arguments might be placed on
 -- the stack in some non-standard use cases.
 --
-aoStdEnvWithPB :: Block AORT -> V AORT
-aoStdEnvWithPB pb = (P U (P U (P (B pb) (P (P sn U) U))))
+aoStdEnv :: Block cx -> V cx
+aoStdEnv pb = (P U (P U (P (B pb) (P (P sn U) U))))
     where sn = textToVal "" -- L U
 
 -- | create a standard environment with a default powerblock
 newDefaultEnvironment :: AORT (V AORT)
-newDefaultEnvironment = aoStdEnvWithPB <$> newDefaultPB
+newDefaultEnvironment = aoStdEnv <$> newDefaultPB
 
 -- | obtain a block representing access to default AORT powers.
 --
@@ -101,9 +173,12 @@ newDefaultPB = return b where
 -- annotations, and so on. For now, I just want enough to get
 -- started.
 instance Runtime AORT where
-    invoke = invokeFails -- for now 
-      --  readRT (IORef.readIORef . aort_powers) >>=
-      --  return . maybe (invokeFails s) id . ($ s)
+    invoke ('&':s) = \ arg ->
+        readRT aort_anno >>= \ annoFn ->
+        case annoFn s of
+            Just fn -> fn arg
+            Nothing -> id arg
+    invoke s = invokeFails s
 
 --
 -- Thoughts: it may be worth adding yet another layer, an 'agent' concept,
