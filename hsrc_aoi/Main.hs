@@ -63,8 +63,8 @@ data AOI_CONTEXT = AOI_CONTEXT
     }
 
 type Dict = AODict AOFMeta  -- the current dictionary
-type RT = AORT ()           -- not using extended context (yet)
-type RTCX = AORT_CX ()
+type RT = AORT              -- not using extended context (yet)
+type RTCX = AORT_CX 
 type RtVal = V RT           -- a value in our AO runtime
 type HKL = HKL.InputT AOI   -- haskeline input monad
 
@@ -101,7 +101,7 @@ runAOI =
 
 newAOIContext :: IO AOI_CONTEXT
 newAOIContext =
-    newDefaultRuntime () >>= \ cx ->
+    newDefaultRuntime >>= \ cx ->
     runRT cx newDefaultEnvironment >>= \ v0 -> 
     getAOI_DICT >>= \ dsrc ->
     return $ AOI_CONTEXT { aoi_dict = emptyAODict

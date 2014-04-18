@@ -159,13 +159,12 @@ execAO ss =
 execABC :: [String] -> IO ()
 execABC = execOps . fmap (return . simplify . read)  
 
-type ECX = ()
-type CX = AORT_CX ECX
-type RtVal = V (AORT ECX)
+type CX = AORT_CX
+type RtVal = V AORT
 
 execOps :: [IO [Op]] -> IO ()
 execOps ppOps =
-    newDefaultRuntime () >>= \ cx ->
+    newDefaultRuntime >>= \ cx ->
     runRT cx newDefaultEnvironment >>= \ v0 -> 
     void (execOps' cx v0 ppOps)
 

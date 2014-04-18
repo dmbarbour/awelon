@@ -5,7 +5,7 @@
 -- 
 module AORT
     ( AORT, readRT, liftRT, runRT
-    , AORT_CX, aort_ecx
+    , AORT_CX
     , newDefaultRuntime
     , newDefaultEnvironment
     , newDefaultPB, aoStdEnvWithPB
@@ -16,6 +16,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Typeable
 import qualified Data.Sequence as S
+import Data.IORef 
 
 import ABC.Operators
 import ABC.Imperative.Value
@@ -24,36 +25,35 @@ import ABC.Imperative.Interpreter
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
-newtype AORT c a = AORT (ReaderT (AORT_CX c) IO a)
+newtype AORT a = AORT (ReaderT AORT_CX IO a)
     deriving (Monad, MonadIO, Functor, Applicative, Typeable)
 
--- | AORT_CX is a structure containing global data for execution of an AO
--- program. All IO performed should go through AORT_CX. 
+-- | AORT_CX is the runtime context, global to each instance of the
+-- AORT runtime. The runtime context supports:
 --
--- At the moment, it's a place holder. But I expect I'll eventually
+--   * coordination of shared resources
+--   * token management across JIT or serialization
+--   * configuration of annotation behaviors
+--
+-- At the moment, this is a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
-data AORT_CX c = AORT_CX
-    { aort_ecx :: !c -- extended context for client-specific features
-    -- , aort_anno :: 
-    }
+data AORT_CX = AORT_CX
 
 -- | run an arbitrary AORT program.
-runRT :: AORT_CX c -> AORT c a -> IO a
+runRT :: AORT_CX -> AORT a -> IO a
 runRT cx (AORT op) = runReaderT op cx
 
 -- | read the runtime context
-readRT :: (AORT_CX c -> a) -> AORT c a
+readRT :: (AORT_CX -> a) -> AORT a
 readRT = AORT . asks
 
 -- | perform effectful operations within the runtime.
-liftRT :: (AORT_CX c -> IO a) -> AORT c a
+liftRT :: (AORT_CX -> IO a) -> AORT a
 liftRT = AORT . ReaderT
 
 -- | a new runtime with default settings
-newDefaultRuntime :: c -> IO (AORT_CX c)
-newDefaultRuntime c = 
-    let rt = AORT_CX { aort_ecx = c } in
-    return rt
+newDefaultRuntime :: IO AORT_CX
+newDefaultRuntime = return AORT_CX
 
 -- | an AO 'environment' is simply the first value passed to the
 -- program. The AO standard environment has the form:
@@ -67,12 +67,12 @@ newDefaultRuntime c =
 -- side-effects. However, a few initial arguments might be placed on
 -- the stack in some non-standard use cases.
 --
-aoStdEnvWithPB :: Block (AORT c) -> V (AORT c)
+aoStdEnvWithPB :: Block AORT -> V AORT
 aoStdEnvWithPB pb = (P U (P U (P (B pb) (P (P sn U) U))))
     where sn = textToVal "" -- L U
 
 -- | create a standard environment with a default powerblock
-newDefaultEnvironment :: AORT c (V (AORT c))
+newDefaultEnvironment :: AORT (V AORT)
 newDefaultEnvironment = aoStdEnvWithPB <$> newDefaultPB
 
 -- | obtain a block representing access to default AORT powers.
@@ -81,7 +81,7 @@ newDefaultEnvironment = aoStdEnvWithPB <$> newDefaultPB
 -- over time to include various resource models, and perhaps even
 -- some access to plugin-based effects or persistent state.
 --
-newDefaultPB :: AORT c (Block (AORT c)) 
+newDefaultPB :: AORT (Block AORT) 
 newDefaultPB = return b where
     code = [Op_v, Op_V, Tok "&morituri te salutant", Op_assert]
     b = Block { b_aff = True, b_rel = True
@@ -100,7 +100,7 @@ newDefaultPB = return b where
 -- I'll eventually need a lot of logic, here, to support powers,
 -- annotations, and so on. For now, I just want enough to get
 -- started.
-instance Runtime (AORT c) where
+instance Runtime AORT where
     invoke = invokeFails -- for now 
       --  readRT (IORef.readIORef . aort_powers) >>=
       --  return . maybe (invokeFails s) id . ($ s)
