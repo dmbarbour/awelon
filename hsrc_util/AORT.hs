@@ -20,6 +20,7 @@ import qualified Data.IORef as IORef
 import Control.Concurrent.MVar (MVar)
 import qualified Control.Concurrent.MVar as MVar
 import System.IO.Unsafe (unsafeInterleaveIO)
+import qualified System.IO as Sys
 
 import qualified Data.Sequence as S
 import Data.Text (Text)
@@ -93,13 +94,13 @@ safeHint = fmap mc where
 -- 
 -- Generate a linear capability (a block with just a token)
 -- that will be stable across serialization, JIT, and other
--- uses of the token. 
+-- uses of the token. (TODO: finish this...)
 --
 -- Developers may provide a 'debug hint' that may be included
 -- in the token for human clients. (Invalid characters in this
 -- hint will be replaced.) 
 newLinearCap :: String -> Prog AORT -> AORT (Block AORT)
-newLinearCap debugHint prog = 
+newLinearCap debugHint prog =
     readRT aort_gensym >>= \ gensym ->
     liftIO gensym >>= \ t0 ->
     let token = showsTok t0 debugHint [] in
@@ -110,9 +111,7 @@ newLinearCap debugHint prog =
     in
     return b
 
--- | default annotations support for AORT
-defaultAnno :: String -> Maybe (Prog AORT)
-defaultAnno = const Nothing
+
 
 -- | create a new unique-symbol generator
 -- (todo: create SECURE symbol generator)
@@ -160,6 +159,23 @@ newDefaultPB = return b where
               , b_code = S.fromList code
               , b_prog = interpret code
               }
+
+
+
+-- | default annotations support for AORT
+defaultAnno :: String -> Maybe (Prog AORT)
+defaultAnno "debug print raw" = Just (mkAnno debugPrintRaw)
+defaultAnno "debug print text" = Just (mkAnno debugPrintText)
+defaultAnno _ = Nothing
+
+mkAnno :: (V AORT -> AORT ()) -> Prog AORT
+mkAnno fn getV = getV >>= \ v -> fn v >> return v
+
+debugPrintRaw, debugPrintText :: V AORT -> AORT ()
+debugPrintRaw v =  liftIO $ Sys.hPutStrLn Sys.stderr (show v)
+debugPrintText (valToText -> Just txt) = liftIO $ Sys.hPutStr Sys.stderr txt
+debugPrintText v = fail $ "{&debug print text} @ " ++ show v
+
 
 -- | create a new linear capability (a block with a one-use token).
 --

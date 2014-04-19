@@ -8,7 +8,7 @@ std
  
  At the moment, all effects are squeezed through a linear powerblock of type `µP.[command → (P * result)]`, i.e. each command resulting in a powerblock that may receive the next command. This linear structure is useful because it implicitly provides a centralized notion of 'time'. If powers are decentralized, we need a more explicit model of time in order to correlate observations on resources. 
  
- The suffix `exec` is used for utility words related to the ` powerblock.
+ The suffix `exec` is used for utility words related to the ao powerblock.
 ~
 
 @doc.iomsg.exec "invoke linear powerblock with message from stack"
@@ -28,3 +28,13 @@ std
 
 @doc.destroy.exec "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.exec "destroy" p iomsg.exec elim1
+
+
+
+
+@doc.debugPrintRaw "annotation to print top value from stack to stderr"
+@doc.debugPrintText "annotation to print top text on stack to stderr (as text)"
+@debugPrintRaw [{&debug print raw}] .apply
+@debugPrintText [{&debug print text}] .apply
+
+
