@@ -47,8 +47,8 @@ helpMsg =
     \Haskeline Configuration (history, edit mode, etc.): \n\
     \    see http://trac.haskell.org/haskeline/wiki/UserPrefs \n\
     \\n\
-    \This REPL does not allow defining words. Developers instead edit \n\
-    \the dictionary then hit ctrl+c (interrupt) to reload it. \n\
+    \This REPL does not allow definition of words. Developers instead \n\
+    \edit their dictionary then use ctrl+c (interrupt) to reload it. \n\
     \"
 -- when persistence is working, perhaps add an AO_HOME or similar.
 
