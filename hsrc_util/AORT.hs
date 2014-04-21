@@ -176,7 +176,7 @@ newDefaultEnvironment = aoStdEnv <$> newDefaultPB
 -- default powers are in development; cf doc ProcessModel.md
 --
 newDefaultPB :: AORT (Block AORT) 
-newDefaultPB = newLinearCap "{powers}" ((=<<) run) where
+newDefaultPB = newLinearCap "AORT" ((=<<) run) where
     run v = fail $ "AORT has no effects yet: " ++ show v
 
 -- | default annotations support for AORT

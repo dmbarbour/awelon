@@ -2,16 +2,19 @@ std
 @doc.import.ao "default root import for `ao` executable. See @doc.ao.utility ."
 
 @doc.ao.utility
-"The `ao` command line executable provides a number of non-interactive utilities (see `ao help`). One option is to execute an AO command string (e.g. `ao exec "6 7 * 42 assertEQ"`) or to incrementally execute AO code received via standard input. AO code starts with a standard environment and a powerblock, which provides access to imperative effects. 
+"The `ao` command line executable provides a number of non-interactive utilities (cf. `ao help`). Among these options is to execute an AO command string (e.g. `ao exec "6 7 * 42 assertEQ"`) or to incrementally execute AO or ABC code received via standard input. For the interactive form, use `aoi`.
  
- The ao effects model is under development.
+ The program starts in the AO standard environment. The effects model is under development, but at this point its design is leaning towards the Awelon project design: the toplevel can be used for some instantanous actions, but all long-running behaviors are modeled by 'installing' and maintaining RDP behaviors (as a sort of live programming exercise). The toplevel won't be fully reactive, in this sense; the actual commit for an updated RDP behavior will be explicit. 
  
- At the moment, all effects are squeezed through a linear powerblock of type `µP.[command → (P * result)]`, i.e. each command resulting in a powerblock that may receive the next command. This linear structure is useful because it implicitly provides a centralized notion of 'time'. If powers are decentralized, we need a more explicit model of time in order to correlate observations on resources. 
- 
- The suffix `exec` is used for utility words related to the ao powerblock.
+ But, ideally we can encourage a reactive view.
 ~
 
-@doc.iomsg.exec "invoke linear powerblock with message from stack"
+@doc.debugPrintRaw "annotation to print top value from stack to stderr"
+@doc.debugPrintText "annotation to print top text on stack to stderr (as text)"
+@debugPrintRaw [{&debug print raw}] .apply
+@debugPrintText [{&debug print text}] .apply
+
+@doc.iomsg.exec "invoke linear powerblock with message on stack"
 @iomsg.exec %zwl .apply x %rwz
 
 @doc.getEnv.exec "text -- text; (io) obtain environment variable"
@@ -28,13 +31,5 @@ std
 
 @doc.destroy.exec "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.exec "destroy" p iomsg.exec elim1
-
-
-
-
-@doc.debugPrintRaw "annotation to print top value from stack to stderr"
-@doc.debugPrintText "annotation to print top text on stack to stderr (as text)"
-@debugPrintRaw [{&debug print raw}] .apply
-@debugPrintText [{&debug print text}] .apply
 
 
