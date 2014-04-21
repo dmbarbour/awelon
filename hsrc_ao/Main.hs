@@ -11,6 +11,7 @@ import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.List as L
+import qualified Data.Sequence as S
 
 import qualified Data.IORef as IORef
 
@@ -238,12 +239,15 @@ reportWarning = Sys.putStrLn . indent "  "
 indent :: String -> String -> String
 indent ws = L.unlines . map (ws ++) . L.lines 
 
--- test powerblock is linear
+-- test powerblock is linear, and is not serialized at the moment
 newTestPB :: AODict md -> (Warning -> AORT ()) -> AORT (Block AORT)
-newTestPB _d fwarn = newLinearCap "test powers" ((=<<) run) where
+newTestPB d fwarn = return b where
+    b = Block { b_aff = True, b_rel = True, b_code = code, b_prog = prog }
+    code = S.singleton $ Tok "test powers" 
+    prog = (=<<) run
     run (P (valToText -> Just cmd) arg) = 
         runCmd cmd arg >>= \ result ->
-        newTestPB _d fwarn >>= \ tpb ->
+        newTestPB d fwarn >>= \ tpb ->
         return (P (B tpb) result)
     run v = fail $ "not structured as a command: " ++ show v
     runCmd "warn" (valToText -> Just msg) = fwarn msg >> return U

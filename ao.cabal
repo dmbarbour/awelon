@@ -47,10 +47,13 @@ Executable aoi
      , transformers
      , parsec
      , text
+     , bytestring
      , containers
      , haskeline (>= 0.7.1 && < 0.9)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
+     , entropy (>= 0.2.2)
+     , base64-bytestring (>= 1.0)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -63,7 +66,10 @@ Executable ao
      , transformers
      , parsec
      , text
+     , bytestring
      , containers
+     , entropy (>= 0.2.2)
+     , base64-bytestring (>= 1.0)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 

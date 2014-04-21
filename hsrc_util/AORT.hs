@@ -1,34 +1,33 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, ViewPatterns #-}
 
--- | A runtime monad for the 'ao' and 'aoi' executables.
+-- | A runtime monad for the 'ao' and 'aoi' executables. At the top
+-- level, 'ao' and 'aoi' handle streaming ABC operations without any
+-- direct effects. 
 --
--- At the top level, 'ao' and 'aoi' have an imperative process model
--- for the streaming input. Long running behavior is in development,
--- but will likely lean towards Awelon project: installation of RDP
--- subprograms, with a live-programming style, and live programming
--- modeled within the toplevel environment. 
+-- Long term behavior will tentatively be modeled by installation of
+-- RDP behaviors to manage resources. This is a step towards Awelon 
+-- project goals.
 --
--- Originally, I was pursuing an imperative model for AO to support
--- bootstrap. However, I think this isn't critical. I can presumably
--- support bootstrap without a process model at all, with a little 
--- introspection (e.g. to access block code).
+-- Useful goals for the design at this layer:
 --
--- Meanwhile, I'm not fond of the imperative process models. It has
--- poor features for extensibility and live update. I'd rather not be
--- stuck with the imperative model as a 'local optima' of the design
--- space. Perhaps better to skip it entirely in favor of RDP, even if
--- it means more work in Haskell for now.
+-- * support for 'undo' in the aoi REPL
+-- * support for persistent sessions  
 --
--- The immediate goal with AORT is to support high performance in the
--- toplevel via JIT compilation and asynchronous evaluation and perhaps
--- some special support for matrices or GPGPU computation. I want no 
--- severe performance limitations on applications. 
+-- These goals require stable capabilities from step to step. Also,
+-- it requires that state associated with the capabilities be either 
+-- stored in the capability itself, inferrable from the environment,
+-- or managed explicitly.
+--
+-- The other primary goal is performance, such that performance is
+-- no longer an obstacle to application development in AO language.
+-- AORT will support JIT, and might eventually support some GPGPU
+-- computation.
 -- 
 module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
     , newDefaultRuntime
-    , newDefaultEnvironment, newDefaultPB, aoStdEnv
-    , newLinearCap
+    , newDefaultEnvironment
+    , aoStdEnv
     ) where
 
 import Control.Applicative
