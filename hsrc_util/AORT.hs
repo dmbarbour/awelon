@@ -32,11 +32,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Typeable
 
-import Data.IORef (IORef)
-import qualified Data.IORef as IORef
-import Control.Concurrent.MVar (MVar)
-import qualified Control.Concurrent.MVar as MVar
-
 -- import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
@@ -47,9 +42,7 @@ import qualified Filesystem as FS
 
 import Data.Ratio
 import qualified Data.Sequence as S
-import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
@@ -58,7 +51,6 @@ import qualified Data.ByteString.Base64.URL as B64
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
-import ABC.Imperative.Interpreter
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
