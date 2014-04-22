@@ -4,9 +4,24 @@ std
 @doc.ao.utility
 "The `ao` command line executable provides a number of non-interactive utilities (cf. `ao help`). Among these options is to execute an AO command string (e.g. `ao exec "6 7 * 42 assertEQ"`) or to incrementally execute AO or ABC code received via standard input. For the interactive form, use `aoi`.
  
- The program starts in the AO standard environment. The effects model is under development, but at this point its design is leaning towards the Awelon project design: the toplevel can be used for some instantanous actions, but all long-running behaviors are modeled by 'installing' and maintaining RDP behaviors (as a sort of live programming exercise). The toplevel won't be fully reactive, in this sense; the actual commit for an updated RDP behavior will be explicit. 
+ The program starts in the AO standard environment. The effects model is under development, but the current design aims to progress with Awelon project: the toplevel provides a few instantaneous actions, but mostly is used to install or update reactive demand programming behaviors in a manner similar to live programming (albeit, not entirely 'live'; the actual install is an imperative action). 
  
- But, ideally we can encourage a reactive view.
+ Some effects available through the powerblock:
+ 
+     obtain random numbers (cryptographic entropy)
+     read and write files; get environment variables 
+     unsafely destroy any value (even relevant values)
+     every annotation is also available as a command
+ 
+ Under consideration:
+ 
+     introspection of blocks
+     confine evaluation to trap errors
+     working with state resources (snapshots, resets, etc.)
+     logical clocks and temporal values
+     obtaining some useful 'child' powers
+ 
+ For specifics, see words with suffix `.io`.
 ~
 
 @doc.debugPrintRaw "annotation to print top value from stack to stderr"
@@ -14,22 +29,25 @@ std
 @debugPrintRaw [{&debug print raw}] .apply
 @debugPrintText [{&debug print text}] .apply
 
-@doc.iomsg.exec "invoke linear powerblock with message on stack"
-@iomsg.exec %zwl .apply x %rwz
+@debugPrintRaw.io "&debug print raw" p command.io
+@debugPrintText.io "&debug print text" p command.io
 
-@doc.getEnv.exec "text -- text; (io) obtain environment variable"
-@getEnv.exec "getOSEnv" p iomsg.exec
+@doc.command.io "invoke linear powerblock with (command*arg) message on stack"
+@command.io %zwl .apply x %rwz
 
-@doc.randomBytes.exec "count -- (list of octets); secure random source"
-@randomBytes.exec "randomBytes" p iomsg.exec
-@rand8.exec 1 randomBytes.exec assert wx drop
+@doc.getOSEnv.io "text -- text; (io) read an OS environment variable"
+@getOSEnv.io "getOSEnv" p command.io
 
-@doc.readFile.exec "(io) filename -- (1(err) + text)"
-@doc.writeFile.exec "(io) text filename -- (1(err) + 1(ok))"
-@readFile.exec "readFile" p iomsg.exec
-@writeFile.exec p "writeFile" p iomsg.exec
+@doc.randomBytes.io "count -- (list of octets); secure random source"
+@randomBytes.io "randomBytes" p command.io
+@rand8.io 1 randomBytes.io assert wx drop
 
-@doc.destroy.exec "(io) destroy will drop any input, including relevant blocks (unsafe)"
-@destroy.exec "destroy" p iomsg.exec elim1
+@doc.readFile.io "filename -- (1(err) + text); (io)"
+@doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io)"
+@readFile.io "readFile" p command.io
+@writeFile.io p "writeFile" p command.io
+
+@doc.destroy.io "(io) destroy will drop any input, including relevant blocks (unsafe)"
+@destroy.io "destroy" p command.io elim1
 
 

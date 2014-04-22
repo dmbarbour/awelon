@@ -8,12 +8,9 @@ ao
 ~
 
 @doc.cle "(io) clear the current environment (except hand and powerblock)"
-@cle introE swapE destroy.exec
+@cle introE swapE destroy.io
 
 @doc.cls "(io) clear the current stack (including relevant blocks)"
-@cls reifyStack destroy.exec
+@cls reifyStack destroy.io
 
-@doc.debugOut "(io) val -- val; prints given value on stderr; returns it unchanged"
-@debugOut "debugOut" p iomsg.exec
-@debugStack reifyStack debugOut restoreStack
 
