@@ -1,11 +1,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | a REPL for AO
 module Main (main) where
 
 import Control.Applicative
-import Control.Monad
 import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.Class
+import qualified Control.Exception as Err
 
 -- import Data.Text (Text)
 import qualified Data.Text as T
@@ -14,7 +16,6 @@ import qualified Data.Map as M
 import qualified Data.List as L
 
 import qualified System.IO as Sys
-import qualified System.IO.Error as Err
 -- import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
@@ -22,10 +23,14 @@ import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.Console.Haskeline as HKL
 
+import qualified Text.Parsec as P
+
 -- AO imports
 import AO.AOFile
 import AO.Dict
 import AO.Code
+import AO.Parser
+import AO.Compile
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
@@ -54,12 +59,14 @@ helpMsg =
 
 -- | The AOI monad is above AORT but below Haskeline.
 -- It primarily manages the dictionaries and histories.
-type AOI = StateT AOI_CONTEXT RT
-data AOI_CONTEXT = AOI_CONTEXT 
-    { aoi_dict    :: !Dict  -- loaded and compiled dictionary
-    , aoi_dictSrc :: !String -- root dictionary text
-    , aoi_rtval   :: !RtVal -- active runtime value
-    , aoi_rtcx    :: !RTCX  -- current runtime context
+type AOI = StateT AOICX IO
+data AOICX = AOICX 
+    { aoi_dict     :: !Dict  -- loaded and compiled dictionary
+    , aoi_dictSrc  :: !String -- root dictionary text
+    , aoi_rtval    :: !RtVal -- active runtime value
+    , aoi_hist     :: !(S.Seq RtVal)
+    , aoi_histLen  :: !Int
+    , aoi_rtcx     :: !RTCX  -- current runtime context
     }
 
 type Dict = AODict AOFMeta  -- the current dictionary
@@ -83,13 +90,13 @@ putErrLn = Sys.hPutStrLn Sys.stderr
     
 -- get AOI_DICT environment variable (default 'aoi')
 getAOI_DICT :: IO String
-getAOI_DICT = Err.catchIOError (Env.getEnv "AOI_DICT") (const (pure "aoi"))
+getAOI_DICT = maybe "aoi" id <$> tryJust (Env.getEnv "AOI_DICT")
 
 -- runAOI will manage initial configurations, then enter a
 -- permanent 'recovery loop'
 runAOI :: IO ()
 runAOI = 
-    newAOIContext >>= \ aoicx ->
+    newAOIContext >>= \ cx ->
     getHistoryFile >>= \ histFile ->
     let hklSettings = HKL.Settings
             { HKL.complete = aoiCompletion
@@ -97,25 +104,108 @@ runAOI =
             , HKL.autoAddHistory = True
             }
     in
-    error "TODO: main AOI loop!"
+    let p = aoiInit >> queryLoop >> aoiFini in
+    let app = HKL.runInputT hklSettings p in
+    evalStateT app cx
 
-newAOIContext :: IO AOI_CONTEXT
+aoiInit :: HKL ()
+aoiInit =
+    lift (gets aoi_dictSrc) >>= \ dsrc ->
+    loadAODict dsrc (liftIO . putErrLn) >>= \ d ->
+    lift (modify $ \ cx -> cx { aoi_dict = d }) >>
+    let nDictSize = M.size $ readAODict d in
+    let msg = "\nWelcome to aoi, an AO REPL!\n  " ++ 
+              show nDictSize ++ " words loaded\n" ++
+              "  ctrl+d to exit; also try @undo or @reload"
+    in 
+    HKL.outputStrLn msg
+
+aoiFini :: HKL ()
+aoiFini = return ()
+
+queryLoop :: HKL ()
+queryLoop = HKL.handleInterrupt onInterrupt runQuery where
+    onInterrupt = aoiInit >> queryLoop
+    runQuery = report >> query
+    report =
+        lift (gets aoi_rtval) >>= \ v ->
+        HKL.outputStrLn ('\n' : showEnv v [])
+    query = 
+        HKL.getInputLine "   " >>= \ ln ->
+        case fmap trimSP ln of
+            Nothing -> return () -- done with loop
+            Just [] -> query -- skip blank lines
+            Just cmd -> aoiCommand cmd >> queryLoop
+
+aoiCommand :: String -> HKL ()
+aoiCommand "@undo" =
+    lift get >>= \ cx ->
+    case S.viewl (aoi_hist cx) of
+        S.EmptyL -> HKL.outputStrLn "(cannot undo; at limit of history)"
+        (v S.:< h) ->
+            let cx' = cx { aoi_rtval = v, aoi_hist = h } in
+            lift (put cx')
+aoiCommand "@reload" = aoiInit
+aoiCommand aoStr =
+    case P.parse parseAO "" (' ':aoStr) of
+        Left err -> HKL.outputStrLn (show err)
+        Right aoCode ->
+            lift (gets aoi_dict) >>= \ dict ->
+            case compileAOtoABC dict aoCode of
+                Left mws -> 
+                    let txtWords = (L.unwords . fmap T.unpack) mws in
+                    let emsg = "undefined words: " ++ txtWords in
+                    HKL.outputStrLn emsg
+                Right abc -> aoiRunABC abc
+
+
+aoiRunABC :: [Op] -> HKL ()
+aoiRunABC abc =
+    lift (gets aoi_rtval) >>= \ v ->
+    lift (gets aoi_rtcx) >>= \ rt ->
+    let runProg = runRT rt $ interpret abc (pure v) >>= deepEval in
+    liftIO (try runProg) >>= \ evf ->
+    case evf of
+        Left  e  -> HKL.outputStrLn (show e)
+        Right vf -> lift (updateEnv vf)
+
+updateEnv :: V AORT -> AOI ()
+updateEnv v = modify $ \ cx ->
+    let hist' = aoi_rtval cx S.<| aoi_hist cx in
+    let trimmedHist = S.take (aoi_histLen cx) hist' in
+    cx { aoi_rtval = v, aoi_hist = trimmedHist }
+
+-- eliminate unnecessary spaces
+trimSP :: String -> String
+trimSP = t0 . dropWhile (== ' ') where
+    t0 (' ':s) = t1 s
+    t0 (c:s) = c:(t0 s)
+    t0 [] = []
+    t1 (' ':s) = t1 s
+    t1 (c:s) = ' ':c:(t0 s)
+    t1 [] = []
+
+newAOIContext :: IO AOICX
 newAOIContext =
     newDefaultRuntime >>= \ cx ->
     runRT cx newDefaultEnvironment >>= \ v0 -> 
     getAOI_DICT >>= \ dsrc ->
-    return $ AOI_CONTEXT { aoi_dict = emptyAODict
-                         , aoi_dictSrc = dsrc
-                         , aoi_rtval = v0
-                         , aoi_rtcx = cx 
-                         }
-    
-tryIO :: IO a -> IO (Maybe a)
-tryIO = liftM eitherToMaybe . Err.tryIOError where
-    eitherToMaybe = either (const Nothing) Just
+    return $ AOICX { aoi_dict = emptyAODict
+                   , aoi_dictSrc = dsrc
+                   , aoi_rtval = v0
+                   , aoi_hist = S.empty
+                   , aoi_histLen = 12
+                   , aoi_rtcx = cx 
+                   }
+
+try :: IO a -> IO (Either Err.SomeException a)
+try = Err.try -- type forced
+
+tryJust :: IO a -> IO (Maybe a)
+tryJust op = either (const Nothing) (Just) <$> try op
 
 getHistoryFile :: IO (Maybe Sys.FilePath)
-getHistoryFile = tryIO $
+getHistoryFile = tryJust $
     FS.getAppDataDirectory (T.pack "aoi") >>= \ appDir ->
     FS.createTree appDir >>
     let fp = appDir FS.</> FS.fromText (T.pack "hist.haskeline") in

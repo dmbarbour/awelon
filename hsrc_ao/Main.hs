@@ -8,6 +8,8 @@ module Main
 
 import Control.Applicative
 import Control.Monad
+import qualified Control.Exception as Err
+
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.List as L
@@ -16,7 +18,6 @@ import qualified Data.Sequence as S
 import qualified Data.IORef as IORef
 
 import qualified System.IO as Sys
-import qualified System.IO.Error as Err
 -- import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
@@ -94,7 +95,7 @@ stdCmdS :: IO [String]
 stdCmdS = paragraphs <$> Sys.hGetContents Sys.stdin
 
 getAO_DICT :: IO String
-getAO_DICT = Err.catchIOError (Env.getEnv "AO_DICT") (const (pure "ao"))
+getAO_DICT = maybe "ao" id <$> tryJust (Env.getEnv "AO_DICT")
 
 -- obtain a list of paragraphs. Each paragraph is recognized
 -- by two or more sequential '\n' characters.
@@ -216,14 +217,14 @@ runTest d w =
     runRT rt (newTestPB d fwarn) >>= \ testPB ->
     let env = aoStdEnv testPB in
     let prog = interpret (simplify ops) in
-    let runProg = runRT rt (prog (pure env)) in
-    Err.tryIOError runProg >>= \ evf ->
+    let runProg = runRT rt (prog (pure env) >>= deepEval) in
+    Err.try runProg >>= \ evf ->
     IORef.readIORef rfW >>= \ warnings ->
     reportTest w (L.reverse warnings) evf
 
 type Warning = String
 
-reportTest :: Word -> [Warning] -> Either Err.IOError (V AORT) -> IO ()
+reportTest :: Word -> [Warning] -> Either Err.SomeException (V AORT) -> IO ()
 reportTest w [] (Right _) = Sys.putStrLn ("(pass) " ++ T.unpack w)
 reportTest w ws (Right _) = 
     Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
@@ -256,6 +257,14 @@ newTestPB d fwarn = return b where
 
 runAOType :: IO ()
 runAOType = fail "typechecking currently disabled"
+
+try :: IO a -> IO (Either Err.SomeException a)
+try = Err.try -- type forced
+
+tryJust :: IO a -> IO (Maybe a)
+tryJust op = either (const Nothing) (Just) <$> try op
+
+
 
 {-
 

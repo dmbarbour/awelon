@@ -25,6 +25,8 @@ module AORT
     , newDefaultRuntime
     , newDefaultEnvironment
     , newPowerBlock, aoStdEnv
+
+    , deepEval
     ) where
 
 import Control.Applicative
@@ -225,4 +227,18 @@ instance Runtime AORT where
     invoke ('&':s) = execAnno s
     invoke ('!':s) = execPowerTok s
     invoke s = invokeFails s
+
+deepEval :: (Applicative m) => V m -> m (V m)
+deepEval v = deepEval' v `seq` pure v
+
+deepEval' :: V a -> ()
+deepEval' (N _) = ()
+deepEval' (P a b) = deepEval' a `seq` deepEval' b
+deepEval' (L a) = deepEval' a
+deepEval' (R b) = deepEval' b
+deepEval' U = ()
+deepEval' (B b) = b_aff b `seq` b_rel b `seq` b_code b `seq` ()
+deepEval' (S _ v) = deepEval' v
+
+
 
