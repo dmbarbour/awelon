@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | a REPL for AO
 module Main (main) where
@@ -52,8 +51,8 @@ helpMsg =
     \Haskeline Configuration (history, edit mode, etc.): \n\
     \    see http://trac.haskell.org/haskeline/wiki/UserPrefs \n\
     \\n\
-    \This REPL does not allow definition of words. Developers instead \n\
-    \edit their dictionary then use ctrl+c (interrupt) to reload it. \n\
+    \This REPL does not allow definition of words. Developers can \n\
+    \edit their dictionary then use the `@reload` meta command. \n\
     \"
 -- when persistence is working, perhaps add an AO_HOME or similar.
 
@@ -114,9 +113,9 @@ aoiInit =
     loadAODict dsrc (liftIO . putErrLn) >>= \ d ->
     lift (modify $ \ cx -> cx { aoi_dict = d }) >>
     let nDictSize = M.size $ readAODict d in
-    let msg = "\nWelcome to aoi, an AO REPL!\n  " ++ 
+    let msg = "\nWelcome to aoi, an AO REPL!\n    " ++ 
               show nDictSize ++ " words loaded\n" ++
-              "  ctrl+d to exit; also try @undo or @reload"
+              "  ctrl+d to exit; also try @reload or @undo"
     in 
     HKL.outputStrLn msg
 
@@ -124,18 +123,22 @@ aoiFini :: HKL ()
 aoiFini = return ()
 
 queryLoop :: HKL ()
-queryLoop = HKL.handleInterrupt onInterrupt runQuery where
-    onInterrupt = aoiInit >> queryLoop
-    runQuery = report >> query
+queryLoop = loop True where
+    loop False = return ()
+    loop True = wi (report >> query) >>= loop 
+    wi = HKL.handleInterrupt onInterrupt . HKL.withInterrupt
+    onInterrupt = 
+        HKL.outputStrLn "(ctrl+c interrupt)" >>
+        return True
     report =
         lift (gets aoi_rtval) >>= \ v ->
         HKL.outputStrLn ('\n' : showEnv v [])
     query = 
         HKL.getInputLine "   " >>= \ ln ->
         case fmap trimSP ln of
-            Nothing -> return () -- done with loop
+            Nothing -> return False -- done with loop
             Just [] -> query -- skip blank lines
-            Just cmd -> aoiCommand cmd >> queryLoop
+            Just cmd -> aoiCommand cmd >> return True
 
 aoiCommand :: String -> HKL ()
 aoiCommand "@undo" =
@@ -164,7 +167,7 @@ aoiRunABC abc =
     lift (gets aoi_rtval) >>= \ v ->
     lift (gets aoi_rtcx) >>= \ rt ->
     let runProg = runRT rt $ interpret abc (pure v) >>= deepEval in
-    liftIO (try runProg) >>= \ evf ->
+    liftIO (tryIO runProg) >>= \ evf ->
     case evf of
         Left  e  -> HKL.outputStrLn (show e)
         Right vf -> lift (updateEnv vf)
@@ -197,6 +200,9 @@ newAOIContext =
                    , aoi_histLen = 12
                    , aoi_rtcx = cx 
                    }
+
+tryIO :: IO a -> IO (Either Err.IOException a)
+tryIO = Err.try
 
 try :: IO a -> IO (Either Err.SomeException a)
 try = Err.try -- type forced
