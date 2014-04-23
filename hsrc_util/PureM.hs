@@ -17,10 +17,6 @@ instance (Applicative a) => Applicative (PureM a) where
     (<*>) (Pure fn) ma = fmap fn ma
     (<*>) (PureM mfn) (Pure a) = (PureM (mfn <*> pure a))
     (<*>) (PureM mfn) (PureM ma) = PureM (mfn <*> ma)
-    (<*)  fa (Pure _) = fa
-    (<*)  fa fb = (const <$> fa <*> fb)
-    (*>)  (Pure _) fb = fb
-    (*>)  fa fb = (flip const <$> fa <*> fb)
 instance (Monad m) => Monad (PureM m) where
     return = Pure
     (>>=) (Pure a) f = f a
