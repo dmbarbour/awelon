@@ -125,16 +125,16 @@ aoiFini = return ()
 queryLoop :: HKL ()
 queryLoop = loop True where
     loop False = return ()
-    loop True = wi (report >> query) >>= loop 
+    loop True = wi (report >> query) >>= loop
     wi = HKL.handleInterrupt onInterrupt . HKL.withInterrupt
     onInterrupt = 
-        HKL.outputStrLn "(ctrl+c interrupt)" >>
+        HKL.outputStrLn " (ctrl+c interrupt)" >>
         return True
     report =
         lift (gets aoi_rtval) >>= \ v ->
         HKL.outputStrLn ('\n' : showEnv v [])
     query = 
-        HKL.getInputLine "   " >>= \ ln ->
+        HKL.getInputLine "            " >>= \ ln ->
         case fmap trimSP ln of
             Nothing -> return False -- done with loop
             Just [] -> query -- skip blank lines
