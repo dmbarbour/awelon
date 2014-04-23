@@ -31,6 +31,7 @@ module AORT
 
 import Control.Applicative
 import Control.Monad.IO.Class 
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.Typeable
 
@@ -50,13 +51,15 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
 import qualified Data.ByteString.Base64.URL as B64
 
+import PureM
+
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
-newtype AORT a = AORT (ReaderT AORT_CX IO a)
+newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
     deriving (Monad, MonadIO, Functor, Applicative, Typeable)
 
 -- | AORT_CX is the runtime context, global to each instance of the
@@ -76,15 +79,15 @@ data AORT_CX = AORT_CX
 
 -- | run an arbitrary AORT program.
 runRT :: AORT_CX -> AORT a -> IO a
-runRT cx (AORT op) = runReaderT op cx
+runRT cx (AORT op) = runReaderT (runPureM op) cx
 
 -- | read the runtime context
 readRT :: (AORT_CX -> a) -> AORT a
-readRT = AORT . asks
+readRT = AORT . lift . asks
 
 -- | perform effectful operations within the runtime.
 liftRT :: (AORT_CX -> IO a) -> AORT a
-liftRT = AORT . ReaderT
+liftRT = AORT . lift . ReaderT
 
 bytesToB64 :: ByteString -> String
 bytesToB64 = B.unpack . B64.encode
