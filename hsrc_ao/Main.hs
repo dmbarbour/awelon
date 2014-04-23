@@ -179,7 +179,7 @@ execOps' _ v [] = return v
 execOps' cx v (readPara:more) =
     readPara >>= \ ops -> 
     let prog = interpret ops in
-    runRT cx (prog (return v)) >>= \ v' ->
+    runRT cx (prog (return v) >>= deepEval) >>= \ v' ->
     execOps' cx v' more
 
 -- pattern with simple wildcards.
