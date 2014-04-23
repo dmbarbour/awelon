@@ -166,7 +166,7 @@ aoiRunABC :: [Op] -> HKL ()
 aoiRunABC abc =
     lift (gets aoi_rtval) >>= \ v ->
     lift (gets aoi_rtcx) >>= \ rt ->
-    let runProg = runRT rt $ interpret abc (pure v) >>= deepEval in
+    let runProg = runRT rt $ interpret abc v in
     liftIO (tryIO runProg) >>= \ evf ->
     case evf of
         Left  e  -> HKL.outputStrLn (show e)

@@ -13,8 +13,8 @@ import ABC.Operators
 -- | build a Haskell process from a sequence of ABC operations. 
 interpret :: (Runtime cx) => [Op] -> Prog cx
 interpret (Op_ap : Op_c : []) = apc -- for tail-call optimization
-interpret (op : ops) = interpret ops . iop op
-interpret [] = id
+interpret (op : ops) =  iop op >=> interpret ops
+interpret [] = return
 
 -- interpret one operation
 iop :: (Runtime cx) => Op -> Prog cx 
@@ -30,7 +30,7 @@ iop Op_W = sW
 iop Op_Z = sZ
 iop Op_V = sV
 iop Op_C = sC
-iop (BL ops) = fmap (P (B block)) where
+iop (BL ops) = return . (P (B block)) where
     block = Block { b_aff = False, b_rel = False, b_code = code, b_prog = prog }
     code  = S.fromList ops
     prog  = interpret ops
@@ -65,6 +65,6 @@ iop Op_6 = d6
 iop Op_7 = d7
 iop Op_8 = d8
 iop Op_9 = d9
-iop Op_SP = id
-iop Op_LF = id
+iop Op_SP = return
+iop Op_LF = return
 

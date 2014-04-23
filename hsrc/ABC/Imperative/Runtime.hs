@@ -21,11 +21,12 @@ instance Runtime IO
 -- This will pass unrecognized annotations, and also handle the
 -- discretionary seal and unseal actions from AO. Otherwise, it
 -- will fail with a 'token not recognized' message.
-invokeFails :: (Monad cx, Functor cx) => String -> Prog cx
-invokeFails ('&':_) = id
-invokeFails s@(':':_) = fmap (S s)
-invokeFails ('.':s) = (=<<) (unseal s)
-invokeFails tok = fail $ "{" ++ tok ++ "} token not recognized"
+invokeFails :: (Monad cx) => String -> Prog cx
+invokeFails ('&':_) = return
+invokeFails s@(':':_) = return . (S s)
+invokeFails ('.':s) = unseal s
+invokeFails tok = const $ fail emsg where
+    emsg = "{" ++ tok ++ "} token not recognized"
 
 unseal :: (Monad cx) => String -> V cx -> cx (V cx)
 unseal s (S (':':s') v) | (s == s') = return v

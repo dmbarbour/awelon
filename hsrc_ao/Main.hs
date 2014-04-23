@@ -179,7 +179,7 @@ execOps' _ v [] = return v
 execOps' cx v (readPara:more) =
     readPara >>= \ ops -> 
     let prog = interpret ops in
-    runRT cx (prog (return v) >>= deepEval) >>= \ v' ->
+    runRT cx (prog v) >>= \ v' ->
     execOps' cx v' more
 
 -- pattern with simple wildcards.
@@ -215,9 +215,9 @@ runTest d w =
     IORef.newIORef [] >>= \ rfW ->
     let fwarn s = liftIO $ IORef.modifyIORef rfW (s:) in
     runRT rt (newTestPB d fwarn) >>= \ testPB ->
-    let env = aoStdEnv testPB in
+    let testEnv = aoStdEnv testPB in
     let prog = interpret (simplify ops) in
-    let runProg = runRT rt (prog (pure env) >>= deepEval) in
+    let runProg = runRT rt (prog testEnv) in
     Err.try runProg >>= \ evf ->
     IORef.readIORef rfW >>= \ warnings ->
     reportTest w (L.reverse warnings) evf
@@ -245,12 +245,11 @@ newTestPB :: AODict md -> (Warning -> AORT ()) -> AORT (Block AORT)
 newTestPB d fwarn = return b where
     b = Block { b_aff = True, b_rel = True, b_code = code, b_prog = prog }
     code = S.singleton $ Tok "test powers" 
-    prog = (=<<) run
-    run (P (valToText -> Just cmd) arg) = 
+    prog (P (valToText -> Just cmd) arg) = 
         runCmd cmd arg >>= \ result ->
         newTestPB d fwarn >>= \ tpb ->
         return (P (B tpb) result)
-    run v = fail $ "not structured as a command: " ++ show v
+    prog v = fail $ "not structured as a command: " ++ show v
     runCmd "warn" (valToText -> Just msg) = fwarn msg >> return U
     runCmd "error" (valToText -> Just msg) = fwarn msg >> fail "error command"
     runCmd s v = fail $ "unrecognized command: " ++ s ++ " with arg " ++ show v

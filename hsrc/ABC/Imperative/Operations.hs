@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing -fno-warn-orphans #-}
 -- | Operations for the Imperative implementation of ABC.
 --
 -- These use very short names, so they shouldn't be exposed in
@@ -21,42 +21,29 @@ module ABC.Imperative.Operations
     , d5,d6,d7,d8,d9    -- 5 6 7 8 9
     , bl, tl, tok       -- BL, TL, Tok
     , apc               -- $c
+    
+    , (>=>)
     ) where
 
+import Control.Monad ((>=>))
 import Data.Monoid
 import qualified Data.Sequence as S
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 import ABC.Quote
 
-import qualified System.IO.Unsafe as Sys
-import qualified System.IO.Error as Err
-
-
-type PureProg m = V m -> V m
-
 opFail :: (Monad m) => String -> V m -> m (V m)
 opFail s v = fail $ s ++ " @ " ++ show v
 
-opError :: String -> V m -> V m
-opError s v = raiseIO $ s ++ " @ " ++ show v where
-    raiseIO = Sys.unsafePerformIO . Err.ioError . Err.userError 
-
-onFst :: String -> (V m -> V m) -> V m -> V m
-onFst _ f (P a e) = (P (f a) e)
-onFst s _ v = opError s v
-{-# INLINE onFst #-}
-
-l,r,w,z,v,c :: (Functor m) => Prog m
-sL,sR,sW,sZ,sV,sC :: (Functor m) => Prog m
-cp,rm :: (Functor m) => Prog m
-add,neg,mul,inv,divQ,gt :: (Functor m) => Prog m
-qu,o,k,f :: (Functor m) => Prog m
-sD,sF,sM :: (Functor m) => Prog m
-n0 :: (Functor m) => Prog m
-d0,d1,d2,d3,d4,d5,d6,d7,d8,d9 :: (Functor m) => Prog m
+l,r,w,z,v,c :: (Monad m) => Prog m
+sL,sR,sW,sZ,sV,sC :: (Monad m) => Prog m
+cp,rm :: (Monad m) => Prog m
+add,neg,mul,inv,divQ,gt :: (Monad m) => Prog m
+qu,o,k,f :: (Monad m) => Prog m
+sD,sF,sM :: (Monad m) => Prog m
+n0 :: (Monad m) => Prog m
+d0,d1,d2,d3,d4,d5,d6,d7,d8,d9 :: (Monad m) => Prog m
 ap,apc,co,sK :: (Monad m) => Prog m
-m_ap, m_apc, m_co, m_K :: (Monad m) => V m -> m (V m)
 
 -- | block literals require TWO encodings of the same program. 
 --
@@ -76,244 +63,212 @@ m_ap, m_apc, m_co, m_K :: (Monad m) => V m -> m (V m)
 --
 -- To keep the Haskell encoding tight, the program is 
 -- provided as a string rather than a bulky list of [Op].
-bl :: (Functor m) => (String,Prog m) -> Prog m
-bl = fmap . P . B . mkB where
-    mkB (s,p) = Block { b_aff = False, b_rel = False
-                      , b_code = code s, b_prog = p }
-    code = S.fromList . read
+bl :: (Monad m) => String -> Prog m -> Prog m
+bl s p = return . (P (B b)) where
+    b = Block { b_aff = False, b_rel = False, b_prog = p 
+              , b_code = S.fromList (read s) }
 
 -- | text literals are relatively trivial. They quote a text value,
 -- which has type `µT.(1+(Chr*T))` where Chr is a small integer in
 -- range 0..0x10ffff. We translate the given string into the target
 -- text value.
-tl :: (Functor m) => String -> Prog m
-tl = fmap . P . textToVal
+tl :: (Monad m) => String -> Prog m
+tl s = return . P (textToVal s)
 
 -- | tokens go straight to the Runtime
 tok :: (Runtime m) => String -> Prog m
 tok = invoke
 
-l = fmap fl
-r = fmap fr
-w = fmap fw
-z = fmap fz
-v = fmap fv
-c = fmap fc
-sL = fmap fL
-sR = fmap fR
-sW = fmap fW
-sZ = fmap fZ
-sV = fmap fV
-sC = fmap fC
-cp = fmap fcp
-rm = fmap frm
-add = fmap fadd
-neg = fmap fneg
-mul = fmap fmul
-inv = fmap finv
-divQ = fmap fdivQ
-gt = fmap fgt
-qu = fmap fqu
-o = fmap fo
-k = fmap fk
-f = fmap ff
-sD = fmap fD
-sF = fmap fF
-sM = fmap fM
-n0 = fmap (n_ 0)
-d0 = fmap (d_ 0)
-d1 = fmap (d_ 1)
-d2 = fmap (d_ 2)
-d3 = fmap (d_ 3)
-d4 = fmap (d_ 4)
-d5 = fmap (d_ 5)
-d6 = fmap (d_ 6)
-d7 = fmap (d_ 7)
-d8 = fmap (d_ 8)
-d9 = fmap (d_ 9)
+n0 = (n_ 0)
+d0 = (d_ 0)
+d1 = (d_ 1)
+d2 = (d_ 2)
+d3 = (d_ 3)
+d4 = (d_ 4)
+d5 = (d_ 5)
+d6 = (d_ 6)
+d7 = (d_ 7)
+d8 = (d_ 8)
+d9 = (d_ 9)
 
-ap  = (=<<) m_ap
-co  = (=<<) m_co
-sK  = (=<<) m_K
-apc = (=<<) m_apc
-
-n_ :: Rational -> PureProg m
-n_ = P . N 
+n_ :: (Monad m) => Rational -> Prog m
+n_ r = return . P (N r) 
 {-# NOINLINE n_ #-}
 
-d_ :: Int -> PureProg m
-d_ d (P (N n) e) = (P (N (nd_ n d)) e)
-d_ _ v = opError "digit" v
+d_ :: (Monad m) => Int -> Prog m
+d_ d (P (N n) e) = return (P (N (nd_ n d)) e)
+d_ _ v = opFail "digit" v
 {-# NOINLINE d_ #-}
 
 nd_ :: Rational -> Int -> Rational
 nd_ n d = 10*n + fromIntegral d
 {-# INLINE nd_ #-}
 
-fl,fr,fw,fz,fv,fc :: PureProg m
 
-fl (P a (P b c)) = (P (P a b) c)
-fl v = opError "l" v
+l (P a (P b c)) = return (P (P a b) c)
+l v = opFail "l" v
 
-fr (P (P a b) c) = (P a (P b c))
-fr v = opError "r" v
+r (P (P a b) c) = return (P a (P b c))
+r v = opFail "r" v
 
-fw (P a (P b c)) = (P b (P a c))
-fw v = opError "w" v
+w (P a (P b c)) = return (P b (P a c))
+w v = opFail "w" v
 
-fz (P a (P b (P c d))) = (P a (P c (P b d)))
-fz v = opError "z" v
+z (P a (P b (P c d))) = return (P a (P c (P b d)))
+z v = opFail "z" v
 
-fv a = (P a U)
+v a = return (P a U)
 
-fc (P a U) = a
-fc v = opError "c" v
+c (P a U) = return a
+c v = opFail "c" v
 
-fL,fR,fW,fZ,fV,fC :: PureProg m
-fL',fR',fW',fZ',fV',fC' :: PureProg m
+sL = onFst "L" sL'
+sR = onFst "R" sR'
+sW = onFst "W" sW'
+sZ = onFst "Z" sZ'
+sV = onFst "V" sV'
+sC = onFst "C" sC'
 
-fL = onFst "L" fL'
-fR = onFst "R" fR'
-fW = onFst "W" fW'
-fZ = onFst "Z" fZ'
-fV = onFst "V" fV'
-fC = onFst "C" fC'
+onFst :: (Monad m) => String -> Prog m -> Prog m
+onFst _s f (P a e) = f a >>= \ a' -> return (P a' e)
+onFst s _ v = opFail s v
+{-# RULES
+"onFst>=>onFst" forall s1 s2 f1 f2 . onFst s1 f1 >=> onFst s2 f2 = onFst (s1++s2) (f1 >=> f2)
+ #-}
 
-fL' v@(L _a) = (L v)
-fL' (R (L b)) = (L (R b))
-fL' (R v@(R _c)) = v
-fL' v = opError "L." v
+sL', sR', sW', sZ', sV', sC' :: (Monad m) => Prog m
 
-fR' (L v@(L _a)) = v
-fR' (L (R b)) = (R (L b))
-fR' v@(R _c) = (R v)
-fR' v = opError "R." v
+sL' v@(L _a) = return (L v)
+sL' (R (L b)) = return (L (R b))
+sL' (R v@(R _c)) = return v
+sL' v = opFail "L." v
 
-fW' v@(L _a) = (R v)
-fW' (R v@(L _b)) = v
-fW' v@(R (R _c)) = v
-fW' v = opError "W." v
+sR' (L v@(L _a)) = return v
+sR' (L (R b)) = return (R (L b))
+sR' v@(R _c) = return (R v)
+sR' v = opFail "R." v
 
-fZ' v@(L _a) = v
-fZ' v@(R (L _b)) = (R v)
-fZ' (R v@(R (L _c))) = v
-fZ' v@(R (R (R _d))) = v
-fZ' v = opError "Z." v
+sW' v@(L _a) = return (R v)
+sW' (R v@(L _b)) = return v
+sW' v@(R (R _c)) = return v
+sW' v = opFail "W." v
 
-fV' = L
-fC' (L a) = a
-fC' v = opError "C." v
+sZ' v@(L _a) = return v
+sZ' v@(R (L _b)) = return (R v)
+sZ' (R v@(R (L _c))) = return v
+sZ' v@(R (R (R _d))) = return v
+sZ' v = opFail "Z." v
 
-fcp,frm :: PureProg m
+sV' = return . L
+sC' (L a) = return a
+sC' v = opFail "C." v
 
-fcp v@(P a _e) | copyable a = (P a v)
-fcp v = opError "^" v
+cp v@(P a _e) | copyable a = return (P a v)
+cp v = opFail "^" v
 
-frm (P a e) | droppable a = e
-frm v = opError "%" v
+rm (P a e) | droppable a = return e
+rm v = opFail "%" v
 
-fadd,fneg,fmul,finv,fdivQ,fgt :: PureProg m
+add (P (N a) (P (N b) e)) = return (P (N (a+b)) e)
+add v = opFail "+" v
 
-fadd (P (N a) (P (N b) e)) = (P (N (a+b)) e)
-fadd v = opError "+" v
+neg (P (N a) e) = return (P (N (negate a)) e)
+neg v = opFail "-" v
 
-fneg (P (N a) e) = (P (N (negate a)) e)
-fneg v = opError "-" v
+mul (P (N a) (P (N b) e)) = return (P (N (a*b)) e)
+mul v = opFail "*" v
 
-fmul (P (N a) (P (N b) e)) = (P (N (a*b)) e)
-fmul v = opError "*" v
+inv (P (N a) e) | (0 /= a) = return (P (N (recip a)) e)
+inv v = opFail "/" v
 
-finv (P (N a) e) | (0 /= a) = (P (N (recip a)) e)
-finv v = opError "/" v
-
-fdivQ (P (N divisor) (P (N dividend) e)) = result where
+divQ (P (N divisor) (P (N dividend) e)) = return result where
     result = (P (N remainder) (P (N quotient) e))
     (quotientI,remainder) = dividend `divModQ` divisor
     quotient  = fromIntegral quotientI
-fdivQ v = opError "Q" v
+divQ v = opFail "Q" v
 
-fgt (P x@(N nx) (P y@(N ny) e)) =
-    if (ny > nx) then (P (R (P x y)) e)
-                 else (P (L (P y x)) e)
-fgt v = opError ">" v
+gt (P x@(N nx) (P y@(N ny) e)) =
+    if (ny > nx) then return (P (R (P x y)) e)
+                 else return (P (L (P y x)) e)
+gt v = opFail ">" v
 
 
-fqu :: (Functor m) => PureProg m
-fqu (P a e) = (P (B block) e) where
+qu (P a e) = return (P (B block) e) where
     block = Block { b_aff = aff, b_rel = rel, b_code = code, b_prog = prog }
     aff = not (copyable a)
     rel = not (droppable a)
     code = (S.fromList . quote) a
-    prog = fmap (P a)
-fqu v = opError "'" v
+    prog = return . (P a)
+qu v = opFail "'" v
 
-fo,fk,ff :: PureProg m
-
-fo (P (B byz) (P (B bxy) e)) = (P (B bxz) e) where
+o (P (B byz) (P (B bxy) e)) = return (P (B bxz) e) where
     bxz = bxy `mappend` byz
-fo v = opError "o" v
+o v = opFail "o" v
 
-fk (P (B b) e) = (P (B b') e) where
+k (P (B b) e) = return (P (B b') e) where
     b' = b { b_rel = True }
-fk v = opError "k" v
+k v = opFail "k" v
 
-ff (P (B b) e) = (P (B b') e) where
+f (P (B b) e) = return (P (B b') e) where
     b' = b { b_aff = True }
-ff v = opError "f" v
+f v = opFail "f" v
 
-fD,fF,fM :: PureProg m
+sD (P a (P (L b) e)) = return (P (L (P a b)) e)
+sD (P a (P (R c) e)) = return (P (R (P a c)) e)
+sD v = opFail "D" v
 
-fD (P a (P (L b) e)) = (P (L (P a b)) e)
-fD (P a (P (R c) e)) = (P (R (P a c)) e)
-fD v = opError "D" v
+sF (P (L (P a b)) e) = return (P (L a) (P (L b) e))
+sF (P (R (P c d)) e) = return (P (R c) (P (R d) e))
+sF v = opFail "F" v
 
-fF (P (L (P a b)) e) = (P (L a) (P (L b) e))
-fF (P (R (P c d)) e) = (P (R c) (P (R d) e))
-fF v = opError "F" v
+sM (P (L a ) e) = return (P a  e)
+sM (P (R a') e) = return (P a' e)
+sM v = opFail "M" v
 
-fM (P (L a ) e) = (P a  e)
-fM (P (R a') e) = (P a' e)
-fM v = opError "M" v
+ap (P (B b) (P a e)) = b_prog b a >>= \ a' -> return (P a' e)
+ap v = opFail "$" v
 
-m_ap (P (B b) (P a e)) = 
-    b_prog b (return a) >>= \ a' -> return (P a' e)
-m_ap v = opFail "$" v
+co (P (B b) (P (L a) e)) | (not (b_rel b)) =
+    b_prog b a >>= \ a' -> return (P (L a') e)
+co (P (B b) v@(P (R _) _)) | (not (b_rel b)) = return v
+co v = opFail "?" v
 
-m_co (P (B b) (P (L a) e)) | (not (b_rel b)) =
-    b_prog b (return a) >>= \ a' -> return (P (L a') e)
-m_co (P (B b) v@(P (R _) _)) | (not (b_rel b)) = return v
-m_co v = opFail "?" v
+sK (P (R b) e) = return (P b e)
+sK v = opFail "K" v
 
-m_K (P (R b) e) = return (P b e)
-m_K v = opFail "K" v
-
-m_apc (P (B b) (P a U)) = b_prog b (return a) -- can tail-call optimize
-m_apc v = opFail "$c" v
-
+apc (P (B b) (P a U)) = b_prog b a -- can tail-call optimize
+apc v = opFail "$c" v
 
 -- data plumbing rules
 {-# RULES
-"l.r" fl . fr = id
-"r.l" fr . fl = id
-"v.c" fv . fc = id
-"c.v" fc . fv = id
-"w.w" fw . fw = id
-"z.z" fz . fz = id
+"l.r" l >=> r = return
+"r.l" r >=> l = return
+"v.c" v >=> c = return
+"c.v" c >=> v = return
+"w.w" w >=> w = return
+"z.z" z >=> z = return
 
-"L.R" fL . fR = id
-"R.L" fR . fL = id
-"V.C" fV . fC = id
-"C.V" fC . fV = id
-"W.W" fW . fW = id
-"Z.Z" fZ . fZ = id
+"L.R" sL >=> sR = return
+"R.L" sR >=> sL = return
+"V.C" sV >=> sC = return
+"C.V" sC >=> sV = return
+"W.W" sW >=> sW = return
+"Z.Z" sZ >=> sZ = return
+
+"L.R." sL' >=> sR' = return
+"R.L." sR' >=> sL' = return
+"V.C." sV' >=> sC' = return
+"C.V." sC' >=> sV' = return
+"W.W." sW' >=> sW' = return
+"Z.Z." sZ' >=> sZ' = return
  #-}
 
 -- static number computations
 {-# RULES
-"staticNum" forall d n . d_ d . n_ n        = n_ (nd_ n d)
-"staticAdd" forall a b . fadd . n_ a . n_ b = n_ (a + b)
-"staticNeg" forall a   . fneg . n_ a        = n_ (negate a)
-"staticMul" forall a b . fmul . n_ a . n_ b = n_ (a * b)
-"staticInv" forall a   . finv . n_ a        = n_ (recip a)
+"staticNum" forall d n . n_ n >=> d_ d = n_ (nd_ n d)
+"staticAdd" forall a b . n_ a >=> n_ b >=> add = n_ (a + b)
+"staticNeg" forall a   . n_ a >=> neg = n_ (negate a)
+"staticMul" forall a b . n_ a >=> n_ b >=> mul = n_ (a * b)
+"staticInv" forall a   . n_ a >=> inv = n_ (recip a)
  #-}
 

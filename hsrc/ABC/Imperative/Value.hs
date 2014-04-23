@@ -15,6 +15,7 @@ module ABC.Imperative.Value
     ) where
 
 import Control.Applicative
+import Control.Monad ((>=>))
 import Data.Ord
 import Data.Monoid
 import Data.Ratio
@@ -46,7 +47,7 @@ data V cx
 
 -- | an imperative program with context 'cx' 
 -- 'cx' should be Monadic and Applicative
-type Prog cx = cx (V cx) -> cx (V cx)
+type Prog cx = (V cx) -> cx (V cx)
 
 -- | A block is simply a finite sequence of ABC code. However, for
 -- performance reasons, the block includes a 'b_prog' field that
@@ -79,14 +80,14 @@ instance Ord (Block cx) where
         comparing b_rel  b1 b2 `mappend`
         comparing b_aff  b1 b2
 
-instance Monoid (Block cx) where
-    mempty = Block { b_aff = False, b_rel = False, b_code = S.empty, b_prog = id }
+instance (Monad cx) => Monoid (Block cx) where
+    mempty = Block { b_aff = False, b_rel = False, b_code = S.empty, b_prog = return }
     mappend xy yz = xz where
         xz = Block { b_aff = aff', b_rel = rel', b_code = code', b_prog = prog' }
         aff' = b_aff xy || b_aff yz
         rel' = b_rel xy || b_rel yz
         code' = b_code xy S.>< b_code yz
-        prog' = b_prog yz . b_prog xy
+        prog' = b_prog xy >=> b_prog yz
 
 -- | divModQ :: dividend -> divisor -> (quotient, remainder)
 divModQ :: Rational -> Rational -> (Integer, Rational)

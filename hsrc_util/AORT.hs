@@ -25,8 +25,6 @@ module AORT
     , newDefaultRuntime
     , newDefaultEnvironment
     , newPowerBlock, aoStdEnv
-
-    , deepEval
     ) where
 
 import Control.Applicative
@@ -117,7 +115,7 @@ defaultAnno = flip M.lookup $ M.fromList $
     ]
 
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
-mkAnno fn getV = getV >>= \ v -> fn v >> return v
+mkAnno fn v = fn v >> return v
 
 debugPrintRaw, debugPrintText :: V AORT -> AORT ()
 debugPrintRaw v =  liftIO $ Sys.hPutStrLn Sys.stderr (show v)
@@ -158,11 +156,11 @@ newPowerBlock =
 -- Toplevel powers are mostly used for one-off reads and writes.
 defaultPower :: String -> Maybe (Prog AORT)
 defaultPower = flip M.lookup $ M.fromList $
-    [("randomBytes", (=<<) getRandomBytes)
+    [("randomBytes", getRandomBytes)
     ,("destroy", const (return U))
-    ,("getOSEnv", (=<<) getOSEnv)
-    ,("readFile", (=<<) aoReadFile)
-    ,("writeFile", (=<<) aoWriteFile)
+    ,("getOSEnv", getOSEnv)
+    ,("readFile", aoReadFile)
+    ,("writeFile", aoWriteFile)
     ]
 
 getRandomBytes :: (MonadIO m, Applicative m) => V m -> m (V m)
@@ -208,21 +206,21 @@ execAnno s arg =
     readRT aort_anno >>= \ annoFn ->
     case annoFn s of
         Just fn -> fn arg
-        Nothing -> id arg
+        Nothing -> return arg
 
 -- command and arg, returning result
 execCmd :: String -> V AORT -> AORT (V AORT)
-execCmd ('&':s) arg = execAnno s (pure arg) -- every annotation is a command
+execCmd ('&':s) arg = execAnno s arg -- every annotation is a command
 execCmd cmd arg = 
     readRT aort_power >>= \ hasCmd ->
     case hasCmd cmd of
-        Just op -> op (pure arg)
+        Just op -> op arg
         Nothing -> fail $ "command not recognized: " ++ cmd
 
 execPowerTok :: String -> Prog AORT
 execPowerTok s arg =
     readRT aort_secret >>= \ secret ->
-    if (s == secret) then arg >>= execPower else
+    if (s == secret) then execPower arg else
     fail $ "token not recognized: {!" ++ s ++ "}"
 
 -- ... enough to get started for now ...
@@ -230,18 +228,5 @@ instance Runtime AORT where
     invoke ('&':s) = execAnno s
     invoke ('!':s) = execPowerTok s
     invoke s = invokeFails s
-
-deepEval :: (Applicative m) => V m -> m (V m)
-deepEval v = deepEval' v `seq` pure v
-
-deepEval' :: V a -> ()
-deepEval' (N _) = ()
-deepEval' (P a b) = deepEval' a `seq` deepEval' b
-deepEval' (L a) = deepEval' a
-deepEval' (R b) = deepEval' b
-deepEval' U = ()
-deepEval' (B b) = b_aff b `seq` b_rel b `seq` b_code b `seq` ()
-deepEval' (S _ v) = deepEval' v
-
 
 
