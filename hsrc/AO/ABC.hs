@@ -28,6 +28,7 @@ import Control.Applicative
 import Control.Monad
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
+import qualified Data.List as L
 import qualified Text.Parsec as P
 import Text.Parsec.Text ()
 import Data.Text (Text)
@@ -135,7 +136,7 @@ runOpABC invoke (AMBC [singleton]) = runABC invoke singleton
 runOpABC _ (AMBC _) = const $ fail "AMBC not supported by runABC"
 
 -- run ops
-runABC_B invoke = runOps (runOpABC invoke) . simpl . S.toList
+runABC_B invoke = runOps (runOpABC invoke) . simpl [] . S.toList
 runABC invoke ops = (runABC_B invoke ops) >=> tcLoop
 
 
@@ -162,7 +163,7 @@ runOpAMBC invoke (AMBC options) =
     let compiledOptions = fmap (runAMBC invoke) options in
     \ arg -> msum $ map ($ arg) compiledOptions 
 
-runAMBC_B invoke = runOps (runOpAMBC invoke) . simpl . S.toList
+runAMBC_B invoke = runOps (runOpAMBC invoke) . simpl [] . S.toList
 runAMBC invoke ops = (runAMBC_B invoke ops) >=> tcLoop
 
 
@@ -171,51 +172,40 @@ runAMBC invoke ops = (runAMBC_B invoke ops) >=> tcLoop
 --------------------------------------
 
 simplifyABC :: S.Seq Op -> S.Seq Op
-simplifyABC = S.fromList . fmap simplBL . simpl . S.toList
+simplifyABC = S.fromList . simpl [] . S.toList
 
-simplBL :: Op -> Op
-simplBL (BL ops) = BL (simplifyABC ops)
-simplBL (AMBC options) = AMBC (fmap simplifyABC options)
-simplBL op = op
+-- zipper-based simplification
+simpl :: [Op] -> [Op] -> [Op]
+simpl acc (Op ' ' : ops) = simpl acc ops
+simpl acc (Op '\n' : ops) = simpl acc ops
+simpl (Op l:ls) (Op r:rs) | opsCancel l r = simpl ls rs
+simpl (Op 'w' : Op 'z' : ls) (Op 'z' : rs) =
+    simpl ls (Op 'w' : Op 'z' : Op 'w' : rs)
+simpl (Op 'W' : Op 'Z' : ls) (Op 'Z' : rs) =
+    simpl ls (Op 'W' : Op 'Z' : Op 'W' : rs) 
+simpl acc (BL bops : ops) = 
+    simpl (BL (simplifyABC bops) : acc) ops where
+simpl acc (AMBC [singleton] : ops) = 
+    simpl acc (S.toList singleton ++ ops)
+simpl acc (AMBC ambOps : ops) = 
+    simpl (AMBC (fmap simplifyABC ambOps) : acc) ops where
+simpl acc (op:ops) = simpl (op:acc) ops
+simpl acc [] = L.reverse acc
 
--- a simplistic simplifier
-simpl :: [Op] -> [Op] 
-simpl [] = []
-simpl (Op ' ' : ops) = simpl ops
-simpl (Op '\n' : ops) = simpl ops
-simpl (Op 'l' : Op 'r' : ops) = simpl ops
-simpl (Op 'r' : Op 'l' : ops) = simpl ops
-simpl (Op 'w' : Op 'w' : ops) = simpl ops
-simpl (Op 'z' : Op 'z' : ops) = simpl ops
-simpl (Op 'v' : Op 'c' : ops) = simpl ops 
-simpl (Op 'c' : Op 'v' : ops) = simpl ops
--- from wzw = zwz
-simpl (Op 'z' : Op 'w' : Op 'z' : ops) = simpl (Op 'w' : Op 'z' : Op 'w' : ops)
--- from lzrw = wlzr
---simpl (Op 'l' : Op 'z' : Op 'r' : Op 'w' : Op 'l' : ops) = simpl (Op 'w' : Op 'l' : Op 'z' : ops)
---simpl (Op 'r' : Op 'w' : Op 'l' : Op 'z' : Op 'r' : ops) = simpl (Op 'z' : Op 'r' : Op 'w' : ops)
---simpl (Op 'w' : Op 'l' : Op 'z' : Op 'r' : Op 'w' : ops) = simpl (Op 'l' : Op 'z' : Op 'r' : ops)
--- continue simplification (single pass)
-simpl (Op 'R' : Op 'L' : ops) = simpl ops
-simpl (Op 'L' : Op 'R' : ops) = simpl ops
-simpl (Op 'W' : Op 'W' : ops) = simpl ops
-simpl (Op 'Z' : Op 'Z' : ops) = simpl ops
-simpl (Op 'V' : Op 'C' : ops) = simpl ops
-simpl (Op 'C' : Op 'V' : ops) = simpl ops
-simpl (Op 'Z' : Op 'W' : Op 'Z' : ops) = simpl (Op 'W' : Op 'Z' : Op 'W' : ops)
-
-simpl (AMBC [singleton] : ops) = simpl ((S.toList singleton) ++ ops)
-simpl (op : ops) = 
-    let ops' = simpl ops in
-    let k = simplWindow in
-    let tkops = take k ops in
-    let (tkops', dkops') = splitAt k ops' in
-    if (tkops == tkops') then (op : ops') else
-    simpl (op : tkops') ++ dkops'
-
--- window for deep simplification
-simplWindow :: Int
-simplWindow = 12
+opsCancel :: Char -> Char -> Bool
+opsCancel 'l' 'r' = True
+opsCancel 'r' 'l' = True
+opsCancel 'w' 'w' = True
+opsCancel 'z' 'z' = True
+opsCancel 'v' 'c' = True
+opsCancel 'c' 'v' = True
+opsCancel 'L' 'R' = True
+opsCancel 'R' 'L' = True
+opsCancel 'W' 'W' = True
+opsCancel 'Z' 'Z' = True
+opsCancel 'V' 'C' = True
+opsCancel 'C' 'V' = True
+opsCancel _ _ = False
 
 --------------------------------------
 -- PARSERS
