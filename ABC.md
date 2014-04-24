@@ -61,7 +61,7 @@ See AboutABC for full explanations and design. This file just records each code,
 
 Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
 
-Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
+Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(elem*L))`. 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Also, use of `@` (64) and backquote (96) will be avoided to support hosting ABC in external streams or texts.
 
@@ -71,22 +71,24 @@ Tokens in ABC are simply expressed using text between curly braces, `{foo}`. The
 
 There are some common conventions based on prefix characters. For example:
 
-        {&foo} :: a → a                 -- annotation capability
+        {&foo}  :: a → a                -- annotation capability
 
-        {:foo} :: a → Sealed foo a      -- sealer capability
-        {.foo} :: Sealed foo a → a      -- unsealer capability
+        {:foo}  :: a → Sealed foo a     -- sealer capability
+        {.foo}  :: Sealed foo a → a     -- unsealer capability
         {:$foo} :: a → Sealed $foo a    -- instance specific sealer
         {.$foo} :: Sealed $foo a → a    -- instance specific unsealer
 
-        {#323weAHSn085j9uj9u...} :: ∃a b.a→b -- secure hash source
-        {$3025uy0u3SKLHn3i3e...} :: ∃foo.s→(Sealed foo a * s) -- encrypted value
+        {#323weAHSn085j9uj9u...} :: ∃a b. a→b -- secure hash source
+        {$ 3025uy0u3SKLHn3i3e...} :: ∃foo a. s→(Sealed foo a * s) -- encrypted value
 
-Annotations can support debugging and performance. Secure hash sources are an important basis for separate compilation and linking in ABC. The encoding of sealed remains tentative, but the basic idea - that value-level encryption should be implicitly guided by value sealing - is excellent for simplicity and optimizability. 
+Annotations can support debugging and performance. Secure hash sources are an important basis for separate compilation and linking in ABC. 
+
+The encoding of sealed remains tentative. We must recognize affine vs. relevant sealed values, and possible references to stored values. But the basic idea - that value-level encryption should be implicitly guided by value sealing - is excellent for security, simplicity, and optimizability. Value level sealing would typically be independent of link or sockets layer encryption.
 
 ## CHANGE LOG
 
 March 2014: eliminated operators `PSBN`, which would observe type information
-April 2014: made `>` monomorphic, so it operates only on a pair of numbers
+April 2014: made `>` monomorphic, so it operates only on numbers
   (`>` was polymorphic to operate on texts, but required runtime type info)
 
 ## ABCD
