@@ -134,7 +134,7 @@ queryLoop = loop True where
         lift (gets aoi_rtval) >>= \ v ->
         HKL.outputStrLn ('\n' : showEnv v [])
     query = 
-        HKL.getInputLine "            " >>= \ ln ->
+        HKL.getInputLine "                    ao: " >>= \ ln ->
         case fmap trimSP ln of
             Nothing -> return False -- done with loop
             Just [] -> query -- skip blank lines
