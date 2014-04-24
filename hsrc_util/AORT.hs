@@ -136,7 +136,7 @@ debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 --
 aoStdEnv :: Block cx -> V cx
 aoStdEnv pb = (P U (P U (P (B pb) (P (P sn U) U))))
-    where sn = textToVal "" -- L U
+    where sn = textToVal "" -- R U
 
 -- | create a standard environment with a default powerblock
 newDefaultEnvironment :: AORT (V AORT)

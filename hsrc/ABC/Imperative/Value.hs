@@ -99,8 +99,8 @@ divModQ x y =
     (q, r % dr)
 
 valToText :: V cx -> Maybe String
-valToText (R (P c l)) = (:) <$> valToChar c <*> valToText l 
-valToText (L U) = Just []
+valToText (L (P c l)) = (:) <$> valToChar c <*> valToText l 
+valToText (R U) = Just []
 valToText _ = Nothing
 
 valToChar :: V cx -> Maybe Char
@@ -114,8 +114,8 @@ validChar r =
     (1 == d) && (0 <= n) && (n <= 0x10ffff)
 
 textToVal :: String -> V cx
-textToVal [] = L U
-textToVal (c:cs) = R (P cv (textToVal cs)) where
+textToVal [] = R U
+textToVal (c:cs) = L (P cv (textToVal cs)) where
     cv = (N . fromIntegral . fromEnum) c
 
 instance Show (V cx) where
