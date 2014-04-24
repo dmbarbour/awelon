@@ -151,12 +151,17 @@ boolean
     [dip distrib [%c] .left [%c] .right] compose
 
 @doc.assert 
-"AO and ABC offer a primitive mechanism to assert that a condition is not false, i.e. that `(a + b)` is not in `a`. (The condition is not necessarily true, i.e. it may be that the assertion itself is dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
+"Awelon offers a primitive to assert that a condition is not false, i.e. that `(a + b)` is certainly not in `a`. (This isn't to say the condition is in `b`. The assertion itself might be dead code.) Since the condition after a successful assertion is not false, we eliminate the sum type and just continue with `b`.
  
      assert :: (a + b) -- b
  
- In addition, specialized asserts can be much easier to use. These operate as identity functions, but with a limited acceptance criteria.
+ Assertions are useful to model preconditions, postconditions, contracts; to support inference of dependent types; and for automatic testing (test. words). Ideally, an assertion can be proven statically and removed from the runtime code. If not, a compiler is free to issue a warning, and a runtime failure will halt the program as quickly and cleanly as feasible within reasonable limits. (Explicit capabilities may allow confinement of subprogram failure.)
  
+ Specialized assertions can be constructed above the basic assert, e.g. to test numbers or text labels. Search for words whose name starts with `assert` to find some appropriate for your purpose.
+~
+@doc.deprecated.assert
+"(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
+  
      assertLT, assertLTE -- assert upper bounds for a comparable value
      assertGT, assertGTE -- assert lower bounds for a comparable value
  
