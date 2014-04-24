@@ -205,8 +205,8 @@ randomBytes n = liftM toBytes CR.makeSystem where
 
 bytesToVal :: ByteString -> V c
 bytesToVal bs = case B.uncons bs of
-    Nothing -> L U
-    Just (w, bs') -> R (P (N $ fromIntegral w) (bytesToVal bs'))
+    Nothing -> R U
+    Just (w, bs') -> L (P (N $ fromIntegral w) (bytesToVal bs'))
 
 aoiGetOSEnv :: (MonadIO c) => V c -> c (V c)
 aoiGetOSEnv v = 

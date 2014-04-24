@@ -1,9 +1,9 @@
 @doc.Lists
 "Lists in AO are modeled using a recursive type: 
  
-     λa.µL.(1+(a*L))       shorthand: a`L
+     λa.µL.((a*L)+1)       shorthand: a`L
  
- Of course, AO and ABC don't have direct support for type annotations (not yet, anyway). The list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops), though a large vocabulary of list processing words can cover most use cases so users don't need to deal with fixpoints directly.
+ Of course, AO and ABC don't have direct support for type annotations. (Indirect support is feasible, in a similar sense as `doc.` words supporting documentation.) A list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops), though a large vocabulary of list processing words can cover most use cases so users don't need to deal with fixpoints directly.
  
  Lists are simplistic data structures. Their extreme simplicity leads to awkwardness and complexity for many use-cases: 
  
@@ -16,11 +16,11 @@
 ~
 
 @doc.empty.l "empty list (has same structure as 'false')"
-@empty.l intro1 inL
+@empty.l intro1 inR
 
 @doc.cons.l "a`L a -- a`L; add element to list"
 @doc.consd.l "a`L b a -- a`L b; add element to list"
-@cons.l p inR
+@cons.l p inL
 @consd.l swapd cons.l swap
 
 @assertEmpty.l mirror assert inL
@@ -39,7 +39,7 @@
 @doc.reverseAppend.l "a1`L a2`L -- (reverse a2 ++ a1)`L; auxillary"
 
 @each.l [step.each.l] bind fixpoint inline
-@step.each.l rot [elim1 drop2] [action.each.l] if
+@step.each.l rot [action.each.l] [elim1 drop2] if
 @action.each.l wx roll pw rot dip wx inline
 @fold.l [each.l] apply3to1
 

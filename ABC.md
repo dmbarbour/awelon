@@ -63,15 +63,19 @@ See AboutABC for full explanations and design. This file just records each code,
 
 Legend for types: `*` is a product or pair, `+` is a sum or Either type, `[x→y]` is a block type that can map from type `x` to type `y`, `N(x)` indicates a number with value x (numbers should be tracked in types as much as possible). 
 
-Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.(1+(a*L))`. 
+Text is modeled is a list of small natural numbers (in range 0 to 1114111). Lists are modeled using a structure of form `µL.((elem*L)+1)`. 
 
 Aside: The design of ABC is avoiding vowels, to avoid spelling naughty words. It isn't a strong design constraint, and I have used `o` due to visual similarity with the traditional function composition operator. Use of `@` will also be avoided, such that `\n@` can serve as a visible in-band stream separator.
 
 ## CHANGE LOG
 
-March 2014: eliminated operators `PSBN`, which would observe type information
-April 2014: made `>` monomorphic, so it operates only on a pair of numbers
-  (`>` was polymorphic to operate on texts, but required runtime type info)
+March 2014: 
+* eliminated operators `PSBN`, which would observe type information
+
+April 2014: 
+* made `>` monomorphic, so it operates only on a pair of numbers
+* modify list type from `µL.(1+(elem*L))` to `µL.((elem*L)+1)`
+  
 
 ## ABCD
 

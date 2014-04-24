@@ -168,8 +168,8 @@ copyable (TC _) = False
 -- parse text from a list of numbers
 -- list has type µL.(1+(a*L)).
 valToText :: V c -> Maybe Text
-valToText (L U) = Just T.empty
-valToText (R (P (N r) b)) | validChar r =
+valToText (R U) = Just T.empty
+valToText (L (P (N r) b)) | validChar r =
     let c = (toEnum . fromInteger . numerator) r in
     (c `T.cons`) <$> valToText b
 valToText _ = Nothing
@@ -177,10 +177,10 @@ valToText _ = Nothing
 textToVal :: Text -> V c
 textToVal t =
     case T.uncons t of
-        Nothing -> L U
+        Nothing -> R U
         Just (c, t') -> 
             let r = (fromIntegral . fromEnum) c in
-            R (P (N r) (textToVal t'))
+            L (P (N r) (textToVal t'))
 
 validChar :: Rational -> Bool
 validChar r = 
