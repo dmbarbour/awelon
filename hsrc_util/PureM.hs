@@ -20,11 +20,7 @@ instance (Applicative a) => Applicative (PureM a) where
 instance (Monad m) => Monad (PureM m) where
     return = Pure
     (>>=) (Pure a) f = f a
-    (>>=) (PureM op) f = PureM $ 
-        op >>= \ result ->
-        case f result of
-            (Pure b) -> return b
-            (PureM mb) -> mb
+    (>>=) (PureM op) f = PureM (op >>= runPureM . f)
 instance MonadTrans PureM where lift = PureM
 instance (MonadIO m) => MonadIO (PureM m) where liftIO = PureM . liftIO
 

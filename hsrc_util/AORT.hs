@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, ViewPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, ViewPatterns, CPP #-}
 
 -- | A runtime monad for the 'ao' and 'aoi' executables. At the top
 -- level, 'ao' and 'aoi' handle streaming ABC operations without any
@@ -29,8 +29,8 @@ module AORT
 
 import Control.Applicative
 import Control.Monad.IO.Class 
-import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class
 import Data.Typeable
 
 -- import System.IO.Unsafe (unsafeInterleaveIO)
@@ -49,11 +49,11 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
 import qualified Data.ByteString.Base64.URL as B64
 
-import PureM
-
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
+
+import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
