@@ -86,7 +86,7 @@
 
 @eachWhile.l [not.b] compose eachUntil.l
 @eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
-@step.eachUntil.l roll [nip3 inL] [cond.eachUntil.l] if
+@step.eachUntil.l roll [cond.eachUntil.l] [nip3 inR] if
 @cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2 inR] if_
 @action.eachUntil.l wx roll pw rot dip wx inline
 
@@ -157,8 +157,8 @@
 @zipRevRem.l empty.l unrot zipRevRemApp.l
 @zipRevRemApp.l [inner.zipRRA.l] apply3to3
 @inner.zipRRA.l [openB.zipRRA.l] fixpoint inline
-@openB.zipRRA.l unroll [inL roll drop] [openA.zipRRA.l] if
-@openA.zipRRA.l swap [inL swap inR roll drop] [jcons.zipRRA.l] if
+@openB.zipRRA.l unroll [openA.zipRRA.l] [inR roll drop] if
+@openA.zipRRA.l swap [jcons.zipRRA.l] [inR swap inL roll drop] if
 @jcons.zipRRA.l zip2 swapd cons.l swap wx roll inline
 
 @test.zip.l.truncateLeft  
@@ -192,7 +192,7 @@
 @doc.spanRevAppP "b0`L a`L [a--(a+b)] -- (b(rev)++b0)`L a`L"
 @spanRevP.l empty.l unrot spanRevAppP.l swap
 @spanRevAppP.l applyWrap [open.spanRAP.l] bind fixpoint apply2to2
-@open.spanRAP.l swap take2 [inL discard2] [part.spanRAP.l] if
+@open.spanRAP.l swap take2 [part.spanRAP.l] [inR discard2]  if
 @part.spanRAP.l x put .apply [cons.l discard] [consd.l put inline] if
 
 @test.span.l.cut
@@ -248,28 +248,20 @@
 
 @doc.nub.l "remove duplicate values from list"
 @nub.l [step.nub.l] fixpoint apply
-@step.nub.l swap [nip inL] [action.nub.l] if
+@step.nub.l swap [action.nub.l] [nip inR] if
 @action.nub.l x copy remove.l swap inline put cons.l
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
-@eqv.nub.l.idempotent [nub.l] [nub.l nub.l]
+@eqv.idempotent.nubList [nub.l] [nub.l nub.l]
 
 @doc.nubBy.l "a`L [eq(a a -- Bool)] -- a`L; value a, provide eq function"
 @nubBy.l [step.nubBy.l] bind fixpoint apply
-@step.nubBy.l rot [nip2 inL] [action.nubBy.l] if
+@step.nubBy.l rot [action.nubBy.l] [nip2 inR] if
 @action.nubBy.l x copy rot bind partitionBy.l drop swap inline put cons.l
 @test.nubBy.l "hello, world!" [eqb] nubBy.l "helo, wrd!" assertEQ1
 
-@doc.sort.l "sort a list of values"
-@sort.l [step.sort.l] fixpoint apply
-@step.sort.l swap [nip inL] [nonEmpty.sort.l] if
-@nonEmpty.sort.l x copy partitionElem.l rot bi& put cons.l append.l
-@test.sort.l "hello, World!" sort.l " !,Wdehllloor" assertEQ1
-@eqv.sort.idempotent.l [sort.l] [sort.l sort.l]
-@eqv.sort.nub.commutes.l [sort.l nub.l] [nub.l sort.l]
-
 @doc.sortBy.l "a`L [lt(a a -- Bool)]; sort list of values given a less-than function (a a -- Bool)"
 @sortBy.l [step.sortBy.l] bind fixpoint apply
-@step.sortBy.l rot [nip2 inL] [nonEmpty.sortBy.l] if
+@step.sortBy.l rot [nonEmpty.sortBy.l] [nip2 inR] if
 @nonEmpty.sortBy.l x copy rot bind partitionBy.l swap rot bi& put cons.l append.l
 @test.sortBy.l 
     "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertEQ
@@ -277,7 +269,7 @@
 
 @doc.sortByKey.l "(k*v)`L [lt(k k -- Bool)]; sort a list by keys"
 @sortByKey.l [step.sortByKey.l] bind fixpoint apply
-@step.sortByKey.l swap take2 [inL discard2] [nonEmpty.sortByKey.l] if
+@step.sortByKey.l swap take2 [nonEmpty.sortByKey.l] [inR discard2]  if
 @nonEmpty.sortByKey.l 
  x dupfst swapd put bind partitionByKey.l
  swap put bi& rot cons.l append.l
@@ -297,4 +289,11 @@
 @seal.lq sealer.lq .apply
 @unseal.lq unsealer.lq .apply
 @empty.lq 0 0 pw [] pw seal.lq
+
+@bench.docmanip1
+ doc.CompositionIsFirstPrinciple
+ nub.l [ltb] sortBy.l
+@bench.docmanip2
+ doc.CompositionIsFirstPrinciple
+ [ltb] sortBy.l nub.l 
 
