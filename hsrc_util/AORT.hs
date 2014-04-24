@@ -24,7 +24,7 @@ module AORT
     --  clients and one goal is equivalent behavior
     , newDefaultRuntime
     , newDefaultEnvironment
-    , newPowerBlock, aoStdEnv
+    , aoStdEnv
     ) where
 
 import Control.Applicative
@@ -44,10 +44,8 @@ import qualified Filesystem as FS
 import Data.Ratio
 import qualified Data.Sequence as S
 import qualified Data.Text as T
-import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
-import qualified Data.ByteString.Base64.URL as B64
 
 import ABC.Operators
 import ABC.Imperative.Value
@@ -72,7 +70,6 @@ newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
 data AORT_CX = AORT_CX
     { aort_anno   :: String -> Maybe (Prog AORT)
     , aort_power  :: String -> Maybe (Prog AORT)
-    , aort_secret :: String -- a random string
     } 
 
 -- | run an arbitrary AORT program.
@@ -87,16 +84,11 @@ readRT = AORT . lift . asks
 liftRT :: (AORT_CX -> IO a) -> AORT a
 liftRT = AORT . lift . ReaderT
 
-bytesToB64 :: ByteString -> String
-bytesToB64 = B.unpack . B64.encode
-
 -- | a new runtime with default settings
 newDefaultRuntime :: IO AORT_CX
 newDefaultRuntime = 
-    bytesToB64 <$> Entropy.getEntropy 12 >>= \ secret ->
     let cx = AORT_CX { aort_anno   = defaultAnno
                      , aort_power  = defaultPower
-                     , aort_secret = secret
                      }
     in return cx
 
@@ -140,16 +132,21 @@ aoStdEnv pb = (P U (P U (P (B pb) (P (P sn U) U))))
 
 -- | create a standard environment with a default powerblock
 newDefaultEnvironment :: AORT (V AORT)
-newDefaultEnvironment = aoStdEnv <$> newPowerBlock
+newDefaultEnvironment = pure (aoStdEnv aortPowerBlock)
 
--- | obtain a block representing access to default AORT powers.
-newPowerBlock :: AORT (Block AORT) 
-newPowerBlock = 
-    readRT aort_secret >>= \ s ->
-    let pbTok = '!':s in
-    return $  Block { b_code = S.singleton (Tok pbTok)
-                    , b_prog = invoke pbTok -- keeping it simple
-                    , b_aff = True, b_rel = True }
+-- For now, just using a fixed powers token. In case of open systems,
+-- it might be useful to use a randomized token... OTOH, it should be
+-- okay to translate tokens at the boundary (e.g. using HMACs on local
+-- tokens, and tagging/rewriting remote tokens as they arrive). I plan
+-- to try the rewrite-at-VM-boundaries method, first.
+powerTok :: String
+powerTok = "!"
+
+-- obtain a block representing access to default AORT powers.
+aortPowerBlock :: Block AORT
+aortPowerBlock = Block { b_code = S.singleton (Tok powerTok)
+                      , b_prog = invoke powerTok -- keeping it simple
+                      , b_aff = True, b_rel = True }
 
 
 -- Default powers use the command string, rather than the token.
@@ -190,16 +187,15 @@ aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
     let asBoolean = maybe (L U) (const (R U)) in
     asBoolean <$> liftIO (tryIO wOp)
 aoWriteFile v = fail $ "writeFile @ " ++ show v
-    
+
 tryIO :: IO a -> IO (Maybe a)
 tryIO op = Err.catchIOError (Just <$> op) (const (return Nothing))
 
 execPower :: V AORT -> AORT (V AORT)
 execPower (P (valToText -> Just cmd) arg) = 
     execCmd cmd arg >>= \ result ->
-    newPowerBlock >>= \ pb ->
-    return (P (B pb) result)
-execPower v = fail $ "power not recognized: " ++ show v
+    return (P (B aortPowerBlock) result)
+execPower v = fail $ "{!} expecting (command*arg) @ " ++ show v
 
 execAnno :: String -> Prog AORT
 execAnno s arg = 
@@ -217,16 +213,10 @@ execCmd cmd arg =
         Just op -> op arg
         Nothing -> fail $ "command not recognized: " ++ cmd
 
-execPowerTok :: String -> Prog AORT
-execPowerTok s arg =
-    readRT aort_secret >>= \ secret ->
-    if (s == secret) then execPower arg else
-    fail $ "token not recognized: {!" ++ s ++ "}"
-
 -- ... enough to get started for now ...
 instance Runtime AORT where
     invoke ('&':s) = execAnno s
-    invoke ('!':s) = execPowerTok s
+    invoke s | (s == powerTok) = execPower
     invoke s = invokeFails s
 
 
