@@ -203,7 +203,8 @@ runTestAsync code =
 
 -- standard environment with given powerblock.
 stdEnv :: (Monad m) => V m -> V m
-stdEnv pb = (P U (P U (P pb (P (P (N 3) U) U))))
+stdEnv pb = (P U (P U (P pb (P (P sn U) U)))) where
+    sn = textToVal T.empty
            -- stack hand power     sn   ns ex
 
 addErrMsg :: IORef TestState -> Text -> IO ()
