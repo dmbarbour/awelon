@@ -55,7 +55,7 @@ A block contains a finite sequence of ABC code, and may be understood as a first
 
 Numbers use operator `# :: e → (N(0)*e)` to introduce a new zero, then each digit `0-9` has meaning of the form `3 :: N(x)*e → N(10x+3)*e`. Thus, numbers aren't literals, but natural numbers such as `#123` are close enough for legibility. Rational numbers are produced through operations on natural numbers, e.g. `#2#3/*` is two thirds.
 
-Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. 
+Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. A list has fixpoint type `µL.((element*L)+1)`. 
 
 *NOTE:* ABC has no support for binary literals, but text can encode LZHAM compressed base-64 with reasonable efficiency.
 
@@ -165,7 +165,7 @@ If anything other than space or `~` follows LF, the ABC stream is in error. Ther
         "Text
         ~
 
-Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a static list of small integers (range 0..1114111, from UTF-8). The standard model for a list is: `µL.(1+(a*L))`.
+Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a static list of small integers (range 0..1114111, from UTF-8). The standard model for a list is: `µL.((element*L)+1)`.
 
 *NOTE:* ABC's representation of text is simplistic. Real text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
 
@@ -204,7 +204,7 @@ A sum type, `(a + b)`, represents that we're either right with `b` or left with 
         > :: N(x) * (N(y) * e) → ((N(y)*N(x))+(N(x)*N(y)) * e -- y > x
             #4 #2 > -- observes 4 > 2. Returns (N(2)*N(4)) on right.
 
-Technically, `>` is the only observer operator built into ABC. However, it is assumed that invocation of capabilities will often result in sum type observations, e.g. indicating failure vs. success. Sums are also used to model algebraic data structures, e.g. a list can be modeled with `µL.(1+(a*L))`.
+Technically, `>` is the only observer operator built into ABC. However, it is assumed that invocation of capabilities will often result in sum type observations, e.g. indicating failure vs. success. Sums are also used to model algebraic data structures, e.g. a list can be modeled with `µL.((element*L)+1)`.
 
 Sum types have their own set of data shuffling operators:
 
