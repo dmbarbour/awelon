@@ -1,15 +1,11 @@
 boolean
 
 @doc.ConditionalBehavior
-"Awelon expresses conditional behavior using sum types. 
+"Awelon expresses conditional behavior using sum types. A sum type, `(a + b)`, indicates a value that is either left in `a` or right in `b`. A boolean, having exactly two values, can be modeled as `(1 + 1)` where 1 is the unit type (having exactly one value). Though, for various reasons, Awelon does not encourage use of booleans. Many useful data structures are also modeled with sums, e.g. a list is modeled with type `µL.((a*L)+1)`, or an optional value with `(a+1)`.
  
- A sum type, `(a + b)`, indicates a value that is either left in `a` or right in `b`. A boolean, having exactly two values, can be modeled as `(1 + 1)` where 1 is the unit type (having one value). ABC does not encourage use of booleans. For example, the output of comparing two values will initially contain the compared values, such that no information is lost. 
+ Sum types can be computed by comparing numbers (via ABC operator `>`) or building more sophisticated observations above this primitive. Sums may also be returned from effectful observations or actions. By convention, the 'right' side of a sum is often punned with 'true', 'success', or 'complete' depending on the context. That is just a mnemonic, though; the formal semantics of sums is purely structural.
  
- In AO, a sum type is the result of an *observation*. For primitive observations, one may ask whether a value (other than unit) is a pair, sum, number, or block. Numbers and complex products or sums of numbers may also be compared, e.g. to test whether one number is greater than another. Unit may only be compared against unit. (The limitations against observing unit help developers model static structure.)
- 
- By convention, when observing a binary condition `(a + b)`, the right answer `b` indicates truth or success. The left answer `a` indicates falsehood or failure. Standard words are developed using this convention. AO's variation of the 'not' word simply mirrors left and right, i.e. `not :: (a + b) -- (b + a)`.
- 
- Conditional behavior is expressed by applying a block on just one condition. The block must be droppable (because it might not apply). Compared to most languages, ABC is unusually precise regarding distribution of data across a condition. However, coarse-grained if/then/else or Haskell-like 'either' idioms may be expressed.
+ Conditional behavior is expressed by applying a block to just the left or right side of a sum (via ABC operator `?`). The block may be affine (no copy), but must not be relevant (no drop). In addition, values may be explicitly distributed into a sum, or extracted from it. Conventional if/then/else behavior is modeled by distributing two programs then conditionally extracting one of them.
 ~
 
 @not      %rVRWLCl
