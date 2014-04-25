@@ -21,6 +21,7 @@ instance (Monad m) => Monad (PureM m) where
     return = Pure
     (>>=) (Pure a) f = f a
     (>>=) (PureM op) f = PureM (op >>= runPureM . f)
+    fail = PureM . fail
 instance MonadTrans PureM where lift = PureM
 instance (MonadIO m) => MonadIO (PureM m) where liftIO = PureM . liftIO
 
