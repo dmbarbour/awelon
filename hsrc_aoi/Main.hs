@@ -134,7 +134,7 @@ queryLoop = loop True where
         lift (gets aoi_rtval) >>= \ v ->
         HKL.outputStrLn ('\n' : showEnv v [])
     query = 
-        HKL.getInputLine "                    ao: " >>= \ ln ->
+        HKL.getInputLine "                        " >>= \ ln ->
         case fmap trimSP ln of
             Nothing -> return False -- done with loop
             Just [] -> query -- skip blank lines
@@ -228,10 +228,17 @@ aoiCompletion = quotedFiles prefixedWords where
         gets (readAODict . aoi_dict) >>= \ d ->
         return (dictCompletions d s)
 
+-- special commands
+allCmds :: [String]
+allCmds = ["@undo","@reload"]
+
 dictCompletions :: M.Map Word val -> String -> [HKL.Completion]
-dictCompletions _ [] = []
-dictCompletions _ (_:[]) = []
+dictCompletions _ [] = [] -- empty input
+dictCompletions _ (_:[]) = [] -- wait for at least two characters
+dictCompletions _ cmd@('@':_) = -- special commands
+    let matched = L.filter (cmd `L.isPrefixOf`) allCmds in
+    fmap HKL.simpleCompletion matched
 dictCompletions dc str = 
     let ws = fmap T.unpack $ M.keys dc in
     let wsP = L.filter (str `L.isPrefixOf`) ws in
-    L.map HKL.simpleCompletion wsP
+    fmap HKL.simpleCompletion wsP
