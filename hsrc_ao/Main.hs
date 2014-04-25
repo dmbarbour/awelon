@@ -29,7 +29,7 @@ import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
 import AO.Dict
 import AO.Code
-import AO.AOFile (loadAODict)
+import AO.AOFile
 import AO.Parser
 import AO.Compile
 import AORT
@@ -54,7 +54,10 @@ helpMsg =
     \    ao test               run all `test.` words in test environment \n\
     \    ao type               attempt to detect type errors \n\
     \    \n\
-    \    ao list pattern       words matching simple patterns (e.g. test.*) \n\
+    \    ao list pattern       list words matching pattern (e.g. test.*) \n\
+    \    ao uses word          find all uses of a given word \n\
+    \    ao defs word          find all definitions for a word \n\
+    \    ao def  word          print full accepted definition of word \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \The input stream is stdin and is processed one paragraph at a time. \n\
@@ -80,6 +83,9 @@ runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["list",ptrn]    = listWords ptrn
+runMode ["uses",word]    = listUses word
+runMode ["defs",word]    = listDefs word
+runMode ["def",word]     = printDef word
 runMode ["test"]         = runAOTests
 runMode ["type"]         = runAOType
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
@@ -198,6 +204,58 @@ listWords pattern =
     (fmap T.unpack . M.keys . readAODict) <$> getDict >>= \ allWords ->
     let matchingWords = L.filter (matchStr pattern) allWords in
     mapM_ Sys.putStrLn matchingWords
+
+getDictFiles :: IO [AOFile]
+getDictFiles = getAO_DICT >>= \ root -> loadAOFiles root putErrLn
+
+-- find all uses of a given word (modulo entries that fail to compile)
+listUses :: String -> IO ()
+listUses word = getDictFiles >>= mapM_ (fileUses (T.pack word))
+
+fileUses :: Word -> AOFile -> IO ()
+fileUses w file = 
+    let defs = L.filter (codeUsesWord w . fst . snd) (aof_defs file) in
+    if null defs then return () else
+    Sys.putStrLn (show (aof_path file)) >>
+    mapM_ (Sys.putStrLn . ("  " ++) . defSummary) defs
+
+codeUsesWord :: Word -> AO_Code -> Bool
+codeUsesWord = L.any . actionUsesWord
+
+actionUsesWord :: Word -> AO_Action -> Bool
+actionUsesWord w (AO_Word w') = (w == w')
+actionUsesWord w (AO_Block code) = codeUsesWord w code
+actionUsesWord _ _ = False
+
+defSummary :: AODef Int -> String
+defSummary (defWord,(code,line)) = showsSummary [] where
+    showsSummary = 
+        shows line . showChar ' ' . showChar '@' .
+        showsCode (AO_Word defWord : code)
+    showsCode = shows . fmap cutBigText
+    cutBigText (AO_Text txt) | isBigText txt = AO_Word (T.pack "(TEXT)")
+    cutBigText (AO_Block ops) = AO_Block (fmap cutBigText ops)
+    cutBigText op = op
+    isBigText txt = (L.length txt > 14) || (L.any isMC txt)
+    isMC c = ('"' == c) || ('\n' == c)
+
+
+listDefs :: String -> IO ()
+listDefs word = getDictFiles >>= mapM_ (fileDefines (T.pack word))
+
+fileDefines :: Word -> AOFile -> IO ()
+fileDefines w file = 
+    let defs = L.filter ((== w) . fst) (aof_defs file) in
+    if null defs then return () else
+    Sys.putStrLn (show (aof_path file)) >>
+    mapM_ (Sys.putStrLn . ("  " ++) . defSummary) defs
+
+printDef :: String -> IO ()
+printDef word =
+    getDict >>= \ d ->
+    case M.lookup (T.pack word) (readAODict d) of
+        Nothing -> putErrLn "undefined" >> Sys.exitFailure
+        Just (def,_) -> Sys.putStrLn (show def) 
 
 runAOTests :: IO ()
 runAOTests = getDict >>= \ d -> mapM_ (runTest d) (testWords d) 
