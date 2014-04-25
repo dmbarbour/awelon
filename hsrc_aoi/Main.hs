@@ -31,6 +31,7 @@ import AO.Code
 import AO.Parser
 import AO.Compile
 import ABC.Operators
+import ABC.Simplify
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
 
@@ -166,7 +167,7 @@ aoiRunABC :: [Op] -> HKL ()
 aoiRunABC abc =
     lift (gets aoi_rtval) >>= \ v ->
     lift (gets aoi_rtcx) >>= \ rt ->
-    let runProg = runRT rt $ interpret abc v in
+    let runProg = runRT rt $ interpret (simplify abc) v in
     liftIO (tryIO runProg) >>= \ evf ->
     case evf of
         Left  e  -> HKL.outputStrLn (show e)
