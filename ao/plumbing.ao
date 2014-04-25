@@ -25,10 +25,10 @@
 @tuck swap over
 @pick %rw over %wl swap
 @drop %r%
-@nip swap drop
-@nip2 nip nip
-@nip3 nip nip nip
-@nip4 nip nip nip nip
+@nip  %rw drop  %wl
+@nip2 %rw drop2 %wl
+@nip3 %rw drop3 %wl
+@nip4 %rw drop4 %wl
 @dropd swap drop
 @swap  %rwrwzwlwl
 @swapd %rw swap %wl
