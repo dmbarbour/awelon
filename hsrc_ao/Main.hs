@@ -55,8 +55,8 @@ helpMsg =
     \    ao type               attempt to detect type errors \n\
     \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
-    \    ao uses word          find all uses of a given word \n\
-    \    ao defs word          find all definitions for a word \n\
+    \    ao defs pattern       find definitions of words matching pattern \n\
+    \    ao uses pattern       find uses of words matching pattern \n\
     \    ao def  word          print full accepted definition of word \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
@@ -83,8 +83,8 @@ runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["list",ptrn]    = listWords ptrn
-runMode ["uses",word]    = listUses word
-runMode ["defs",word]    = listDefs word
+runMode ["uses",ptrn]    = listUses ptrn
+runMode ["defs",ptrn]    = listDefs ptrn
 runMode ["def",word]     = printDef word
 runMode ["test"]         = runAOTests
 runMode ["type"]         = runAOType
@@ -209,22 +209,22 @@ getDictFiles :: IO [AOFile]
 getDictFiles = getAO_DICT >>= \ root -> loadAOFiles root putErrLn
 
 -- find all uses of a given word (modulo entries that fail to compile)
-listUses :: String -> IO ()
-listUses word = getDictFiles >>= mapM_ (fileUses (T.pack word))
+listUses :: Pattern -> IO ()
+listUses ptrn = getDictFiles >>= mapM_ (fileUses ptrn)
 
-fileUses :: Word -> AOFile -> IO ()
-fileUses w file = 
-    let defs = L.filter (codeUsesWord w . fst . snd) (aof_defs file) in
+fileUses :: Pattern -> AOFile -> IO ()
+fileUses p file = 
+    let defs = L.filter (codeUsesWord p . fst . snd) (aof_defs file) in
     if null defs then return () else
     Sys.putStrLn (show (aof_path file)) >>
     mapM_ (Sys.putStrLn . ("  " ++) . defSummary) defs
 
-codeUsesWord :: Word -> AO_Code -> Bool
+codeUsesWord :: Pattern -> AO_Code -> Bool
 codeUsesWord = L.any . actionUsesWord
 
-actionUsesWord :: Word -> AO_Action -> Bool
-actionUsesWord w (AO_Word w') = (w == w')
-actionUsesWord w (AO_Block code) = codeUsesWord w code
+actionUsesWord :: Pattern -> AO_Action -> Bool
+actionUsesWord p (AO_Word w) = (matchStr p (T.unpack w))
+actionUsesWord p (AO_Block code) = codeUsesWord p code
 actionUsesWord _ _ = False
 
 defSummary :: AODef Int -> String
@@ -240,12 +240,12 @@ defSummary (defWord,(code,line)) = showsSummary [] where
     isMC c = ('"' == c) || ('\n' == c)
 
 
-listDefs :: String -> IO ()
-listDefs word = getDictFiles >>= mapM_ (fileDefines (T.pack word))
+listDefs :: Pattern -> IO ()
+listDefs ptrn = getDictFiles >>= mapM_ (fileDefines ptrn)
 
-fileDefines :: Word -> AOFile -> IO ()
-fileDefines w file = 
-    let defs = L.filter ((== w) . fst) (aof_defs file) in
+fileDefines :: Pattern -> AOFile -> IO ()
+fileDefines p file = 
+    let defs = L.filter (matchStr p . T.unpack . fst) (aof_defs file) in
     if null defs then return () else
     Sys.putStrLn (show (aof_path file)) >>
     mapM_ (Sys.putStrLn . ("  " ++) . defSummary) defs
