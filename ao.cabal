@@ -97,6 +97,8 @@ Library
     ABC.Imperative.Runtime
     ABC.Imperative.Prelude
 
+    ABC.Imperative.JIT
+
     AO.Code
     AO.Parser
     AO.Dict
