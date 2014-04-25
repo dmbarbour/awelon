@@ -25,8 +25,8 @@
 @cons.l p inL
 @consd.l swapd cons.l swap
 
-@assertEmpty.l mirror assert inL
-@assertNonEmpty.l assert inR
+@assertEmpty.l assert inR
+@assertNonEmpty.l mirror assert inL
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
