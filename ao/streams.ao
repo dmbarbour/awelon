@@ -1,0 +1,14 @@
+
+@doc.Streams
+"A stream is an incremental, linear source of values. A stream can be processed one step at a time, and will remain incremental when composed. Compared to lists, streams are suitable for many common processing tasks. There are many potential models for a stream, e.g. depending on desired characteristics. A simple, discrete model of streams: 
+ 
+     [1 → ( (a  * a`SS) + 1   )]
+             val  next    done 
+ 
+ This model of streams will return one value at each unit time step until finished. It is sufficient for many purposes, easy to understand, and relatively minimal. In this AO dictionary, words with the '.ss' suffix will generally relate to this model of streams.
+~
+
+@doc.suffix.ss doc.Streams
+
+
+

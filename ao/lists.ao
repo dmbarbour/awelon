@@ -1,21 +1,23 @@
 @doc.Lists
-"Lists in AO are modeled using a recursive type: 
+"Lists in Awelon project languages are modeled using a recursive type: 
  
      λa.µL.((a*L)+1)       shorthand: a`L
  
- Of course, AO and ABC don't have direct support for type annotations. (Indirect support is feasible, in a similar sense as `doc.` words supporting documentation.) A list structure is, instead, implicitly encoded in the operations over lists. Lists in ABC are always finite, and are often strictly evaluated. Processing lists generally requires fixpoint functions (see @doc.Loops), though a large vocabulary of list processing words can cover most use cases so users don't need to deal with fixpoints directly.
+ Awelon will eventually support some form of typeful descriptions, e.g. in a manner similar to 'test.' and 'doc.' words. Meanwhile, a list type is implied and inferred, encoded in the operations over lists. 
  
- Lists are simplistic data structures. Their extreme simplicity leads to awkwardness and complexity for many use-cases: 
+ Lists are simplistic and awkward data structures:
  
  * access to middle or end of a large list is expensive
  * very large lists can be expensive to hold in memory
  * iterative operations on a list tend to reverse the list
  * direct list processing is not incremental or compositional
  
- Developers are encouraged to use alternative data structures - sequences, streams, functions, etc. - rather than struggle with lists in cases where they're awkward. Text in AO or ABC is essentially shorthand for a list of small numbers (0-1114111, the unicode characters and codepoints). In many cases - e.g. if a text represents a program in a DSL - it is useful to process the text immediately into an alternative structure, such that it can be computed by compile-time partial evaluation. The primary advantage of lists is they have a strong normal form, suitable for structural comparisons.
+ The primary feature of lists is they have a simple normal form. Also, text literals in AO or ABC are shorthand for a list of small integers, in the range 0 to 1114111, corresponding to Unicode code points. List processing is common for at least that reason. 
+ 
+ Rather than directly process a list, an often better approach is to translate the list into another structure - e.g. a stream or sequence - process it, then (if necessary) translate it back. 
 ~
 
-@doc.empty.l "empty list (has same structure as 'false')"
+@doc.empty.l "empty list (has same structure as 'true')"
 @empty.l intro1 inR
 
 @doc.cons.l "a`L a -- a`L; add element to list"
@@ -61,24 +63,24 @@
 @test.each.l 0 "World" [.add] fold.l 520 assertEQ1
 @test.reverse.l 
  "hello, World!" reverse.l 
- "!dlroW ,olleh" assertEQ1
+ "!dlroW ,olleh" assertTextEQ1
 @test.append.l
  "hello, "  "World!" append.l
- "hello, World!" assertEQ1
+ "hello, World!" assertTextEQ1
 @test.reverseAppend.l
  " World!" ",olleh" reverseAppend.l
- "hello, World!" assertEQ1
+ "hello, World!" assertTextEQ1
 @test.map.l 
  "hello" [4 .add] mapP.l 
- "lipps" assertEQ1
+ "lipps" assertTextEQ1
 @test.scan.l
  0 "hello" [dup rot .add swap 4 .add] scan.l
- "lipps" assertEQ1 swap
+ "lipps" assertTextEQ1 swap
  532 assertEQ1 swap
 @test.length.l
  "hello" length.l 
- "hello" assertEQ1d
- 5 assertEQ1
+ 5 assertEQ1 swap
+ "hello" assertTextEQ1 swap
 @id.reverse.l reverse.l reverse.l
 @eqv.dropReverse.l [drop] [reverse.l drop]
 @id.append.l.empty empty.l append.l
@@ -87,18 +89,18 @@
 @eachWhile.l [not.b] compose eachUntil.l
 @eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
 @step.eachUntil.l roll [cond.eachUntil.l] [nip3 inR] if
-@cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2 inR] if_
+@cond.eachUntil.l swap dip3 roll [action.eachUntil.l] [nip2 inL] if_
 @action.eachUntil.l wx roll pw rot dip wx inline
 
 @test.eachUntil.l.haltOnCond
  0 "hello, world!"
  [.add] [dup 600 gtb] eachUntil.l
- "world!" assertEQ1 swap
+ "world!" assertTextEQ1 swap
  608 assertEQ1
 @test.eachUntil.l.haltOnLength
  0 "hello, world!"
  [.add] [dup 1200 gtb] eachUntil.l
- empty.l assertEQ1 swap
+ empty.l assertTextEQ1 swap
  1193 assertEQ1 swap
 
 @doc.eqv.mapTwice.compMap
@@ -119,10 +121,10 @@
 @take.l split.l dropd
 @drop.l split.l drop
 @copy.l splitReverse.l copy reverseAppend.l put reverse.l
-@test.take.l "hello world!" 5 take.l "hello" assertEQ1
-@test.drop.l "hello world!" 6 drop.l "world!" assertEQ1
-@test.copy.l "hello world!" 5 copy.l "hello" assertEQ1 
- swap "hello world!" assertEQ1 swap
+@test.take.l "hello world!" 5 take.l "hello" assertTextEQ1
+@test.drop.l "hello world!" 6 drop.l "world!" assertTextEQ1
+@test.copy.l "hello world!" 5 copy.l "hello" assertTextEQ1 
+ swap "hello world!" assertTextEQ1 swap
 
 @split.l splitReverse.l reverse.l
 @splitReverse.l splitReverseN.l drop
@@ -146,8 +148,8 @@
   98 101 pw cons.l
   97 100 pw cons.l
   unzip.l
-  "def" assertEQ1 swap
-  "abc" assertEQ1 swap
+  "def" assertTextEQ1 swap
+  "abc" assertTextEQ1 swap
 
 
 @doc.zip.l "a`L b`L -- (a*b)`L; will truncate if one list is smaller than the other"
@@ -164,18 +166,18 @@
 @test.zip.l.truncateLeft  
   "abcdef" "ghi" zip.l 
   unzip.l 
-  "ghi" assertEQ1 swap 
-  "abc" assertEQ1 swap
+  "ghi" assertTextEQ1 swap 
+  "abc" assertTextEQ1 swap
 @test.zip.l.truncateRight 
   "abcdef" "ghijklmno" zip.l 
   unzip.l 
-  "ghijkl" assertEQ1 swap 
-  "abcdef" assertEQ1 swap
+  "ghijkl" assertTextEQ1 swap 
+  "abcdef" assertTextEQ1 swap
 @test.zip.l.eqSize 
   "abcdef" "ghijkl" zip.l
   unzip.l
-  "ghijkl" assertEQ1 swap
-  "abcdef" assertEQ1 swap
+  "ghijkl" assertTextEQ1 swap
+  "abcdef" assertTextEQ1 swap
 @id.unzip.zip.l unzip.l zip.l
 @id.zipRem.unzip.l zipRem.l rot unzip.l swapd appendl.l unrot appendl.l swap
 
@@ -197,16 +199,16 @@
 
 @test.span.l.cut
  "hello, world!" [32 neqb] span.l
- " world!" assertEQ1d
- "hello,"  assertEQ1
+ " world!" assertTextEQ1d
+ "hello,"  assertTextEQ1
 @test.span.l.full
  "hello, world!" [drop true.b] span.l
- empty.l assertEQ1d
- "hello, world!" assertEQ1
+ empty.l assertTextEQ1d
+ "hello, world!" assertTextEQ1
 @test.span.l.empty
  "hello, world!" [drop false.b] span.l
- "hello, world!" assertEQ1d
- empty.l assertEQ1
+ "hello, world!" assertTextEQ1d
+ empty.l assertTextEQ1
 
 @doc.Lists.todo
 "* compare length up to a given number (length up to N, returning (N+n(<N))?
@@ -235,7 +237,7 @@
 @test.partition.l 
  "hello, World!" [106 gt1] 
  partitionWith.l
- "lloorl" assertEQ1
+ "lloorl" assertTextEQ1
 
 @doc.filterBy.l "a`L [a--Bool] -- a`L; Copyable&Droppable a"
 @doc.filterWith.l "a`L [a--(b+c)] -- c`L; Droppable b"
@@ -244,28 +246,28 @@
 
 @doc.remove.l "a`L a -- a`L; removes values equal by simple comparison"
 @remove.l [neq1m] bind filterWith.l
-@test.remove.l "hello world" 108 remove.l "heo word" assertEQ 
+@test.remove.l "hello world" 108 remove.l "heo word" assertTextEQ1
 
 @doc.nub.l "remove duplicate values from list"
 @nub.l [step.nub.l] fixpoint apply
 @step.nub.l swap [action.nub.l] [nip inR] if
 @action.nub.l x copy remove.l swap inline put cons.l
-@test.nub.l "hello, world!" nub.l "helo, wrd!" assertEQ1
+@test.nub.l "hello, world!" nub.l "helo, wrd!" assertTextEQ1
 @eqv.idempotent.nubList [nub.l] [nub.l nub.l]
 
 @doc.nubBy.l "a`L [eq(a a -- Bool)] -- a`L; value a, provide eq function"
 @nubBy.l [step.nubBy.l] bind fixpoint apply
 @step.nubBy.l rot [action.nubBy.l] [nip2 inR] if
 @action.nubBy.l x copy rot bind partitionBy.l drop swap inline put cons.l
-@test.nubBy.l "hello, world!" [eqb] nubBy.l "helo, wrd!" assertEQ1
+@test.nubBy.l "hello, world!" [eqb] nubBy.l "helo, wrd!" assertTextEQ1
 
 @doc.sortBy.l "a`L [lt(a a -- Bool)]; sort list of values given a less-than function (a a -- Bool)"
 @sortBy.l [step.sortBy.l] bind fixpoint apply
 @step.sortBy.l rot [nonEmpty.sortBy.l] [nip2 inR] if
 @nonEmpty.sortBy.l x copy rot bind partitionBy.l swap rot bi& put cons.l append.l
 @test.sortBy.l 
-    "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertEQ
-    dup reverse.l swap [gtb] sortBy.l assertEQ1
+    "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertTextEQ1
+    dup reverse.l swap [gtb] sortBy.l assertTextEQ1
 
 @doc.sortByKey.l "(k*v)`L [lt(k k -- Bool)]; sort a list by keys"
 @sortByKey.l [step.sortByKey.l] bind fixpoint apply
@@ -277,8 +279,8 @@
 @test.sortByKey.l
    "acebdf" "gikhjl"  zip.l
    [ltb] sortByKey.l unzip.l
-   "abcdef" assertEQ1d
-   "ghijkl" assertEQ1
+   "abcdef" assertTextEQ1d
+   "ghijkl" assertTextEQ1
 
 @doc.ListQueue 
 "Model a simple, queue object with a pair of lists.
@@ -296,4 +298,19 @@
 @bench.docmanip2
  doc.CompositionIsFirstPrinciple
  [ltb] sortBy.l nub.l 
+
+
+@test.textIsList 
+ "42" 
+ empty.l 50 cons.l 52 cons.l
+ assertTextEQ1
+@id.textDrop "presumably any text" drop
+
+@doc.assertTextEQ1 "text text -- text; assert two texts are equal"
+@assertTextEQ1
+ over zipRem.l 
+ assert elim1 
+ assert elim1
+ [wx assertEQ1 drop] each.l
+@assertTextEQ1d swapd assertTextEQ1 swap
 
