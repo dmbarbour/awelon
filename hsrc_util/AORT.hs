@@ -158,10 +158,12 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("getOSEnv", getOSEnv)
     ,("readFile", aoReadFile)
     ,("writeFile", aoWriteFile)
+    ,("newTryCap", newTryCap)
     ]
 
 getRandomBytes :: (MonadIO m, Applicative m) => V m -> m (V m)
 getOSEnv, aoReadFile, aoWriteFile :: (MonadIO m, Applicative m) => V m -> m (V m)
+newTryCap :: V AORT -> AORT (V AORT)
 
 getRandomBytes (N r) | ((r >= 0) && (1 == denominator r)) =
     let nBytes = fromInteger $ numerator r in
@@ -187,6 +189,29 @@ aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
     let asBoolean = maybe (L U) (const (R U)) in
     asBoolean <$> liftIO (tryIO wOp)
 aoWriteFile v = fail $ "writeFile @ " ++ show v
+
+-- try a subprogram, but allow returning with failure
+--   1 → [(Block * Arg) → ((ErrorMsg*Arg) + Result)]
+-- this is protected as a capability in AO (for many reasons)
+newTryCap U = return (B b) where
+    b = Block { b_aff = False, b_rel = False
+              , b_code = S.singleton (Tok tryTok)
+              , b_prog = invoke tryTok }
+newTryCap v = fail $ "newTryCap @ " ++ show v
+
+-- for now, let's just do a simple implementation...
+tryTok :: String
+tryTok = "try"
+
+tryAORT :: V AORT -> AORT (V AORT)
+tryAORT (P (B b) a) = 
+    liftRT pure >>= \ cx ->
+    let op = Err.tryIOError $ runRT cx $ b_prog b a in
+    liftIO op >>= \ eb ->
+    case eb of
+        Right v -> return $  R v
+        Left e -> return $ L (P (textToVal (show e)) a)
+tryAORT v = fail $ "{try} @ " ++ show v
 
 tryIO :: IO a -> IO (Maybe a)
 tryIO op = Err.catchIOError (Just <$> op) (const (return Nothing))
@@ -217,6 +242,7 @@ execCmd cmd arg =
 instance Runtime AORT where
     invoke ('&':s) = execAnno s
     invoke s | (s == powerTok) = execPower
+    invoke s | (s == tryTok) = tryAORT
     invoke s = invokeFails s
 
 
