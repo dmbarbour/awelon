@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.15
+Version: 0.16
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -33,7 +33,7 @@ License: BSD3
 license-file: LICENSE.txt
 Stability: experimental
 build-type: Simple
-cabal-version: >= 1.18
+cabal-version: >= 1.16
 
 Source-repository head
   type: git
@@ -95,8 +95,8 @@ Library
     ABC.Imperative.Operations
     ABC.Imperative.Interpreter
     ABC.Imperative.Runtime
-    ABC.Imperative.Prelude
 
+    ABC.Imperative.ABC2HS
     ABC.Imperative.JIT
 
     AO.Code

@@ -27,6 +27,7 @@ import ABC.Simplify (simplify)
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
+import qualified ABC.Imperative.ABC2HS as ABC2HS
 import AO.Dict
 import AO.Code
 import AO.AOFile
@@ -41,6 +42,8 @@ helpMsg =
     \\n\
     \    ao help               print this message \n\
     \    \n\
+    \    ao test               run all `test.` words in test environment \n\
+    \    \n\
     \    ao abc command        dump simplified ABC for AO command \n\
     \    ao abc.raw command    dump raw ABC for AO command \n\
     \    ao exec command       execute AO command \n\
@@ -51,8 +54,8 @@ helpMsg =
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
-    \    ao test               run all `test.` words in test environment \n\
-    \    ao type               attempt to detect type errors \n\
+    \    ao ao2hs command      print haskell code used by imperative JIT \n\
+    \    ao ao2hs.i            print haskell imports for imperative JIT \n\
     \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
     \    ao defs pattern       find definitions of words matching pattern \n\
@@ -66,6 +69,7 @@ helpMsg =
     \    AO_PATH: where to search for '.ao' files \n\
     \    AO_DICT: root dictionary text; default \"ao\" \n\
     \"
+-- todo: typechecking! 
 -- when persistence is working, perhaps add an AO_HOME or similar.
 
 main :: IO ()
@@ -82,12 +86,13 @@ runMode ["abc.s"]        = stdCmdS >>= dumpABC simplify
 runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
+runMode ["ao2hs",cmd]    = printImperativeJIT cmd
+runMode ["ao2hs.i"]      = printImperativeImports
 runMode ["list",ptrn]    = listWords ptrn
 runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
 runMode ["def",word]     = printDef word
 runMode ["test"]         = runAOTests
-runMode ["type"]         = runAOType
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
     eMsg = "arguments not recognized; try `ao help`"
 
@@ -312,9 +317,6 @@ newTestPB d fwarn = return b where
     runCmd "error" (valToText -> Just msg) = fwarn msg >> fail "error command"
     runCmd s v = fail $ "unrecognized command: " ++ s ++ " with arg " ++ show v
 
-runAOType :: IO ()
-runAOType = fail "typechecking currently disabled"
-
 try :: IO a -> IO (Either Err.SomeException a)
 try = Err.try -- type forced
 
@@ -322,6 +324,15 @@ tryJust :: IO a -> IO (Maybe a)
 tryJust op = either (const Nothing) (Just) <$> try op
 
 
+printImperativeImports :: IO ()
+printImperativeImports = mapM_ Sys.putStrLn ABC2HS.abc2hs_imports
+
+printImperativeJIT :: String -> IO ()
+printImperativeJIT aoStr =
+    getDict >>= \ d -> 
+    case compileAOString d aoStr >>= ABC2HS.abc2hs . simplify of
+        Left err -> putErrLn err >> Sys.exitFailure
+        Right hsCode -> Sys.putStrLn hsCode 
 
 {-
 
