@@ -32,7 +32,7 @@ import AO.Code
 import AO.AOFile
 import AO.Parser
 import AO.Compile
-import qualified ABC2HS
+import JIT
 import AORT
 
 helpMsg :: String
@@ -54,8 +54,7 @@ helpMsg =
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
-    \    ao ao2hs command      print haskell code used by imperative JIT \n\
-    \    ao ao2hs.i            print haskell imports for imperative JIT \n\
+    \    ao ao2hs command      print haskell code for imperative JIT \n\
     \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
     \    ao defs pattern       find definitions of words matching pattern \n\
@@ -87,7 +86,6 @@ runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["ao2hs",cmd]    = printImperativeJIT cmd
-runMode ["ao2hs.i"]      = printImperativeImports
 runMode ["list",ptrn]    = listWords ptrn
 runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
@@ -300,8 +298,6 @@ reportTest w ws (Left err) =
 reportWarning :: Warning -> IO ()
 reportWarning = Sys.putStrLn . indent "  "
 
-indent :: String -> String -> String
-indent ws = L.unlines . map (ws ++) . L.lines 
 
 -- test powerblock is linear, and is not serialized at the moment
 newTestPB :: AODict md -> (Warning -> AORT ()) -> AORT (Block AORT)
@@ -324,16 +320,34 @@ tryJust :: IO a -> IO (Maybe a)
 tryJust op = either (const Nothing) (Just) <$> try op
 
 
-printImperativeImports :: IO ()
-printImperativeImports = mapM_ Sys.putStrLn ABC2HS.abc2hs_imports
-
+-- for now, I just emit code. I might later need to emit a context
+-- that is held by the runtime and recovered dynamically.
 printImperativeJIT :: String -> IO ()
 printImperativeJIT aoStr =
     getDict >>= \ d -> 
-    case compileAOString d aoStr >>= ABC2HS.abc2hs . simplify of
+    case compileAOString d aoStr >>= abc2hs of
         Left err -> putErrLn err >> Sys.exitFailure
-        Right hsCode -> Sys.putStrLn hsCode 
+        Right hsCode -> 
+            let msg = showImports abc2hs_imports .
+                      showResource hsCode
+            in Sys.putStrLn (msg "\n")
 
+showImports :: [String] -> ShowS
+showImports [] = showChar '\n'
+showImports (x:xs) = showString "import " . showString x . 
+                     showChar '\n' . showImports xs
+
+showResource :: String -> ShowS
+showResource hsCode = 
+    showString "resource = " . 
+    showString (indent "    " hsCode)
+
+indent, indent' :: String -> String -> String
+indent ws ss = ws ++ indent' ws ss 
+indent' ws ('\n':ss) = '\n' : indent ws ss
+indent' ws (c:ss) = c : indent' ws ss
+indent' _ [] = []
+            
 {-
 
 --------------------------------------
