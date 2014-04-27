@@ -19,8 +19,11 @@ module ABC.Imperative.Operations
     , n0                -- #
     , d0,d1,d2,d3,d4    -- 0 1 2 3 4
     , d5,d6,d7,d8,d9    -- 5 6 7 8 9
+
     , bl, tl, tok       -- BL, TL, Tok
+
     , apc               -- $c
+    , sL',sR',sW',sZ',sV',sC' -- (sum ops apart from pairs)
     
     , (>=>)
     ) where
