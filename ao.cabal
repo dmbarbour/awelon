@@ -53,7 +53,7 @@ Executable aoi
      , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
-     , plugins (>= 1.5)
+     , plugins (>= 1.5.4)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -71,7 +71,7 @@ Executable ao
      , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
-     , plugins (>= 1.5)
+     , plugins (>= 1.5.4)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
