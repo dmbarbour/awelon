@@ -53,6 +53,7 @@ Executable aoi
      , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
+     , plugins (>= 1.5)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -70,6 +71,7 @@ Executable ao
      , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
+     , plugins (>= 1.5)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -83,7 +85,6 @@ Library
     , system-filepath
     , containers (>= 0.5 && < 0.7)
     , transformers
-    , plugins (>= 1.5 && < 1.7)
 
   Exposed-Modules:
 
@@ -95,9 +96,6 @@ Library
     ABC.Imperative.Operations
     ABC.Imperative.Interpreter
     ABC.Imperative.Runtime
-
-    ABC.Imperative.ABC2HS
-    ABC.Imperative.JIT
 
     AO.Code
     AO.Parser

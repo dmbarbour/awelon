@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 -- convert ABC code to HS
-module ABC.Imperative.ABC2HS
+module ABC2HS
     ( abc2hs, abc2hs_imports -- default implementation
 
     -- possibly multiple implementations

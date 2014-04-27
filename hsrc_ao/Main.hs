@@ -27,12 +27,12 @@ import ABC.Simplify (simplify)
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
-import qualified ABC.Imperative.ABC2HS as ABC2HS
 import AO.Dict
 import AO.Code
 import AO.AOFile
 import AO.Parser
 import AO.Compile
+import qualified ABC2HS
 import AORT
 
 helpMsg :: String
