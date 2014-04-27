@@ -54,7 +54,7 @@ helpMsg =
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
-    \    ao ao2hs command      print haskell code for imperative JIT \n\
+    \    ao jit command        print haskell code for imperative JIT \n\
     \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
     \    ao defs pattern       find definitions of words matching pattern \n\
@@ -85,7 +85,7 @@ runMode ["abc.s"]        = stdCmdS >>= dumpABC simplify
 runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
-runMode ["ao2hs",cmd]    = printImperativeJIT cmd
+runMode ["jit",cmd]      = printImperativeJIT cmd
 runMode ["list",ptrn]    = listWords ptrn
 runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
@@ -339,7 +339,7 @@ showImports (x:xs) = showString "import " . showString x .
 
 showResource :: String -> ShowS
 showResource hsCode = 
-    showString "resource = " . 
+    showString "resource = \n" . 
     showString (indent "    " hsCode)
 
 indent, indent' :: String -> String -> String
@@ -347,7 +347,7 @@ indent ws ss = ws ++ indent' ws ss
 indent' ws ('\n':ss) = '\n' : indent ws ss
 indent' ws (c:ss) = c : indent' ws ss
 indent' _ [] = []
-            
+
 {-
 
 --------------------------------------
