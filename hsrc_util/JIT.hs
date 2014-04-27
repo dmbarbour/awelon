@@ -1,4 +1,5 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, ImpredicativeTypes #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | A JIT for ABC.
 --
@@ -40,11 +41,16 @@
 module JIT 
     ( abc_jit, abc2hs, abc2hs_imports -- default implementation
 
+    , abc_jit_test -- for testing
+
     -- possibly multiple implementations
     , abc2hs_naive, abc2hs_imports_naive, opMapNaive
     ) where
 
 import qualified Data.Map as M
+import qualified Data.List as L
+
+import qualified System.Eval.Haskell as Eval
 
 import ABC.Operators
 import ABC.Simplify
@@ -53,8 +59,37 @@ import ABC.Imperative.Runtime
 
 type Error = String
 
-abc_jit :: (Runtime m) => [Op] -> IO (Either Error (Prog m))
-abc_jit = error "todo: JIT"
+type JitProg = forall m . Runtime m => Prog m
+
+-- Note: The plugins project seems to have a bug. After the first one, all
+-- evaluations seem to return the same value, at least in ghci. 
+--
+-- Other than that, this seems to work so far.
+abc_jit :: [Op] -> IO (Either [Error] JitProg)
+abc_jit ops = 
+    case abc2hs ops of
+        Left err -> return (Left [err])
+        Right src -> defaultEval src
+
+abc_jit_test :: [Op] -> IO (Prog IO)
+abc_jit_test ops = abc_jit ops >>= either (fail . L.unlines) (return . asIO) where
+    asIO :: (forall m . Runtime m => Prog m) -> Prog IO
+    asIO p = p
+
+defaultEval :: String -> IO (Either [Error] a)
+defaultEval src = Eval.unsafeEval_ src mods args ldflags incs where
+    mods = abc2hs_imports
+    args = langOpts ++ warnOpts ++ compOpts 
+    langOpts = ["-XNoImplicitPrelude"
+               ,"-XNoMonomorphismRestriction"
+               ,"-XRank2Types"]
+    warnOpts = ["-Wall"
+               ,"-Werror"
+               ,"-fno-warn-missing-signatures"
+               ,"-fno-warn-unused-imports"]
+    compOpts = ["-O0","-fno-enable-rewrite-rules"]
+    ldflags = []
+    incs = []
 
 abc2hs :: [Op] -> Either Error String
 abc2hs = return . abc2hs_naive . simplify
@@ -63,10 +98,15 @@ abc2hs_imports :: [String]
 abc2hs_imports = abc2hs_imports_naive
 
 abc2hs_imports_naive :: [String]
-abc2hs_imports_naive = ["ABC.Imperative.Operations"]
+abc2hs_imports_naive = 
+    ["ABC.Imperative.Operations"
+    ,"ABC.Imperative.Runtime"
+    ,"ABC.Imperative.Value"
+    ,"Control.Monad (return)"
+    ]
 
 abc2hs_naive :: [Op] -> String
-abc2hs_naive = flip abc2hs_naive' []
+abc2hs_naive ops = "(" ++ abc2hs_naive' ops ") :: forall m . Runtime m => Prog m"
 
 abc2hs_naive' :: [Op] -> ShowS
 abc2hs_naive' [] = showString "return"
