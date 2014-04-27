@@ -241,37 +241,3 @@ sK v = opFail "K" v
 
 apc (P (B b) (P a U)) = b_prog b a -- can tail-call optimize
 apc v = opFail "$c" v
-
--- data plumbing rules
-{-# RULES
-"l.r" l >=> r = return
-"r.l" r >=> l = return
-"v.c" v >=> c = return
-"c.v" c >=> v = return
-"w.w" w >=> w = return
-"z.z" z >=> z = return
-
-"L.R" sL >=> sR = return
-"R.L" sR >=> sL = return
-"V.C" sV >=> sC = return
-"C.V" sC >=> sV = return
-"W.W" sW >=> sW = return
-"Z.Z" sZ >=> sZ = return
-
-"L.R." sL' >=> sR' = return
-"R.L." sR' >=> sL' = return
-"V.C." sV' >=> sC' = return
-"C.V." sC' >=> sV' = return
-"W.W." sW' >=> sW' = return
-"Z.Z." sZ' >=> sZ' = return
- #-}
-
--- static number computations
-{-# RULES
-"staticNum" forall d n . n_ n >=> d_ d = n_ (nd_ n d)
-"staticAdd" forall a b . n_ a >=> n_ b >=> add = n_ (a + b)
-"staticNeg" forall a   . n_ a >=> neg = n_ (negate a)
-"staticMul" forall a b . n_ a >=> n_ b >=> mul = n_ (a * b)
-"staticInv" forall a   . n_ a >=> inv = n_ (recip a)
- #-}
-
