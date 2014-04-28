@@ -48,6 +48,8 @@ helpMsg =
     \Environment Variables:\n\
     \    AO_PATH: where to search for '.ao' files \n\
     \    AOI_DICT: root dictionary text; default \"aoi\" \n\
+    \    \n\
+    \    AO_TEMP: directory for temporaries; default \"aotmp\" \n\
     \\n\
     \Haskeline Configuration (history, edit mode, etc.): \n\
     \    see http://trac.haskell.org/haskeline/wiki/UserPrefs \n\

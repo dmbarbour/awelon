@@ -67,6 +67,8 @@ helpMsg =
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
     \    AO_DICT: root dictionary text; default \"ao\" \n\
+    \    \n\
+    \    AO_TEMP: directory for temporaries; default \"aotmp\" \n\
     \"
 -- todo: typechecking! 
 -- when persistence is working, perhaps add an AO_HOME or similar.
@@ -327,20 +329,9 @@ printImperativeJIT aoStr =
     getDict >>= \ d -> 
     case compileAOString d aoStr >>= abc2hs of
         Left err -> putErrLn err >> Sys.exitFailure
-        Right hsCode -> 
-            let msg = showImports abc2hs_imports .
-                      showResource hsCode
-            in Sys.putStrLn (msg "\n")
+        Right hsCode -> Sys.putStrLn hsCode
 
-showImports :: [String] -> ShowS
-showImports [] = showChar '\n'
-showImports (x:xs) = showString "import " . showString x . 
-                     showChar '\n' . showImports xs
 
-showResource :: String -> ShowS
-showResource hsCode = 
-    showString "resource = \n" . 
-    showString (indent "    " hsCode)
 
 indent, indent' :: String -> String -> String
 indent ws ss = ws ++ indent' ws ss 
