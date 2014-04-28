@@ -8,7 +8,4 @@ cabal-dev/
 .shelly
 __pycache__/
 *.pyc
-AODict.hs
-AOProg.hs
-
-
+aotmp/
