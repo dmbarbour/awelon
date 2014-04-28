@@ -65,7 +65,6 @@ import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
 
 import ABC.Operators
-import ABC.Simplify
 import ABC.Imperative.Value
 import ABC.Imperative.Resource
 import ABC.Imperative.Runtime
@@ -98,7 +97,7 @@ abc_jit ops =
     let rscFile = rscDir FS.</> (FS.fromText (T.pack rn) FS.<.> T.pack "hs") in
     FS.createTree rscDir >>
     FS.writeTextFile abcFile (T.pack (show ops)) >>
-    either fail (FS.writeTextFile rscFile . T.pack) (abc2hs ops) >>
+    either fail (FS.writeTextFile rscFile . T.pack) (abc2hs' un ops) >>
     asProg <$> makeAndLoad (FS.encodeString rscFile)
 
 -- obtain the program resource
@@ -120,7 +119,10 @@ makeArgs = warnOpts ++ compOpts where
     compOpts =  ["-O1","-fno-enable-rewrite-rules"]
 
 abc2hs :: [Op] -> Either Error String
-abc2hs = return . abc2hs_naive . simplify
+abc2hs ops = abc2hs' (uniqueStr ops) ops
+
+abc2hs' :: String -> [Op] -> Either Error String
+abc2hs' un ops = Right $ abc2hs_naive un ops
 
 abc2hs_imports_naive :: [String]
 abc2hs_imports_naive = 
@@ -129,14 +131,13 @@ abc2hs_imports_naive =
     ,"Control.Monad (return)"
     ]
 
-abc2hs_naive :: [Op] -> String
-abc2hs_naive ops = (showHdr . showRsc . showFtr) "" where
+abc2hs_naive :: String -> [Op] -> String
+abc2hs_naive un ops = (showHdr . showRsc . showFtr) "" where
     showHdr = lang . showChar '\n' . 
               modHdr . showChar '\n' . 
               showImports abc2hs_imports_naive . showChar '\n'
     lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
-    modHdr = showString "module R" . 
-             showString (uniqueStr ops) . 
+    modHdr = showString "module R" . showString un . 
              showString " (resource) where"
     showImports (x:xs) = showString "import " . showString x . 
                          showChar '\n' . showImports xs
