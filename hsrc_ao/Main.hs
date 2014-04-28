@@ -327,7 +327,7 @@ tryJust op = either (const Nothing) (Just) <$> try op
 printImperativeJIT :: String -> IO ()
 printImperativeJIT aoStr =
     getDict >>= \ d -> 
-    case compileAOString d aoStr >>= abc2hs of
+    case compileAOString d aoStr >>= abc2hs . simplify of
         Left err -> putErrLn err >> Sys.exitFailure
         Right hsCode -> Sys.putStrLn hsCode
 
