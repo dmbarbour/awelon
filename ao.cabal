@@ -47,13 +47,15 @@ Executable aoi
      , transformers
      , parsec
      , text
-     , bytestring
+     , bytestring, byteable
      , containers
      , haskeline (>= 0.7.1 && < 0.9)
-     , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
      , plugins (>= 1.5.4)
+     , entropy (>= 0.2.2)
+     , cryptohash (>= 0.11)
+     , dataenc (>= 0.14)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -66,12 +68,14 @@ Executable ao
      , transformers
      , parsec
      , text
-     , bytestring
+     , bytestring, byteable
      , containers
-     , entropy (>= 0.2.2)
      , system-fileio (>= 0.3.11 && < 0.4)
      , system-filepath
      , plugins (>= 1.5.4)
+     , entropy (>= 0.2.2)
+     , cryptohash (>= 0.11)
+     , dataenc (>= 0.14)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -96,6 +100,7 @@ Library
     ABC.Imperative.Operations
     ABC.Imperative.Interpreter
     ABC.Imperative.Runtime
+    ABC.Imperative.Resource
 
     AO.Code
     AO.Parser
