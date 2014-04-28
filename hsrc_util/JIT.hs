@@ -4,18 +4,20 @@
 -- | A JIT for ABC.
 --
 -- This particular just-in-time compiler leverages Haskell's plugins
--- framework. 
+-- framework. Sadly, Haskell's plugins framework - at least the 
+-- System.Eval interface - is very buggy (something to do with the
+-- caching and naming of modules). I'm overcoming this by using a
+-- unique name per object, based on secure hash of ABC source.
+--
+-- Further, prior to GHC 7.8.1, object code is never unloaded (even if
+-- we use `unload` operations). Also, it seems System.Plugins doesn't
+-- even call GHC's unload. So developers will have a severe limit on what
+-- they can load, and how often. JIT is a memory leak! Fortunately, for 
+-- most applications, it isn't a problem for developers to constrain use
+-- of JIT to a few essential objects. 
+-- 
 --
 -- IMPROVEMENTS TO CONSIDER:
---
---   Eliminate redundancy for parsing and metadata: (mid priority)
---
---     Instead of generating a program directly, generate a function
---     that will accept a few arguments from the caller and return a
---     program in context. 
---
---     This could also be used for partial reuse of compilations.
---     (Could be simple use of Data.Map?)
 --
 --   Let-based construction: (high priority)
 --
@@ -39,80 +41,117 @@
 --     program and runs those. 
 --
 module JIT 
-    ( abc_jit, abc2hs, abc2hs_imports -- default implementation
-
-    , abc_jit_test -- for testing
-
-    -- possibly multiple implementations
-    , abc2hs_naive, abc2hs_imports_naive, opMapNaive
+    ( abc_jit, abc2hs -- default implementation
     ) where
+
+import Control.Applicative 
+import qualified Control.Exception as Err
 
 import qualified Data.Map as M
 import qualified Data.List as L
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.ByteString as B
+import qualified Data.Byteable as B
+import qualified Crypto.Hash as CH
+import qualified Codec.Binary.Base32 as B32
+import Data.Char (toLower)
 
-import qualified System.Eval.Haskell as Eval
+import qualified System.Environment as Env
+import qualified System.IO as Sys
+import qualified System.Plugins as Sys
+
+import qualified Filesystem as FS
+import qualified Filesystem.Path.CurrentOS as FS
 
 import ABC.Operators
 import ABC.Simplify
 import ABC.Imperative.Value
+import ABC.Imperative.Resource
 import ABC.Imperative.Runtime
 
 type Error = String
 
-type JitProg = forall m . Runtime m => Prog m
-
--- Note: The plugins project seems to have a bug. After the first one, all
--- evaluations seem to return the same value, at least in ghci. 
+-- | Use Haskell's plugins module to just-in-time compile code.
 --
--- Other than that, this seems to work so far.
-abc_jit :: [Op] -> IO (Either [Error] JitProg)
-abc_jit ops = 
-    case abc2hs ops of
-        Left err -> return (Left [err])
-        Right src -> defaultEval src
+-- The given ops should be pre-optimized and pre-simplified before
+-- reaching this final JIT compilation step. 
+--
+-- Since plugins work through the filesystem, this first creates
+-- a resource in the filesystem (under the AO_TEMP directory), then 
+-- builds it externally before loading the result. Resources are
+-- uniquely named based on a secure hash of the ABC that generates
+-- them.
+--
+-- It isn't entirely clear to me how GC of loaded plugins works.
+-- For now, I'll just hope it works. 
+--
+-- This may fail if any operation cannot be completed.
+--
+abc_jit :: (Runtime m) => [Op] -> IO (Prog m)
+abc_jit ops =
+    let un = uniqueStr ops in
+    let rn = 'R':un in
+    getJitTmpDir >>= \ jitDir ->
+    let rscDir = jitDir FS.</> dirFromId [2,2] un in
+    let abcFile = rscDir FS.</> (FS.fromText (T.pack rn) FS.<.> T.pack "abc") in
+    let rscFile = rscDir FS.</> (FS.fromText (T.pack rn) FS.<.> T.pack "hs") in
+    FS.createTree rscDir >>
+    FS.writeTextFile abcFile (T.pack (show ops)) >>
+    either fail (FS.writeTextFile rscFile . T.pack) (abc2hs ops) >>
+    asProg <$> makeAndLoad (FS.encodeString rscFile)
 
-abc_jit_test :: [Op] -> IO (Prog IO)
-abc_jit_test ops = abc_jit ops >>= either (fail . L.unlines) (return . asIO) where
-    asIO :: (forall m . Runtime m => Prog m) -> Prog IO
-    asIO p = p
+-- obtain the program resource
+makeAndLoad :: Sys.FilePath -> IO Resource
+makeAndLoad hsFile =
+    Sys.make hsFile makeArgs >>= \ makeStatus ->
+    case makeStatus of
+        Sys.MakeFailure errs -> fail (L.unlines errs)
+        Sys.MakeSuccess _ objFile ->
+            Sys.load objFile [] [] "resource" >>= \ loadStatus ->
+            case loadStatus of
+                Sys.LoadFailure errs -> fail (L.unlines errs)
+                Sys.LoadSuccess _ rsc -> return rsc
 
-defaultEval :: String -> IO (Either [Error] a)
-defaultEval src = Eval.unsafeEval_ src mods args ldflags incs where
-    mods = abc2hs_imports
-    args = langOpts ++ warnOpts ++ compOpts 
-    langOpts = ["-XNoImplicitPrelude"
-               ,"-XNoMonomorphismRestriction"
-               ,"-XRank2Types"]
-    warnOpts = ["-Wall"
-               ,"-Werror"
-               ,"-fno-warn-missing-signatures"
-               ,"-fno-warn-unused-imports"]
-    compOpts = ["-O0","-fno-enable-rewrite-rules"]
-    ldflags = []
-    incs = []
+makeArgs :: [String]
+makeArgs = warnOpts ++ compOpts where
+    warnOpts =  ["-Wall","-Werror"
+                ,"-fno-warn-unused-imports"]
+    compOpts =  ["-O1","-fno-enable-rewrite-rules"]
 
 abc2hs :: [Op] -> Either Error String
 abc2hs = return . abc2hs_naive . simplify
 
-abc2hs_imports :: [String]
-abc2hs_imports = abc2hs_imports_naive
-
 abc2hs_imports_naive :: [String]
 abc2hs_imports_naive = 
     ["ABC.Imperative.Operations"
-    ,"ABC.Imperative.Runtime"
-    ,"ABC.Imperative.Value"
+    ,"ABC.Imperative.Resource"
     ,"Control.Monad (return)"
     ]
 
 abc2hs_naive :: [Op] -> String
-abc2hs_naive ops = "(" ++ abc2hs_naive' ops ") :: forall m . Runtime m => Prog m"
+abc2hs_naive ops = (showHdr . showRsc . showFtr) "" where
+    showHdr = lang . showChar '\n' . 
+              modHdr . showChar '\n' . 
+              showImports abc2hs_imports_naive . showChar '\n'
+    lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
+    modHdr = showString "module R" . 
+             showString (uniqueStr ops) . 
+             showString " (resource) where"
+    showImports (x:xs) = showString "import " . showString x . 
+                         showChar '\n' . showImports xs
+    showImports [] = id
+    showRsc = 
+        showString "resource :: Resource\n" .
+        showString "resource = Resource (" .
+        ops2hs_naive ops . showChar ')'
+    showFtr = showString "\n\n"
 
-abc2hs_naive' :: [Op] -> ShowS
-abc2hs_naive' [] = showString "return"
-abc2hs_naive' (Op_ap:Op_c:[]) = showString "apc"
-abc2hs_naive' (op:[]) = op2hs_naive' op
-abc2hs_naive' (op:ops) = op2hs_naive' op . showString ">=>" . abc2hs_naive' ops
+ops2hs_naive :: [Op] -> ShowS
+ops2hs_naive [] = showString "return"
+ops2hs_naive (Op_ap:Op_c:[]) = showString "apc"
+ops2hs_naive (op:[]) = op2hs_naive op
+ops2hs_naive (op:ops) = op2hs_naive op . showString ">=>" . ops2hs_naive ops
 
 opMapNaive :: M.Map Op String
 opMapNaive = M.fromList $
@@ -132,13 +171,58 @@ opMapNaive = M.fromList $
 inOpMap :: Op -> Maybe String
 inOpMap = flip M.lookup opMapNaive
 
-op2hs_naive' :: Op -> ShowS
-op2hs_naive' (inOpMap -> Just s) = showString s
-op2hs_naive' (TL s) = showString "tl" . shows s
-op2hs_naive' (Tok s) = showString "tok" . shows s
-op2hs_naive' (BL ops) = showString "bl" . opsStr . progVal where
+op2hs_naive :: Op -> ShowS
+op2hs_naive (inOpMap -> Just s) = showString s
+op2hs_naive (TL s) = showString "tl" . shows s
+op2hs_naive (Tok s) = showString "tok" . shows s
+op2hs_naive (BL ops) = showString "bl" . opsStr . progVal where
     opsStr = shows (show ops) -- show all ops in a string
-    progVal = showChar '(' . abc2hs_naive' ops . showChar ')'
-op2hs_naive' op = error $ "op2hs_naive missing def for " ++ show op
+    progVal = showChar '(' . ops2hs_naive ops . showChar ')'
+op2hs_naive op = error $ "op2hs_naive missing def for " ++ show op
 
+toBase32 :: B.ByteString -> String
+toBase32 = fmap toLower . B32.encode . B.unpack
 
+splits :: [Int] -> [a] -> [[a]]
+splits [] _ = []
+splits _ [] = []
+splits (n:ns) aa = 
+    let (aa0,aa') = L.splitAt n aa in
+    aa0:splits ns aa'    
+
+dirFromId :: [Int] -> String -> FS.FilePath
+dirFromId sp = toFP . fmap toPath . splits sp where
+    toFP = L.foldr FS.append FS.empty 
+    toPath = FS.fromText . T.pack
+
+uniqueStr :: [Op] -> String
+uniqueStr = L.take 48 . toBase32 . getCodeHash 
+
+getCodeHash :: [Op] -> B.ByteString
+getCodeHash = B.toBytes . sha3_384 . T.encodeUtf8 . T.pack . show where
+    sha3_384 :: B.ByteString -> CH.Digest CH.SHA3_384
+    sha3_384 = CH.hash -- algorithm inferred from type
+
+-- (idempotent) obtain (and create) the JIT storage directory
+-- may raise an IOError based on permissions or similar
+getJitTmpDir :: IO FS.FilePath
+getJitTmpDir =  
+    getAO_TEMP >>= \ aoTmp ->
+    let jitFullDir = aoTmp FS.</> FS.fromText (T.pack "jit") in
+    FS.createDirectory True jitFullDir >>
+    return jitFullDir
+
+-- (idempotent) obtain (and create) the AO_TEMP directory
+-- may raise an IOError based on permissions or similar
+getAO_TEMP :: IO FS.FilePath
+getAO_TEMP = 
+    (maybe "aotmp" id <$> tryJust (Env.getEnv "AO_TEMP")) >>= \ d0 ->
+    let fp0 = FS.fromText (T.pack d0) in
+    FS.createTree fp0 >>
+    FS.canonicalizePath fp0
+
+try :: IO a -> IO (Either Err.SomeException a)
+try = Err.try -- type forced
+
+tryJust :: IO a -> IO (Maybe a)
+tryJust op = either (const Nothing) (Just) <$> try op
