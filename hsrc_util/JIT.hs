@@ -4,18 +4,18 @@
 -- | A JIT for ABC.
 --
 -- This particular just-in-time compiler leverages Haskell's plugins
--- framework. Sadly, Haskell's plugins framework - at least the 
--- System.Eval interface - is very buggy (something to do with the
--- caching and naming of modules). I'm overcoming this by using a
--- unique name per object, based on secure hash of ABC source.
+-- framework. Unfortunately, the plugins library has several bug and
+-- weaknesses that I've been working around. 
 --
--- Further, prior to GHC 7.8.1, object code is never unloaded (even if
--- we use `unload` operations). Also, it seems System.Plugins doesn't
--- even call GHC's unload. So developers will have a severe limit on what
--- they can load, and how often. JIT is a memory leak! Fortunately, for 
--- most applications, it isn't a problem for developers to constrain use
--- of JIT to a few essential objects. 
--- 
+-- A weakness of this current implementation: currently, JIT'd code
+-- is never unloaded. That is, the object code is kept in memory, and
+-- System.Plugins keeps a map. GHC 7.8.1 does support unloading of
+-- object code, but at the moment it isn't clear when object code
+-- should be unloaded. An ideal plugins implementation would GC the
+-- object code for loaded modules that are no longer relevant.
+--
+-- To help control this issue, JIT is currently explicit. Only a few
+-- functions should be JIT'd for any given application. 
 --
 -- IMPROVEMENTS TO CONSIDER:
 --
@@ -24,6 +24,13 @@
 --     Translate program into a sequence of 'let' expressions and an
 --     occasional imperative operation. This should also be easier to
 --     read in the common case.
+--
+--   Compression: (low priority)
+--
+--     Recognize common subprograms.
+--
+--     Recognize when a block never escapes scope, and thus does not
+--     need its source code to be exposed.
 --
 --   Partial Evaluation: (high priority)
 --
@@ -113,10 +120,9 @@ makeAndLoad hsFile =
                 Sys.LoadSuccess _ rsc -> return rsc
 
 makeArgs :: [String]
-makeArgs = warnOpts ++ compOpts where
-    warnOpts =  ["-Wall","-Werror"
-                ,"-fno-warn-unused-imports"]
-    compOpts =  ["-O1","-fno-enable-rewrite-rules"]
+makeArgs = compOpts ++ warnOpts where
+    warnOpts =  ["-Wall","-Werror","-fno-warn-unused-imports"]
+    compOpts =  ["-O2"]
 
 abc2hs :: [Op] -> Either Error String
 abc2hs ops = abc2hs' (uniqueStr ops) ops
@@ -138,7 +144,7 @@ abc2hs_naive un ops = (showHdr . showRsc . showFtr) "" where
               showImports abc2hs_imports_naive . showChar '\n'
     lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
     modHdr = showString "module R" . showString un . 
-             showString " (resource) where"
+             showString "\n    (resource) where"
     showImports (x:xs) = showString "import " . showString x . 
                          showChar '\n' . showImports xs
     showImports [] = id
@@ -196,8 +202,11 @@ dirFromId sp = toFP . fmap toPath . splits sp where
     toFP = L.foldr FS.append FS.empty 
     toPath = FS.fromText . T.pack
 
+-- create a (cryptographically) unique string for some 
+-- given source code using base32 and SHA3-384. This is
+-- both case insensitive and alphanumeric.
 uniqueStr :: [Op] -> String
-uniqueStr = L.take 48 . toBase32 . getCodeHash 
+uniqueStr = L.take 60 . toBase32 . getCodeHash 
 
 getCodeHash :: [Op] -> B.ByteString
 getCodeHash = B.toBytes . sha3_384 . T.encodeUtf8 . T.pack . show where
