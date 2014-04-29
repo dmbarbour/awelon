@@ -28,11 +28,15 @@ module AORT
     ) where
 
 import Control.Applicative
+import Control.Monad
+import qualified Control.Exception as Err
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class
 import Data.Typeable
 
+import Control.Concurrent
+import Data.IORef
 -- import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
@@ -43,15 +47,18 @@ import qualified Filesystem as FS
 
 import Data.Ratio
 import qualified Data.Sequence as S
+import qualified Data.Foldable as S
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
 
+import ABC.Simplify
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 
 import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
+import JIT
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
@@ -104,6 +111,9 @@ defaultAnno :: String -> Maybe (Prog AORT)
 defaultAnno = flip M.lookup $ M.fromList $
     [("debug print raw", mkAnno debugPrintRaw)
     ,("debug print text", mkAnno debugPrintText)
+    ,("compile", compileBlock)
+    ,("compile trace", compileTraceBlock 3)
+    ,("simplify", simplifyBlock)
     ]
 
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
@@ -113,6 +123,59 @@ debugPrintRaw, debugPrintText :: V AORT -> AORT ()
 debugPrintRaw v =  liftIO $ Sys.hPutStrLn Sys.stderr (show v)
 debugPrintText (valToText -> Just txt) = liftIO $ Sys.hPutStr Sys.stderr txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
+
+-- compile a block {&compile}
+compileBlock :: Prog AORT
+compileBlock (B b) = B <$> liftIO (compileBlock' b)
+compileBlock v = fail $ "{&compile} @ " ++ show v
+
+compileBlock' :: (Runtime m) => Block m -> IO (Block m)
+compileBlock' b = 
+    let abc = simplify $ S.toList $ b_code b in
+    try (abc_jit abc) >>= \ errOrProg ->
+    case errOrProg of 
+        Left err -> 
+            Sys.hPutStrLn Sys.stderr (show err) >> 
+            return b -- the original
+        Right prog ->
+            return (b { b_code = S.fromList abc, b_prog = prog })
+
+-- compile a block for simple counting trace and a hot-swap
+compileTraceBlock :: Int -> Prog AORT
+compileTraceBlock n (B b) =
+    liftIO (newIORef (n, b)) >>= \ rf -> 
+    let b' = b { b_prog = tracedBlock rf } in
+    return (B b')
+compileTraceBlock _ v = fail $ "{&compile trace} @ " ++ show v
+
+getAndDec :: (Integral n) => IORef (n, a) -> IO (n, a)
+getAndDec = flip atomicModifyIORef update where
+    update (n,a) = let s = (n-1,a) in (s,s)
+
+getTracedProg :: (Runtime m) => IORef (Int, Block m) -> IO (Prog m)
+getTracedProg rf = 
+    liftIO (getAndDec rf) >>= \ (n,b) ->
+    when (0 == n) (forkCompile rf) >> -- c
+    return (b_prog b)
+
+forkCompile :: (Runtime m) => IORef (a, Block m) -> IO ()
+forkCompile rf = void $ forkIO $ 
+    readIORef rf >>= \ (_,b0) -> -- access block
+    compileBlock' b0 >>= \ bf -> -- compile
+    atomicModifyIORef rf (\(n,_) -> ((n,bf),()))
+
+tracedBlock :: (MonadIO m, Runtime m) => IORef (Int, Block m) -> Prog m
+tracedBlock rf arg = liftIO (getTracedProg rf) >>= \ prog -> prog arg 
+
+simplifyBlock :: Prog AORT
+simplifyBlock (B b) = return (B b') where
+    code' = S.fromList $ simplify $ S.toList $ b_code b
+    b' = b { b_code = code' }
+simplifyBlock v = fail $ "{&simplify} @ " ++ show v
+
+try :: IO a -> IO (Either Err.SomeException a)
+try = Err.try -- type forced
+
 
 -- | an AO 'environment' is simply the first value passed to the
 -- program. The AO standard environment has the form:
