@@ -96,12 +96,10 @@ d9 = (d_ 9)
 
 n_ :: (Monad m) => Rational -> Prog m
 n_ r = return . P (N r) 
-{-# NOINLINE n_ #-}
 
 d_ :: (Monad m) => Int -> Prog m
 d_ d (P (N n) e) = return (P (N (nd_ n d)) e)
 d_ _ v = opFail "digit" v
-{-# NOINLINE d_ #-}
 
 nd_ :: Rational -> Int -> Rational
 nd_ n d = 10*n + fromIntegral d
