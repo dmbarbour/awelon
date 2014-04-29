@@ -122,7 +122,7 @@ makeAndLoad hsFile =
 makeArgs :: [String]
 makeArgs = compOpts ++ warnOpts where
     warnOpts =  ["-Wall","-Werror","-fno-warn-unused-imports"]
-    compOpts =  ["-O2"]
+    compOpts =  ["-O1"]
 
 abc2hs :: [Op] -> Either Error String
 abc2hs ops = abc2hs' (uniqueStr ops) ops
