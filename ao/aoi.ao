@@ -2,9 +2,9 @@ ao
 @doc.import.aoi "default root import by aoi REPL; see @doc.aoi.utility"
 
 @doc.aoi.utility
-"aoi is an imperative REPL for AO, implemented in Haskell. This tool will default to loading the 'aoi' dictionary (i.e. seaching for 'aoi.ao' on AO_PATH) though a alternative root can be configured by setting the environment variable AOI_DICT. Developers issue a command on each line (no support for multi-line text). Updates to the dictionary must be performed through the filesystem, then reloaded with ctrl+c.
+"`aoi` is a REPL for AO, implemented in Haskell, with access to the same powers and annotations as `ao exec`. Unlike `ao exec.s`, `aoi` provides useful feedback, tab completion, command history, undo, and the ability to edit the dictionary and reload it at runtime. (Try commands @undo or @reload.)
  
- Programs start an an empty standard environment. The powerblock provides the same effects model as the `ao exec` command. See @doc.ao
+ By default, `aoi` loads aoi.ao, searching based on environment variable AO_PATH. The initial dictionary can be configured with AOI_DICT.
 ~
 
 @doc.cle "(io) clear the current environment (except hand and powerblock)"
@@ -12,5 +12,7 @@ ao
 
 @doc.cls "(io) clear the current stack (including relevant blocks)"
 @cls reifyStack destroy.io
+
+@help %v doc.aoi.utility debugPrintText drop %c
 
 

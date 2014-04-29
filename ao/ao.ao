@@ -9,9 +9,12 @@ std
  Some effects available through the powerblock:
  
      obtain random numbers (cryptographic entropy)
-     read and write files; get environment variables 
+     read and write files
+     read environment variables 
      unsafely destroy any value (even relevant values)
-     every annotation is also available as a command
+     any annotation is also available as a command
+ 
+ For specifics, see words with suffix `.io`.
  
  Under consideration:
  
@@ -21,7 +24,12 @@ std
      logical clocks and temporal values
      obtaining some useful 'child' powers
  
- For specifics, see words with suffix `.io`.
+ Additionally, the `ao` utility supports various few annotations:
+ 
+     debug output (printing to stderr)
+     compilation of blocks (immediate, traced)     
+ 
+ The default mode for `ao` is interpretation of ABC. However, compilation of blocks will eventually allow effective performance for real applications. Sadly, the compilation model currently leaks memory (the runtime keeps the object code in memory). But it should be sufficient for a lot of relatively static applications, and should work well with staged programming. 
 ~
 
 @doc.debugPrintRaw "annotation to print top value from stack to stderr"
@@ -39,11 +47,13 @@ std
 @getOSEnv.io "getOSEnv" p command.io
 
 @doc.randomBytes.io "count -- (list of octets); secure random source"
+
 @randomBytes.io "randomBytes" p command.io
 @rand8.io 1 randomBytes.io assert wx drop
 
 @doc.readFile.io "filename -- (1(err) + text); (io)"
 @doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io)"
+
 @readFile.io "readFile" p command.io
 @writeFile.io p "writeFile" p command.io
 
@@ -66,3 +76,24 @@ std
  Developers can access the 'try' capability separately from applying it, by use of 'tryCap.io'.
 ~
 @tryApp.io p tryCap.io .apply
+
+
+
+
+
+@doc.compile
+"Awelon Bytecode (ABC) was designed with the assumption that it will be compiled to achieve acceptable performance. Awelon idioms place a heavy emphasis on staged programming, e.g. where developers might construct programs that construct programs, composing hundreds of blocks. In that context, ahead-of-time compilation often fares poorly. Various forms of dynamic or just-in-time compilation can offer excellent performance at the cost of some extra latency. 
+ 
+ AO can provide access to compiled performance either implicity (through the VM) or explicitly (via annotations). The 'compile' word, presented here, applies an annotation to the block on the stack in order to compile it immediately. 
+ 
+ CAUTION: In the `ao` and `aoi` utilities, compiled code is not garbage collected. This means developers must currently be conservative about using dynamic compilation based on runtime inputs.
+~
+@compile [{&compile}] .apply
+@compile.io "&compile" p command.io
+
+@doc.compile-trace
+"This is a variation of @compile to interpret the block a few times until we have some confidence that the block is part of a loop - at which point we compile it in parallel and hot swap to the compiled form. This avoids some of the latency and premature optimization issues with dynamic compilation, but also will be a little less efficient in cases where we end up looping a lot or just a few extra times beyond the threshold.
+~
+@compile-trace [{&compile trace}] .apply
+@compile-trace.io "&compile trace" p command.io
+
