@@ -77,9 +77,9 @@ std
 ~
 @tryApp.io p tryCap.io .apply
 
-
-
-
+@doc.simplify "block -- block; trivial simplifications on code associated with block"
+@simplify [{&simplify}] .apply
+@simplify.io "&simplify" p command.io
 
 @doc.compile
 "Awelon Bytecode (ABC) was designed with the assumption that it will be compiled to achieve acceptable performance. Awelon idioms place a heavy emphasis on staged programming, e.g. where developers might construct programs that construct programs, composing hundreds of blocks. In that context, ahead-of-time compilation often fares poorly. Various forms of dynamic or just-in-time compilation can offer excellent performance at the cost of some extra latency. 
