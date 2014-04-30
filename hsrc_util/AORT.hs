@@ -116,6 +116,7 @@ defaultAnno = flip M.lookup $ M.fromList $
     ,("compile", compileBlock)
     ,("compile trace", compileTraceBlock 3)
     ,("simplify", simplifyBlock)
+    --,("asynch",asynchBlock)
     ]
 
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
@@ -127,9 +128,8 @@ debugPrintText (valToText -> Just txt) = liftIO $ Sys.hPutStr Sys.stderr txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
 -- compile a block {&compile}
--- (this is asynchronous, in case it helps)
 compileBlock :: Prog AORT
-compileBlock (B b) = B <$> liftIO (asyncIO $ compileBlock' b)
+compileBlock (B b) = B <$> liftIO (compileBlock' b)
 compileBlock v = fail $ "{&compile} @ " ++ show v
 
 compileBlock' :: (Runtime m) => Block m -> IO (Block m)
