@@ -37,6 +37,7 @@ import ABC.Imperative.Interpreter
 
 -- LOCAL UTILITIES (from ../hsrc_aort)
 import AORT
+import Util
 import ShowEnv
 
 -- a dubiously useful help message
@@ -204,14 +205,7 @@ newAOIContext =
                    , aoi_rtcx = cx 
                    }
 
-tryIO :: IO a -> IO (Either Err.IOException a)
-tryIO = Err.try
 
-try :: IO a -> IO (Either Err.SomeException a)
-try = Err.try -- type forced
-
-tryJust :: IO a -> IO (Maybe a)
-tryJust op = either (const Nothing) (Just) <$> try op
 
 getHistoryFile :: IO (Maybe Sys.FilePath)
 getHistoryFile = tryJust $

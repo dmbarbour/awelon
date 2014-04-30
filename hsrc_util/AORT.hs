@@ -18,6 +18,7 @@
 -- 
 module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
+    , scrubABC
 
     -- eventually, I might support some configuration
     --  but isn't needed while 'ao' and 'aoi' are only
@@ -25,11 +26,11 @@ module AORT
     , newDefaultRuntime
     , newDefaultEnvironment
     , aoStdEnv
+
     ) where
 
 import Control.Applicative
 import Control.Monad
-import qualified Control.Exception as Err
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class
@@ -37,7 +38,7 @@ import Data.Typeable
 
 import Control.Concurrent
 import Data.IORef
--- import System.IO.Unsafe (unsafeInterleaveIO)
+
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
 import qualified System.Environment as Env
@@ -58,6 +59,7 @@ import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 
 import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
+import Util
 import JIT
 
 -- | AORT is intended to be a primary runtime monad for executing
@@ -125,8 +127,9 @@ debugPrintText (valToText -> Just txt) = liftIO $ Sys.hPutStr Sys.stderr txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
 -- compile a block {&compile}
+-- (this is asynchronous, in case it helps)
 compileBlock :: Prog AORT
-compileBlock (B b) = B <$> liftIO (compileBlock' b)
+compileBlock (B b) = B <$> liftIO (asyncIO $ compileBlock' b)
 compileBlock v = fail $ "{&compile} @ " ++ show v
 
 compileBlock' :: (Runtime m) => Block m -> IO (Block m)
@@ -172,9 +175,6 @@ simplifyBlock (B b) = return (B b') where
     code' = S.fromList $ simplify $ S.toList $ b_code b
     b' = b { b_code = code' }
 simplifyBlock v = fail $ "{&simplify} @ " ++ show v
-
-try :: IO a -> IO (Either Err.SomeException a)
-try = Err.try -- type forced
 
 
 -- | an AO 'environment' is simply the first value passed to the
@@ -235,13 +235,13 @@ getRandomBytes (N r) | ((r >= 0) && (1 == denominator r)) =
 getRandomBytes v = fail $ "randomBytes @ " ++ show v
 
 getOSEnv (valToText -> Just var) = textToVal <$> liftIO gv where
-    gv = maybe "" id <$> tryIO (Env.getEnv var)
+    gv = maybe "" id <$> tryJustIO (Env.getEnv var)
 getOSEnv v = fail $ "getOSEnv @ " ++ show v
 
 aoReadFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
     let rf = T.unpack <$> FS.readTextFile fp in
-    maybe (L U) (R . textToVal) <$> liftIO (tryIO rf)
+    maybe (L U) (R . textToVal) <$> liftIO (tryJustIO rf)
 aoReadFile v = fail $ "readFile @ " ++ show v
 
 aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
@@ -250,7 +250,7 @@ aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
               FS.writeTextFile fp (T.pack content) 
     in
     let asBoolean = maybe (L U) (const (R U)) in
-    asBoolean <$> liftIO (tryIO wOp)
+    asBoolean <$> liftIO (tryJustIO wOp)
 aoWriteFile v = fail $ "writeFile @ " ++ show v
 
 -- try a subprogram, but allow returning with failure
@@ -275,9 +275,6 @@ tryAORT (P (B b) a) =
         Right v -> return $  R v
         Left e -> return $ L (P (textToVal (show e)) a)
 tryAORT v = fail $ "{try} @ " ++ show v
-
-tryIO :: IO a -> IO (Maybe a)
-tryIO op = Err.catchIOError (Just <$> op) (const (return Nothing))
 
 execPower :: V AORT -> AORT (V AORT)
 execPower (P (valToText -> Just cmd) arg) = 
@@ -308,4 +305,17 @@ instance Runtime AORT where
     invoke s | (s == tryTok) = tryAORT
     invoke s = invokeFails s
 
-
+-- | For a raw ABC input stream, we want to forbid tokens that are
+-- not supported by AO. This ensures equivalence for expressiveness
+-- and security between `ao exec` and `ao exec.abc` for example. 
+-- Though a scrubbed token can be unscrubbed when passed onwards to
+-- another machine; it's really just escaped locally.
+scrubABC :: [Op] -> [Op]
+scrubABC = fmap scrubTok where
+    scrubTok (Tok t)  = Tok (scrub t)
+    scrubTok (BL ops) = BL (scrubABC ops)
+    scrubTok op = op
+    scrub t@('&':_anno) = t
+    scrub t@(':':_sealer) = t
+    scrub t@('.':_unseal) = t
+    scrub t = ('~':t)
