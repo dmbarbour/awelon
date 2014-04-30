@@ -308,14 +308,17 @@ instance Runtime AORT where
 -- | For a raw ABC input stream, we want to forbid tokens that are
 -- not supported by AO. This ensures equivalence for expressiveness
 -- and security between `ao exec` and `ao exec.abc` for example. 
--- Though a scrubbed token can be unscrubbed when passed onwards to
--- another machine; it's really just escaped locally.
+--
+-- Currently, this is accomplished by escaping non-AO tokens with
+-- the '~' character. This ensures clients cannot install a new
+-- power block (under normal conditions). 
 scrubABC :: [Op] -> [Op]
 scrubABC = fmap scrubTok where
-    scrubTok (Tok t)  = Tok (scrub t)
+    scrubTok (Tok t) | not (okayInAO t) = Tok (scrub t)
     scrubTok (BL ops) = BL (scrubABC ops)
     scrubTok op = op
-    scrub t@('&':_anno) = t
-    scrub t@(':':_sealer) = t
-    scrub t@('.':_unseal) = t
-    scrub t = ('~':t)
+    scrub = ('~':)
+    okayInAO ('&':_anno) = True
+    okayInAO (':':_sealer) = True
+    okayInAO ('.':_unseal) = True
+    okayInAO _ = False

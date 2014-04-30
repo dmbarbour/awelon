@@ -6,7 +6,6 @@ module Main (main) where
 import Control.Applicative
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
-import qualified Control.Exception as Err
 
 -- import Data.Text (Text)
 import qualified Data.Text as T
