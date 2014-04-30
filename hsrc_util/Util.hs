@@ -19,7 +19,7 @@ asyncIO :: IO a -> IO a
 asyncIO op = 
     newEmptyMVar >>= \ v ->
     forkIO (try op >>= putMVar v) >>
-    unsafeInterleaveIO (takeMVar v >>= either Err.throwIO return)
+    unsafeInterleaveIO (readMVar v >>= either Err.throwIO return)
 
 tryIO :: IO a -> IO (Either Err.IOException a)
 tryIO = Err.try
