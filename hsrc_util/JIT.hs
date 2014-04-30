@@ -46,12 +46,16 @@
 --
 --     Create a JIT-based interpreter that JIT's small chunks of a 
 --     program and runs those. 
+--       (note: not happening unless GHC performance improves a lot)
 --
 module JIT 
     ( abc_jit, abc2hs -- default implementation
+    -- deprecated implementations
+    , abc2hs_naive
     ) where
 
 import Control.Applicative 
+import Control.Monad
 import qualified Control.Exception as Err
 
 import qualified Data.Map as M
@@ -65,7 +69,6 @@ import qualified Codec.Binary.Base32 as B32
 import Data.Char (toLower)
 
 import qualified System.Environment as Env
-import qualified System.IO as Sys
 import qualified System.Plugins as Sys
 
 import qualified Filesystem as FS
@@ -77,11 +80,18 @@ import ABC.Imperative.Resource
 import ABC.Imperative.Runtime
 
 type Error = String
+type Unique = String
+type ModuleName = String
 
 -- | Use Haskell's plugins module to just-in-time compile code.
 --
 -- The given ops should be pre-optimized and pre-simplified before
 -- reaching this final JIT compilation step. 
+--
+-- This module will load an object haskell or object file if it 
+-- already exists at the target location, essentially caching the
+-- compiled form. However, this does require a little trust that
+-- nobody is doing silly things like tweaking the generated files.
 --
 -- Since plugins work through the filesystem, this first creates
 -- a resource in the filesystem (under the AO_TEMP directory), then 
@@ -99,25 +109,35 @@ abc_jit ops =
     let un = uniqueStr ops in
     let rn = 'R':un in
     getJitTmpDir >>= \ jitDir ->
-    let rscDir = jitDir FS.</> dirFromId [2,2] un in
-    let abcFile = rscDir FS.</> (FS.fromText (T.pack rn) FS.<.> T.pack "abc") in
-    let rscFile = rscDir FS.</> (FS.fromText (T.pack rn) FS.<.> T.pack "hs") in
-    FS.createTree rscDir >>
-    FS.writeTextFile abcFile (T.pack (show ops)) >>
-    either fail (FS.writeTextFile rscFile . T.pack) (abc2hs' un ops) >>
-    asProg <$> makeAndLoad (FS.encodeString rscFile)
-
--- obtain the program resource
-makeAndLoad :: Sys.FilePath -> IO Resource
-makeAndLoad hsFile =
-    Sys.make hsFile makeArgs >>= \ makeStatus ->
-    case makeStatus of
-        Sys.MakeFailure errs -> fail (L.unlines errs)
-        Sys.MakeSuccess _ objFile ->
-            Sys.load objFile [] [] "resource" >>= \ loadStatus ->
-            case loadStatus of
-                Sys.LoadFailure errs -> fail (L.unlines errs)
-                Sys.LoadSuccess _ rsc -> return rsc
+    let rscDir  = jitDir FS.</> dirFromId [2,2] un in
+    let prefix  = rscDir FS.</> FS.fromText (T.pack rn) in
+    let abcFile = prefix FS.<.> T.pack "abc" in -- abc code
+    let hsFile  = prefix FS.<.> T.pack "hs" in -- haskell code
+    let hiFile  = prefix FS.<.> T.pack "hi" in -- haskell interface
+    let oFile   = prefix FS.<.> T.pack "o" in  -- system object code 
+    let createTheResource =
+            FS.createTree rscDir >>
+            FS.writeTextFile abcFile (T.pack (show ops)) >>
+            either fail (FS.writeTextFile hsFile . T.pack) (abc2hs' rn ops)
+    in
+    let makeTheObjectFile =
+            Sys.make (FS.encodeString hsFile) makeArgs >>= \ makeStatus ->
+            case makeStatus of
+                Sys.MakeFailure errs -> fail (L.unlines errs)
+                Sys.MakeSuccess _ objFile ->
+                    let everythingIsAwesome = (oFile == FS.decodeString objFile) in
+                    unless everythingIsAwesome $ fail $ 
+                        "GHC not generating the anticipated '.o' file!"
+    in
+    FS.isFile hsFile >>= \ hsExists ->
+    FS.isFile hiFile >>= \ hiExists ->
+    FS.isFile oFile  >>= \ objExists ->
+    unless hsExists createTheResource >>
+    unless (hiExists && objExists) makeTheObjectFile >>
+    Sys.load (FS.encodeString oFile) [] [] "resource" >>= \ loadStatus ->
+    case loadStatus of
+        Sys.LoadFailure errs -> fail (L.unlines errs)
+        Sys.LoadSuccess _ rsc -> return (asProg rsc)
 
 makeArgs :: [String]
 makeArgs = compOpts ++ warnOpts where
@@ -125,10 +145,10 @@ makeArgs = compOpts ++ warnOpts where
     compOpts =  ["-O1"]
 
 abc2hs :: [Op] -> Either Error String
-abc2hs ops = abc2hs' (uniqueStr ops) ops
+abc2hs ops = abc2hs' ('R' : uniqueStr ops) ops
 
-abc2hs' :: String -> [Op] -> Either Error String
-abc2hs' un ops = Right $ abc2hs_naive un ops
+abc2hs' :: ModuleName -> [Op] -> Either Error String
+abc2hs' rn ops = Right $ abc2hs_naive rn ops
 
 abc2hs_imports_naive :: [String]
 abc2hs_imports_naive = 
@@ -137,13 +157,13 @@ abc2hs_imports_naive =
     ,"Control.Monad (return)"
     ]
 
-abc2hs_naive :: String -> [Op] -> String
-abc2hs_naive un ops = (showHdr . showRsc . showFtr) "" where
+abc2hs_naive :: ModuleName -> [Op] -> String
+abc2hs_naive modName ops = (showHdr . showRsc . showFtr) "" where
     showHdr = lang . showChar '\n' . 
               modHdr . showChar '\n' . 
               showImports abc2hs_imports_naive . showChar '\n'
     lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
-    modHdr = showString "module R" . showString un . 
+    modHdr = showString "module " . showString modName . 
              showString "\n    (resource) where"
     showImports (x:xs) = showString "import " . showString x . 
                          showChar '\n' . showImports xs
@@ -205,7 +225,7 @@ dirFromId sp = toFP . fmap toPath . splits sp where
 -- create a (cryptographically) unique string for some 
 -- given source code using base32 and SHA3-384. This is
 -- both case insensitive and alphanumeric.
-uniqueStr :: [Op] -> String
+uniqueStr :: [Op] -> Unique
 uniqueStr = L.take 60 . toBase32 . getCodeHash 
 
 getCodeHash :: [Op] -> B.ByteString
