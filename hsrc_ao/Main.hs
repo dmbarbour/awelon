@@ -8,7 +8,6 @@ module Main
 
 import Control.Applicative
 import Control.Monad
-import qualified Control.Exception as Err
 
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -34,6 +33,7 @@ import AO.Parser
 import AO.Compile
 import JIT
 import AORT
+import Util
 
 helpMsg :: String
 helpMsg =
@@ -62,7 +62,8 @@ helpMsg =
     \    ao def  word          print full accepted definition of word \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
-    \The input stream is stdin and is processed one paragraph at a time. \n\
+    \The 'exec.abc' utilities will escape any {tokens} not valid in AO. \n\
+    \The '.s' input stream is stdin, processed one paragraph at a time. \n\
     \\n\
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
@@ -171,8 +172,10 @@ execAO ss =
     let compile (n,s) = simplify <$> compilePara d n s in
     execOps $ fmap compile $ L.zip [1..] ss
 
+-- note that execABC will scrub the ABC input to ensure 
+-- security and expression equivalence to AO inputs.
 execABC :: [String] -> IO ()
-execABC = execOps . fmap (return . simplify . read)  
+execABC = execOps . fmap (return . scrubABC . simplify . read)  
 
 type CX = AORT_CX
 type RtVal = V AORT
@@ -281,13 +284,13 @@ runTest d w =
     let testEnv = aoStdEnv testPB in
     let prog = interpret (simplify ops) in
     let runProg = runRT rt (prog testEnv) in
-    Err.try runProg >>= \ evf ->
+    try runProg >>= \ evf ->
     IORef.readIORef rfW >>= \ warnings ->
     reportTest w (L.reverse warnings) evf
 
 type Warning = String
 
-reportTest :: Word -> [Warning] -> Either Err.SomeException (V AORT) -> IO ()
+reportTest :: (Show err) => Word -> [Warning] -> Either err (V AORT) -> IO ()
 reportTest w [] (Right _) = Sys.putStrLn ("(pass) " ++ T.unpack w)
 reportTest w ws (Right _) = 
     Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
@@ -315,13 +318,6 @@ newTestPB d fwarn = return b where
     runCmd "error" (valToText -> Just msg) = fwarn msg >> fail "error command"
     runCmd s v = fail $ "unrecognized command: " ++ s ++ " with arg " ++ show v
 
-try :: IO a -> IO (Either Err.SomeException a)
-try = Err.try -- type forced
-
-tryJust :: IO a -> IO (Maybe a)
-tryJust op = either (const Nothing) (Just) <$> try op
-
-
 -- for now, I just emit code. I might later need to emit a context
 -- that is held by the runtime and recovered dynamically.
 printImperativeJIT :: String -> IO ()
@@ -331,13 +327,6 @@ printImperativeJIT aoStr =
         Left err -> putErrLn err >> Sys.exitFailure
         Right hsCode -> Sys.putStrLn hsCode
 
-
-
-indent, indent' :: String -> String -> String
-indent ws ss = ws ++ indent' ws ss 
-indent' ws ('\n':ss) = '\n' : indent ws ss
-indent' ws (c:ss) = c : indent' ws ss
-indent' _ [] = []
 
 {-
 
