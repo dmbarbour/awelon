@@ -1,25 +1,11 @@
-
 -- generic utilities
 module Util
     ( try, tryJust, tryIO, tryJustIO
-    , asyncIO
     , indent
     ) where
 
 import Control.Applicative
-import Control.Concurrent
---import Control.Concurrent.MVar
-import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified Control.Exception as Err
-
--- note that 'asyncIO' will re-raise any exceptions in the
--- client's thread - when grabbing the value. It might be
--- best to catch errors into the value itself.
-asyncIO :: IO a -> IO a
-asyncIO op = 
-    newEmptyMVar >>= \ v ->
-    forkIO (try op >>= putMVar v) >>
-    unsafeInterleaveIO (readMVar v >>= either Err.throwIO return)
 
 tryIO :: IO a -> IO (Either Err.IOException a)
 tryIO = Err.try

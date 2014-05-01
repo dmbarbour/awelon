@@ -18,6 +18,7 @@
 -- 
 module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
+    , AORT_ERRORS(..) -- error aggregation
     , asynch  
     , scrubABC
 
@@ -38,7 +39,8 @@ import Control.Monad.Trans.Class
 import Data.Typeable
 
 import Control.Concurrent
-import Control.Exception (finally)
+import qualified Control.Exception as Err
+import System.IO.Unsafe (unsafeInterleaveIO)
 
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
@@ -53,6 +55,7 @@ import qualified Data.Foldable as S
 import qualified Data.Text as T
 import qualified Data.ByteString as B
 import qualified Data.Map as M
+import qualified Data.List as L
 
 import ABC.Simplify
 import ABC.Operators
@@ -80,14 +83,28 @@ newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
 data AORT_CX = AORT_CX
     { aort_anno     :: String -> Maybe (Prog AORT)
     , aort_power    :: String -> Maybe (Prog AORT)
-    , aort_tasks    :: MVar [MVar ()] -- entry per asynch
+    , aort_tasks    :: MVar [MVar [Err.SomeException]] -- entry per asynch
     } 
+newtype AORT_ERRORS = AORT_ERRORS [Err.SomeException] 
+    deriving (Show, Typeable)
+instance Err.Exception AORT_ERRORS
 
 -- | run an arbitrary AORT program.
+--
+-- This will wait on all asynchronous operations, and will aggregate
+-- any errors and (if any errors) throw an AORT_ERRORS exception. 
 runRT :: AORT_CX -> AORT a -> IO a
-runRT cx (AORT op) = 
-    runReaderT (runPureM op) cx `finally`
-        taskWait (aort_tasks cx)
+runRT cx op = 
+    try (runRT' cx op) >>= \ result ->
+    taskWait cx >>= \ childErrors ->
+    case (result,childErrors) of
+        (Right r, []) -> return r
+        (Right _, es) -> Err.throwIO (AORT_ERRORS es)
+        (Left e, es) -> Err.throwIO (AORT_ERRORS (e:es))
+
+-- simplistic run
+runRT' :: AORT_CX -> AORT a -> IO a
+runRT' cx (AORT op) = runReaderT (runPureM op) cx 
 
 -- | read the runtime context
 readRT :: (AORT_CX -> a) -> AORT a
@@ -355,23 +372,39 @@ scrubABC = fmap scrubTok where
 -- but for now I wish to discourage incorrect use of 'asynch' for long
 -- running behaviors. Its scope is limited to one step. 
 --
+-- TO CONSIDER:
+--
+-- Currently, any errors are observed only when the value is examined.
+-- It might be better to either use an asynchronous exception, or to
+-- track errors as part of the `ao_tasks` return result. 
+--
 asynch :: AORT a -> AORT a
 asynch op =
     liftRT pure >>= \ cx ->
     liftIO $
-        newEmptyMVar >>= \ done ->
-        modifyMVar_ (aort_tasks cx) (pure . (done:)) >>
-        newMVar [] >>= \ newTaskList ->
-        let cx' = cx { aort_tasks = newTaskList } in
-        asyncIO $ runRT cx' op `finally` putMVar done ()
+        newEmptyMVar >>= \ vStatus ->
+        modifyMVar_ (aort_tasks cx) (pure . (vStatus:)) >>
+        newMVar [] >>= \ childTaskList ->
+        newEmptyMVar >>= \ vResult ->
+        let cx' = cx { aort_tasks = childTaskList } in
+        let asyncOp =
+                try (runRT' cx' op) >>= \ result ->  -- always succeeds
+                putMVar vResult result >> -- result is available ASAP
+                taskWait cx' >>= \ es -> -- wait for children!
+                let es' = either (:es) (const es) result in
+                putMVar vStatus es' -- report final status with error info  
+        in 
+        let getResult = readMVar vResult >>= either Err.throwIO return in
+        forkIO asyncOp >>
+        unsafeInterleaveIO getResult
 
--- | wait for all active tasks to finish
-taskWait :: MVar [MVar ()] -> IO ()
-taskWait mv = 
+-- | wait for all active tasks to finish, and aggregate errors!
+taskWait :: AORT_CX -> IO [Err.SomeException]
+taskWait cx =
+    let mv = aort_tasks cx in 
     takeMVar mv >>= \ tasks ->
     putMVar mv [] >>
-    mapM_ takeMVar tasks
-
-
+    mapM takeMVar tasks >>= 
+    return . L.concat
 
 
