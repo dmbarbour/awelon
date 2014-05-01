@@ -46,16 +46,19 @@ std
 @doc.getOSEnv.io "text -- text; (io) read an OS environment variable"
 @getOSEnv.io "getOSEnv" p command.io
 
-@doc.randomBytes.io "count -- (list of octets); secure random source"
+@doc.randomBytes.io "count -- (list of octets); (io) secure random source"
 
 @randomBytes.io "randomBytes" p command.io
 @rand8.io 1 randomBytes.io assert wx drop
 
-@doc.readFile.io "filename -- (1(err) + text); (io)"
-@doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io)"
-
+@doc.readFile.io "filename -- (1(err) + text); (io,asynch)"
+@doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io,asynch)"
+@doc.readBinaryFile.io "filename -- (1(err) + octets); (io,asynch)"
+@doc.writeBinaryFile.io "octets filename -- (1(err) + 1(ok)); (io,asynch)"
 @readFile.io "readFile" p command.io
 @writeFile.io p "writeFile" p command.io
+@readBinaryFile.io "readBinaryFile" p command.io
+@writeBinaryFile.io p "writeBinaryFile" p command.io
 
 @doc.destroy.io "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.io "destroy" p command.io elim1
@@ -77,23 +80,34 @@ std
 ~
 @tryApp.io p tryCap.io .apply
 
-@doc.simplify "block -- block; trivial simplifications on code associated with block"
+@doc.simplify 
+"block -- block; trivial simplifications on bytecode associated with block
+ 
+ Note: This doesn't directly affect performance. The main reason to explicitly simplify a block is to make it easier to read in a REPL or similar. There is no guarantee that the block will be reinterpreted using its new code, e.g. it might have already been compiled or composed of precompiled blocks.
+~
 @simplify [{&simplify}] .apply
 @simplify.io "&simplify" p command.io
 
+@doc.asynch
+"Awelon's design includes a 'causal commutativity' property, which is enforced by all Awelon effects models. Causal commutativity allows an arbitrary amount of parallelism, constrained only by dependencies between values. An AO or ABC implementation is free to infer or assume useful places for parallelism (e.g. loading or saving files, or compiling a block), but developers may also suggest parallelism through annotations. 
+ 
+ `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
+ 
+     {&asynch} :: block→block    (single input)
+     asynch    :: block -- block (on stack)
+ 
+ Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is instead modeled with RDP. Details elsewhere.)
+~ 
+@asynch [{&asynch}] .apply
+@asynch.io "&asynch" p command.io
+ 
 @doc.compile
-"Awelon Bytecode (ABC) was designed with the assumption that it will be compiled to achieve acceptable performance. Awelon idioms place a heavy emphasis on staged programming, e.g. where developers might construct programs that construct programs, composing hundreds of blocks. In that context, ahead-of-time compilation often fares poorly. Various forms of dynamic or just-in-time compilation can offer excellent performance at the cost of some extra latency. 
+"Awelon Bytecode (ABC) was designed with the assumption that it will be compiled to achieve acceptable performance. Awelon idioms place a heavy emphasis on staged programming, e.g. where developers might construct programs that construct programs, composing hundreds of blocks. While ahead-of-time compilation for AO is pretty good in many use cases, it fares poorly for staged programming. Dynamic or just-in-time compilation can offer excellent performance at the cost of some extra latency when compiling the code. 
  
- AO can provide access to compiled performance either implicity (through the VM) or explicitly (via annotations). The 'compile' word, presented here, applies an annotation to the block on the stack in order to compile it immediately. 
+ AO can provide access to compiled performance either implicity (through the VM) or explicitly (via annotations). The 'compile' word, presented here, uses an annotation to indicate a block should be compiled.
  
- CAUTION: In the `ao` and `aoi` utilities, compiled code is not garbage collected. This means developers must currently be conservative about using dynamic compilation based on runtime inputs.
+ CAUTION: In the current implementation of `ao` and `aoi` utilities, compiled code is never garbage collected. This means developers must currently be conservative about using dynamic compilation based on runtime inputs. Also, the compilation overhead is currently enormous. Eventually, AO will have a proper runtime with very fast compiles and garbage collection. But we're not there yet.
 ~
 @compile [{&compile}] .apply
 @compile.io "&compile" p command.io
-
-@doc.compile-trace
-"This is a variation of @compile to interpret the block a few times until we have some confidence that the block is part of a loop - at which point we compile it in parallel and hot swap to the compiled form. This avoids some of the latency and premature optimization issues with dynamic compilation, but also will be a little less efficient in cases where we end up looping a lot or just a few extra times beyond the threshold.
-~
-@compile-trace [{&compile trace}] .apply
-@compile-trace.io "&compile trace" p command.io
 

@@ -18,6 +18,7 @@
 -- 
 module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
+    , asynch  
     , scrubABC
 
     -- eventually, I might support some configuration
@@ -37,7 +38,7 @@ import Control.Monad.Trans.Class
 import Data.Typeable
 
 import Control.Concurrent
-import Data.IORef
+import Control.Exception (finally)
 
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
@@ -50,7 +51,7 @@ import Data.Ratio
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.Text as T
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString as B
 import qualified Data.Map as M
 
 import ABC.Simplify
@@ -77,13 +78,16 @@ newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
 -- At the moment, this is a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
 data AORT_CX = AORT_CX
-    { aort_anno   :: String -> Maybe (Prog AORT)
-    , aort_power  :: String -> Maybe (Prog AORT)
+    { aort_anno     :: String -> Maybe (Prog AORT)
+    , aort_power    :: String -> Maybe (Prog AORT)
+    , aort_tasks    :: MVar [MVar ()] -- entry per asynch
     } 
 
 -- | run an arbitrary AORT program.
 runRT :: AORT_CX -> AORT a -> IO a
-runRT cx (AORT op) = runReaderT (runPureM op) cx
+runRT cx (AORT op) = 
+    runReaderT (runPureM op) cx `finally`
+        taskWait (aort_tasks cx)
 
 -- | read the runtime context
 readRT :: (AORT_CX -> a) -> AORT a
@@ -96,8 +100,10 @@ liftRT = AORT . lift . ReaderT
 -- | a new runtime with default settings
 newDefaultRuntime :: IO AORT_CX
 newDefaultRuntime = 
+    newMVar [] >>= \ taskList ->
     let cx = AORT_CX { aort_anno   = defaultAnno
                      , aort_power  = defaultPower
+                     , aort_tasks  = taskList 
                      }
     in return cx
 
@@ -114,9 +120,8 @@ defaultAnno = flip M.lookup $ M.fromList $
     [("debug print raw", mkAnno debugPrintRaw)
     ,("debug print text", mkAnno debugPrintText)
     ,("compile", compileBlock)
-    ,("compile trace", compileTraceBlock 3)
     ,("simplify", simplifyBlock)
-    --,("asynch",asynchBlock)
+    ,("asynch",asynchBlock)
     ]
 
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
@@ -129,7 +134,7 @@ debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
 -- compile a block {&compile}
 compileBlock :: Prog AORT
-compileBlock (B b) = B <$> liftIO (compileBlock' b)
+compileBlock (B b) = B <$> (asynch $ liftIO $ compileBlock' b)
 compileBlock v = fail $ "{&compile} @ " ++ show v
 
 compileBlock' :: (Runtime m) => Block m -> IO (Block m)
@@ -143,39 +148,18 @@ compileBlock' b =
         Right prog ->
             return (b { b_code = S.fromList abc, b_prog = prog })
 
--- compile a block for simple counting trace and a hot-swap
-compileTraceBlock :: Int -> Prog AORT
-compileTraceBlock n (B b) =
-    liftIO (newIORef (n, b)) >>= \ rf -> 
-    let b' = b { b_prog = tracedBlock rf } in
-    return (B b')
-compileTraceBlock _ v = fail $ "{&compile trace} @ " ++ show v
-
-getAndDec :: (Integral n) => IORef (n, a) -> IO (n, a)
-getAndDec = flip atomicModifyIORef update where
-    update (n,a) = let s = (n-1,a) in (s,s)
-
-getTracedProg :: (Runtime m) => IORef (Int, Block m) -> IO (Prog m)
-getTracedProg rf = 
-    liftIO (getAndDec rf) >>= \ (n,b) ->
-    when (0 == n) (forkCompile rf) >> -- c
-    return (b_prog b)
-
-forkCompile :: (Runtime m) => IORef (a, Block m) -> IO ()
-forkCompile rf = void $ forkIO $ 
-    readIORef rf >>= \ (_,b0) -> -- access block
-    compileBlock' b0 >>= \ bf -> -- compile
-    atomicModifyIORef rf (\(n,_) -> ((n,bf),()))
-
-tracedBlock :: (MonadIO m, Runtime m) => IORef (Int, Block m) -> Prog m
-tracedBlock rf arg = liftIO (getTracedProg rf) >>= \ prog -> prog arg 
-
 simplifyBlock :: Prog AORT
 simplifyBlock (B b) = return (B b') where
     code' = S.fromList $ simplify $ S.toList $ b_code b
     b' = b { b_code = code' }
 simplifyBlock v = fail $ "{&simplify} @ " ++ show v
 
+-- prepare a block to compute asynchronously
+asynchBlock :: Prog AORT
+asynchBlock (B b) = pure (B b') where
+    prog' = asynch . b_prog b
+    b' = b { b_prog = prog' }
+asynchBlock v = fail $ "{&asynch} @ " ++ show v
 
 -- | an AO 'environment' is simply the first value passed to the
 -- program. The AO standard environment has the form:
@@ -208,8 +192,8 @@ powerTok = "!"
 -- obtain a block representing access to default AORT powers.
 aortPowerBlock :: Block AORT
 aortPowerBlock = Block { b_code = S.singleton (Tok powerTok)
-                      , b_prog = invoke powerTok -- keeping it simple
-                      , b_aff = True, b_rel = True }
+                       , b_prog = invoke powerTok -- keeping it simple
+                       , b_aff = True, b_rel = True }
 
 
 -- Default powers use the command string, rather than the token.
@@ -220,18 +204,22 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("destroy", const (return U))
     ,("getOSEnv", getOSEnv)
     ,("readFile", aoReadFile)
+    ,("readBinaryFile", aoReadBinaryFile)
     ,("writeFile", aoWriteFile)
+    ,("writeBinaryFile", aoWriteBinaryFile)
     ,("newTryCap", newTryCap)
     ]
 
-getRandomBytes :: (MonadIO m, Applicative m) => V m -> m (V m)
-getOSEnv, aoReadFile, aoWriteFile :: (MonadIO m, Applicative m) => V m -> m (V m)
-newTryCap :: V AORT -> AORT (V AORT)
+getRandomBytes :: Prog AORT
+getOSEnv :: Prog AORT
+aoReadFile, aoReadBinaryFile :: Prog AORT
+aoWriteFile, aoWriteBinaryFile :: Prog AORT
+newTryCap :: Prog AORT
 
 getRandomBytes (N r) | ((r >= 0) && (1 == denominator r)) =
     let nBytes = fromInteger $ numerator r in
     let getBytes = Entropy.getEntropy nBytes in
-    textToVal . B.unpack <$> liftIO getBytes
+    liftIO $ binaryToVal <$> getBytes 
 getRandomBytes v = fail $ "randomBytes @ " ++ show v
 
 getOSEnv (valToText -> Just var) = textToVal <$> liftIO gv where
@@ -241,8 +229,16 @@ getOSEnv v = fail $ "getOSEnv @ " ++ show v
 aoReadFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
     let rf = T.unpack <$> FS.readTextFile fp in
-    maybe (L U) (R . textToVal) <$> liftIO (tryJustIO rf)
+    let toVal = maybe (L U) (R . textToVal) in
+    asynch $ liftIO $ toVal <$> tryJustIO rf
 aoReadFile v = fail $ "readFile @ " ++ show v
+
+aoReadBinaryFile (valToText -> Just fname) =
+    let fp = FS.fromText (T.pack fname) in
+    let rf = FS.readFile fp in
+    let toVal = maybe (L U) (R . binaryToVal) in
+    asynch $ liftIO $ toVal <$> tryJustIO rf
+aoReadBinaryFile v = fail $ "readBinaryFile @ " ++ show v
 
 aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
     let fp = FS.fromText (T.pack fname) in
@@ -250,8 +246,33 @@ aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
               FS.writeTextFile fp (T.pack content) 
     in
     let asBoolean = maybe (L U) (const (R U)) in
-    asBoolean <$> liftIO (tryJustIO wOp)
+    asynch $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteFile v = fail $ "writeFile @ " ++ show v
+
+aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
+    let fp = FS.fromText (T.pack fname) in
+    let wOp = FS.createTree (FS.directory fp) >>
+              FS.writeFile fp content 
+    in
+    let asBoolean = maybe (L U) (const (R U)) in
+    asynch $ liftIO $ asBoolean <$> tryJustIO wOp
+aoWriteBinaryFile v = fail $ "writeBinaryFile @ " ++ show v
+
+-- convert between values and bytestrings
+binaryToVal :: B.ByteString -> V cx
+binaryToVal b = case B.uncons b of
+    Nothing -> (R U)
+    Just (o,b') -> (L (P (N (fromIntegral o)) (binaryToVal b')))
+
+valToBinary :: V cx -> Maybe B.ByteString
+valToBinary = valToL >=> return . B.pack where
+    valToL (L (P (N n) l')) | isByte n =
+        let w8val = fromInteger (numerator n) in
+        (w8val :) <$> valToL l' 
+    valToL (R U) = pure []
+    valToL _ = Nothing
+    isByte n = (1 == denominator n) && (byteRange (numerator n))
+    byteRange n = (0 <= n) && (n < 256)
 
 -- try a subprogram, but allow returning with failure
 --   1 → [(Block * Arg) → ((ErrorMsg*Arg) + Result)]
@@ -322,3 +343,35 @@ scrubABC = fmap scrubTok where
     okayInAO (':':_sealer) = True
     okayInAO ('.':_unseal) = True
     okayInAO _ = False
+
+-- | Execute a subprogram asynchronously.
+--
+-- aort_tasks will contain one entry for each asynchronous operation
+-- that is a direct child of the current thread. The `runRT` operation
+-- will wait for all children to complete... and each child will wait
+-- for all its children before considering itself to be complete.
+-- 
+-- Technically, Awelon can allow a much greater degree of parallelism, 
+-- but for now I wish to discourage incorrect use of 'asynch' for long
+-- running behaviors. Its scope is limited to one step. 
+--
+asynch :: AORT a -> AORT a
+asynch op =
+    liftRT pure >>= \ cx ->
+    liftIO $
+        newEmptyMVar >>= \ done ->
+        modifyMVar_ (aort_tasks cx) (pure . (done:)) >>
+        newMVar [] >>= \ newTaskList ->
+        let cx' = cx { aort_tasks = newTaskList } in
+        asyncIO $ runRT cx' op `finally` putMVar done ()
+
+-- | wait for all active tasks to finish
+taskWait :: MVar [MVar ()] -> IO ()
+taskWait mv = 
+    takeMVar mv >>= \ tasks ->
+    putMVar mv [] >>
+    mapM_ takeMVar tasks
+
+
+
+
