@@ -158,7 +158,9 @@ abc_jit ops =
 
 makeArgs :: [String]
 makeArgs = compOpts ++ warnOpts where
-    warnOpts =  ["-Wall","-Werror","-fno-warn-unused-imports"]
+    warnOpts =  ["-Wall","-Werror"
+                ,"-fno-warn-unused-imports"
+                ,"-fno-warn-missing-signatures"]
     compOpts =  ["-O1"]
 
 abc2hs :: [Op] -> Either Error String
