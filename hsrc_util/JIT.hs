@@ -57,6 +57,7 @@ module JIT
 import Control.Applicative 
 import Control.Monad
 import qualified Control.Exception as Err
+import Control.Concurrent
 
 import qualified Data.Map as M
 import qualified Data.List as L
@@ -68,6 +69,7 @@ import qualified Crypto.Hash as CH
 import qualified Codec.Binary.Base32 as B32
 import Data.Char (toLower)
 
+import System.IO.Unsafe (unsafePerformIO)
 import qualified System.Environment as Env
 import qualified System.Plugins as Sys
 
@@ -82,6 +84,20 @@ import ABC.Imperative.Runtime
 type Error = String
 type Unique = String
 type ModuleName = String
+
+
+-- 'System.Plugins.load' seems to not be MT-safe 
+-- (i.e. fails with +RTS -N3 and asynch {&compile})
+-- so I'm just going to force it to be single-threaded.
+loadMutex :: MVar ThreadId
+loadMutex = unsafePerformIO newEmptyMVar
+{-# NOINLINE loadMutex #-}
+
+withLoadMutex :: IO a -> IO a
+withLoadMutex action =
+    myThreadId >>= putMVar loadMutex >>
+    (action `Err.finally` takeMVar loadMutex)
+
 
 -- | Use Haskell's plugins module to just-in-time compile code.
 --
@@ -134,7 +150,8 @@ abc_jit ops =
     FS.isFile oFile  >>= \ objExists ->
     unless hsExists createTheResource >>
     unless (hiExists && objExists) makeTheObjectFile >>
-    Sys.load (FS.encodeString oFile) [] [] "resource" >>= \ loadStatus ->
+    let loadRsc = Sys.load (FS.encodeString oFile) [] [] "resource" in 
+    withLoadMutex loadRsc >>= \ loadStatus ->
     case loadStatus of
         Sys.LoadFailure errs -> fail (L.unlines errs)
         Sys.LoadSuccess _ rsc -> return (asProg rsc)
