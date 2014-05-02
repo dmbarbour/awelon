@@ -372,12 +372,6 @@ scrubABC = fmap scrubTok where
 -- but for now I wish to discourage incorrect use of 'asynch' for long
 -- running behaviors. Its scope is limited to one step. 
 --
--- TO CONSIDER:
---
--- Currently, any errors are observed only when the value is examined.
--- It might be better to either use an asynchronous exception, or to
--- track errors as part of the `ao_tasks` return result. 
---
 asynch :: AORT a -> AORT a
 asynch op =
     liftRT pure >>= \ cx ->
