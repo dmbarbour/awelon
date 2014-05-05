@@ -1,7 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- a mediocre, but not entirely naive, translation 
 -- from Awelon bytecode into Haskell code.
-
 module ABC2HS (abc2hs, abc2prog) where
 
 import Control.Applicative
@@ -13,14 +11,15 @@ import qualified Data.List as L
 import ABC.Operators
 
 type ModuleName = String 
-type ErrorMsg = String
+type ErrorMsg   = String
+type Name       = String
 -- import Control.Applicative
 
 abc2hs :: ModuleName -> [Op] -> Either ErrorMsg String
 abc2hs modName ops = hsResource modName <$> abc2prog ops
 
-hsResource :: ModuleName -> String -> String
-hsResource modName innerProg = prefix innerProg where
+hsResource :: ModuleName -> (ProgName,String) -> String
+hsResource modName (mainProgName,progDefs) = prefix progDefs where
     p = showChar '\n'
     prefix  = showMod.p.showImps.p.showRsc.p
     showMod = 
@@ -28,45 +27,120 @@ hsResource modName innerProg = prefix innerProg where
         showString modName .
         showString " ( resource ) where "
     showImps = 
-        showString "import ABC.Operators\n\
-                   \import ABC.Imperative.Value\n\
-                   \import ABC.Imperative.Resource\n\
-                   \import ABC.Imperative.Runtime\n\
-                   \import Control.Monad ((>=>))
-                   \"
+        showString "import ABC.Imperative.Prelude".p
     showRsc =
-        showString "resource :: Resource\n\
-                   \resource = Resource prog\n\
-                   \"
+        showString "resource :: Resource".p.
+        showString "resource = Resource ".
+        showString mainProgName . p
 
 type MkProg a = StateT ProgCX (ErrorT ErrorMsg Identity) a
 
-runMkProg :: ProgCX -> MkProg a -> (Either ErrorMsg (a, ProgCX))
-runMkProg cx op = runIdentity $ runErrorT $ runStateT op cx
+runMkProg :: ProgCX -> MkProg a -> (Either ErrorMsg a)
+runMkProg cx op = runIdentity $ runErrorT $ evalStateT op cx
 
--- Generate a set of toplevel Haskell names, with the main program
--- as 'prog' (of type (Runtime m) => V m -> m (V m)). 
+-- Generate a set of toplevel Haskell names, along with a name for
+-- the main program. A 'program' in this case has type:
+--
 --    (Runtime m) => V m -> m (V m)
+--
 -- This is the toplevel command to get started. 
-abc2prog :: [Op] -> Either ErrorMsg String
-abc2prog ops = Right "prog = error \"todo!\"\n"
+abc2prog :: [Op] -> Either ErrorMsg (Name,String)
+abc2prog = runMkProg pcx0 . mkProg
+
+mkProg :: [Op] -> MkProg (Name,String)
+mkProg ops =
+    defProg ops >>= \ p0 ->
+    get >>= \ cx -> 
+    return (p0, prog2hs cx)
+
+-- define a program, or use an existing definition if
+-- it was already installed. 
+defProg :: [Op] -> MkProg Name
+defProg ops = 
+    gets pcx_progs >>= \ mDefs ->
+    case M.lookup ops mDefs of
+        Just pN -> return pN
+        Nothing -> 
+            let pN = ('p' : show (M.size mDefs)) in
+            let mDefs' = M.insert ops pN mDefs in
+            withState (\s -> s { pcx_progs = mDefs' }) >>
+            implProg pN ops 
+
+-- define a text object, or reuse an existing one
+defText :: String -> MkProg Name
+defText txt =
+    gets pcx_texts >>= \ mTxts ->
+    case M.lookup txt mTxts of
+        Just tN -> return tN
+        Nothing ->
+            let tN = ('t' : show (M.size mTxts)) in
+            let mTxts' = M.insert txt tN mTxts in
+            withState (\s -> s { pcx_texts = mTxts' })
+
+prog2hs :: ProgCX -> String
+prog2hs cx = 
+
+
+
+
+
+    
+
+implProg :: 
+    
+    
+    gets pcx_progs >>= \ lProgs ->
+            let pName = ('p' : show (L.length lProgs)) in
+            installProg pName ops >>
+            return pName
+
+            
+            
+            
+            
+    
+
+
+
+
+{-
+    p = showChar '\n'
+    slns f (x:xs) = f x . p . showAll f xs
+    slns _ [] = id
+    showProgs = slns showProg (pcx_hsProgs cx)
+    showTexts = slns showText (pcx_hsTexts cx)
+    showBlocks = slns showBlock (pcx_hsBlocks cx)
+    showProg (pN,code) = 
+        showString pN . showString " :: (Runtime m) => Prog m" .
+        
+        showString " = "
+-}
+    
+
+
+
+defProg :: [Op] -> MkProg Name
+defProg ops =
+    
+
+
 
 -- create one big expression of type:
 --   (Runtime m) => V m -> m (V m)
 -- using 'let' expressions as desired.
 --
---
 data ProgCX = ProgCX
-    { pcx_progs :: [([Op],ProgName)] -- to help detect cycles!
+    { pcx_progs :: M.Map [Op] Name      -- cycle detection!
+    , pcx_defs  :: M.Map Name [PCase]
+    , pcx_texts :: M.Map String Name
     }
-type ProgName = String
+type PCase = (Pattern,HsCode)
 
 pcx0 :: ProgCX
 pcx0 = ProgCX 
-    { pcx_progs = []
+    { pcx_progs   = []
+    , pcx_defs    = M.empty
     }
-
-
 
 
 
