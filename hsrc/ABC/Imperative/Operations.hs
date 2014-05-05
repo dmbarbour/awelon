@@ -24,8 +24,8 @@ module ABC.Imperative.Operations
 
     , apc               -- $c
     , sL',sR',sW',sZ',sV',sC' -- (sum ops apart from pairs)
+    , onFst -- apply to first element
     
-    , (>=>)
     ) where
 
 import Control.Monad ((>=>))

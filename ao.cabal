@@ -101,6 +101,7 @@ Library
     ABC.Imperative.Interpreter
     ABC.Imperative.Runtime
     ABC.Imperative.Resource
+    ABC.Imperative.Prelude
 
     AO.Code
     AO.Parser

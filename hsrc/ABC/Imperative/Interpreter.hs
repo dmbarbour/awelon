@@ -4,6 +4,7 @@ module ABC.Imperative.Interpreter
     ( interpret
     ) where
 
+import Control.Monad ((>=>))
 import qualified Data.Sequence as S 
 import ABC.Imperative.Runtime
 import ABC.Imperative.Operations
