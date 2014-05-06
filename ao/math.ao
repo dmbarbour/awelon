@@ -146,14 +146,14 @@
 @assertLTE  lte assert wx
 @assertGT   gt assert x
 @assertGTE  gte assert x
-@assertEQ   eq assert x
-@assertEQ1  assertEQ drop
+@assertEQ.n   eq assert x
+@assertEQ1.n  assertEQ drop
 @assertNEQ  neq assert [%vrwlc] .left merge x
 
-@doc.assertEQ1d "x y x -- x y; assert x's are equal, useful for testing"
-@assertEQ1d   swapd assertEQ1 swap
-@assertEQ1dd  rotd  assertEQ1 unrot
-@assertEQ1ddd rolld assertEQ1 unroll
+@doc.assertEQ1d.n "x y x -- x y; assert x's are equal, useful for testing"
+@assertEQ1d.n   swapd assertEQ1 swap
+@assertEQ1dd.n  rotd  assertEQ1 unrot
+@assertEQ1ddd.n rolld assertEQ1 unroll
 
 @assertLTz  0 assertLT drop
 @assertLTEz 0 assertLTE drop

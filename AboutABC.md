@@ -305,20 +305,20 @@ It also may give ABC a more dynamic feel, especially combined with dependently t
 
 ### Annotations as Capabilities
 
-Annotations are expressed as capability text using prefix `&` as in `{&par}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint at performance attributes, but not enforce any properties. Despite these limitations, annotations are potentially useful for many ad-hoc purposes:
+Annotations are expressed as capability text using prefix `&` as in `{&asynch}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint at performance attributes, but not enforce any properties. Despite these limitations, annotations are potentially useful for many ad-hoc purposes:
 
 * suggest a block compute lazily
-* suggest seq or par for potentially lazy value
+* suggest use of lazy, strict, or parallel evaluation
 * suggest blocks be computed on GPU or FPGA
 * suggest use of memoization or caching
 * suggest specialization or JIT of a constructed block
 * provide hints for proving safety or termination
-* assert properties inaccessible to `K`, e.g. purity of a block
+* assert properties inaccessible to `K`, e.g. purity of a block or equivalence of two blocks.
 * improve blame, error, or warning messages; add a warning
 * track locations in original source code
 * debugger support - breakpoints, location info, console traces
 
-When an ABC system doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Annotations may be removed when aggressively optimizing.
+When an ABC subsystem doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Annotations may be removed when aggressively optimizing.
 
 ### Spatial-Temporal Types and Capabilities
 

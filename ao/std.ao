@@ -47,6 +47,28 @@
  A more specialized equivalency is also available with prefix 'id'. Eventually, there may be specialized prefixes for for idempotence (`f f = f`) and commutativity (`f g = g f`), and similar properties (plus associativity) for binary functions. However, for now, these may be expressed by eqv.
 ~
 
+@doc.assertEQ 
+"a a -- a a; (annotation) assert equivalence 
+ 
+     {&≡} :: (a*(a*e))→(a*(a*e))
+       ^ that's U+2261 (dec 8801)
+ 
+ This asserts that the two arguments should be equivalent. As an annotation, this has no observable impact on a valid program, but it may cause some programs to be rejected at compile time or fail at run time.
+ 
+ Equivalence cannot always be observed, e.g. it is (in the general case) impossible to know whether two ABC blocks have equivalent observable behavior. However, many specific cases are decidable, e.g. using structural equality between blocks after a simplification step, or by generating a test set.
+ 
+ Naturally, developers cannot rely on this weeding out all bad programs, but it can certainly help identify unexpected behavior, and may augment an AO/ABC type system (e.g. by allowing block equivalence to serve as a form of type information).
+~
+@assertEQ p %rr {&≡} %ll x
+
+@doc.assertEQ1 "as `assertEQ`, then drop the top copy (common)"
+@assertEQ1 assertEQ drop
+
+@doc.assertEQ1d "x y x -- x y; assert top x equivalent to bottom x"
+@assertEQ1d   swapd assertEQ1 swap
+@assertEQ1dd  rotd  assertEQ1 unrot
+@assertEQ1ddd rolld assertEQ1 unroll
+
 @doc.prefix.id 
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
  

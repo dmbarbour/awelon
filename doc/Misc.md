@@ -1,4 +1,19 @@
 
+## Another Assertion Primitive?
+
+I currently have operator `K :: ((a+b)*e) → (b*e)` for runtime assertions.
+
+However, it might be also useful to have a polymorphic:
+
+        assertEQ :: (a*(a*e))→(a*(a*e))
+
+This would be excellent for testing, and (even better) for asserting trivial (structural) equivalence between blocks that cannot normally be observed. 
+
+For now, it might be better to assume this as a standard annotation, e.g.
+
+        {&≡} :: (a*(a*e))→(a*(a*e))
+
+
 
 
 ### Data is represented by Code
