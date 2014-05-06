@@ -53,13 +53,11 @@
      {&≡} :: (a*(a*e))→(a*(a*e))
        ^ that's U+2261 (dec 8801)
  
- This asserts that the two arguments should be equivalent. As an annotation, this has no observable impact on a valid program, but it may cause some programs to be rejected at compile time or fail at run time.
+ This asserts that the two arguments should be equivalent. As an annotation, this has no observable impact on a valid program, but it may cause some invalid programs to be rejected at compile time or fail at run time.
  
- Equivalence cannot always be observed, e.g. it is (in the general case) impossible to know whether two ABC blocks have equivalent observable behavior. However, many specific cases are decidable, e.g. using structural equality between blocks after a simplification step, or by generating a test set.
- 
- Naturally, developers cannot rely on this weeding out all bad programs, but it can certainly help identify unexpected behavior, and may augment an AO/ABC type system (e.g. by allowing block equivalence to serve as a form of type information).
+ For blocks, the notion of equivalence is a little fuzzy because behavioral equivalence is undecidable in the general case. At the very least, an implementation must pass structurally equivalent blocks (i.e. same underlying ABC code).
 ~
-@assertEQ p %rr {&≡} %ll x
+@assertEQ pw %rr {&≡} %ll wx
 
 @doc.assertEQ1 "as `assertEQ`, then drop the top copy (common)"
 @assertEQ1 assertEQ drop

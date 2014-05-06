@@ -2,7 +2,7 @@
 -- | Class for an imperative ABC runtime
 module ABC.Imperative.Runtime 
     ( Runtime(..)
-    , invokeFails
+    , invokeDefault
     ) where
 
 import Control.Applicative
@@ -12,23 +12,27 @@ import ABC.Imperative.Value
 -- (Though, it is free to fail if a token is unrecognized.)
 class (Monad cx, Applicative cx) => Runtime cx where
     invoke :: String -> Prog cx
-    invoke = invokeFails
+    invoke = invokeDefault
 
 instance Runtime IO
 
 -- | invokeFails is a suitable call for unrecognized tokens
 --
--- This will pass unrecognized annotations, and also handle the
--- discretionary seal and unseal actions from AO. Otherwise, it
--- will fail with a 'token not recognized' message.
-invokeFails :: (Monad cx) => String -> Prog cx
-invokeFails ('&':_) = return
-invokeFails s@(':':_) = return . (S s)
-invokeFails ('.':s) = unseal s
-invokeFails tok = const $ fail emsg where
+-- This will pass unrecognized annotations, handle some standard
+-- annotations, and also handle discretionary seal and unseal 
+-- actions. Otherwise, it will fail with appropriate message.
+invokeDefault :: (Monad cx) => String -> Prog cx
+invokeDefault ('&':anno) = invokeAnno anno
+invokeDefault s@(':':_) = return . (S s)
+invokeDefault ('.':s) = unseal s
+invokeDefault tok = const $ fail emsg where
     emsg = "{" ++ tok ++ "} token not recognized"
 
 unseal :: (Monad cx) => String -> V cx -> cx (V cx)
 unseal s (S (':':s') v) | (s == s') = return v
 unseal s v = fail $ "{." ++ s ++ "} (unseal) @ " ++ show v
 
+-- default annotations... only one right now
+invokeAnno :: (Monad cx) => String -> Prog cx
+invokeAnno ('≡':[]) = assertEQ
+invokeAnno _ = return

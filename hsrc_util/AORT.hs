@@ -138,7 +138,8 @@ defaultAnno = flip M.lookup $ M.fromList $
     ,("debug print text", mkAnno debugPrintText)
     ,("compile", compileBlock)
     ,("simplify", simplifyBlock)
-    ,("asynch",asynchBlock)
+    ,("asynch", asynchBlock)
+    ,("≡", assertEQ)
     ]
 
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
@@ -341,7 +342,7 @@ instance Runtime AORT where
     invoke ('&':s) = execAnno s
     invoke s | (s == powerTok) = execPower
     invoke s | (s == tryTok) = tryAORT
-    invoke s = invokeFails s
+    invoke s = invokeDefault s
 
 -- | For a raw ABC input stream, we want to forbid tokens that are
 -- not supported by AO. This ensures equivalence for expressiveness

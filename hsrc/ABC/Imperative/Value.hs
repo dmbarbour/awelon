@@ -12,6 +12,7 @@ module ABC.Imperative.Value
     , copyable, droppable
     , divModQ
     , valToText, textToVal
+    , simplEQ, assertEQ
     ) where
 
 import Control.Applicative
@@ -23,6 +24,7 @@ import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 
 import ABC.Operators
+import ABC.Simplify
 import ABC.Quote
 
 -- | a value in imperative context cx
@@ -169,4 +171,30 @@ droppable (L a) = droppable a
 droppable U = True
 droppable (B b) = not (b_rel b)
 droppable (S _ v) = droppable v
+
+-- default impl for `{&≡}` annotation
+assertEQ :: (Monad cx) => Prog cx
+assertEQ v@(P a (P a' _e)) | simplEQ a a' = return v
+assertEQ v = fail $ "{&≡} (assertEQ) @ " ++ show v
+
+-- block-simplifying equality test
+simplEQ :: V a -> V b -> Bool
+simplEQ (N a) (N b) = (a == b)
+simplEQ (P a1 a2) (P b1 b2) = simplEQ a1 b1 && simplEQ a2 b2
+simplEQ (L a) (L b) = (simplEQ a b)
+simplEQ (R a) (R b) = (simplEQ a b)
+simplEQ U U = True
+simplEQ (B a) (B b) =
+    -- compare simplified code
+    let codeA = simplify (S.toList (b_code a)) in
+    let codeB = simplify (S.toList (b_code b)) in
+    (codeA == codeB) &&
+    (b_aff a == b_aff b) &&
+    (b_rel a == b_rel b)
+simplEQ (S sa va) (S sb vb) = (sa == sb) && (simplEQ va vb)
+simplEQ _ _ = False
+
+
+
+
 
