@@ -170,7 +170,7 @@ aoiRunABC abc =
     lift (gets aoi_rtval) >>= \ v ->
     lift (gets aoi_rtcx) >>= \ rt ->
     let runProg = runRT rt $ interpret (simplify abc) v in
-    liftIO (tryIO runProg) >>= \ evf ->
+    liftIO (try runProg) >>= \ evf ->
     case evf of
         Left  e  -> HKL.outputStrLn (show e)
         Right vf -> lift (updateEnv vf)
