@@ -171,17 +171,13 @@ abc2hs' rn ops = Right $ abc2hs_naive rn ops
 
 abc2hs_imports_naive :: [String]
 abc2hs_imports_naive = 
-    ["ABC.Imperative.Operations"
-    ,"ABC.Imperative.Resource"
-    ,"Control.Monad (return)"
+    ["ABC.Imperative.Prelude"
     ]
 
 abc2hs_naive :: ModuleName -> [Op] -> String
 abc2hs_naive modName ops = (showHdr . showRsc . showFtr) "" where
-    showHdr = lang . showChar '\n' . 
-              modHdr . showChar '\n' . 
+    showHdr = modHdr . showChar '\n' . 
               showImports abc2hs_imports_naive . showChar '\n'
-    lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
     modHdr = showString "module " . showString modName . 
              showString "\n    (resource) where"
     showImports (x:xs) = showString "import " . showString x . 

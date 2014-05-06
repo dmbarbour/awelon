@@ -13,6 +13,7 @@ import ABC.Operators
 type ModuleName = String 
 type ErrorMsg   = String
 type Name       = String
+type Token      = String
 -- import Control.Applicative
 
 abc2hs :: ModuleName -> [Op] -> Either ErrorMsg String
@@ -64,7 +65,7 @@ defProg ops =
             let pN = ('p' : show (M.size mDefs)) in
             let mDefs' = M.insert ops pN mDefs in
             withState (\s -> s { pcx_progs = mDefs' }) >>
-            implProg pN ops 
+            genProg pN ops 
 
 -- define a text object, or reuse an existing one
 defText :: String -> MkProg Name
@@ -78,52 +79,41 @@ defText txt =
             withState (\s -> s { pcx_texts = mTxts' })
 
 prog2hs :: ProgCX -> String
-prog2hs cx = 
-
-
-
-
-
-    
-
-implProg :: 
-    
-    
-    gets pcx_progs >>= \ lProgs ->
-            let pName = ('p' : show (L.length lProgs)) in
-            installProg pName ops >>
-            return pName
-
-            
-            
-            
-            
-    
-
-
-
-
-{-
+prog2hs cx = showHs [] where
     p = showChar '\n'
-    slns f (x:xs) = f x . p . showAll f xs
-    slns _ [] = id
-    showProgs = slns showProg (pcx_hsProgs cx)
-    showTexts = slns showText (pcx_hsTexts cx)
-    showBlocks = slns showBlock (pcx_hsBlocks cx)
-    showProg (pN,code) = 
-        showString pN . showString " :: (Runtime m) => Prog m" .
+    showHs = showDefs.showTexts
+    lDefs = M.toList (pcx_defs cx)
+    lTexts = M.toList (pcx_texts cx)
+    showDefs = showl showDef lDefs
+    showTexts = showl showText lTexts
+    showl f (x:xs) = f x . showl f xs
+    showl [] = id
+    showDef (nm,cases) =
+        showString nm . showString " :: (Runtime m) => Prog m" . p .
+        showl (showCase nm) cases . unexpected nm cases . p.p
+    showCase nm (ptrn,prog) =
+        showString nm . showChar ' ' . shows ptrn .
+        showString " = " . shows prog . p
+    unexpected nm cases =
+        -- attempt to provide decent debugging info
+        if coversAll cases then id else
+        showString nm . 
+        showString " other = fail $ ( showString \"received \" .\
+                                    \ shows other .\
+                                    \ showString \"expecting \" .\
+                                    \ showString " .
+        shows (show (fmap fst cases)) .
+        showString ") []
+    showText (txt,nm) = 
+        showString nm . showString " :: String" . p .
+        showString nm . showString " = " . shows txt . p.p
         
-        showString " = "
--}
-    
-
-
-
-defProg :: [Op] -> MkProg Name
-defProg ops =
-    
-
-
+-- test whether a set of patterns covers all cases.
+-- for now, this is sufficient for the patterns actually
+-- generated (but would be incomplete for general use). 
+coversAll :: [Ptrn] -> Bool
+coversAll [Var _] = True
+coversAll _ = False
 
 -- create one big expression of type:
 --   (Runtime m) => V m -> m (V m)
@@ -131,16 +121,43 @@ defProg ops =
 --
 data ProgCX = ProgCX
     { pcx_progs :: M.Map [Op] Name      -- cycle detection!
-    , pcx_defs  :: M.Map Name [PCase]
+    , pcx_defs  :: M.Map Name [MatchCase]
     , pcx_texts :: M.Map String Name
     }
-type PCase = (Pattern,HsCode)
+type MatchCase = (Ptrn,Prog)
 
 pcx0 :: ProgCX
 pcx0 = ProgCX 
-    { pcx_progs   = []
-    , pcx_defs    = M.empty
+    { pcx_progs = M.empty
+    , pcx_defs  = M.empty
+    , pcx_texts = M.empty
     }
+
+-- this Prog assumes variables may have been captured
+-- e.g. by 
+--
+-- so it has type `(Runtime m) => m (V m)` with implicit
+-- context of a captured value. The concatenative nature
+-- of ABC is sacrificed at this point for performance in
+-- the target language, Haskell.
+data Prog 
+    = Call Name Expr       -- subroutines; captured cycles
+    | Invoke Token Expr    -- ABC's effects model
+    | Bind Prog Name Prog  -- prog1 >>= \ name -> prog2
+    | Return Expr          -- return expr
+    | Let Name Expr Prog   -- let name = expr in prog
+
+-- a 
+data Ptrn
+
+
+data Ptrn
+    = Pv Name -- variable
+    | Pp Ptrn Ptrn -- P
+    | Pl Ptrn -- L
+    | Pr Ptrn -- R
+    | Psv String Ptrn -- SV
+    | P
 
 
 
@@ -196,10 +213,3 @@ data Expr
 --
 -- Then use these for the pure parts, without involving the toplevel
 -- monad before necessary.
-
-     
-indent,indent' :: String -> String -> String
-indent ws ss = ws ++ indent' ws ss
-indent' ws ('\n':ss) = '\n' : indent ws ss
-indent' ws (c:ss) = c : indent' ws ss
-indent' _ [] = ""
