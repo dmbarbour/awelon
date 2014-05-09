@@ -311,6 +311,6 @@
  over zipRem.l 
  assert elim1 
  assert elim1
- [wx assertEQ1 drop] each.l
+ [wx assertEQ1.n drop] each.l
 @assertTextEQ1d swapd assertTextEQ1 swap
 
