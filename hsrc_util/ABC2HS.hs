@@ -7,32 +7,21 @@
 --   1) without bloating code too much
 --   2) without losing partial evaluations
 --
--- It might require some sort of opportunistic merge of cases
--- and/or of subprograms (sequences that are similar or identical
--- across use-cases. I wonder also if I can leverage some sort of
--- choice conservation concept, e.g. identify subprograms that do
--- not change the number of choices (sums) from input to output.
+-- for now, I think it might be better to accept the code bloat,
+-- then find a way to reduce it by smart selection of subprograms
+-- (e.g. based on information 'chokepoints').
 --
--- I think that handling up to some small, fixed maximum number of
--- choices would likely be sufficient for performance. If I cover
--- three choices (eight paths) in a single subprogram, that could
--- address nearly all 'inner loops'. I guess a second consideration
--- would be how 'long' I hold these choices (how many intermediate
--- operations). 
+-- Dealing with sum types seems rather painful. Haskell processes sums
+-- using toplevel functions and/or case statements and/or if conditions.
+-- Is there a good way to make this easier? I'm trying ListT, but it
+-- might be better to handle cases explicitly rather than expand & merge?
 --
--- OTOH, perhaps it would be better to start by accepting some code
--- bloat, then later find ways to reduce it by selecting subprograms?
--- This would result in more 'specialized' code to start. 
+-- I think an interesting approach might be to construct an intermediate
+-- dataflow graph, then convert that to Haskell. OTOH, in some ways, that
+-- is what I'm already doing (just using variables for dataflow). 
 --
--- Another potential approach is to build a dataflow graph, then 
--- build the Haskell program from the graph. This extra layer of
--- indirection might simplify the translation.
---
--- But let's try a relatively simple design to start:
---
---   1) break a program into sequences of prodOps vs. sumOps
---   2) process sumOps using naive model
---   3) process prodOps using simple combination
+-- Other thoughts: how should I handle {tokens}, in particular capturing
+-- their outputs into an expected format?
 --
 -- This approach leaves a lot to be desired, e.g. it cannot fully
 -- optimize a fixpoint process. But it should simplify a lot of
@@ -61,8 +50,8 @@ type ModuleName   = String
 type ErrorMsg     = String
 type Name         = String
 type Token        = String
-type MkProg a     = StateT ProgCX (ErrorT ErrorMsg Identity) a
-type MkProgC a    = StateT ProgC (ListT MkProg) a
+type MkProg       = StateT ProgCX (ErrorT ErrorMsg Identity)
+type MkProgC      = StateT ProgC (ListT MkProg)
 
 -- generate the full module string, including all headers
 abc2hs :: ModuleName -> [Op] -> Either ErrorMsg String
@@ -150,6 +139,10 @@ addProg ops =
             let cx' = cx { pcx_progs = progs' } in
             put cx' >> return (False,pN)
 
+-- do we already have a given subprogram? 
+hasProg :: [Op] -> MkProg Bool -- bExists
+hasProg ops = M.member ops <$> gets pcx_progs
+
 -- define a new program
 addProgDef :: ProgDef -> MkProg ()
 addProgDef d = modify $ \ cx ->
@@ -203,13 +196,61 @@ mkProgDef = ProgDef
 defProgC :: [Op] -> Expr -> MkProgC Expr
 defProgC = error "todo! defProgC"
 
+-- | a new ProgC generally starts with (Var 0)
+-- and adds new variables as necessary. 
+--
+-- Each variable may be inferred to have some structure.
 data ProgC = ProgC
+    { pc_vars    :: M.Map Sym Expr
+    , pc_conds   :: [Cond]
+    , pc_calls   :: [Call]
+    , pc_gensym  :: !Sym
+    }
+data Call = Calls CallType Name Expr Sym
+data CallType = SubProg | Invoke
+type Cond = BoolExpr
+type Sym = Integer
+
+pc0 :: ProgC
+pc0 = ProgC M.empty [] [] 0
+
 
 data Expr
     = Var {-# UNPACK #-} !Sym
+    | Prod !Expr !Expr | Unit
+    | SumL !Expr | SumR !Expr
+    | Sealed !Token !Expr
+    | VNum !NumExpr
+    | VBlock !BlockExpr
 
-type Sym = Integer
+data NumExpr
+    = NumConst {-# UNPACK #-} !Rational
+    | NumVar {-# UNPACK #-} !Sym
+    | AddNum !NumExpr !NumExpr
+    | MulNum !NumExpr !NumExpr
+    | InvNum !NumExpr
+    | NegNum !NumExpr
+    | DivNum !NumExpr !NumExpr
+    | ModNum !NumExpr !NumExpr
 
+data BlockExpr = BlockExpr 
+    { bx_code :: CodeExpr
+    , bx_aff  :: BoolExpr
+    , bx_rel  :: BoolExpr
+    }
+
+data CodeExpr 
+    = CodeConst [Op]
+    | CodeVar {-# UNPACK #-} !Sym
+    | CodeComp !CodeExpr !CodeExpr
+
+data BoolExpr 
+    = BoolConst !Bool
+    | BoolVar {-# UNPACK #-} !Sym
+    | BoolOr  !BoolExpr !BoolExpr
+    | BoolNot !BoolExpr 
+    | BoolGT  !NumExpr !NumExpr -- greater than
+    | BoolNZ  !NumExpr -- non-zero
 
 
 
