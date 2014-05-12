@@ -13,6 +13,8 @@ module ABC.Imperative.Value
     , divModQ
     , valToText, textToVal
     , simplEQ, assertEQ
+    , isSum, isInL, isInR
+    , condProg
     ) where
 
 import Control.Applicative
@@ -194,7 +196,18 @@ simplEQ (B a) (B b) =
 simplEQ (S sa va) (S sb vb) = (sa == sb) && (simplEQ va vb)
 simplEQ _ _ = False
 
+-- to support code generation, I need a lot of utility functions.
+isSum, isInL, isInR :: V a -> Bool
+isSum (L _a) = True
+isSum (R _b) = True
+isSum _ = False
+isInL (L _a) = True
+isInL _ = False
+isInR (R _b) = True
+isInR _ = False
 
-
-
+condProg :: (Monad m) => Prog m -> Prog m -> Prog m
+condProg _ onR (R v) = onR v
+condProg onL _ (L v) = onL v
+condProg _ _ v = fail $ shows v " \8719 (a + b)" 
 
