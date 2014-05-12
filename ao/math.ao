@@ -49,7 +49,7 @@
 
 @doc.fibonacci "N -- fib(N); the 'hello world' of functional programming ;)"
 @fibonacci 1 0 [dup swapd .add] roll repeat dropd
-@test.fibonacci 11 fibonacci 89 assertEQ1
+@test.fibonacci 11 fibonacci 89 assertEQ1.n
 
 @doc.useFloatingPoint32 "N--N; annotation; favor floating point with at least 32 bits"
 @doc.useFloatingPoint64 "N--N; annotation; favor floating point with at least 64 bits"
@@ -121,8 +121,8 @@
 @gteb .gteb
 @lteb .lteb
 
-@doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a)); for numbers a,x"
-@doc.neq "a b -- (EQ(b*a) + (LT(a*b) + GT(b*a))); for numbers a,x"
+@doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a)); for numbers a,b"
+@doc.neq "a b -- (EQ(b*a) + (LT(a*b) + GT(b*a))); for numbers a,b"
 @eq neq not
 @neq gt [%vr>c] .left %rRl
 
@@ -136,31 +136,31 @@
 @eq1m eq1 [%vMc] .left
 @neq1m eq1m not
 
-@doc.eqb "a b -- Bool; a = b?; for numbers a,x"
-@doc.neqb "a b -- Bool; a ≠ b?; for numbers a,x"
+@doc.eqb "a b -- Bool; a = b?; for numbers a,b"
+@doc.neqb "a b -- Bool; a ≠ b?; for numbers a,b"
 @eqb eq toBoolean
 @neqb neq toBoolean
 
 
-@assertLT   lt assert wx
-@assertLTE  lte assert wx
-@assertGT   gt assert x
-@assertGTE  gte assert x
+@assertLT     lt assert wx
+@assertLTE    lte assert wx
+@assertGT     gt assert x
+@assertGTE    gte assert x
 @assertEQ.n   eq assert x
-@assertEQ1.n  assertEQ drop
-@assertNEQ  neq assert [%vrwlc] .left merge x
+@assertEQ1.n  assertEQ.n drop
+@assertNEQ.n  neq assert [%vrwlc] .left merge x
 
-@doc.assertEQ1d.n "x y x -- x y; assert x's are equal, useful for testing"
-@assertEQ1d.n   swapd assertEQ1 swap
-@assertEQ1dd.n  rotd  assertEQ1 unrot
-@assertEQ1ddd.n rolld assertEQ1 unroll
+@doc.assertEQ1d.n "N(x) N(y) N(x) -- N(x) N(y); assert x's are equal, useful for testing"
+@assertEQ1d.n   swapd assertEQ1.n swap
+@assertEQ1dd.n  rotd  assertEQ1.n unrot
+@assertEQ1ddd.n rolld assertEQ1.n unroll
 
 @assertLTz  0 assertLT drop
 @assertLTEz 0 assertLTE drop
 @assertGTz  0 assertGT drop
 @assertGTEz 0 assertGTE drop
-@assertEQz  0 assertEQ drop
-@assertNEQz 0 assertNEQ drop
+@assertEQz  0 assertEQ.n drop
+@assertNEQz 0 assertNEQ.n drop
 
 @doc..assertUnit "1→1; assert singular value is unit"
 @.assertUnit %vvrwlcc
@@ -184,8 +184,8 @@
 @id.assertLTE assertLTE
 @id.assertGT assertGT
 @id.assertGTE assertGTE
-@id.assertEQ assertEQ
-@id.assertNEQ assertNEQ
+@id.assertEQ.n assertEQ.n
+@id.assertNEQ.n assertNEQ.n
 @id.assertLTz assertLTz
 @id.assertGTz assertGTz
 @id.assertGTEz assertGTEz

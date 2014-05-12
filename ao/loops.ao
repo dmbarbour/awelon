@@ -20,7 +20,7 @@
  wx dup dec unrot
  0 gt [drop] rot if_
 
-@test.repeat 4 [inc] 3 repeatP 7 assertEQ
+@test.repeat 4 [inc] 3 repeatP 7 assertEQ.n
 @repeatP [repeat] apply3to1
 
 @doc.enumx "a [a ix -- a] n m -- a; apply with ix in range [n,m)."
@@ -39,8 +39,8 @@
 @untilSum [step.untilSum] bind fixpoint inline
 @step.untilSum composel [] if 
 
-@test.until1Sum 0 10 pw [wx incd gte] until1Sum x assertEQ
-@test.while1Sum 0 10 pw [wx incd lt] while1Sum x assertEQ
+@test.until1Sum 0 10 pw [wx incd gte] until1Sum x assertEQ.n
+@test.while1Sum 0 10 pw [wx incd lt] while1Sum x assertEQ.n
 
 @doc.while  "[action(--)] [cond(--Bool)] --; repeat action while boolean condition"
 @doc.while1 "[action(--)] [cond(--Bool)] --; as whileCond, but act at least once"
@@ -55,20 +55,20 @@
 @until [step.until] bind2 fixpoint inline
 @step.until dip2 rot [dip inline] [drop2] if_
 
-@test.until     0 [inc] 10 [dupd gtb]  bind until 11 assertEQ1
-@test.while    10 [dec]  0 [dupd gtb]  bind while  0 assertEQ1
-@test.until1.1  0 [inc]  0 [dupd gteb] bind until1 1 assertEQ1
-@test.until1.0  0 [inc]  0 [dupd gteb] bind until  0 assertEQ1
+@test.until     0 [inc] 10 [dupd gtb]  bind until 11 assertEQ1.n
+@test.while    10 [dec]  0 [dupd gtb]  bind while  0 assertEQ1.n
+@test.until1.1  0 [inc]  0 [dupd gteb] bind until1 1 assertEQ1.n
+@test.until1.0  0 [inc]  0 [dupd gteb] bind until  0 assertEQ1.n
 
 @doc.prefix.bench 
 "benchmarks; not part of the usual test suite
  
  note: these may cause trouble for partial evaluators (but they're also a nice validation that partial evaluators don't do too much work)
 ~
-@bench.repeat10k   0 [4 .add] 10000        repeat 40000        assertEQ1
-@bench.repeat100k  0 [4 .add] 100000       repeat 400000       assertEQ1
-@bench.repeat1M    0 [4 .add] 1000000      repeat 4000000      assertEQ1
-@bench.repeat10M   0 [4 .add] 10000000     repeat 40000000     assertEQ1
+@bench.repeat10k   0 [4 .add] 10000        repeat 40000        assertEQ1.n
+@bench.repeat100k  0 [4 .add] 100000       repeat 400000       assertEQ1.n
+@bench.repeat1M    0 [4 .add] 1000000      repeat 4000000      assertEQ1.n
+@bench.repeat10M   0 [4 .add] 10000000     repeat 40000000     assertEQ1.n
 
 @repeatWhile swap [not] compose swap repeatUntil
 @repeatUntil assertNatural unrot [tryCount.repeatUntil] bind2 fixpoint inline
@@ -79,11 +79,11 @@
 @test.repeatWhile.haltOnCount
     new.stats 
     [1 add.stats] [count.stats 15 lte] 10 repeatWhile 
-    count.stats 10 assertEQ1
+    count.stats 10 assertEQ1.n
 @test.repeatWhile.haltOnCond   
     new.stats 
     [1 add.stats] [count.stats 15 lte] 20 repeatWhile 
-    count.stats 16 assertEQ1
+    count.stats 16 assertEQ1.n
 
 @doc.fixpoint
 "This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of recursive behavior.
