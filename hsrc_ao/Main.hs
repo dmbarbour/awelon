@@ -266,7 +266,20 @@ printDef word =
         Just (def,_) -> Sys.putStrLn (show def) 
 
 runAOTests :: IO ()
-runAOTests = getDict >>= \ d -> mapM_ (runTest d) (testWords d) 
+runAOTests = 
+    getDict >>= \ d -> 
+    mapM (runTest d) (testWords d) >>= \ lSummary ->
+    let nPass = length $ filter (==PASS) lSummary in
+    let nWarn = length $ filter (==WARN) lSummary in
+    let nFail = length $ filter (==FAIL) lSummary in
+    let summary = showString "SUMMARY: " .
+                  shows nPass . showString " PASS, " .
+                  shows nWarn . showString " WARN, " .
+                  shows nFail . showString " FAIL"
+    in
+    Sys.putStrLn (summary [])
+
+data TestResult = PASS|WARN|FAIL deriving (Eq)
 
 -- obtain words in dictionary starting with "test."
 testWords :: AODict md -> [Word]
@@ -274,7 +287,7 @@ testWords = filter hasTestPrefix . M.keys . readAODict where
     hasTestPrefix = (T.pack "test." `T.isPrefixOf`)
 
 -- assumes word is in dictionary
-runTest :: AODict md -> Word -> IO ()
+runTest :: AODict md -> Word -> IO TestResult
 runTest d w = 
     let (Right ops) = compileAOtoABC d [AO_Word w] in 
     newDefaultRuntime >>= \ rt ->
@@ -290,15 +303,19 @@ runTest d w =
 
 type Warning = String
 
-reportTest :: (Show err) => Word -> [Warning] -> Either err (V AORT) -> IO ()
-reportTest w [] (Right _) = Sys.putStrLn ("(pass) " ++ T.unpack w)
+reportTest :: (Show err) => Word -> [Warning] -> Either err (V AORT) -> IO TestResult
+reportTest w [] (Right _) = 
+    Sys.putStrLn ("(pass) " ++ T.unpack w) >> 
+    return PASS
 reportTest w ws (Right _) = 
     Sys.putStrLn ("(Warn) " ++ T.unpack w) >>
-    mapM_ reportWarning ws
+    mapM_ reportWarning ws >>
+    return WARN
 reportTest w ws (Left err) = 
     Sys.putStrLn ("(FAIL) " ++ T.unpack w) >>
     mapM_ reportWarning ws >>
-    Sys.putStrLn (indent "  " (show err))
+    Sys.putStrLn (indent "  " (show err)) >>
+    return FAIL
 
 reportWarning :: Warning -> IO ()
 reportWarning = Sys.putStrLn . indent "  "
