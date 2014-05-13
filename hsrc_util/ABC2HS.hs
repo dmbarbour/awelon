@@ -1,43 +1,38 @@
 -- a mediocre, but not entirely naive, translation 
 -- from Awelon bytecode into Haskell code.
 --
--- current design challenge: 
+-- Design challenges:
 --
---   dealing with 'sum' types...
---   1) without bloating code too much
---   2) without losing partial evaluations
+--   (a) sum types; optimal factoring of conditional behaviors
+--   (b) the divMod operation; two outputs, two inputs
+--   (c) cycle detection and prevention
+--   (d) effective error reporting
 --
--- for now, I think it might be better to accept the code bloat,
--- then find a way to reduce it by smart selection of subprograms
--- (e.g. based on information 'chokepoints').
+-- The sum types are the greatest challenge. If a subprogram makes
+-- five choices, this could potentially bloat into thirty-two different
+-- paths unless I'm careful with respect to factoring. It also seems
+-- important to restrict where a decision is made, e.g. whether it is
+-- shallow vs. deep in a pattern. 
 --
--- Dealing with sum types seems rather painful. Haskell processes sums
--- using toplevel functions and/or case statements and/or if conditions.
--- Is there a good way to make this easier? I'm trying ListT, but it
--- might be better to handle cases explicitly rather than expand & merge?
+-- For now, I'll just let this bloat happen, and see if I can solve it
+-- later by automated refactoring and/or smarter choices to divide 
+-- subprograms.
+-- 
+-- Cycle detection and prevention is easier. I can limit depth for
+-- inlining of blocks (even a limited depth would likely work well).
+-- And I can attempt to recognize when a block is reused. 
 --
--- I think an interesting approach might be to construct an intermediate
--- dataflow graph, then convert that to Haskell. OTOH, in some ways, that
--- is what I'm already doing (just using variables for dataflow). 
+-- Error reporting: I could probably emit the given value and the
+-- expected patterns ("value ∉ patterns"). That would likely work
+-- for most use-cases, but is possibly a little bulky. 
 --
--- Other thoughts: how should I handle {tokens}, in particular capturing
--- their outputs into an expected format?
---
--- This approach leaves a lot to be desired, e.g. it cannot fully
--- optimize a fixpoint process. But it should simplify a lot of
--- "straight-line" code.
---
--- Other thoughts:
---
--- The output of an invocation cannot be locally guaranteed unless
--- I use a known translation. The output of an invocation probably
--- should be mapped to a special no-expansion variable? Alternatively,
--- accept the potential type errors at runtime and separate the whole
--- type-checking issue...
+-- For divmod, I'm thinking I'll treat it as a special case 
+-- invocation for now. 
 --
 module ABC2HS (abc2hs) where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
 import Control.Monad.Trans.List
@@ -85,7 +80,7 @@ hsModuleText modName (main, context) = prefix context where
 mkProg :: [Op] -> MkProg (Name,String)
 mkProg ops =
     defProg ops >>= \ p0 -> -- create and name main program
-    -- gcContext [p0] >>       -- garbage collect subprograms
+    -- gcContext [p0] >>    -- garbage collect subprograms
     addSource ops >>        -- include ABC source for resource
     get >>= \ cx ->         -- use context for subprograms
     return (p0, prog2hs cx) -- generate haskell code
@@ -140,8 +135,8 @@ addProg ops =
             put cx' >> return (False,pN)
 
 -- do we already have a given subprogram? 
-hasProg :: [Op] -> MkProg Bool -- bExists
-hasProg ops = M.member ops <$> gets pcx_progs
+hasProg :: [Op] -> MkProg (Maybe Name) -- bExists
+hasProg ops = M.lookup ops <$> gets pcx_progs
 
 -- define a new program
 addProgDef :: ProgDef -> MkProg ()
@@ -175,9 +170,9 @@ defProg :: [Op] -> MkProg Name
 defProg ops = 
     addProg ops >>= \ (bExists, pN) ->
     if bExists then return pN else
-    runProgC pc0 (defProgC ops (Var 0)) >>= \ lResults ->
-    if null lResults then fail $ "BADLY TYPED: " ++ show ops else
-    addProgDef (mkProgDef pN lResults) >>
+    runProgC pc0 (defProgC ops (Var 0)) >>= \ lCases ->
+    if null lCases then fail $ "BADLY TYPED: " ++ show ops else
+    addProgDef (mkProgDef pN lCases) >>
     return pN
 
 runProgC :: ProgC -> MkProgC a -> MkProg [(a,ProgC)]
@@ -185,16 +180,328 @@ runProgC pc0 op = runListT (runStateT op pc0)
 
 -- a program definition currently consists of:
 --  (1) a name for this program
---  (2) ProgC - internal operations (invoke, let)
---  (3) the final return expression
+--  (2) a set of one or more cases
 -- There may be multiple cases in the end.
-data ProgDef = ProgDef !Name [(ProgC,Expr)]
+data ProgDef = ProgDef !Name !Cases
+type Case = (Expr,ProgC)
+type Cases = [Case]
 
-mkProgDef :: Name -> [(Expr,ProgC)] -> ProgDef
+instance Show ProgDef where
+    showsPrec _ (ProgDef nm cs) =
+        showString nm . showString " :: (Runtime m) => V m -> m (V m)\n" .
+        showConcat (showCase nm (Var 0)) cs
+
+showConcat :: (a -> ShowS) -> [a] -> ShowS
+showConcat f (a:as) = f a . showConcat f as
+showConcat _ [] = id
+
+showCase :: Name -> Expr -> Case -> ShowS
+showCase nm v0 (result,prog) = 
+    showString nm . showChar ' ' .
+    showString " (pattern) = error \"todo!\""
+    --showsPattern (expandPattern v0 prog) .
+    
+mkProgDef :: Name -> Cases -> ProgDef
 mkProgDef = ProgDef
 
 defProgC :: [Op] -> Expr -> MkProgC Expr
-defProgC = error "todo! defProgC"
+-- defProgC (Op_ap : Op_c : ops) = ops_apc >=> defProgC ops
+defProgC (op:ops) = op op >=> defProgC ops
+defProgC [] = return
+
+-- potentially optimize common inlining behaviors
+--ops_apc :: Expr -> MkProgC Expr
+--ops_apc = op Op_ap >=> op Op_c
+
+-- handle individual ops
+op :: Op -> Expr -> MkProgC Expr
+op Op_l = opl
+op Op_r = opr
+op Op_w = opw
+op Op_z = opz
+op Op_v = opv
+op Op_c = opc
+op Op_L = opL
+op Op_R = opR
+op Op_W = opW
+op Op_Z = opZ
+op Op_V = opV
+op Op_C = opC
+op (BL b) = opBlock b
+op (TL s) = opText s
+op (Tok s) = opTok s
+op Op_copy = opCopy
+op Op_drop = opDrop
+op Op_add = opAdd
+op Op_neg = opNeg
+op Op_mul = opMul
+op Op_inv = opInv
+op Op_divMod = opDivMod
+op Op_ap = opApply
+op Op_cond = opCond
+op Op_quote = opQuote
+op Op_comp = opCompose
+op Op_rel = opRel
+op Op_aff = opAff
+op Op_distrib = opDistrib
+op Op_factor = opFactor
+op Op_merge = opMerge
+op Op_assert = opAssert
+op Op_gt = opGT
+op Op_introNum = opIntroNum
+op Op_0 = opDigit 0
+op Op_1 = opDigit 1
+op Op_2 = opDigit 2
+op Op_3 = opDigit 3
+op Op_4 = opDigit 4
+op Op_5 = opDigit 5
+op Op_6 = opDigit 6
+op Op_7 = opDigit 7
+op Op_8 = opDigit 8
+op Op_9 = opDigit 9
+op Op_SP = return 
+op Op_LF = return 
+
+opl,opr,opw,opz,opv,opc
+ ,opL,opR,opW,opZ,opV,opC
+ ,opL',opR',opW',opZ',opV',opC'
+ ,opCopy,opDrop
+ ,opAdd,opNeg,opMul,opInv,opDivMod
+ ,opApply,opCond,opQuote,opCompose,opRel,opAff
+ ,opDistrib,opFactor,opMerge,opAssert,opGT
+ ,opIntroNum :: Expr -> MkProgC Expr
+
+opDigit :: Int -> Expr -> MkProgC Expr
+opBlock :: [Op] -> Expr -> MkProgC Expr
+opText  :: String -> Expr -> MkProgC Expr
+opTok   :: Token -> Expr -> MkProgC Expr
+
+-- product types are relatively trivial.
+opl xyz = 
+    asProd xyz >>= \ (x,yz) ->
+    asProd yz >>= \ (y,z) ->
+    return (Prod (Prod x y) z)
+opr xyz =
+    asProd xyz >>= \ (xy,z) ->
+    asProd xy >>= \ (x,y) ->
+    return (Prod x (Prod y z))
+opw xyz =
+    asProd xyz >>= \ (x,yz) ->
+    asProd yz >>= \ (y,z) ->
+    return (Prod y (Prod x z))
+opz wxyz = 
+    asProd wxyz >>= \ (w,xyz) ->
+    opw xyz >>= \ yxz ->
+    return (Prod w yxz)
+opv x = return (Prod x Unit)
+opc xu =
+    asProd xu >>= \ (x,u) ->
+    asUnit u >>
+    return x
+
+-- sum types are easy enough to process at this point, but I'm
+-- creating a lot of factoring work down the line. I wonder if
+-- it might be better to track sums more explicitly.
+opL = onFst opL'
+opR = onFst opR'
+opW = onFst opW'
+opZ = onFst opZ'
+opV = onFst opV'
+opC = onFst opC'
+
+onFst :: (Expr -> MkProgC Expr) -> Expr -> MkProgC Expr
+onFst f xe =
+    asProd xe >>= \ (x,e) ->
+    f x >>= \ x' ->
+    return (Prod x' e)
+
+opL' = asSum >=> either inLL (asSum >=> either inLR inR) where
+    inLL = return . SumL . SumL
+    inLR = return . SumL . SumR
+    inR  = return . SumR
+opR' = asSum >=> either (asSum >=> either inL inRL) inRR where
+    inL  = return . SumL
+    inRL = return . SumR . SumL
+    inRR = return . SumR . SumR
+opW' = asSum >=> either inRL (asSum >=> either inL inRR) where
+    inRL = return . SumR . SumL
+    inL  = return . SumL
+    inRR = return . SumR . SumR
+opZ' = asSum >=> either inL (opW' >=> inR) where
+    inL  = return . SumL
+    inR  = return . SumR
+opV' = return . SumL
+opC' xv =
+    asSum xv >>= \ x_v ->
+    case x_v of
+        Left x -> return x
+        Right _v -> fail "type error; `C` requires void in right" 
+
+opCopy xe =
+    asProd xe >>= \ (x,e) ->
+    requireCopyable x >>
+    return (Prod x (Prod x e))
+opDrop xe =
+    asProd xe >>= \ (x,e) ->
+    requireDroppable x >> -- drop only droppable values
+    return e
+
+opAdd xye =
+    asProd xye >>= \ (x,ye) ->
+    asProd ye >>= \ (y,e) ->
+    asNumber x >>= \ nx ->
+    asNumber y >>= \ ny ->
+    return (Prod (addNumbers nx ny) e)
+
+opNeg xe =
+    asProd xe >>= \ (x,e) ->
+    asNumber x >>= \ nx ->
+    return (Prod (negNumber nx) e)
+
+opMul xye =
+    asProd xye >>= \ (x,ye) ->
+    asProd ye >>= \ (y,e) ->
+    asNumber x >>= \ nx ->
+    asNumber y >>= \ ny ->
+    return (Prod (mulNumbers nx ny) e)
+
+opInv xe =
+    asProd xe >>= \ (x,e) ->
+    asNumber x >>= \ nx ->
+    requireNonZero nx >>
+    return (Prod (invNumber nx) e)
+
+opDivMod xye =
+    asProd xye >>= \ (x,ye) ->
+    asProd ye >>= \ (y,e) ->
+    asNumber x >>= \ divisor ->
+    requireNonZero divisor >>
+    asNumber y >>= \ dividend ->
+    runDivModQ dividend divisor >>= \ (quotient,remainder) ->
+    return (Prod (VNum remainder) (Prod (VNum quotient) e))
+
+runDivModQ :: NumExpr -> NumExpr -> MkProgC (NumExpr, NumExpr)
+runDivModQ (NumConst dividend) (NumConst divisor) =
+    let (quotient,remainder) = divModQ dividend divisor in
+    return (NumConst (fromInteger quotient), NumConst remainder)
+runDivModQ dividend divisor =
+    newSymbol >>= \ result ->
+    asProd (Var result) >>= \ (vQuot,vRem) ->
+    asNumber vQuot >>= \ nQuot ->
+    asNumber vRem >>= \ nRem ->
+    let param = Prod (VNum dividend) (VNum divisor) in
+    addCall (Call DivModQ param result) >>
+    return (nQuot, nRem)
+
+opApply bxe =
+    asProd bxe >>= \ (b,xe) ->
+    asProd xe >>= \ (x,e) ->
+    asBlock b >>= \ block ->
+    runCode (bx_code block) x >>= \ x' ->
+    return (Prod x' e)
+
+opCond bxe =
+    asProd bxye >>= \ (b,xye) ->
+    asProd xye >>= \ (xy,e) ->
+    asBlock b >>= \ block ->
+    requireCond (boolNot (bx_rel block)) >>
+    asSum xy >>= \ x_y ->
+    case x_y of 
+        Left x -> 
+            runCode (bx_code block) x >>= \ x' ->
+            return (Prod x' e)
+        Right y -> return (Prod y e)
+
+opQuote xe =
+    asProd xe >>= \ (x,e) ->
+    testCopyable x >>= \ bCopyable ->
+    testDroppable x >>= \ bDroppable ->
+    let rel = boolNot bDroppable in
+    let aff = boolNot bCopyable in
+    let code = CodeQuote x in
+    let block = BX { bx_code = code, bx_aff = aff, bx_rel = rel } in
+    return (Prod (VBlock block) e)
+
+opCompose yz_xy_e =
+    asProd yz_xy_e >>= \ (yz, xy_e) ->
+    asProd xy_e >>= \ (xy,e) ->
+    asBlock yz >>= \ byz ->
+    asBlock xy >>= \ bxy ->
+    return (Prod (VBlock (blockCompose bxy bzy)) e)
+
+opRel xe =
+    asProd xe >>= \ (x,e) -> 
+    asBlock x >>= \ bx ->
+    let bx' = bx { bx_rel = BoolConst True } in
+    return (Prod (VBlock bx') e)
+
+opAff xe =
+    asProd xe >>= \ (x,e) ->
+    asBlock x >>= \ bx ->
+    let bx' = bx { bx_aff = BoolConst True } in
+    return (Prod (VBlock bx') e)
+
+opDistrib xse =
+    asProd xse >>= \ (x,se) ->
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ b_c ->
+    case b_c of
+        Left b -> return (Prod (SumL (Prod x b)) e)
+        Right c -> return (Prod (SumR (Prod x c)) e)
+
+opFactor se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ ab_cd ->
+    case ab_cd of
+        Left ab ->
+            asProd ab >>= \ (a,b) ->
+            return (Prod (SumL a) (Prod (SumL b) e)
+        Right cd ->
+            asProd cd >>= \ (c,d) ->
+            return (Prod (SumR c) (Prod (SumR d) e)
+
+opMerge se =
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ a_b ->
+    case a_b of
+        Left a -> return (Prod a e)
+        Right a' -> return (Prod a' e)
+
+opAssert se = 
+    asProd se >>= \ (s,e) ->
+    asSum s >>= \ a_b ->
+    case a_b of
+        Left _a -> fail "assertion failure"
+        Right b -> return (Prod b e)
+
+opGT yxe = 
+    asProd xye >>= \ (x,ye) ->
+    asProd ye >>= \ (y,e) ->
+    asNumber x >>= \ nx ->
+    asNumber y >>= \ ny ->
+    testGT ny nx >>= \ (nx',ny',bGT) ->
+    let x' = VNum nx' in
+    let y' = VNum ny' in
+    if bGT then return (Prod (SumR (Prod x' y')) e)
+           else return (Prod (SumL (Prod y' x')) e)
+
+opIntroNum e = return (Prod (VNum (NumConst 0)) e)
+
+opDigit d re = 
+    asProd re >>= \ (r,e) ->
+    asNumber r >>= \ nr ->
+    let nr' = addNumbers (NumConst (fromIntegral d)) $
+              mulNumbers (NumConst 10) $ nr 
+    in
+    return (Prod (VNum nr) e)
+
+opBlock ops e =
+    let bx = BX (CodeConst ops) False False in
+    return (Prod (VBlock bx) e)
+
+opText txt e = return (Prod (textToExpr txt) e)
+
+opTok = runInvoke
 
 -- | a new ProgC generally starts with (Var 0)
 -- and adds new variables as necessary. 
@@ -206,26 +513,72 @@ data ProgC = ProgC
     , pc_calls   :: [Call]
     , pc_gensym  :: !Sym
     }
-data Call = Calls CallType Name Expr Sym
-data CallType = SubProg | Invoke
+data Call = Call Callee Expr Sym
+data Callee 
+    = SubProg Name 
+    | Invoke Token 
+    | DivModQ
 type Cond = BoolExpr
 type Sym = Integer
 
 pc0 :: ProgC
 pc0 = ProgC M.empty [] [] 0
 
+newSymbol :: MkProgC Sym
+newSymbol =
+    get >>= \ pc ->
+    let sym = 1 + pc_gensym pc in
+    let pc' = pc { pc_gensym = sym } in
+    put pc' >> return sym
+
+addCall :: Call -> MkProgC ()
+addCall call = modify $ \ pc ->
+    let calls' = call : pc_calls pc in
+    pc { pc_calls = calls' }
+
+addCond :: Cond -> MkProgC ()
+addCond cond = modify $ \ pc ->
+    let conds' = cond : pc_conds pc in
+    pc { pc_conds = conds' }
+
+runInvoke :: Token -> Expr -> MkProgC Expr
+runInvoke token expr =
+    newSymbol >>= \ sResult ->
+    addCall (Call (Invoke token) expr sResult) >>
+    return (Var sResult)
+
+runSubProg :: Name -> Expr -> MkProgC Expr
+runSubProg nm expr =
+    newSymbol >>= \ sResult ->
+    addCall (Call (SubProg nm) expr sResult) >>
+    return (Var sResult)
+
+requireCond :: Cond -> MkProgC ()
+requireCond (BoolConst False) = mzero -- invalid path!
+requireCond c = addCond c
+
+requireNonZero :: NumExpr -> MkProgC ()
+requireNonZero (NumConst r) = when (0 == r) mzero
+requireNonZero expr = addCond (BoolNZ expr)
 
 data Expr
-    = Var {-# UNPACK #-} !Sym
+    = Var !Sym
     | Prod !Expr !Expr | Unit
     | SumL !Expr | SumR !Expr
     | Sealed !Token !Expr
     | VNum !NumExpr
     | VBlock !BlockExpr
 
+textToExpr :: String -> Expr
+textToExpr (c:cs) = SumL (Prod (charToExpr c) (textToExpr cs))
+textToExpr [] = SumR Unit
+
+charToExpr :: Char -> Expr
+charToExpr = VNum . NumConst . fromIntegral . fromEnum
+
 data NumExpr
-    = NumConst {-# UNPACK #-} !Rational
-    | NumVar {-# UNPACK #-} !Sym
+    = NumConst !Rational
+    | NumVar !Sym
     | AddNum !NumExpr !NumExpr
     | MulNum !NumExpr !NumExpr
     | InvNum !NumExpr
@@ -234,223 +587,24 @@ data NumExpr
     | ModNum !NumExpr !NumExpr
 
 data BlockExpr = BlockExpr 
-    { bx_code :: CodeExpr
-    , bx_aff  :: BoolExpr
-    , bx_rel  :: BoolExpr
+    { bx_code :: !CodeExpr
+    , bx_aff  :: !BoolExpr
+    , bx_rel  :: !BoolExpr
     }
 
 data CodeExpr 
     = CodeConst [Op]
-    | CodeVar {-# UNPACK #-} !Sym
+    | CodeVar !Sym
     | CodeComp !CodeExpr !CodeExpr
+    | CodeQuote !Expr
 
 data BoolExpr 
     = BoolConst !Bool
-    | BoolVar {-# UNPACK #-} !Sym
+    | BoolVar !Sym
     | BoolOr  !BoolExpr !BoolExpr
     | BoolNot !BoolExpr 
     | BoolGT  !NumExpr !NumExpr -- greater than
     | BoolNZ  !NumExpr -- non-zero
-
-
-
-{-
-
-
-{-    
-    showDef (nm,impl) =
-        showString nm . showString " :: (Runtime m) => Prog m" . p .
-        showString impl
-        showl (showCase nm) cases . 
-        unexpected nm (fmap pca_ptrn cases) . p . p
-    showCase nm pca =
-        showString nm . showChar ' ' . shows (pca_ptrn pca) .
-        showString " = " . shows (pca_prog pca) . p
-    unexpected nm ptrns =
-        -- attempt to provide decent debugging info
-        if coversAll ptrns then id else
-        showString nm . showString " other = fail $ " .
-        showString "( shows other .\
-                    \ showString \" ∉ \" .\
-                    \ showString " . shows (show ptrns) . 
-        showString ") []"
-
--}
-
--- a subprogram, e.g. a case for a given function
-data ProgCase = ProgCase
-    { pca_ptrns  :: M.Map Symbol Ptrn
-    , pca_prog   :: [ProgStep] 
-    , pca_gensym :: !Symbol
-    }
-type Symbol = Integer
-
-
-
-
--- okay... 
-
-
-
-
--- define a program, or use an existing definition if
--- it was already installed. 
-defProg :: [Op] -> MkProg Name
-defProg ops = case splitSumProd ops of
-    [Left sumOps] -> defSumProg sumOps
-    [Right prodOps] -> defProdProg prodOps
-    [] -> return "return"
-    mixedOps -> 
-        nameProg ops >>= \ (bExists, pN) ->
-        if bExists then return pN else
-        mapM (either defSumProg defProdProg) mixedOps >>= \ subs ->
-        addCase pN (joinSubs subs)
-
-addCase :: Name -> PCase -> MkProg ()
-addCase pN pca = modify $ \ 
-
-
-
-joinSubs :: [Name] -> PCase
-joinSubs (nm0:nms) = nm0 ++ show (Var 0) . joinSubs' nms
-joinSubs [] = "return " ++ show (Va
-joinSubs (nm1:nms@(_:_)) = nm1 ++ ">=>" ++ joinSubs nms
-joinSubs (nm:[]) = nm
-joinSubs [] = "return"
-
--- find the name for a prog; return also whether it already existed
-nameProg :: [Op] -> MkProg (Bool,Name)
-nameProg ops = 
-    get >>= \ cx ->
-    let progs = pcx_progs cx in
-    case M.lookup ops progs of
-        Just pN -> return (True,pN)
-        Nothing ->
-            let pN = 'p' : show (M.size progs) in
-            let progs' = M.insert ops pN progs in
-            let cx' = cx { pcx_progs = progs' } in
-            put cx' >> return (False,pN)
-
-implProg :: Name -> String -> MkProg ()
-implProg pN hsCode = modify $ \ cx ->
-    let defs' = M.insert pN hsCode (pcx_defs cx) in
-    cx { pcx_defs = defs' }
-
-
--- add a program to the context, return the new name and whether
--- it already exists. Does not implement the program.
-addProg :: [Op] -> MkProg (Bool,Name)
-addProg ops = 
-            
-genProg ops
-
--- define a text object, or reuse an existing one
-
-genProg :: Name -> [Op] -> MkProg ()
-genProg pN ops =
-    mapM (either prodSub sumProg) (splitOps ops) >>= \ subs ->
-    
-    let subs = splitOps ops in
-
-genProg pN ops =
-    let 
-
-
-
-        
--- test whether a set of patterns covers all cases.
--- for now, this is sufficient for the patterns actually
--- generated (but would be incomplete for general use). 
-coversAll :: [Ptrn] -> Bool
-coversAll [Var _] = True
-coversAll _ = False
-
--- create one big expression of type:
---   (Runtime m) => V m -> m (V m)
--- using 'let' expressions as desired.
---
-
-pca0 :: ProgCase
-pca0 = ProgCase 
-    { pca_ptrns = M.empty
-    , pca_prog  = []
-    , pca_gensym = 0
-    }
-
-
-
-
-
-
-
-
-
-
-data Ptrn
-    = Var Integer -- variable
-    | Num Integer
-    | Prod Ptrn Ptrn | Unit -- products
-    | SumL Ptrn | SumR Ptrn | Void
-    | Sealed Token Ptrn
-    deriving (Eq,Ord)
-
-
-
-
-
-
--- let's try a "make it work, quick!" approach for now
--- we'll make it 'right' later. 
---
--- Consider the following desing 
---
---   (a) duplication of non-variable patterns requ
-data Expr
-    = Var String
-    | Prod Expr Expr | Unit
-    | Sum  Expr Expr | Void
-    | Merged Expr Expr
-    | Sealed String Expr
-
-
-
-
--- DESIGN:
---
--- We start by assuming the input is a simple variable "v0". 
---
---   to unify two patterns, possibly generating new variables
---   to create an intermediate variable (let..in)
---   to invoke an object...
---
--- 
---   
---  
---   to store an intermediate v0
---   
---
--- Conceptually, the initial input to the program is a *pattern*.
--- We build up this input pattern from step to step, while generating
--- an output pattern. The idea is to eventually generate code of the
--- form:
---
---   prog :: (Runtime m) => Prog m
---   prog (P (P (N a) (P (N b) c)) = return (P (N (a+b)) c)
---   prog v = error $ code ++ " @ " ++ show v
---
--- ... and do this while ensuring some minimal set of computations.
---
--- Potentially, we could also have pure functions of the form:
---
---   fn1 :: V m -> Either String (V m)
---   fn1 (P (P (N a) (P (N b) c)) = Right (P (N (a+b)) c)
---   fn1 v = Left (code ++ " @ " ++ show v)
---
--- Then use these for the pure parts, without involving the toplevel
--- monad before necessary.
-
-
-
--}
-
+    | BCopyable  !Expr
+    | BDroppable !Expr
 
