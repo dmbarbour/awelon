@@ -1,4 +1,3 @@
-{-# LANGUAGE ViewPatterns #-} 
 
 -- | This is an experimental module for an ABC intermediate language
 -- based on a graph-based representation of the ABC program. An ABC
@@ -9,8 +8,8 @@
 -- Indeed, I'll use the following terminology:
 -- 
 --    a box is a generic subgraph that takes a bundle of wires as input
---     and generates a similar bundle as output. A primitive box (what
---     becomes a vertex in the graph) is called a node. 
+--     and generates a similar bundle as output. A primitive box (which
+--     becomes a vertex in the generated dataflow graph) is called a node. 
 --
 --    a wire is a dumb dataflow path for a value. Some wires may carry
 --     constant values. A complex structure of wires is sometimes called
@@ -19,7 +18,7 @@
 --
 -- An ABC subprogram corresponds to a box. We focus on boxes - which 
 -- represent subgraphs with clear inputs and outputs - because they are
--- composable.
+-- composable. 
 --
 -- Much dataflow becomes implicit in a box and wire representation. This
 -- can make the graph easier to optimize in some ways. The intention for
@@ -29,16 +28,29 @@
 --   * simplified type checking
 --   * simplify some optimizations
 --   * compilation for JIT or similar
--- 
+--
+-- ABC does present a challenge with respect to cyclic behavior. 
+--
+-- A useful observation is that, modulo quotation, there is generally a 
+-- small, finite number of blocks that can be generated in a given context
+-- by simple composition. If we can statically detect these blocks, we can
+-- perhaps create a useful context of named subprograms as a basis for 
+-- loops. 
+--
+-- The challenge, then, is translating these loops back into ABC code, 
+-- e.g. by explicitly encoding a fixpoint behaviors.
+--
 module ABC.Graph 
     ( abc2graph
-   
-    , textToWire, wireToText
- 
-    , Wire(..), Label, LWire, Bundle
     , Box
-    , Node(..),ConnectedNode
-    , MkGraph, runMkGraph
+    , Wire(..), Bundle, CodeBundle(..)
+    , NumWire, BoolWire, BoxWire, SrcWire, BoxWire
+    , textToWire, wireToText
+    , NodeLabel, WireLabel, BoxLabel
+    , Node(..)
+    , nodeInputWires
+    , nodeOutputWires
+    , MkGraph, runMkGraph, evalMkGraph
     , GCX(..), freshGraphContext
     ) where
 
@@ -52,31 +64,39 @@ import qualified Data.Map as M
 import qualified Data.Set as Set
 import Data.Set (Set)
 
--- | an abstract label specific to abstract graph g
+import ABC.Operators
+
+newtype Label n = Label Integer deriving (Ord,Eq)
+type NodeLabel = Label Node
+type WireLabel = Label Wire
+type BoxLabel  = Label Box
 
 type MkGraph = StateT GCX (ErrorT String Identity) 
 runMkGraph :: GCX -> MkGraph a -> Either String (a,GCX)
+evalMkGraph :: MkGraph a -> Either String a
+
 runMkGraph gcx op = runIdentity $ runErrorT $ runStateT op gcx
+evalMkGraph = runIdentity . runErrorT . flip evalStateT freshGraphContext
 
 -- | stateful context
 data GCX = GCX
-    { gcx_gensym :: !Integer -- next label
-    , gcx_elab   :: M.Map Integer Wire
-    , gcx_graph  :: [CNode]
+    { gcx_gensym  :: !Integer -- next label (of any type)
+    , gcx_nodes   :: M.Map NodeLabel Node -- labeled nodes
+    , gcx_progs   :: M.Map [Op] BoxLabel
+    , gcx_subs    :: M.Map BoxLabel Box   
+    , gcx_elab    :: M.Map EdgeLabel Wire -- elaborations for edge labels
     }
-freshGraphContext :: GCX
-freshGraphContext = GCX 0 M.empty []
 
 -- | a generic wire or bundle of wires
 data Wire
     = Var  !Label
-    | Num  !NumWire
-    | Code !CodeBundle
-    | Pair !Wire !Wire | Unit
-    | Sum  !LWire !LWire
-    | Seal String !Wire
+    | Num  NumWire
+    | Code CodeBundle
+    | Pair Wire Wire | Unit
+    | Sum  BoolWire Wire Wire
+    | Seal String Wire
 
-data CWire a = C !a | V !Label
+type CWire a = Either WireLabel a
 
 data CodeBundle = CodeBundle
     { cb_src :: SrcWire
@@ -86,7 +106,7 @@ data CodeBundle = CodeBundle
     }
 
 type Label    = Integer
-type LWire    = (Bool,Wire)
+type LWire    = (BoolWire,Wire)
 type Bundle   = Wire
 type NumWire  = CWire Rational
 type SrcWire  = CWire [Op]
@@ -96,10 +116,9 @@ type BoolWire = CWire Bool
 -- | a 'box' is a generic model of a subgraph
 type Box = Bundle -> MkGraph Bundle
 
--- | a 'node' is a primitive, labeled box. The wires are provided in
--- context - e.g. `(Node,(Wire,Wire))` - so really the node is just
--- the label. The ABC tokens, e.g. {xyzzy}, essentially extend the
--- set of primitive nodes.
+-- | a 'node' is a primitive, labeled box. So far, this is mostly a
+-- subset of ABC. However, these nodes do not include inputs that 
+-- are not necessary.
 --
 -- This is essentially a subset of ABC. However, where ABC operators
 -- include the environment (e.g. `+ :: (N(a)*(N(b)*e))→N(a+b)*e`),
@@ -110,52 +129,44 @@ type Box = Bundle -> MkGraph Bundle
 -- Also, some additional nodes are included for supplementary behavior,
 -- such as ass
 -- 
-data Node
-    = N_copy -- a → (a*a) 
-    | N_drop -- a → 1
-    | N_add -- N(a)*N(b) → N(a+b)
-    | N_neg -- N(a) → N(-a)
-    | N_mul -- N(a)*N(b) → N(a*b)
-    | N_inv -- N(a) → N(1/a)
-    | N_divMod -- N(dividend)*N(divisor)→N(quotient)*N(remainder)
-    | N_apply -- (a→a')*a → a'; also used for 'cond'
-    | N_quote -- a → (s→(a*s))
-    | N_comp -- (a→b)*(b→c) → (a→c)
-    | N_aff -- (a→b) → (a→b)' ; mark affine (no copy)
-    | N_rel -- (a→b) → (a→b)' ; mark relevant (no drop)
-    | N_merge -- (a+a') → a
-    | N_assert -- (a+b) → b
-    | N_gt -- N(a)*N(b) → (N(b)*N(a))+(N(a)*N(b))  
-    | N_tok String -- {xyzzy}; any to any
+data Node  -- typically (label inputs outputs)
+    -- math nodes
+    = N_add (NumWire,NumWire) NumWire -- N(a)*N(b) → N(a+b)
+    | N_neg NumWire NumWire -- N(a) → N(-a)
+    | N_mul (NumWire,NumWire) NumWire -- N(a)*N(b) → N(a*b)
+    | N_inv NumWire NumWire -- N(a) → N(1/a)
+    | N_divMod (NumWire,NumWire) (NumWire,NumWire) -- N(dividend)*N(divisor)→N(quotient)*N(remainder)
+
+    -- boolean manipulation nodes 
+    | N_boolOr  (BoolWire,BoolWire) BoolWire
+    | N_boolAnd (BoolWire,BoolWire) BoolWire
+    | N_boolNot BoolWire BoolWire
+    | N_boolAssert BoolWire ()
+
+    -- program manipulation nodes
+    | N_apply (CodeBundle,Wire) Wire -- (a→a')*a → a'; also used for 'cond'
+    | N_quote Wire CodeBundle -- a → (s→(a*s))
+    | N_comp (CodeBundle,CodeBundle) CodeBundle -- (a→b)*(b→c) → (a→c)
+    -- | N_aff CodeBundle CodeBundle -- (a→b) → (a→b)' ; mark affine (no copy)
+    -- | N_rel CodeBundle CodeBundle -- (a→b) → (a→b)' ; mark relevant (no drop)
+
+    -- conditional behavior...
+    -- | N_distrib -- (a*(b+c)) → ((a*b)+(a*c))
+    -- | N_factor -- ((a*b)+(c*d)) → ((a+c)*(b+d))
+    | N_cond (BoolWire,CodeBundle,Wire) Wire
+    | N_merge (Wire,Wire) Wire -- (a+a') → a
+    -- | N_assert (Wire,Wire) Wire -- (a+b) → b
+    | N_gt (NumWire,NumWire) BoolWire -- N(a)*N(b) → (a>b)?
+    | N_nonZero NumWire BoolWire
+
+
+    -- extended node primitives
+    | N_tok String   Wire Wire -- ABC's {tokens}; type not locally known
+    | N_sub BoxLabel Wire Wire -- call a named local subroutine
     deriving (Eq, Ord)
 
-instance Show Node where
-    showsPrec _ N_copy = showString "copy"
-    showsPrec _ N_drop = showString "drop"
-    showsPrec _ N_add = showString "a+b"
-    showsPrec _ N_neg = showString "(-a)"
-    showsPrec _ N_mul = showString "a*b"
-    showsPrec _ N_inv = showString "1/a"
-    showsPrec _ N_divMod = showString "divMod"
-    showsPrec _ N_apply = showString "apply"
-    showsPrec _ N_quote = showString "quote"
-    showsPrec _ N_comp = showString "comp"
-    showsPrec _ N_aff = showString "affine"
-    showsPrec _ N_rel = showString "relevant"
-    showsPrec _ N_merge = showString "merge"
-    showsPrec _ N_assert = showString "assert"
-    showsPrec _ N_gt = showString "a>b"
-    showsPrec _ (N_tok s) = showChar '{' . showString s . showChar '}'
-
--- | a node instance in a graph, with (input,output) wires
-data CNode = CN !Wire !Node !Wire
-    deriving (Eq, Ord)
-
-instance Show CNode where
-    showsPrec _ (CN input node output) = 
-        shows input . showString "--" . 
-        shows node . showString "->" . 
-        shows output
+instance Show (Label n) where 
+    showsPrec _ (Label n) = showChar '_' . shows n
 
 instance Show Wire where
     showsPrec _ (Var lbl) = showChar 'v' . shows lbl
@@ -177,41 +188,50 @@ instance Show Wire where
         sZero lb . shows b . showChar ')'
     showsPrec _ (Seal tok a) = shows a . showString tok
 
-
 wireToText :: Wire -> Maybe String
-wireToText (Sum (True, Prod (w2c -> Just c) cs) (False,_)) = (c:)<$>wireToText cs
-wireToText (Sum (False,_) (True,Unit)) = pure ""
-w2c :: Wire -> Maybe Char
-w2c (Num (C r)) = 
-    let n = numerator r in
-    let ok = (1 == denominator r) && (0 <= n) && (n <= 0x10ffff) in
-    if ok then Just (toEnum (fromInteger n)) else Nothing
-w2c _ = Nothing
+wireToText (Sum (C True) (Prod c cs) _) = (:) <$> wireToChar c <*> wireToText cs
+wireToText (Sum (C False) _ Unit) = pure ""
+
+wireToChar :: Wire -> Maybe Char
+wireToChar (Num (C r)) | inCharRange r = (Just . toEnum . fromInteger . numerator) r
+wireToChar _ = Nothing
+
+inCharRange :: Rational -> Bool
+inCharRange r = (1 == denominator r) && (0 <= n) && (n <= 0x10ffff) where
+    n = numerator r
 
 textToWire :: String -> MkGraph Wire
 textToWire (c:cs) =
-    newSumInL (Num (C (charToRational c))) >>= \ w1 ->
-    textToWire cs >>= \ w2 ->
-    return (Pair w1 w2)
+    let cWire = (Num . C . fromIntegral . fromEnum) c in
+    textToWire cs >>= \ csWire ->
+    return (Sum (C True) (Prod cWire csWire) Unit)
 textToWire [] = newSumInR Unit 
 
+-- wrap a value into a sum with a labeled void
 newSumInL, newSumInR :: Wire -> MkGraph Wire
-newSumInL w = newVar >>= \ v -> return (Sum (True,w) (False,v))
-newSumInR w = newVar >>= \ v -> return (Sum (False,v) (True,w))
+newSumInL w = newVar >>= \ v -> return (Sum (C True)  w v)
+newSumInR w = newVar >>= \ v -> return (Sum (C False) v w)
 
+-- create a fresh variable
 newVar :: MkGraph Wire
 newVar = newLabel >>= return . Var
 
-newLabel :: MkGraph Label
+newLabel :: MkGraph (Label n) 
 newLabel = 
-    get >>= \ gcx -> 
-    let lbl = 1 + gcx_gensym gcx in
-    let gcx' = gcx { gcx_gensym = lbl } in
-    put gcx' >> return lbl
+    get >>= \ gcx ->
+    let lNum = 1 + gcx_gensym gcx in
+    put (gcx { gcx_gensym = lNum }) >>
+    return lNum
 
 
-
-
+freshGraphContext :: GCX
+freshGraphContext = GCX
+    { gcx_gensym = 0
+    , gcx_nodes = M.empty
+    , gcx_progs = M.empty
+    , gcx_subs = M.empty
+    , gcx_elab = M.empty
+    }
 
 
 
