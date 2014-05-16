@@ -308,11 +308,13 @@ tryTok = "try"
 tryAORT :: V AORT -> AORT (V AORT)
 tryAORT (P (B b) a) = 
     liftRT pure >>= \ cx ->
-    let op = Err.tryIOError $ runRT cx $ b_prog b a in
+    let op = Err.try $ runRT cx $ b_prog b a in
     liftIO op >>= \ eb ->
     case eb of
         Right v -> return $  R v
-        Left e -> return $ L (P (textToVal (show e)) a)
+        Left _err -> 
+            Sys.hPutStrLn Sys.stderr ("{try} aborted with: " ++ show _err) >>
+            return (L a)
 tryAORT v = fail $ "{try} @ " ++ show v
 
 execPower :: V AORT -> AORT (V AORT)

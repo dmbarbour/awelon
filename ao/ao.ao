@@ -63,14 +63,14 @@ std
 @doc.destroy.io "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.io "destroy" p command.io elim1
 
-@doc.tryCap.io " -- [([a→b]*a)→((emsg*a)+b)]; (io) obtain capability to confine error"
+@doc.tryCap.io " -- [([a→b]*a)→(a+b)]; (io) obtain capability to confine error"
 @tryCap.io intro1 "newTryCap" p command.io
 
-@doc.tryWrap.io "[a→b]--[a→((emsg*a)+b)]; (io) modify a function to trap error"
+@doc.tryWrap.io "[a→b]--[a→(a+b)]; (io) modify a function to trap error"
 @tryWrap.io tryCap.io .bind
 
-@doc.tryApp.io 
-"a [a→b] -- ((msg*a)+b); (io) attempt to apply, but isolate failure
+@doc.tryAp.io 
+"a [a→b] -- (a+b); (io) attempt to apply, but isolate failure
  
  Failures primarily include failed assertions and type errors. On failure, an error message (meant for humans) is included with the original argument. There is no guarantee that side-effects are atomic, though they should be if feasible.
  
@@ -78,7 +78,7 @@ std
  
  Developers can access the 'try' capability separately from applying it, by use of 'tryCap.io'.
 ~
-@tryApp.io p tryCap.io .apply
+@tryAp.io p tryCap.io .apply
 
 @doc.simplify 
 "block -- block; trivial simplifications on bytecode associated with block
