@@ -46,7 +46,7 @@ I believe that secure hash sources adequately address many common requirements f
 
 ## Communication Models
 
-As another useful feature, I believe I'll provide a generic way to communicate between Awelon hosts, e.g. by using a secure hash of a public key as the identifier for a host, and using various session identifiers.
+As another useful, widespread conventional capability, I believe I'll provide a generic way to communicate between Awelon hosts, e.g. by using a secure hash of a public key as the identifier for a host, and using various session identifiers.
 
 ## Distributed Resources: a Bad Idea
 
@@ -61,11 +61,11 @@ We might find it convenient to access these ambient resources using the same tok
 
 However, while this is feasible, it seems to be *a bad idea* to use in the general case.
 
-First, there are subtle security issues. The HTTP option, for example, is dangerous in context of local domains or reverse domain lookups. We don't want someone logging into your router via HTTP GET and PUT. Similarly, access to physical time might expose a program to covert channels or timing attacks.
+First, there are subtle security issues. The HTTP option, for example, is dangerous in context of local domains or reverse domain lookups. We don't want someone logging into your router via HTTP GET and PUT. Similarly, access to physical time might expose a program to covert channels or timing attacks. Hammering out various security issues is good, but avoiding them for most Awelon VMs is better.
 
-Second, these features greatly complicate the ABC runtimes, and require more maintenance of them. 
+Second, a large set of these features would greatly complicate the Awelon runtimes, and require more maintenance and updates of them. Further, code using such 'distributed capabilities' would be sensitive to version.
 
-We should almost always consider the more explicit alternative - e.g. a remote host is also free to *grant* some common capabilities to anyone who asks, and we might simply create a framework to ask for these capabilities when we need them. This alternative might give us most of the benefits of ambient authority by simple means of explicitly modeling it, while allowing heterogeneous authority when we wish for it.
+We should almost always consider the more explicit, more securable alternative: a remote host is also free to *grant* some common capabilities to anyone who asks, and we can certainly keep these stable for long periods of time. We might simply create a framework to ask for these capabilities when we need them, and perhaps cache them. This alternative might give us most of the benefits of ambient authority by simple means of explicitly modeling it, while allowing heterogeneous authority when we wish for it.
 
 While this technique might not be suitable in general, it might be reasonable for small subsets of Awelon virtual machines - e.g. those in a common 'cloud' configuration - to accept common tokens as if they were one larger virtual machine.
 
