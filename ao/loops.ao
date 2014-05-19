@@ -86,7 +86,7 @@
     count.stats 16 assertEQ1.n
 
 @doc.fixpoint
-"This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. AO does not allow cyclic definitions, but a fixpoint enables expression of recursive behavior.
+"This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. Fixpoint enables expression of recursive behavior.
  
      [foo] fixpoint
          is equivalent to
@@ -94,7 +94,13 @@
          is equivalent to
      [[[foo] fixpoint foo] foo]
  
- I.e. when invoked, the function `foo` has access to its fixpoint form as a block. If this block is unconditionally applied by `foo`, the function will diverge. Divergence is always a bug. Loops in AO/ABC are required to terminate, and long-running behaviors are instead modeled as reactive or incremental processes. It is necessary that `foo` reach a terminating condition in which the function is not applied. I.e. every fixpoint function must be expressed with conditional behavior. 
+ When invoked, the function `foo` has access to itself (in fixpoint form) as a block on the stack. 
+ 
+ Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming and simple 'inline everything' semantics. Fortunately, it is not difficult for a compiler to identify fixpoint loops and optimize them for more conventional architectures.
+ 
+ NOTE: Loops in Awelon are required to terminate. Optimizers are allowed to assume termination, and linters or typecheckers are allowed to reject a non-terminating subprogram (if they recognize one). But proof of termination is ultimately left to the developer. Conventional process models - e.g. infinite loops - are not valid in Awelon. Instead, long-running services or applications in Awelon project are generally modeled as bounded RDP behaviors or unbounded streaming code (discussed in detail elsewhere).
+ 
+ NOTE: Loops are also discouraged in Awelon. Instead, developers are encouraged to compose incremental computations. For example, instead of a sequence of operations that each loop over a full list, consider translating a list to a stream and applying a sequence of transforms, filters, etc. to that stream. Loops can be expressed where needed, but can often be avoided or pushed to the 'edges' of a program.
 ~
 @fixpoint %r [%^'wol] %rwo %^'wol
 @fixpoint.old [dup bind] composel dup bind
