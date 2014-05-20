@@ -30,8 +30,8 @@ type WPD = Either Int WQ
 type WPool = IORef WPD 
 
 -- VALID WORKER STATE:
---  either `Left n` with n > 0 (excess workers)
---     or  `Right ops` (waiting on a worker)
+--  either `Left n` with n > 0 (count of inactive workers)
+--     or  `Right ops` (no inactive workers available)
 
 newWorkerPool :: Int -> IO (IO () -> IO ())
 newWorkerPool n = assert (n > 0) $ liftM addWork $ newIORef (Left n)
