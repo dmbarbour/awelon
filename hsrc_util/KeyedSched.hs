@@ -33,7 +33,7 @@ returnKey :: (Ord k) => KSched k -> k -> IO ()
 returnKey ks@(KS rf _) k = join $ atomicModifyIORef rf rel where
     rel m0 = rel' m0 (M.lookup k m0) 
     rel' m0 Nothing = assert False $ (m0,return ()) -- illegal state
-    rel' m0 (Just seq) = case S.viewl seq of
+    rel' m0 (Just ops) = case S.viewl ops of
         S.EmptyL -> (M.delete k m0, return ()) -- key released
         (w S.:< ws) -> (M.insert k ws m0, initKeyedWork ks k w)
 
