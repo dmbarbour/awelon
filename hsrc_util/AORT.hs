@@ -45,7 +45,6 @@ import System.IO.Unsafe (unsafeInterleaveIO)
 import qualified System.IO as Sys
 import qualified System.Entropy as Entropy
 import qualified System.Environment as Env
-import qualified System.IO.Error as Err
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified Filesystem as FS
 
@@ -65,6 +64,8 @@ import ABC.Imperative.Runtime
 import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
 import Util
 import JIT
+import WorkerPool
+import KeyedSched
 
 -- | AORT is intended to be a primary runtime monad for executing
 -- AO or ABC programs, at least for imperative modes of execution.
@@ -84,7 +85,10 @@ data AORT_CX = AORT_CX
     { aort_anno     :: String -> Maybe (Prog AORT)
     , aort_power    :: String -> Maybe (Prog AORT)
     , aort_tasks    :: MVar [MVar [Err.SomeException]] -- entry per asynch
+    , aort_asynch   :: IO () -> IO () -- using a worker pool
+    , aort_ksynch   :: String -> IO () -> IO () -- one op per key; same worker pool
     } 
+
 newtype AORT_ERRORS = AORT_ERRORS [Err.SomeException] 
     deriving (Show, Typeable)
 instance Err.Exception AORT_ERRORS
@@ -117,10 +121,16 @@ liftRT = AORT . lift . ReaderT
 -- | a new runtime with default settings
 newDefaultRuntime :: IO AORT_CX
 newDefaultRuntime = 
+    getNumCapabilities >>= \ nOSThreads ->
+    let nWorkers = 2 + nOSThreads in -- arbitrary; tunable
+    newWorkerPool nWorkers >>= \ sched ->
+    newKeyedSched sched >>= \ ksched ->
     newMVar [] >>= \ taskList ->
     let cx = AORT_CX { aort_anno   = defaultAnno
                      , aort_power  = defaultPower
                      , aort_tasks  = taskList 
+                     , aort_asynch = sched
+                     , aort_ksynch = ksched
                      }
     in return cx
 
@@ -248,14 +258,14 @@ aoReadFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
     let rf = T.unpack <$> FS.readTextFile fp in
     let toVal = maybe (L U) (R . textToVal) in
-    asynch $ liftIO $ toVal <$> tryJustIO rf
+    fsynch fp $ liftIO $ toVal <$> tryJustIO rf
 aoReadFile v = fail $ "readFile @ " ++ show v
 
 aoReadBinaryFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
     let rf = FS.readFile fp in
     let toVal = maybe (L U) (R . binaryToVal) in
-    asynch $ liftIO $ toVal <$> tryJustIO rf
+    fsynch fp $ liftIO $ toVal <$> tryJustIO rf
 aoReadBinaryFile v = fail $ "readBinaryFile @ " ++ show v
 
 aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
@@ -264,7 +274,7 @@ aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
               FS.writeTextFile fp (T.pack content) 
     in
     let asBoolean = maybe (L U) (const (R U)) in
-    asynch $ liftIO $ asBoolean <$> tryJustIO wOp
+    fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteFile v = fail $ "writeFile @ " ++ show v
 
 aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
@@ -273,8 +283,20 @@ aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
               FS.writeFile fp content 
     in
     let asBoolean = maybe (L U) (const (R U)) in
-    asynch $ liftIO $ asBoolean <$> tryJustIO wOp
+    fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteBinaryFile v = fail $ "writeBinaryFile @ " ++ show v
+
+-- All operations on a given filename are synchronized. This
+-- ensures that reads and writes won't overlap, and that all
+-- writes are properly ordered.
+--
+-- Note: this is currently *conservative* in its estimate of
+-- whether two filenames are the same, though may be in error
+-- in case of symbolic links.
+--
+fsynch :: FS.FilePath -> AORT a -> AORT a
+fsynch = ksynch . FS.encodeString . FS.filename
+
 
 -- convert between values and bytestrings
 binaryToVal :: B.ByteString -> V cx
@@ -308,13 +330,13 @@ tryTok = "try"
 tryAORT :: V AORT -> AORT (V AORT)
 tryAORT (P (B b) a) = 
     liftRT pure >>= \ cx ->
-    let op = Err.try $ runRT cx $ b_prog b a in
+    let op = try $ runRT cx $ b_prog b a in
     liftIO op >>= \ eb ->
     case eb of
         Right v -> return $  R v
         Left _err -> 
-            Sys.hPutStrLn Sys.stderr ("{try} aborted with: " ++ show _err) >>
-            return (L a)
+            let msg = "{try} aborted with: " ++ show _err in
+            liftIO (Sys.hPutStrLn Sys.stderr msg) >> return (L a)
 tryAORT v = fail $ "{try} @ " ++ show v
 
 execPower :: V AORT -> AORT (V AORT)
@@ -377,6 +399,16 @@ scrubABC = fmap scrubTok where
 --
 asynch :: AORT a -> AORT a
 asynch op =
+    readRT aort_asynch >>= \ sched ->
+    runAsynch sched op
+
+ksynch :: String -> AORT a -> AORT a
+ksynch k op =
+    readRT aort_ksynch >>= \ ksched ->
+    runAsynch (ksched k) op
+
+runAsynch :: (IO () -> IO ()) -> AORT a -> AORT a
+runAsynch sched op =
     liftRT pure >>= \ cx ->
     liftIO $
         newEmptyMVar >>= \ vStatus ->
@@ -392,8 +424,9 @@ asynch op =
                 putMVar vStatus es' -- report final status with error info  
         in 
         let getResult = readMVar vResult >>= either Err.throwIO return in
-        forkIO asyncOp >>
+        sched asyncOp >>
         unsafeInterleaveIO getResult
+  
 
 -- | wait for all active tasks to finish, and aggregate errors!
 taskWait :: AORT_CX -> IO [Err.SomeException]
