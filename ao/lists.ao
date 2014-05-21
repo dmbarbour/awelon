@@ -306,6 +306,9 @@
  assertTextEQ1
 @id.textDrop "presumably any text" drop
 
+@doc.LF "text containing only a newline"
+@LF empty.l 10 cons.l
+
 @doc.assertTextEQ1 "text text -- text; assert two texts are equal"
 @assertTextEQ1
  over zipRem.l 
