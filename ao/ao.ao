@@ -51,14 +51,23 @@ std
 @randomBytes.io "randomBytes" p command.io
 @rand8.io 1 randomBytes.io assert wx drop
 
+
+@doc.Filesystem
+"As command line utilities, `ao` and `aoi` offer some operations for working with the local filesystem through the power block. This is rather ad-hoc and minimal. In the long term, AO isn't primarily intended for manipulating the filesystem (instead favoring persistent, reactive state resources). 
+ 
+ Most filesystem operations are asynchronous, meaning the powerblock is returned immediately even if the result takes a while to compute. However, reads and writes to the same filename are serialized.
+~
 @doc.readFile.io "filename -- (1(err) + text); (io,asynch)"
 @doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io,asynch)"
 @doc.readBinaryFile.io "filename -- (1(err) + octets); (io,asynch)"
 @doc.writeBinaryFile.io "octets filename -- (1(err) + 1(ok)); (io,asynch)"
+@doc.listDirectory.io "dirname -- list-of-names; (io,asynch)"
 @readFile.io "readFile" p command.io
 @writeFile.io p "writeFile" p command.io
 @readBinaryFile.io "readBinaryFile" p command.io
 @writeBinaryFile.io p "writeBinaryFile" p command.io
+@listDirectory.io "listDirectory" p command.io
+
 
 @doc.destroy.io "(io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.io "destroy" p command.io elim1
