@@ -12,6 +12,7 @@ module ABC.Imperative.Value
     , copyable, droppable
     , divModQ
     , valToText, textToVal
+    , listToVal, valToList
     , simplEQ, assertEQ
     , isSum, isInL, isInR
     , condProg
@@ -102,10 +103,21 @@ divModQ x y =
     let (q,r) = n `divMod` d in
     (q, r % dr)
 
+
+valToList :: (V cx -> Maybe a) -> V cx -> Maybe [a]
+valToList f (L (P a as)) = (:) <$> f a <*> valToList f as
+valToList _ (R U) = Just []
+valToList _ _ = Nothing
+
+listToVal :: (a -> V cx) -> [a] -> V cx
+listToVal f (a:as) = (L (P (f a) (listToVal f as)))
+listToVal _ [] = (R U)
+
 valToText :: V cx -> Maybe String
-valToText (L (P c l)) = (:) <$> valToChar c <*> valToText l 
-valToText (R U) = Just []
-valToText _ = Nothing
+valToText = valToList valToChar
+
+textToVal :: String -> V cx
+textToVal = listToVal (N . fromIntegral . fromEnum)
 
 valToChar :: V cx -> Maybe Char
 valToChar (N r) | (validChar r) = (Just . toEnum . fromInteger . numerator) r
@@ -116,11 +128,6 @@ validChar r =
     let n = numerator r in
     let d = denominator r in
     (1 == d) && (0 <= n) && (n <= 0x10ffff)
-
-textToVal :: String -> V cx
-textToVal [] = R U
-textToVal (c:cs) = L (P cv (textToVal cs)) where
-    cv = (N . fromIntegral . fromEnum) c
 
 instance Show (V cx) where
     showsPrec _ (N r) = showNumber r
