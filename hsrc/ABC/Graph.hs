@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 
 -- | This is an experimental module for an ABC intermediate language
 -- based on a graph-based representation of the ABC program. An ABC
@@ -5,7 +6,7 @@
 -- carry ABC values and the vertices represent program operations.
 --
 -- This is similar to some box-and-wire graphical dataflow languages.
--- Indeed, I'll use the following terminology:
+-- I'll use the following terminology:
 -- 
 --    a box is a generic subgraph that takes a bundle of wires as input
 --     and generates a similar bundle as output. A primitive box (which
@@ -13,8 +14,8 @@
 --
 --    a wire is a dumb dataflow path for a value. Some wires may carry
 --     constant values. A complex structure of wires is sometimes called
---     a bundle. In general, any wire may be a bundle of wires; wire and
---     bundle are not formally distinguished. 
+--     a bundle. In general, any wire may be understood as a bundle of
+--     wires. 
 --
 -- An ABC subprogram corresponds to a box. We focus on boxes - which 
 -- represent subgraphs with clear inputs and outputs - because they are
@@ -40,23 +41,28 @@
 -- The challenge, then, is translating these loops back into ABC code, 
 -- e.g. by explicitly encoding a fixpoint behaviors.
 --
+-- TODO: consider switching to Integer as the basic number type, and
+-- model Rational as a pair of Integers.
+--
 module ABC.Graph 
     ( abc2graph
     , Box
-    , Wire(..), Bundle, CodeBundle(..)
-    , NumWire, BoolWire, BoxWire, SrcWire, BoxWire
+    , Wire(..), CodeBundle(..)
+    , NumWire, BoolWire, SrcWire
     , textToWire, wireToText
-    , NodeLabel, WireLabel, BoxLabel
+    , Label, NodeLabel, WireLabel, BoxLabel
     , Node(..)
-    , nodeInputWires
-    , nodeOutputWires
+    , nodeInputWires, nodeOutputWires
     , MkGraph, runMkGraph, evalMkGraph
-    , GCX(..), freshGraphContext
+    , GCX, gcx0
+    
     ) where
 
 import Control.Applicative
+import Control.Monad 
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
+import Control.Monad.Trans.Writer.Strict
 import Data.Functor.Identity
 
 import Data.Ratio
@@ -76,23 +82,23 @@ runMkGraph :: GCX -> MkGraph a -> Either String (a,GCX)
 evalMkGraph :: MkGraph a -> Either String a
 
 runMkGraph gcx op = runIdentity $ runErrorT $ runStateT op gcx
-evalMkGraph = runIdentity . runErrorT . flip evalStateT freshGraphContext
+evalMkGraph = runIdentity . runErrorT . flip evalStateT gcx0
 
 -- | stateful context
 data GCX = GCX
-    { gcx_gensym  :: !Integer -- next label (of any type)
-    , gcx_nodes   :: M.Map NodeLabel Node -- labeled nodes
-    , gcx_progs   :: M.Map [Op] BoxLabel
-    , gcx_subs    :: M.Map BoxLabel Box   
-    , gcx_elab    :: M.Map EdgeLabel Wire -- elaborations for edge labels
+    { gcx_gensym  :: !Integer -- to generate unique labels (any type)
+    , gcx_nodes   :: [Node] -- primitive operations in graph
+    , gcx_elab    :: M.Map WireLabel Wire -- elaborations for wire structure
+    , gcx_progs   :: M.Map [Op] BoxLabel -- to help detect cycles
+    , gcx_subs    :: M.Map BoxLabel Box -- pre-implemented boxes
     }
 
 -- | a generic wire or bundle of wires
 data Wire
-    = Var  !Label
+    = Var  !WireLabel
     | Num  NumWire
     | Code CodeBundle
-    | Pair Wire Wire | Unit
+    | Prod Wire Wire | Unit
     | Sum  BoolWire Wire Wire
     | Seal String Wire
 
@@ -102,33 +108,18 @@ data CodeBundle = CodeBundle
     { cb_src :: SrcWire
     , cb_aff :: BoolWire
     , cb_rel :: BoolWire
-    , cb_box :: BoxWire
     }
 
-type Label    = Integer
-type LWire    = (BoolWire,Wire)
-type Bundle   = Wire
 type NumWire  = CWire Rational
 type SrcWire  = CWire [Op]
-type BoxWire  = CWire Box
 type BoolWire = CWire Bool 
 
 -- | a 'box' is a generic model of a subgraph
-type Box = Bundle -> MkGraph Bundle
+type Box = Wire -> MkGraph Wire
 
--- | a 'node' is a primitive, labeled box. So far, this is mostly a
--- subset of ABC. However, these nodes do not include inputs that 
--- are not necessary.
---
--- This is essentially a subset of ABC. However, where ABC operators
--- include the environment (e.g. `+ :: (N(a)*(N(b)*e))→N(a+b)*e`),
--- these operators do not include any arguments they do not need. 
--- Further, some additional nodes support supplementary behaviors or
--- assertions.
---
--- Also, some additional nodes are included for supplementary behavior,
--- such as ass
--- 
+
+-- | a 'node' is a primitive, labeled box, roughly corresponding to
+-- ABC operators. A graph essentially consists of a set of nodes.
 data Node  -- typically (label inputs outputs)
     -- math nodes
     = N_add (NumWire,NumWire) NumWire -- N(a)*N(b) → N(a+b)
@@ -144,26 +135,19 @@ data Node  -- typically (label inputs outputs)
     | N_boolAssert BoolWire ()
 
     -- program manipulation nodes
-    | N_apply (CodeBundle,Wire) Wire -- (a→a')*a → a'; also used for 'cond'
-    | N_quote Wire CodeBundle -- a → (s→(a*s))
-    | N_comp (CodeBundle,CodeBundle) CodeBundle -- (a→b)*(b→c) → (a→c)
-    -- | N_aff CodeBundle CodeBundle -- (a→b) → (a→b)' ; mark affine (no copy)
-    -- | N_rel CodeBundle CodeBundle -- (a→b) → (a→b)' ; mark relevant (no drop)
+    | N_apply (SrcWire,Wire) Wire -- (a→a')*a → a'; also used for 'cond'
+    | N_quote Wire SrcWire -- a → (s→(a*s))
+    | N_comp (SrcWire,SrcWire) SrcWire -- (a→b)*(b→c) → (a→c)
 
     -- conditional behavior...
-    -- | N_distrib -- (a*(b+c)) → ((a*b)+(a*c))
-    -- | N_factor -- ((a*b)+(c*d)) → ((a+c)*(b+d))
-    | N_cond (BoolWire,CodeBundle,Wire) Wire
+    | N_cond (BoolWire,SrcWire,Wire) Wire
     | N_merge (Wire,Wire) Wire -- (a+a') → a
-    -- | N_assert (Wire,Wire) Wire -- (a+b) → b
     | N_gt (NumWire,NumWire) BoolWire -- N(a)*N(b) → (a>b)?
     | N_nonZero NumWire BoolWire
-
 
     -- extended node primitives
     | N_tok String   Wire Wire -- ABC's {tokens}; type not locally known
     | N_sub BoxLabel Wire Wire -- call a named local subroutine
-    deriving (Eq, Ord)
 
 instance Show (Label n) where 
     showsPrec _ (Label n) = showChar '_' . shows n
@@ -171,29 +155,29 @@ instance Show (Label n) where
 instance Show Wire where
     showsPrec _ (Var lbl) = showChar 'v' . shows lbl
     showsPrec _ (wireToText -> Just txt) = shows (show txt)
-    showsPrec _ (Num (C r)) = 
+    showsPrec _ (Num (Right r)) = 
         let num = numerator r in
         let den = denominator r in
         let sd = if (1==den) then showChar '/' . shows den else id in
         showChar 'N' . showChar '(' . shows num . sd . showChar ')'
-    showsPrec _ (Num (V lbl)) = showChar 'n' . shows lbl
-    showsPrec _ (Code (C _)) = showString "[box]"
-    showsPrec _ (Code (V lbl)) = showString "[box " . shows lbl . showChar ']'
-    showsPrec _ (Pair a b) = showChar '(' . shows a . showChar '*' . shows b . showChar ')'
+    showsPrec _ (Num  (Left lbl)) = showChar 'n' . shows lbl
+    showsPrec _ (Code _) = showString "[box]"
+    showsPrec _ (Prod a b) = showChar '(' . shows a . showChar '*' . shows b . showChar ')'
     showsPrec _ Unit = showString "unit"
-    showsPrec _ (Sum (la,a) (lb,b)) = 
-        let sZero c = if c then showChar '~' else id in
-        showChar '(' . 
-        sZero la . shows a . showChar '+' . 
-        sZero lb . shows b . showChar ')'
-    showsPrec _ (Seal tok a) = shows a . showString tok
+    showsPrec _ (Sum (Right True) a b) =
+        showString "(0*" . shows a . showChar '+' . shows b . showChar ')'
+    showsPrec _ (Sum (Right False) a b) =
+        showChar '(' . shows a . showString "+0*" . shows b . showChar ')'
+    showsPrec _ (Sum _ a b) =
+        showChar '(' . shows a . showChar '+' . shows b . showChar ')'
+    showsPrec _ (Seal tok a) = shows a . showChar '{' . showString tok . showChar '}'
 
 wireToText :: Wire -> Maybe String
-wireToText (Sum (C True) (Prod c cs) _) = (:) <$> wireToChar c <*> wireToText cs
-wireToText (Sum (C False) _ Unit) = pure ""
+wireToText (Sum (Right True) (Prod c cs) _) = (:) <$> wireToChar c <*> wireToText cs
+wireToText (Sum (Right False) _ Unit) = pure ""
 
 wireToChar :: Wire -> Maybe Char
-wireToChar (Num (C r)) | inCharRange r = (Just . toEnum . fromInteger . numerator) r
+wireToChar (Num (Right r)) | inCharRange r = (Just . toEnum . fromInteger . numerator) r
 wireToChar _ = Nothing
 
 inCharRange :: Rational -> Bool
@@ -202,15 +186,15 @@ inCharRange r = (1 == denominator r) && (0 <= n) && (n <= 0x10ffff) where
 
 textToWire :: String -> MkGraph Wire
 textToWire (c:cs) =
-    let cWire = (Num . C . fromIntegral . fromEnum) c in
+    let cWire = (Num . Right . fromIntegral . fromEnum) c in
     textToWire cs >>= \ csWire ->
-    return (Sum (C True) (Prod cWire csWire) Unit)
+    return (Sum (Right True) (Prod cWire csWire) Unit)
 textToWire [] = newSumInR Unit 
 
 -- wrap a value into a sum with a labeled void
 newSumInL, newSumInR :: Wire -> MkGraph Wire
-newSumInL w = newVar >>= \ v -> return (Sum (C True)  w v)
-newSumInR w = newVar >>= \ v -> return (Sum (C False) v w)
+newSumInL w = newVar >>= \ v -> return (Sum (Right True)  w v)
+newSumInR w = newVar >>= \ v -> return (Sum (Right False) v w)
 
 -- create a fresh variable
 newVar :: MkGraph Wire
@@ -221,18 +205,234 @@ newLabel =
     get >>= \ gcx ->
     let lNum = 1 + gcx_gensym gcx in
     put (gcx { gcx_gensym = lNum }) >>
-    return lNum
+    return (Label lNum)
 
-
-freshGraphContext :: GCX
-freshGraphContext = GCX
+gcx0 :: GCX
+gcx0 = GCX
     { gcx_gensym = 0
-    , gcx_nodes = M.empty
+    , gcx_nodes = []
     , gcx_progs = M.empty
     , gcx_subs = M.empty
     , gcx_elab = M.empty
     }
 
+-- | compute a graph from ABC code; uses subroutines to capture cycles.
+abc2graph :: [Op] -> Box
+abc2graph ops w = 
+    abc2sub ops >>= \ box ->
+    callSubroutine box w
+
+abc2sub :: [Op] -> MkGraph BoxLabel
+abc2sub ops =
+    get >>= \ gcx ->
+    let progs = gcx_progs gcx in
+    case M.lookup ops progs of
+        Just box -> return box
+        Nothing -> 
+            newLabel >>= \ box ->
+            let progs' = M.insert ops box progs in
+            let subs' = M.insert box (runABC ops) (gcx_subs gcx) in
+            let gcx' = gcx { gcx_progs = progs', gcx_subs = subs' } in
+            put gcx' >> 
+            return box
+
+-- call a named subprogram
+callSubroutine :: BoxLabel -> Box
+callSubroutine lbl arg = 
+    newVar >>= \ result ->
+    emitNode (N_sub lbl arg result) >>
+    return result
+
+-- add code to the graph
+emitNode :: Node -> MkGraph ()
+emitNode node = modify $ \ gcx -> gcx { gcx_nodes = (node : gcx_nodes gcx) }
+
+-- runABC will actually emit nodes associated with the ABC operators
+runABC :: [Op] -> Box
+runABC (op:ops) = runOp op >=> runABC ops
+runABC [] = return
+
+runOp :: Op -> Box
+runOp Op_l = opl
+runOp Op_r = opr
+runOp Op_w = opw
+runOp Op_z = opz
+runOp Op_v = opv
+runOp Op_c = opc
+runOp Op_L = opL
+runOp Op_R = opR
+runOp Op_W = opW
+runOp Op_Z = opZ
+runOp Op_V = opV
+runOp Op_C = opC
+runOp (BL ops) = opBL ops
+runOp (TL str) = opTL str
+runOp (Tok tok) = opTok tok
+runOp Op_copy = opCopy
+runOp Op_drop = opDrop
+runOp Op_add = opAdd
+runOp Op_neg = opNeg
+runOp Op_mul = opMul
+runOp Op_inv = opInv
+runOp Op_divMod = opDivMod
+runOp Op_ap = opApply
+runOp Op_cond = opCond
+runOp Op_quote = opQuote
+runOp Op_comp = opCompose
+runOp Op_rel = opRel
+runOp Op_aff = opAff
+runOp Op_distrib = opDistrib
+runOp Op_factor = opFactor
+runOp Op_merge = opMerge
+runOp Op_assert = opAssert
+runOp Op_gt = opGT
+runOp Op_introNum = opIntroNum
+runOp Op_0 = opDigit 0
+runOp Op_1 = opDigit 1
+runOp Op_2 = opDigit 2
+runOp Op_3 = opDigit 3
+runOp Op_4 = opDigit 4
+runOp Op_5 = opDigit 5
+runOp Op_6 = opDigit 6
+runOp Op_7 = opDigit 7
+runOp Op_8 = opDigit 8
+runOp Op_9 = opDigit 9
+runOp Op_SP = return
+runOp Op_LF = return
+
+opl,opr,opw,opz,opv,opc :: Box
+opL,opR,opW,opZ,opV,opC :: Box
+opBL :: [Op] -> Box
+opTL :: String -> Box
+opTok :: String -> Box
+opCopy,opDrop :: Box
+opAdd,opNeg,opMul,opInv,opDivMod :: Box
+opApply,opCond,opQuote,opCompose,opAff,opRel :: Box
+opDistrib,opFactor,opMerge,opAssert :: Box
+opGT :: Box
+opIntroNum :: Box
+opDigit :: Int -> Box
+
+opl abc =
+    asProd abc >>= \ (a,bc) ->
+    asProd bc >>= \ (b,c) ->
+    return (Prod (Prod a b) c)
+opr abc = 
+    asProd abc >>= \ (ab,c) ->
+    asProd ab >>= \ (a,b) ->
+    return (Prod a (Prod b c))
+opw abc =
+    asProd abc >>= \ (a,bc) ->
+    asProd bc >>= \ (b,c) ->
+    return (Prod b (Prod a c))
+opz abc =
+    asProd abcd >>= \ (a,bcd) ->
+    opw bcd >>= \ cbd ->
+    return (Prod a cbd)
+opv a = return (Prod a Unit)
+opc au = 
+    asProd au >>= \ (a,u) ->
+    asUnit u >>
+    return a
+
+opL = onFst opL'
+opR = onFst opR'
+opW = onFst opW'
+opZ = onFst opZ'
+opV = onFst opV'
+opC = onFst opC'
+
+onFst :: Box -> Box
+onFst f ae = asProd ae >>= \ (a,e) -> f a >>= \ a' -> return (Prod a' e)
+
+opL',opR',opW',opZ',opV',opC' :: Box
+
+opL' abc = 
+    asSum abc >>= \ (inBC, a, bc) ->
+    asSum bc >>= \ (inC, b, c) ->
+    boolAnd inBC inC >>= \ inC' ->
+    boolNot inC >>= \ notInC ->
+    boolAnd inBC notInC >>= \ inB' ->
+    return (Sum inC' (Sum inB' a b) c)
+opR' abc =
+    asSum abc >>= \ (inC, ab, c) ->
+    asSum ab >>= \ (inB, a, b) ->
+    boolOr inB inC >>= \ inBC ->
+    return (Sum inBC a (Sum inC b c))
+opW' abc =
+    asSum abc >>= \ (inBC,a,bc) ->
+    asSum bc >>= \ (inC,b,c) ->
+    boolAnd inBC inC >>= \ inC' ->
+    boolNot inC >>= \ notInC ->
+    boolAnd inBC notInC >>= \ inB' ->
+    boolNot inB' >>= \ inAC' ->
+
+-- TODO: figure out these sophisticated booleans
+--  * assume inner sums don't account for outer conditions
 
 
+opL,opR,opW,opZ,opV,opC 
 
+-- processing the graph...
+nodeInputWires, nodeOutputWires :: Node -> Set WireLabel
+nodeInputWires = execWriter . emitInputWires
+nodeOutputWires = execWriter . emitOutputWires
+
+type SetWriter e = Writer (Set e)
+
+emit :: (Ord e) => e -> SetWriter e ()
+emit = tell . Set.singleton
+
+emitInputWires, emitOutputWires :: Node -> SetWriter WireLabel ()
+emitWire :: Wire -> SetWriter WireLabel ()
+
+emitWire (Var l) = emit l
+emitWire (Num n) = emitCWire n
+emitWire (Code cb) = 
+    emitCWire (cb_src cb) >> 
+    emitCWire (cb_aff cb) >> 
+    emitCWire (cb_rel cb)
+emitWire (Prod a b) = emitWire a >> emitWire b
+emitWire (Sum c a b) = emitCWire c >> emitWire a >> emitWire b
+emitWire (Seal _ a) = emitWire a
+
+emitCWire :: CWire a -> SetWriter WireLabel ()
+emitCWire (Left l) = emit l
+emitCWire (Right _) = return ()
+
+emitInputWires (N_add (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_neg a _) = emitCWire a
+emitInputWires (N_mul (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_inv a _) = emitCWire a
+emitInputWires (N_divMod (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_boolOr (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_boolAnd (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_boolNot a _) = emitCWire a
+emitInputWires (N_boolAssert a _) = emitCWire a
+emitInputWires (N_apply (src,arg) _) = emitCWire src >> emitWire arg
+emitInputWires (N_quote v _) = emitWire v
+emitInputWires (N_comp (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_cond (c,src,arg) _) = emitCWire c >> emitCWire src >> emitWire arg
+emitInputWires (N_merge (a,b) _) = emitWire a >> emitWire b
+emitInputWires (N_gt (a,b) _) = emitCWire a >> emitCWire b
+emitInputWires (N_nonZero a _) = emitCWire a
+emitInputWires (N_tok _ a _) = emitWire a
+emitInputWires (N_sub _ a _) = emitWire a
+
+emitOutputWires (N_add _ c) = emitCWire c
+emitOutputWires (N_neg _ a') = emitCWire a'
+emitOutputWires (N_mul _ c) = emitCWire c
+emitOutputWires (N_inv _ a') = emitCWire a'
+emitOutputWires (N_divMod _ (q,r)) = emitCWire q >> emitCWire r
+emitOutputWires (N_boolOr _ c) = emitCWire c
+emitOutputWires (N_boolAnd _ c) = emitCWire c
+emitOutputWires (N_boolAssert _ ()) = return ()
+emitOutputWires (N_apply _ w) = emitWire w
+emitOutputWires (N_quote _ src) = emitCWire src
+emitOutputWires (N_comp _ xz) = emitCWire xz
+emitOutputWires (N_cond _ w) = emitWire w
+emitOutputWires (N_merge _ w) = emitWire w
+emitOutputWires (N_gt _ c) = emitCWire c
+emitOutputWires (N_nonZero _ b) = emitCWire b
+emitOutputWires (N_tok _ _ w) = emitWire w
+emitOutputWires (N_sub _ _ w) = emitWire w
