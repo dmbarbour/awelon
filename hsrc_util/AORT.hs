@@ -235,6 +235,7 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("readBinaryFile", aoReadBinaryFile)
     ,("writeFile", aoWriteFile)
     ,("writeBinaryFile", aoWriteBinaryFile)
+    ,("listDirectory", aoListDirectory)
     ,("newTryCap", newTryCap)
     ]
 
@@ -242,6 +243,7 @@ getRandomBytes :: Prog AORT
 getOSEnv :: Prog AORT
 aoReadFile, aoReadBinaryFile :: Prog AORT
 aoWriteFile, aoWriteBinaryFile :: Prog AORT
+aoListDirectory :: Prog AORT
 newTryCap :: Prog AORT
 
 getRandomBytes (N r) | ((r >= 0) && (1 == denominator r)) =
@@ -286,13 +288,17 @@ aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
     fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteBinaryFile v = fail $ "writeBinaryFile @ " ++ show v
 
--- All operations on a given filename are synchronized. This
+aoListDirectory (valToText -> Just dirname) =
+    let fp = FS.fromText (T.pack dirname) in
+    let lsDir = maybe [] id <$> tryJustIO (FS.listDirectory fp) in
+    asynch $ liftIO $ listToVal (textToVal . FS.encodeString) <$> lsDir
+aoListDirectory v = fail $ "listDirectory @ " ++ show v
+
+-- All operations on a given filename are serialized. This
 -- ensures that reads and writes won't overlap, and that all
--- writes are properly ordered.
---
--- Note: this is currently *conservative* in its estimate of
--- whether two filenames are the same, though may be in error
--- in case of symbolic links.
+-- writes are properly ordered. There may be error in case
+-- of symbolic links, and there may be loss of parallelism
+-- if some files use the same name in different directories.
 --
 fsynch :: FS.FilePath -> AORT a -> AORT a
 fsynch = ksynch . FS.encodeString . FS.filename
