@@ -113,21 +113,23 @@ isValidToken _ = False
 parseNumber :: (P.Stream s m Char) => P.ParsecT s u m Rational
 parseNumber = parser P.<?> "number" where
     parser = anyNumber >>= \ n -> expectWordSep >> return n
-    anyNumber = (P.try parseHexadecimal) P.<|> parseDecimal
+    anyNumber = parseHexadecimal P.<|> parseDecimal
     parseHexadecimal =
-        P.char '0' >> P.char 'x' >> 
-        P.many1 (P.satisfy isHexDigit) >>=
+        P.try (P.char '0' >> P.char 'x') >> 
+        P.many1 parseHexDigit >>=
         return . fromIntegral . hexToNum
+    parseHexDigit = P.satisfy isHexDigit P.<?> "hexadecimal digit"
     parseDecimal = 
         P.option False (P.char '-' >> return True) >>= \ bNeg ->
         parseUnsignedIntegral >>= \ n ->
         parseFragment n >>= \ r ->
         return (if bNeg then (negate r) else r)
+    parseDecimalDigit = P.satisfy isDigit P.<?> "decimal digit"
     parseUnsignedIntegral = (zeroInt P.<|> posInt) P.<?> "digits"
     zeroInt = P.char '0' >> return 0
     posInt = 
         P.satisfy isNZDigit >>= \ c1 ->
-        P.many (P.satisfy isDigit) >>= \ cs ->
+        P.many parseDecimalDigit >>= \ cs ->
         return (decToNum (c1:cs))
     parseFragment n =
         (P.char '/' >> fractional n) P.<|>
@@ -135,7 +137,7 @@ parseNumber = parser P.<?> "number" where
         (postDecFragment (fromIntegral n))
     fractional num = posInt >>= \ den -> return (num % den)
     decimalDot n = 
-        P.many1 (P.satisfy isDigit) >>= \ ds ->
+        P.many1 parseDecimalDigit >>= \ ds ->
         let fNum = decToNum ds in
         let fDen = 10 ^ length ds in
         let f = fNum % fDen in
