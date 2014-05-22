@@ -74,7 +74,7 @@ AO literals have a slightly different type than ABC literals.
         In ABC: e -> L * e
         In AO: (s * e) -> ((L * s) * e)
 
-By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after everly literal in AO. Conversely, AO developers may regain ABC behavior with simple bracketing: `%v [foo] %c`. The codes `%l`, `%v`, and `%c` are examples of inline ABC.
+By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after everly literal in AO. If necessary, AO developers may regain ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice. The codes `%l`, `%v`, and `%c` are examples of inline ABC.
 
 ## Inline ABC
 
@@ -231,29 +231,37 @@ This technique can feasibly *improve* readability, by enabling developers to see
 
 ## Multi-Stack Environment
 
-Just as developers operate on a tacit dictionary, AO words and literals operate on a tacit value. The value is structured and can often be understood as modeling an 'environment' for computation - e.g. a stack, or multiple stacks. The structure of this environment is determined by convention. However, changing convention can be expensive, requiring widespread edits to data shuffling words.
-
-Based on a few experiments, I recommend the following as a flexible starting model for most AO systems:
-
-        (stack * (hand * (power * ((stackName * namedStacks) * ext)))))
+AO words and literals operate on a tacit value. This value is structured as a `(stack * environment)` pair, which allows literals to be added to the stack while keeping the environment in a stable location (e.g. `42 :: (s*e)→((42*s)*e)`). The structure of the `environment` value is determined by convention. However, changing conventions can require widespread edits to the AO dictionary, so it also tends to be stable. In this sense, AO has a 'standard' environment that is implied by the current dictionary. Currently, AO has two standard environments:
+ 
+        (stack*(hand*ext))
+        (stack*(hand*(power*((stackName*namedStacks)*ext))))
 
 * stack - the current stack where operations occur
-* hand - a second stack, used as a semantic clipboard
-* named stacks - act as workspaces, registers, space for extensions area
+* hand - auxillary stack to retain values, used as a semantic clipboard
+* named stacks - collection of stacks to serve as workspaces, registers, etc.
 * stack name - name of current stack, so we can switch workspaces
-* power - block; query for specific caps; source of state, authority, identity
-* ext - unused, available for future extensions
+* power - a block containing `{tokens}` to invoke useful authorities
+* ext - extensions slot, or unit value if not used
+ 
+The first environment is common for 'pure' functions, e.g. invoked by the `apply` word. The second environment is a proper extension of the first, and includes multiple `(name*stack)` pairs to serve flexible roles: workspaces, registers, inventories, data storage. Multiple workspaces can be useful when modeling interaction (with implicit synchronization) between implicitly concurrent behaviors.
 
-A stack is modeled using pairs, e.g. `(a * (b * (... * 1)))`.
+Long term, Awelon project is intended to take this concept much further - modeling a rich, personal user environment with flexible inventories and tools and navigation through workspaces. However, that form of environment is only suitable for live programming where users can have continuous visual reminders of structure. For an ahead-of-time, textual programming language such as AO, multiple named stacks for global state is near the human limit for complexity.
 
-Traditional stack-based programming occurs on the current stack. The extra named stacks can model registers, inventories, or extra workspaces. Multiple workspaces are very convenient when modeling complex concurrent workflows - i.e. *one stack per task*. The hand enables take, put, copy, paste, and provides a very convenient temporary storage.
+## Composition is First Principle
 
-I also recommend that objects on the stack typically be composable structures (documents, diagrams, geometries, tables, matrices, grammars, constraint models, rulebooks, scene-graphs, etc.) or mechanisms to surgically access and manipulate deep structure (e.g. [zippers](http://en.wikibooks.org/wiki/Haskell/Zippers) or [lenses](http://www.cis.upenn.edu/~bcpierce/papers/lenses-etapsslides.pdf)).
+Composition is a primary principle of Awelon project. Composition means we can combine values using a small set of simple, uniform operators, with algebraic closure and other nice compositional (i.e. invariant or inductive) properties. Awelon bytecode and AO, however, only offer composition at the low level. To achieve it at higher levels, developers must favor working with value types that are, themselves, compositional. Some compositional types include:
 
-The powerblock serves as the general-purpose entry point to observe or influence the real world. Specific capabilities can be extracted from a powerblock as required, and developers should use specific capabilities when deep enough know what *least authority* actually requires. Meanwhile, a powerblock may be forked such that a child - granted to an distrusted subprogram - is restricted based on upstream policies. 
+* documents
+* diagrams
+* geometries
+* relations/tables
+* matrices
+* grammars
+* constraint models
+* rulebooks
+* scene-graphs
+* streams
 
-## Expression Problem and Policy Injection
+In addition, we can have compositional mechanisms to surgically access and manipulate deep structure of a compositional model, such as [lenses](http://www.cis.upenn.edu/~bcpierce/papers/lenses-etapsslides.pdf) or [zippers](http://en.wikibooks.org/wiki/Haskell/Zippers).
 
-AO will be pursuing a new, experimental alternative to the configurations problem that supports default implementations, soft constraints, heuristic policy injection, and deep overrides. The idea is to leverage dependent types, partial evaluation, and staged constraint solvers to automate a lot of glue-code. 
-
-This is low priority at the moment, but it will eventually have a pervasive impact on the AO programming experience. Relevantly, it will serve roles similar to typeclasses and dependency injection frameworks.
+There are many non-compositional models that are common in mainstream programming, such as records and ad-hoc objects. Even lists are at best weakly compositional (combining lists is too expensive). Developers can model these objects in AO, but it isn't recommended. Even if it initially seems a little awkward, moderately inefficient, or distorted in-the-small, finding ways to express problems and solutions compositionally is usually very rewarding in the long run and in-the-large.
