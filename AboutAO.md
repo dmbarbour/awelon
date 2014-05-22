@@ -249,7 +249,7 @@ Long term, Awelon project is intended to take this concept much further - modeli
 
 ## Composition is First Principle
 
-Composition is a primary principle of Awelon project. Composition means we can combine values using a small set of simple, uniform operators, with algebraic closure and other nice compositional (i.e. invariant or inductive) properties. Awelon bytecode and AO, however, only offer composition at the low level. To achieve it at higher levels, developers must favor working with value types that are, themselves, compositional. Some compositional types include:
+Composition is a primary principle of Awelon project. Composition means we can combine values using a small set of simple, uniform operators, with algebraic closure and other nice compositional (i.e. invariant or inductive) properties. Awelon bytecode and AO, however, only offer composition at the low level. To achieve composition at higher layers, developers must favor modeling problem domains and solution elements with value types that are themselves compositional. Some compositional types include:
 
 * documents
 * diagrams
@@ -261,6 +261,7 @@ Composition is a primary principle of Awelon project. Composition means we can c
 * rulebooks
 * scene-graphs
 * streams
+* widgets
 
 In addition, we can have compositional mechanisms to surgically access and manipulate deep structure of a compositional model, such as [lenses](http://www.cis.upenn.edu/~bcpierce/papers/lenses-etapsslides.pdf) or [zippers](http://en.wikibooks.org/wiki/Haskell/Zippers).
 
