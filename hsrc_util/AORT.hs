@@ -147,7 +147,6 @@ defaultAnno = flip M.lookup $ M.fromList $
     [("debug print raw", mkAnno debugPrintRaw)
     ,("debug print text", mkAnno debugPrintText)
     ,("compile", compileBlock)
-    ,("simplify", simplifyBlock)
     ,("asynch", asynchBlock)
     ,("≡", assertEQ)
     ]
@@ -155,32 +154,31 @@ defaultAnno = flip M.lookup $ M.fromList $
 mkAnno :: (V AORT -> AORT ()) -> Prog AORT
 mkAnno fn v = fn v >> return v
 
+putErrLn :: String -> AORT ()
+putErrLn = ksynch "stderr" . liftIO . Sys.hPutStrLn Sys.stderr
+
 debugPrintRaw, debugPrintText :: V AORT -> AORT ()
-debugPrintRaw v =  liftIO $ Sys.hPutStrLn Sys.stderr (show v)
-debugPrintText (valToText -> Just txt) = liftIO $ Sys.hPutStr Sys.stderr txt
+debugPrintRaw = putErrLn . show
+debugPrintText (valToText -> Just txt) = putErrLn txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
 -- compile a block {&compile}
 compileBlock :: Prog AORT
-compileBlock (B b) = B <$> (asynch $ liftIO $ compileBlock' b)
+compileBlock (B b) = B <$> (asynch $ compileBlock' b)
 compileBlock v = fail $ "{&compile} @ " ++ show v
 
-compileBlock' :: (Runtime m) => Block m -> IO (Block m)
+compileBlock' :: (Runtime m) => Block m -> AORT (Block m)
 compileBlock' b = 
     let abc = simplify $ S.toList $ b_code b in
-    try (abc_jit abc) >>= \ errOrProg ->
+    liftIO (try $ abc_jit abc) >>= \ errOrProg ->
     case errOrProg of 
-        Left err -> 
-            Sys.hPutStrLn Sys.stderr (show err) >> 
-            return b -- the original
-        Right prog ->
-            return (b { b_code = S.fromList abc, b_prog = prog })
-
-simplifyBlock :: Prog AORT
-simplifyBlock (B b) = return (B b') where
-    code' = S.fromList $ simplify $ S.toList $ b_code b
-    b' = b { b_code = code' }
-simplifyBlock v = fail $ "{&simplify} @ " ++ show v
+        Left err -> -- for now, warn
+            let emsg = showString "in block " . shows (B b) . showChar '\n' .
+                       showString "error in compile " . showChar '\n' $
+                       indent "  " (show err) 
+            in 
+            putErrLn emsg >> return b
+        Right prog -> return (b { b_code = S.fromList abc, b_prog = prog })
 
 -- prepare a block to compute asynchronously
 asynchBlock :: Prog AORT
@@ -342,7 +340,7 @@ tryAORT (P (B b) a) =
         Right v -> return $  R v
         Left _err -> 
             let msg = "{try} aborted with: " ++ show _err in
-            liftIO (Sys.hPutStrLn Sys.stderr msg) >> return (L a)
+            putErrLn msg >> return (L a)
 tryAORT v = fail $ "{try} @ " ++ show v
 
 execPower :: V AORT -> AORT (V AORT)
