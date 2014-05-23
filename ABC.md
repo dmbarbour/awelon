@@ -86,7 +86,21 @@ Annotations can support debugging and performance. Secure hash sources are an im
 
 The encoding of sealed remains tentative. We must recognize affine vs. relevant sealed values, and possible references to stored values. But the basic idea - that value-level encryption should be implicitly guided by value sealing - is excellent for security, simplicity, and optimizability. Value level sealing would typically be independent of link or sockets layer encryption.
 
-## CHANGE LOG
+## Existing Annotations
+
+While annotations are not strongly standardized, it's nice to avoid conflicts and reuse annotations where feasible. I expect some de-facto standards to emerge. Here are some annotations currently in use:
+
+        {&≡}  (that's U+2261) - (a*(a*e))→(a*(a*e)); equality assertion
+        {&async}              - [a→b]→[a→b]; compute block in parallel
+        {&compile}            - [a→b]→[a→b]; optimize performance for block
+        {&debug print raw}    - print ad-hoc input to error console (for human) 
+        {&debug print text}   - print textual input to error console (for human)
+        {&+location string}   - stack frame entry, for debugging (by compiler)
+        {&-location string}   - stack frame exit, for debugging (by compiler)
+
+In general, annotations may be ignored by an environment that doesn't recognize them, and are discretionary within environments that do recognize them. Annotations always have an identity type, and should have no observable impact on a correct program's behavior (modulo performance, debugger integration, etc.). 
+
+## ABC CHANGE LOG
 
 March 2014: 
 * eliminated operators `PSBN`, which would observe type information

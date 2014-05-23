@@ -46,11 +46,13 @@ helpMsg =
     \    \n\
     \    ao abc command        dump simplified ABC for AO command \n\
     \    ao abc.raw command    dump raw ABC for AO command \n\
+    \    ao abc.ann command    dump annotated ABC for AO command \n\
     \    ao exec command       execute AO command \n\
     \    ao exec.abc command   execute ABC code \n\
     \    \n\
     \    ao abc.s              dump simplified ABC for AO on input stream \n\
     \    ao abc.raw.s          dump raw ABC for AO on input stream \n\
+    \    ao abc.ann.s          dump annotated ABC for AO on input stream \n\
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
@@ -77,15 +79,27 @@ helpMsg =
 main :: IO ()
 main = Env.getArgs >>= runMode
 
+type Dict = AODict AOFMeta
+data CMode = CMode
+    { cm_simplify :: [Op] -> [Op]
+    , cm_annotate :: Dict -> Dict
+    }
+modeSimp, modeRaw, modeAnn :: CMode
+modeSimp = CMode simplify id
+modeRaw  = CMode id       id
+modeAnn  = CMode id       annoDict
+
 -- very simple command line processing
 runMode :: [String] -> IO ()
 runMode ["help"]         = Sys.putStrLn helpMsg
-runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC simplify
-runMode ["abc.raw",cmd]  = mkCmdS cmd >>= dumpABC id
+runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC modeSimp
+runMode ["abc.raw",cmd]  = mkCmdS cmd >>= dumpABC modeRaw
+runMode ["abc.ann",cmd]  = mkCmdS cmd >>= dumpABC modeAnn
 runMode ["exec",cmd]     = mkCmdS cmd >>= execAO
 runMode ["exec.abc",cmd] = mkCmdS cmd >>= execABC
-runMode ["abc.s"]        = stdCmdS >>= dumpABC simplify
-runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC id
+runMode ["abc.s"]        = stdCmdS >>= dumpABC modeSimp
+runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC modeRaw
+runMode ["abc.ann.s"]    = stdCmdS >>= dumpABC modeAnn
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["jit",cmd]      = printImperativeJIT cmd
@@ -122,29 +136,24 @@ paragraphs = pp0 where
 
 -- getDict will always succeed, but might return an empty
 -- dictionary... and might complain a lot on stderr
-getDict :: IO (AODict ())
-getDict = 
-    getAO_DICT >>= \ root ->
-    loadAODict root putErrLn >>= \ dict ->
-    return (fmap (const ()) dict)
+getDict :: IO Dict
+getDict = getAO_DICT >>= flip loadAODict putErrLn
 
 putErrLn :: String -> IO ()
 putErrLn = Sys.hPutStrLn Sys.stderr
 
 -- dump ABC code, paragraph at a time, to standard output
-type SimplifyFn = [Op] -> [Op]
-
-dumpABC :: SimplifyFn -> [String] -> IO ()
-dumpABC f ss = 
-    getDict >>= \ d ->
+dumpABC :: CMode -> [String] -> IO ()
+dumpABC mode ss = 
+    (cm_annotate mode <$> getDict) >>= \ d ->
     let nss = L.zip [1..] ss in
-    mapM_ (uncurry (dumpABC' d f)) nss
+    mapM_ (uncurry (dumpABC' d mode)) nss
 
-dumpABC' :: AODict md -> SimplifyFn -> Int -> String -> IO ()
-dumpABC' dict fSimp nPara aoStr = 
+dumpABC' :: AODict md -> CMode -> Int -> String -> IO ()
+dumpABC' dict mode nPara aoStr = 
     when (nPara > 1) (Sys.putChar '\n') >>
     compilePara dict nPara aoStr >>= \ ops ->
-    Sys.putStr (show (fSimp ops)) >>
+    Sys.putStr (show (cm_simplify mode ops)) >>
     Sys.putChar '\n' >> Sys.hFlush Sys.stdout 
 
 compilePara :: AODict md -> Int -> String -> IO [Op]
@@ -165,6 +174,19 @@ compileAOString dict aoString =
 undefinedWordsMsg :: [Word] -> String
 undefinedWordsMsg mw = "undefined words: " ++ mwStr where
     mwStr = L.unwords $ fmap T.unpack mw
+
+annoDict :: Dict -> Dict
+annoDict = unsafeUpdateAODict (M.mapWithKey annoLoc) where
+    showsLoc w aofm = 
+        showString (T.unpack w) . showChar '@' . 
+        showString (T.unpack (aofm_import aofm)) . showChar ':' .
+        shows (aofm_line aofm)
+    annoLoc w (c,aofm) = 
+        let loc = showsLoc w aofm [] in
+        let entryTok = "&+" ++ loc in
+        let exitTok = "&-" ++ loc in
+        let c' = AO_Tok entryTok : (c ++ [AO_Tok exitTok]) in
+        (c',aofm)  
 
 execAO :: [String] -> IO ()
 execAO ss = 

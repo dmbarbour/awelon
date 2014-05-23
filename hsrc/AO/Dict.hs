@@ -3,7 +3,7 @@
 module AO.Dict
     ( AODef, AODictMap, AODict
     , buildAODict, cleanAODict, emptyAODict
-    , readAODict, updateAODict
+    , readAODict, updateAODict, unsafeUpdateAODict
     , AODictIssue(..)
     ) where
 
@@ -34,6 +34,12 @@ updateAODict fn w (AODict d) = case M.lookup w d of
     Just (code,meta) -> 
         let meta' = fn code meta in
         AODict (M.insert w (code,meta') d)
+
+-- | allow arbitrary manipulations if we really want them
+-- but at least mark them clearly. Try to use safely - i.e.
+-- adding annotations, inlining and partial evaluations, etc.
+unsafeUpdateAODict :: (AODictMap m -> AODictMap m) -> (AODict m -> AODict m)
+unsafeUpdateAODict f (AODict d) = AODict (f d)
 
 -- | useful for initializations
 emptyAODict :: AODict meta
