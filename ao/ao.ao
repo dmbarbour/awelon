@@ -89,14 +89,6 @@ std
 ~
 @tryAp.io p tryCap.io .apply
 
-@doc.simplify 
-"block -- block; trivial simplifications on bytecode associated with block
- 
- Note: This doesn't directly affect performance. The main reason to explicitly simplify a block is to make it easier to read in a REPL or similar. There is no guarantee that the block will be reinterpreted using its new code, e.g. it might have already been compiled or composed of precompiled blocks.
-~
-@simplify [{&simplify}] .apply
-@simplify.io "&simplify" p command.io
-
 @doc.asynch
 "Awelon's design includes a 'causal commutativity' property, which is enforced by all Awelon effects models. Causal commutativity allows an arbitrary amount of parallelism, constrained only by dependencies between values. An AO or ABC implementation is free to infer or assume useful places for parallelism (e.g. loading or saving files, or compiling a block), but developers may also suggest parallelism through annotations. 
  
