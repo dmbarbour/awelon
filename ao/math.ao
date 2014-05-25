@@ -51,12 +51,6 @@
 @fibonacci 1 0 [dup swapd .add] roll repeat dropd
 @test.fibonacci 11 fibonacci 89 assertEQ1.n
 
-@doc.useFloatingPoint32 "N--N; annotation; favor floating point with at least 32 bits"
-@doc.useFloatingPoint64 "N--N; annotation; favor floating point with at least 64 bits"
-@useFloatingPoint   assertNumber [{&useFloatingPoint32}] inline
-@useFloatingPoint64 assertNumber [{&useFloatingPoint64}] inline
-
-
 @doc.deprecated.assert
 "(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
   
