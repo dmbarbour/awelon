@@ -57,6 +57,7 @@ helpMsg =
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
     \    ao jit command        print haskell code for imperative JIT \n\
+    \    ao test.jit           run all `test.` words using JIT \n\
     \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
     \    ao defs pattern       find definitions of words matching pattern \n\
@@ -107,7 +108,8 @@ runMode ["list",ptrn]    = listWords ptrn
 runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
 runMode ["def",word]     = printDef word
-runMode ["test"]         = runAOTests
+runMode ["test"]         = runAOTests (return . interpret . simplify)
+runMode ["test.jit"]     = runAOTests (abc_jit . simplify)
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
     eMsg = "arguments not recognized; try `ao help`"
 
@@ -287,10 +289,10 @@ printDef word =
         Nothing -> putErrLn "undefined" >> Sys.exitFailure
         Just (def,_) -> Sys.putStrLn (show def) 
 
-runAOTests :: IO ()
-runAOTests = 
+runAOTests :: ([Op] -> IO (Prog AORT)) -> IO ()
+runAOTests compile = 
     getDict >>= \ d -> 
-    mapM (runTest d) (testWords d) >>= \ lSummary ->
+    mapM (runTest compile d) (testWords d) >>= \ lSummary ->
     let nPass = length $ filter (==PASS) lSummary in
     let nWarn = length $ filter (==WARN) lSummary in
     let nFail = length $ filter (==FAIL) lSummary in
@@ -309,15 +311,15 @@ testWords = filter hasTestPrefix . M.keys . readAODict where
     hasTestPrefix = (T.pack "test." `T.isPrefixOf`)
 
 -- assumes word is in dictionary
-runTest :: AODict md -> Word -> IO TestResult
-runTest d w = 
+runTest :: ([Op] -> IO (Prog AORT)) -> AODict md -> Word -> IO TestResult
+runTest compile d w = 
     let (Right ops) = compileAOtoABC d [AO_Word w] in 
+    compile ops >>= \ prog ->
     newDefaultRuntime >>= \ rt ->
     IORef.newIORef [] >>= \ rfW ->
     let fwarn s = liftIO $ IORef.modifyIORef rfW (s:) in
     runRT rt (newTestPB d fwarn) >>= \ testPB ->
     let testEnv = aoStdEnv testPB in
-    let prog = interpret (simplify ops) in
     let runProg = runRT rt (prog testEnv) in
     try runProg >>= \ evf ->
     IORef.readIORef rfW >>= \ warnings ->
