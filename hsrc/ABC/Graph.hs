@@ -101,6 +101,8 @@ data Wire
     | Prod Wire Wire | Unit
     | Sum  BoolWire Wire Wire
     | Seal String Wire
+    -- Note: for sum compositions, outer booleans override inner booleans.
+
 
 type CWire a = Either WireLabel a
 
@@ -198,7 +200,17 @@ newSumInR w = newVar >>= \ v -> return (Sum (Right False) v w)
 
 -- create a fresh variable
 newVar :: MkGraph Wire
-newVar = newLabel >>= return . Var
+newVar = Var <$> newLabel
+
+newCWire :: MkGraph (CWire a)
+newCWire = Left <$> newLabel
+
+newBool :: MkGraph BoolWire
+newNumber :: MkGraph NumWire
+newSrc :: MkGraph SrcWire
+newBool = newCWire
+newNumber = newCWire
+newSrc = newCWire
 
 newLabel :: MkGraph (Label n) 
 newLabel = 
@@ -216,12 +228,11 @@ gcx0 = GCX
     , gcx_elab = M.empty
     }
 
--- | compute a graph from ABC code; uses subroutines to capture cycles.
+-- | compute a graph from ABC code with initial wire
 abc2graph :: [Op] -> Box
-abc2graph ops w = 
-    abc2sub ops >>= \ box ->
-    callSubroutine box w
+abc2graph ops w = abc2sub ops >> runABC ops w 
 
+-- generate a subroutine
 abc2sub :: [Op] -> MkGraph BoxLabel
 abc2sub ops =
     get >>= \ gcx ->
@@ -347,31 +358,73 @@ onFst f ae = asProd ae >>= \ (a,e) -> f a >>= \ a' -> return (Prod a' e)
 
 opL',opR',opW',opZ',opV',opC' :: Box
 
+-- nc
+
 opL' abc = 
     asSum abc >>= \ (inBC, a, bc) ->
-    asSum bc >>= \ (inC, b, c) ->
-    boolAnd inBC inC >>= \ inC' ->
-    boolNot inC >>= \ notInC ->
-    boolAnd inBC notInC >>= \ inB' ->
-    return (Sum inC' (Sum inB' a b) c)
+    asSum bc >>= \ (inC_when_inBC, b, c) ->
+    boolAnd inBC inC_when_inBC >>= \ inC -> 
+    return (Sum inC (Sum inBC a b) c)
 opR' abc =
     asSum abc >>= \ (inC, ab, c) ->
-    asSum ab >>= \ (inB, a, b) ->
-    boolOr inB inC >>= \ inBC ->
+    asSum ab >>= \ (inB_unless_inC, a, b) ->
+    boolOr inB_unless_inC inC >>= \ inBC ->
     return (Sum inBC a (Sum inC b c))
 opW' abc =
     asSum abc >>= \ (inBC,a,bc) ->
-    asSum bc >>= \ (inC,b,c) ->
-    boolAnd inBC inC >>= \ inC' ->
-    boolNot inC >>= \ notInC ->
-    boolAnd inBC notInC >>= \ inB' ->
-    boolNot inB' >>= \ inAC' ->
+    asSum bc >>= \ (inC_when_inBC,b,c) ->
+    boolAnd inBC inC_when_inBC >>= \ inC ->
+    boolNot inBC >>= \ inA ->
+    boolOr inA inC >>= \ inAC ->
+    return (Sum inAC b (Sum inBC a c))
+opZ' abcd =
+    asSum abcd >>= \ (inBCD,a,bcd) ->
+    opW' bcd >>= \ cbd ->
+    return (Sum inBCD a cbd)
+opV' a = newVar >>= Sum (Right False) a
+opC' av =
+    asSum av >>= \ (inV,a,v) ->
+    boolNot inV >>= \ notInVoid ->
+    boolAssert notInVoid >>
+    return a
+
+-- access components of a wire; also, infer structure of wires
+asProd :: Wire -> MkGraph (Wire,Wire)
+asSum :: Wire -> MkGraph (BoolWire, Wire, Wire)
+asUnit :: Wire -> MkGraph ()
+asCode :: Wire -> MkGraph CodeBundle
+
+asProd (Prod a b) = return (a,b)
+asProd (Var w) = elab w (Prod <$> newVar <*> newVar) >>= asProd
+asProd v = fail $ "expecting product @ " ++ show v
+
+asSum (Sum c a b) = return (c,a,b)
+asSum (Var w) = elab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
+asSum v = fail $ "expecting sum @ " ++ show v 
+
+asUnit Unit = return ()
+asUnit (Var w) = elab w (pure Unit) >>= asUnit
+asUnit v = fail $ "expecting unit @ " ++ show v
+
+asCode (Code cb) = return cb
+asCode (Var w) = elab w (CodeBundle <$> newSrc <*> newBool <*> newBool) >>= asCode
+asCode v = fail $ "expecting code @ " ++ show v
+
+elab :: WireLabel -> MkGraph Wire -> MkGraph Wire
+elab w newW =
+    get >>= \ gcx ->
+    case M.lookup w (gcx_elab gcx) of
+        Just w' -> return w' 
+        Nothing -> 
+            newW >>= \ w' ->
+            let elab' = M.insert w w' (gcx_elab gcx) in
+            put (gcx { gcx_elab = elab' }) >>
+            return w'
+
+    
 
 -- TODO: figure out these sophisticated booleans
 --  * assume inner sums don't account for outer conditions
-
-
-opL,opR,opW,opZ,opV,opC 
 
 -- processing the graph...
 nodeInputWires, nodeOutputWires :: Node -> Set WireLabel
