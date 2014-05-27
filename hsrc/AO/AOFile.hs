@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 
 -- | The '.ao' file is a format for developing an AO dictionary in
--- the conventiona filesystem + text editor. It is also a suitable
+-- the conventional filesystem + text editor. It is also a suitable
 -- format for import and export of AO dictionaries.
 --
 -- The format is extremely simple:
@@ -27,7 +27,12 @@
 -- at most once. Identical definitions do not conflict. The order
 -- in which files or definitions are loaded is weakly significant:
 -- if definitions conflict, the last one wins. But a warning will
--- still be emitted.
+-- still be emitted. There is no requirement to import a definition
+-- before using a word; only the final dictionary is relevant.
+--
+-- Long term, the intention is to eschew the filesystem and use a
+-- database approach with caching and incremental update. However,
+-- the '.ao' format may still be useful for import/export.
 --
 module AO.AOFile
     ( loadAOFiles, AOFile(..)
