@@ -98,7 +98,6 @@ withLoadMutex action =
     myThreadId >>= putMVar loadMutex >>
     (action `Err.finally` takeMVar loadMutex)
 
-
 -- | Use Haskell's plugins module to just-in-time compile code.
 --
 -- The given ops should be pre-optimized and pre-simplified before
@@ -120,13 +119,16 @@ withLoadMutex action =
 --
 -- This may fail if any operation cannot be completed.
 --
+-- TODO: consider using `RuntimeJIT` instead of `Runtime` to
+-- enable some flexible compile-time interpretation of tokens.
+--
 abc_jit :: (Runtime m) => [Op] -> IO (Prog m)
 abc_jit ops =
-    let un = uniqueStr ops in
-    let rn = 'R':un in
+    let rn = opsToModName ops in
+    let (dn,pre) = pathAndPrefix rn in
     getJitTmpDir >>= \ jitDir ->
-    let rscDir  = jitDir FS.</> dirFromId [2,2] un in
-    let prefix  = rscDir FS.</> FS.fromText (T.pack rn) in
+    let rscDir  = jitDir FS.</> dn in
+    let prefix  = rscDir FS.</> pre in
     let abcFile = prefix FS.<.> T.pack "abc" in -- awelon bytecode
     let hsFile  = prefix FS.<.> T.pack "hs" in -- haskell code
     let hiFile  = prefix FS.<.> T.pack "hi" in -- haskell interface
@@ -135,6 +137,15 @@ abc_jit ops =
             FS.createTree rscDir >>
             FS.writeTextFile abcFile (T.pack (show ops)) >>
             either fail (FS.writeTextFile hsFile . T.pack) (abc2hs' rn ops)
+    in
+    let makeArgs = 
+            ["-outputdir",FS.encodeString jitDir
+            ,"-i","-i"++FS.encodeString jitDir
+            ,"-Wall","-Werror"
+            ,"-fno-warn-unused-imports"
+            ,"-fno-warn-missing-signatures"
+            ,"-O1"
+            ]
     in
     let makeTheObjectFile =
             Sys.make (FS.encodeString hsFile) makeArgs >>= \ makeStatus ->
@@ -156,15 +167,39 @@ abc_jit ops =
         Sys.LoadFailure errs -> fail (L.unlines errs)
         Sys.LoadSuccess _ rsc -> return (asProg rsc)
 
-makeArgs :: [String]
-makeArgs = compOpts ++ warnOpts where
-    warnOpts =  ["-Wall","-Werror"
-                ,"-fno-warn-unused-imports"
-                ,"-fno-warn-missing-signatures"]
-    compOpts =  ["-O1"]
+-- create a unique module name for a given ABC program
+-- currently, generates a module name of the form:
+--
+--    A01.B23.C456789abcdefghijklmnopqrstuvwxyz....
+--
+-- This is cryptographically unique (300 bits of SHA3-384) using
+-- base32 to encode the hash. It is named such that we potentially
+-- can import and reuse subprograms. The name also reduces fan-out
+-- by a factor of about a million, thus reducing filesystem burden.
+--
+opsToModName :: [Op] -> ModuleName
+opsToModName ops = 
+    let un = uniqueStr ops in
+    let (an,un') = L.splitAt 2 un in
+    let (bn,cn) = L.splitAt 2 un' in
+    let sa = showChar 'A' . showString an in
+    let sb = showChar 'B' . showString bn in
+    let d = showChar '.' in
+    (sa.d.sb.d)('C':cn)
+
+-- Haskell module name to path and prefix (GHC conventions)
+-- e.g. Foo.Bar.Baz → (Foo/Bar,Baz)
+pathAndPrefix :: ModuleName -> (FS.FilePath,FS.FilePath)
+pathAndPrefix = pp FS.empty where
+    pp fp mn = case L.break (=='.') mn of
+        (prefix,[]) -> (fp,FS.fromText (T.pack prefix))
+        (fp',('.':mn')) -> pp (fp FS.</> (FS.fromText (T.pack fp'))) mn'
+        _ -> error "illegal state for JIT.pathAndPrefix"
+
+
 
 abc2hs :: [Op] -> Either Error String
-abc2hs ops = abc2hs' ('R' : uniqueStr ops) ops
+abc2hs ops = abc2hs' (opsToModName ops) ops where
 
 abc2hs' :: ModuleName -> [Op] -> Either Error String
 abc2hs' rn ops = Right $ abc2hs_naive rn ops
@@ -224,18 +259,6 @@ op2hs_naive op = error $ "op2hs_naive missing def for " ++ show op
 
 toBase32 :: B.ByteString -> String
 toBase32 = fmap toLower . B32.encode . B.unpack
-
-splits :: [Int] -> [a] -> [[a]]
-splits [] _ = []
-splits _ [] = []
-splits (n:ns) aa = 
-    let (aa0,aa') = L.splitAt n aa in
-    aa0:splits ns aa'    
-
-dirFromId :: [Int] -> String -> FS.FilePath
-dirFromId sp = toFP . fmap toPath . splits sp where
-    toFP = L.foldr FS.append FS.empty 
-    toPath = FS.fromText . T.pack
 
 -- create a (cryptographically) unique string for some 
 -- given source code using base32 and SHA3-384. This is
