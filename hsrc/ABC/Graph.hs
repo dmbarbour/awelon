@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, PatternGuards #-}
 
 -- | This is an experimental module for an ABC intermediate language
 -- based on a graph-based representation of the ABC program. An ABC
@@ -43,6 +43,8 @@
 --
 -- TODO: consider switching to Integer as the basic number type, and
 -- model Rational as a pair of Integers.
+--
+-- TODO: reverse translation
 --
 module ABC.Graph 
     ( abc2graph
@@ -107,9 +109,9 @@ data Wire
 type CWire a = Either WireLabel a
 
 data CodeBundle = CodeBundle
-    { cb_src :: SrcWire
-    , cb_aff :: BoolWire
-    , cb_rel :: BoolWire
+    { cb_src  :: SrcWire
+    , cb_copy :: BoolWire -- may copy (not affine)
+    , cb_drop :: BoolWire -- may drop (not relevant)
     }
 
 type NumWire  = CWire Rational
@@ -131,10 +133,14 @@ data Node  -- typically (label inputs outputs)
     | N_divMod (NumWire,NumWire) (NumWire,NumWire) -- N(dividend)*N(divisor)→N(quotient)*N(remainder)
 
     -- boolean manipulation nodes 
-    | N_boolOr  (BoolWire,BoolWire) BoolWire
-    | N_boolAnd (BoolWire,BoolWire) BoolWire
-    | N_boolNot BoolWire BoolWire
-    | N_boolAssert BoolWire ()
+    | N_boolOr  (WireLabel,WireLabel) WireLabel
+    | N_boolAnd (WireLabel,WireLabel) WireLabel
+    | N_boolNot WireLabel WireLabel
+    | N_boolAssert WireLabel ()
+
+    -- substructural type info
+    | N_boolCopyable WireLabel WireLabel -- var in, bool out
+    | N_boolDroppable WireLabel WireLabel -- var in, bool out
 
     -- program manipulation nodes
     | N_apply (SrcWire,Wire) Wire -- (a→a')*a → a'; also used for 'cond'
@@ -336,7 +342,7 @@ opw abc =
     asProd abc >>= \ (a,bc) ->
     asProd bc >>= \ (b,c) ->
     return (Prod b (Prod a c))
-opz abc =
+opz abcd =
     asProd abcd >>= \ (a,bcd) ->
     opw bcd >>= \ cbd ->
     return (Prod a cbd)
@@ -395,23 +401,23 @@ asUnit :: Wire -> MkGraph ()
 asCode :: Wire -> MkGraph CodeBundle
 
 asProd (Prod a b) = return (a,b)
-asProd (Var w) = elab w (Prod <$> newVar <*> newVar) >>= asProd
+asProd (Var w) = autoElab w (Prod <$> newVar <*> newVar) >>= asProd
 asProd v = fail $ "expecting product @ " ++ show v
 
 asSum (Sum c a b) = return (c,a,b)
-asSum (Var w) = elab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
+asSum (Var w) = autoElab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
 asSum v = fail $ "expecting sum @ " ++ show v 
 
 asUnit Unit = return ()
-asUnit (Var w) = elab w (pure Unit) >>= asUnit
+asUnit (Var w) = autoElab w (pure Unit) >>= asUnit
 asUnit v = fail $ "expecting unit @ " ++ show v
 
 asCode (Code cb) = return cb
-asCode (Var w) = elab w (CodeBundle <$> newSrc <*> newBool <*> newBool) >>= asCode
+asCode (Var w) = autoElab w (CodeBundle <$> newSrc <*> newBool <*> newBool) >>= asCode
 asCode v = fail $ "expecting code @ " ++ show v
 
-elab :: WireLabel -> MkGraph Wire -> MkGraph Wire
-elab w newW =
+autoElab :: WireLabel -> MkGraph Wire -> MkGraph Wire
+autoElab w newW =
     get >>= \ gcx ->
     case M.lookup w (gcx_elab gcx) of
         Just w' -> return w' 
@@ -421,11 +427,104 @@ elab w newW =
             put (gcx { gcx_elab = elab' }) >>
             return w'
 
+boolOr  :: BoolWire -> BoolWire -> MkGraph BoolWire
+boolAnd :: BoolWire -> BoolWire -> MkGraph BoolWire
+boolNot :: BoolWire -> MkGraph BoolWire
+boolAssert :: BoolWire -> MkGraph ()
+
+boolOr (Right True) _ = return (Right True)
+boolOr _ (Right True) = return (Right True)
+boolOr (Right False) w = return w
+boolOr w (Right False) = return w
+boolOr (Left x) (Left y) = 
+    newLabel >>= \ z ->
+    emitNode (N_boolOr (x,y) z) >>
+    return (Left z)
+
+boolAnd (Right True) w = return w
+boolAnd w (Right True) = return w
+boolAnd (Right False) _ = return (Right False)
+boolAnd w (Right False) = return (Right False)
+boolAnd (Left x) (Left y) =
+    newLabel >>= \ z ->
+    emitNode (N_boolAnd (x,y) z) >> 
+    return (Left z)
+
+boolNot (Right b) = return (Right (not b))
+boolNot (Left x) =
+    newBool >>= \ z ->
+    emitNode (N_boolNot x z) >>
+    return (Left z)
+
+boolAssert (Right True) = return ()
+boolAssert (Right False) = fail "static assertion failure"
+boolAssert (Left b) = emitNode (N_boolAssert b)
+
+boolCopyable :: Wire -> MkGraph BoolWire
+boolCopyable (Num _) = return (Right True)
+boolCopyable (Code cb) = cb_copy cb
+boolCopyable (Prod a b) = boolAnd <*> boolCopyable a <*> boolCopyable b
+boolCopyable Unit = return (Right True)
+boolCopyable (Sum _ a b) = boolAnd <*> boolCopyable a <*> boolCopyable b
+boolCopyable (Seal _ v) = boolCopyable v
+boolCopyable (Var v) =
+    newLabel >>= \ vCopyable ->
+    emitNode (N_boolCopyable v vCopyable) >>
+    return (Left vCopyable)
+
+boolDroppable :: Wire -> MkGraph BoolWire
+boolDroppable (Num _) = return (Right True)
+boolDroppable (Code cb) = cb_drop cb
+boolDroppable (Prod a b) = boolAnd <*> boolDroppable a <*> boolDroppable b
+boolDroppable Unit = return (Right True)
+boolDroppable (Sum _ a b) = boolAnd <*> boolDroppable a <*> boolDroppable b
+boolDroppable (Seal _ v) = boolDroppable v
+boolDroppable (Var v) =
+    newLabel >>= \ vDroppable ->
+    emitNode (N_boolDroppable v vDroppable) >>
+    return (Left vDroppable)
+
+opBL ops = return . Prod . Code . cb where
+    cb = CodeBundle { cb_src = Right ops
+                    , cb_copy = Right True
+                    , cb_drop = Right True }
+
+opTL txt = return . Prod . (textToWire txt)
+
+-- todo: optimize this for common known cases
+opTok sealer@(':':_) w = return (Seal sealer w)
+opTok ('.':s) w = unseal (':':s) w 
+opTok tok w =
+    newVar >>= \ v ->
+    emitNode (N_tok tok w v) >>
+    return v
+
+unseal :: String -> Box
+unseal s (Seal s' w) | (s == s') = return w
+unseal s (Var w) = autoElab w (Seal s <$> newVar) >>= unseal s
+unseal s v = fail $ "expecting sealed {:"++s++"} @ " ++ show v
+
+opCopy ae =
+    asProd ae >>= \ (a,e) ->
+    boolCopyable a >>= \ mayCopy ->
+    boolAssert mayCopy >>
+    return (Prod a (Prod a e))
     
+
+
+opCopy,opDrop :: Box
+opAdd,opNeg,opMul,opInv,opDivMod :: Box
+opApply,opCond,opQuote,opCompose,opAff,opRel :: Box
+opDistrib,opFactor,opMerge,opAssert :: Box
+opGT :: Box
+opIntroNum :: Box
+opDigit :: Int -> Box
+
+
+
 
 -- TODO: figure out these sophisticated booleans
 --  * assume inner sums don't account for outer conditions
-
 -- processing the graph...
 nodeInputWires, nodeOutputWires :: Node -> Set WireLabel
 nodeInputWires = execWriter . emitInputWires
@@ -443,8 +542,8 @@ emitWire (Var l) = emit l
 emitWire (Num n) = emitCWire n
 emitWire (Code cb) = 
     emitCWire (cb_src cb) >> 
-    emitCWire (cb_aff cb) >> 
-    emitCWire (cb_rel cb)
+    emitCWire (cb_copy cb) >> 
+    emitCWire (cb_drop cb)
 emitWire (Prod a b) = emitWire a >> emitWire b
 emitWire (Sum c a b) = emitCWire c >> emitWire a >> emitWire b
 emitWire (Seal _ a) = emitWire a
@@ -458,10 +557,10 @@ emitInputWires (N_neg a _) = emitCWire a
 emitInputWires (N_mul (a,b) _) = emitCWire a >> emitCWire b
 emitInputWires (N_inv a _) = emitCWire a
 emitInputWires (N_divMod (a,b) _) = emitCWire a >> emitCWire b
-emitInputWires (N_boolOr (a,b) _) = emitCWire a >> emitCWire b
-emitInputWires (N_boolAnd (a,b) _) = emitCWire a >> emitCWire b
-emitInputWires (N_boolNot a _) = emitCWire a
-emitInputWires (N_boolAssert a _) = emitCWire a
+emitInputWires (N_boolOr (a,b) _) = emit a >> emit b
+emitInputWires (N_boolAnd (a,b) _) = emit a >> emit b
+emitInputWires (N_boolNot a _) = emit a
+emitInputWires (N_boolAssert a _) = emit a
 emitInputWires (N_apply (src,arg) _) = emitCWire src >> emitWire arg
 emitInputWires (N_quote v _) = emitWire v
 emitInputWires (N_comp (a,b) _) = emitCWire a >> emitCWire b
@@ -477,8 +576,9 @@ emitOutputWires (N_neg _ a') = emitCWire a'
 emitOutputWires (N_mul _ c) = emitCWire c
 emitOutputWires (N_inv _ a') = emitCWire a'
 emitOutputWires (N_divMod _ (q,r)) = emitCWire q >> emitCWire r
-emitOutputWires (N_boolOr _ c) = emitCWire c
-emitOutputWires (N_boolAnd _ c) = emitCWire c
+emitOutputWires (N_boolOr _ c) = emit c
+emitOutputWires (N_boolAnd _ c) = emit c
+emitOutputWires (N_boolNot _ b) = emit b
 emitOutputWires (N_boolAssert _ ()) = return ()
 emitOutputWires (N_apply _ w) = emitWire w
 emitOutputWires (N_quote _ src) = emitCWire src
