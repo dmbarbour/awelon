@@ -96,7 +96,7 @@ showEscaped [] = id
 
 instance Read Op where
     readPrec = RP.lift readOp
-    readListPrec = RP.lift (R.many readOp)
+    readListPrec = RP.lift (R.manyTill readOp R.eof)
 
 swap2 :: (a,b) -> (b,a)
 swap2 (a,b) = (b,a)
