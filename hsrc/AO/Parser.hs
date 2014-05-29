@@ -123,7 +123,10 @@ parseNumber = parser P.<?> "number" where
         P.option False (P.char '-' >> return True) >>= \ bNeg ->
         parseUnsignedIntegral >>= \ n ->
         parseFragment n >>= \ r ->
-        return (if bNeg then (negate r) else r)
+        when ((0 == r) && bNeg) rejectNegZero >>
+        let result = if bNeg then (negate r) else r in
+        return result
+    rejectNegZero = P.unexpected "negative zero"
     parseDecimalDigit = P.satisfy isDigit P.<?> "decimal digit"
     parseUnsignedIntegral = (zeroInt P.<|> posInt) P.<?> "digits"
     zeroInt = P.char '0' >> return 0
@@ -150,6 +153,7 @@ parseNumber = parser P.<?> "number" where
     scientific r =
         P.option False (P.char '-' >> return True) >>= \ bNeg ->
         parseUnsignedIntegral >>= \ n ->
+        when ((0 == n) && bNeg) rejectNegZero >>
         let factor = 10 ^ n in
         if bNeg then return (r * (1 % factor))
                 else return (r * fromInteger factor)
