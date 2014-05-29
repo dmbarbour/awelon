@@ -56,7 +56,6 @@ import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 
-import AO.Char (isPathSep)
 import AO.Parser
 import AO.Dict
 import AO.Code
@@ -122,8 +121,8 @@ initAO_PATH :: (MonadIO m) => LoadAO m ()
 initAO_PATH = getAO_PATH >>= procPaths where
     getAO_PATH = liftIO $ Err.tryIOError (Env.getEnv "AO_PATH")
     procPaths (Left _) = emitWarning eNoPath >> setPath []
-    procPaths (Right envString) =
-        let paths = splitPath envString in
+    procPaths (Right sps) =
+        let paths = FS.splitSearchPathString sps in
         mapM getCanonDir paths >>= \ lErrOrDir ->
         let (errs, dirs) = partitionEithers lErrOrDir in
         mapM_ (emitWarning . show) errs >>
@@ -132,7 +131,6 @@ initAO_PATH = getAO_PATH >>= procPaths where
     setPath p = modify $ \ ld -> ld { ld_path = p }
     eNoPath = "Environment variable AO_PATH is not defined."
     eNoDirsInPath = "No accessible directories in AO_PATH!"
-    splitPath = map FS.fromText . T.split isPathSep . T.pack
     getCanonDir = liftIO . Err.tryIOError . canonicalizeDirPath
 
 -- canonizalize + assert isDirectory (may fail with IOError)

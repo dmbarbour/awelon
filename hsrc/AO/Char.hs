@@ -5,7 +5,6 @@ module AO.Char
     ( isWordSep, isWordStart, isWordCont
     , isTokenChar, isInlineTextChar
     , isSpace, isControl, isDigit, isNZDigit, isHexDigit
-    , isPathSep
     ) where
 
 -- most word separators are spaces, but [] and (|) are also okay
@@ -48,15 +47,5 @@ isNZDigit c = isDigit c && not ('0' == c)
 isHexDigit c = isDigit c || smallAF || bigAF where
     smallAF = ('a' <= c) && (c <= 'f')
     bigAF = ('A' <= c) && (c <= 'F')
-
-
--- OS-dependent AO_PATH separator (used by AOFile)
-isPathSep :: Char -> Bool
-#if defined(WinPathFmt)
-isPathSep = (== ';') -- flag defined if os(windows) in cabal file
-#else
-isPathSep = (== ':') -- suitable for most *nix systems and Mac
-#endif
-
 
 

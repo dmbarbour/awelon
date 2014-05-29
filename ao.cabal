@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.16
+Version: 0.17
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -51,7 +51,7 @@ Executable aoi
      , containers
      , haskeline (>= 0.7.1 && < 0.9)
      , system-fileio (>= 0.3.11 && < 0.4)
-     , system-filepath
+     , system-filepath (>= 0.4.10)
      , plugins (>= 1.5.4)
      , entropy (>= 0.2.2)
      , cryptohash (>= 0.11)
@@ -71,7 +71,7 @@ Executable ao
      , bytestring, byteable
      , containers
      , system-fileio (>= 0.3.11 && < 0.4)
-     , system-filepath
+     , system-filepath (>= 0.4.10)
      , plugins (>= 1.5.4)
      , entropy (>= 0.2.2)
      , cryptohash (>= 0.11)
@@ -86,7 +86,7 @@ Library
     , parsec 
     , text (>= 0.11 && < 1.3)
     , system-fileio (>= 0.3.11 && < 0.4)
-    , system-filepath
+    , system-filepath (>= 0.4.10)
     , containers (>= 0.5 && < 0.7)
     , transformers
 
@@ -102,6 +102,8 @@ Library
     ABC.Imperative.Runtime
     ABC.Imperative.Resource
     ABC.Imperative.Prelude
+
+    -- ABC.Graph
 
     AO.Code
     AO.Parser
@@ -125,7 +127,4 @@ Library
     AO.InnerDict
   
   ghc-options: -Wall -auto-all
-
-  if os(windows)
-    CPP-Options: -DWinPathFmt
 
