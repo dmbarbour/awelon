@@ -15,7 +15,6 @@ module ABC.Imperative.Value
     , listToVal, valToList
     , simplEQ, assertEQ
     , isSum, isInL, isInR
-    , condProg
     ) where
 
 import Control.Applicative
@@ -212,9 +211,4 @@ isInL (L _a) = True
 isInL _ = False
 isInR (R _b) = True
 isInR _ = False
-
-condProg :: (Monad m) => Prog m -> Prog m -> Prog m
-condProg _ onR (R v) = onR v
-condProg onL _ (L v) = onL v
-condProg _ _ v = fail $ shows v " \8719 (a + b)" 
 
