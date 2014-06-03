@@ -227,7 +227,8 @@ aortPowerBlock = Block { b_code = S.singleton (Tok powerTok)
 defaultPower :: String -> Maybe (Prog AORT)
 defaultPower = flip M.lookup $ M.fromList $
     [("randomBytes", getRandomBytes)
-    ,("destroy", const (return U))
+    ,("destroy", aoDestroy)
+    ,("duplicate", aoDuplicate)
     ,("getOSEnv", getOSEnv)
     ,("readFile", aoReadFile)
     ,("readBinaryFile", aoReadBinaryFile)
@@ -236,6 +237,10 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("listDirectory", aoListDirectory)
     ,("newTryCap", newTryCap)
     ]
+
+aoDestroy,aoDuplicate :: Prog AORT
+aoDestroy _ = return U
+aoDuplicate v = return (P v v)
 
 getRandomBytes :: Prog AORT
 getOSEnv :: Prog AORT
