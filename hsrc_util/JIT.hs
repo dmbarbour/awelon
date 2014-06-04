@@ -144,6 +144,8 @@ abc_jit ops =
             ,"-Wall","-Werror"
             ,"-fno-warn-unused-imports"
             ,"-fno-warn-missing-signatures"
+            ,"-fno-warn-unused-binds"
+            ,"-fno-warn-unused-matches"
             ,"-O1"
             ]
     in

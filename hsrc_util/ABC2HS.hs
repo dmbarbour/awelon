@@ -1,6 +1,13 @@
 -- a mediocre, but not entirely naive, translation 
 -- from Awelon bytecode into Haskell code.
 --
+-- Goal:
+--
+--   get fast enough that I'm not too embarrassed to run an AO-based
+--   web application server or similar; doesn't need to be fantastic,
+--   but should certainly be several times faster than interpretation
+--   (on various microbenchmarks)
+--
 -- Design challenges:
 --
 --   (a) sum types; optimal factoring of conditional behaviors
@@ -15,19 +22,19 @@
 -- shallow vs. deep in a pattern. 
 --
 -- For now, I'll just let this bloat happen, and see if I can solve it
--- later by automated refactoring and/or smarter choices to divide 
--- subprograms.
+-- later by automated flattening through refactoring and/or smarter
+-- choices to divide subprograms prior to construction.
 -- 
 -- Cycle detection and prevention is easier. I can limit depth for
 -- inlining of blocks (even a limited depth would likely work well).
--- And I can attempt to recognize when a block is reused. 
+-- And I can attempt to recognize whenever a block is reused.
 --
 -- Error reporting: I could probably emit the given value and the
 -- expected patterns ("value ∉ patterns"). That would likely work
 -- for most use-cases, but is possibly a little bulky. 
 --
--- For divmod, I'm thinking I'll treat it as a special case 
--- invocation for now. 
+-- For divmod, I'm thinking I'll treat it as a special case invocation
+-- for now. It's simply an unusual expression compared to most others.
 --
 module ABC2HS (abc2hs) where
 
@@ -501,7 +508,26 @@ opBlock ops e =
 
 opText txt e = return (Prod (textToExpr txt) e)
 
-opTok = runInvoke
+-- conventional sealer/unsealer pairs
+opTok s@(':':_) x = return (Sealed s x)
+opTok ('.':s) x = fromSealed (':':s) x
+opTok tok@"&compile" b =
+    -- don't recompile a block if we locally know it's compiled
+    asBlock b >>= \ bx ->
+    let b' = VBlock bx in
+    case bx_code bx of
+        CodeConst _ -> return b'
+        _ -> runInvoke tok b'
+opTok token expr = runInvoke token expr
+
+
+asBlock :: Expr -> MkProgC BlockExpr
+asProd :: Expr -> MkProgC (Expr, Expr)
+asSum :: Expr -> MkProgC (Either Expr Expr)
+asNumber :: Expr -> MkProgC NumExpr
+fromSealed :: Token -> Expr -> MkProgC Expr
+
+
 
 -- | a new ProgC generally starts with (Var 0)
 -- and adds new variables as necessary. 
@@ -583,8 +609,6 @@ data NumExpr
     | MulNum !NumExpr !NumExpr
     | InvNum !NumExpr
     | NegNum !NumExpr
-    | DivNum !NumExpr !NumExpr
-    | ModNum !NumExpr !NumExpr
 
 data BlockExpr = BlockExpr 
     { bx_code :: !CodeExpr

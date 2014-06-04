@@ -1,50 +1,17 @@
 {-# LANGUAGE ViewPatterns, PatternGuards #-}
 
 -- | This is an experimental module for an ABC intermediate language
--- based on a graph-based representation of the ABC program. An ABC
--- program is translated into a graph-based code, where the edges 
--- carry ABC values and the vertices represent program operations.
+-- involving a graph-based representation of the ABC program. The idea
+-- is to simplify translation into other languages - such as Haskell -
+-- while minimizing intermediate allocations. 
 --
--- This is similar to some box-and-wire graphical dataflow languages.
--- I'll use the following terminology:
--- 
---    a box is a generic subgraph that takes a bundle of wires as input
---     and generates a similar bundle as output. A primitive box (which
---     becomes a vertex in the generated dataflow graph) is called a node. 
+-- Currently, the translation is minimal, and uses a boxes-and-wires 
+-- metaphor. Sophisticated optimizations on the graph should be feasible
+-- (leveraging ABC's causal commutativity and spatial idempotence) but
+-- are unlikely to actually be developed (at least not in Haskell).
 --
---    a wire is a dumb dataflow path for a value. Some wires may carry
---     constant values. A complex structure of wires is sometimes called
---     a bundle. In general, any wire may be understood as a bundle of
---     wires. 
---
--- An ABC subprogram corresponds to a box. We focus on boxes - which 
--- represent subgraphs with clear inputs and outputs - because they are
--- composable. 
---
--- Much dataflow becomes implicit in a box and wire representation. This
--- can make the graph easier to optimize in some ways. The intention for
--- this graph based representation is:
---
---   * partial evaluation and inlining
---   * simplified type checking
---   * simplify some optimizations
---   * compilation for JIT or similar
---
--- ABC does present a challenge with respect to cyclic behavior. 
---
--- A useful observation is that, modulo quotation, there is generally a 
--- small, finite number of blocks that can be generated in a given context
--- by simple composition. If we can statically detect these blocks, we can
--- perhaps create a useful context of named subprograms as a basis for 
--- loops. 
---
--- The challenge, then, is translating these loops back into ABC code, 
--- e.g. by explicitly encoding a fixpoint behaviors.
---
--- TODO: consider switching to Integer as the basic number type, and
--- model Rational as a pair of Integers.
---
--- TODO: reverse translation
+-- Even with this minimalism, it takes a surprising amount of work to
+-- perform a decent language translation....
 --
 module ABC.Graph 
     ( abc2graph
@@ -57,7 +24,6 @@ module ABC.Graph
     , nodeInputWires, nodeOutputWires
     , MkGraph, runMkGraph, evalMkGraph
     , GCX, gcx0
-    
     ) where
 
 import Control.Applicative
@@ -101,7 +67,7 @@ data Wire
     | Num  NumWire
     | Code CodeBundle
     | Prod Wire Wire | Unit
-    | Sum  BoolWire Wire Wire
+    | Sum  BoolWire Wire Wire  -- (true+false) to avoid 'not' operations @ ?,C
     | Seal String Wire
     -- Note: for sum compositions, outer booleans override inner booleans.
 
@@ -136,26 +102,32 @@ data Node  -- typically (label inputs outputs)
     | N_boolOr  (WireLabel,WireLabel) WireLabel
     | N_boolAnd (WireLabel,WireLabel) WireLabel
     | N_boolNot WireLabel WireLabel
-    | N_boolAssert WireLabel ()
+
+    -- safety tests
+    | N_boolAssert WireLabel ()  -- from K,C  (same as assert true)
+    | N_eqvAssert (Wire,Wire) () -- from {&≡}
+    | N_eqvNumAssert (NumWire,NumWire) ()
+    | N_eqvBoolAssert (WireLabel,WireLabel) ()
 
     -- substructural type info
     | N_boolCopyable WireLabel WireLabel -- var in, bool out
     | N_boolDroppable WireLabel WireLabel -- var in, bool out
 
     -- program manipulation nodes
-    | N_apply (SrcWire,Wire) Wire -- (a→a')*a → a'; also used for 'cond'
+    | N_apply (WireLabel,Wire) WireLabel -- (a→a')*a → a'; also used for 'cond'
     | N_quote Wire SrcWire -- a → (s→(a*s))
     | N_comp (SrcWire,SrcWire) SrcWire -- (a→b)*(b→c) → (a→c)
 
     -- conditional behavior...
-    | N_cond (BoolWire,SrcWire,Wire) Wire
-    | N_merge (Wire,Wire) Wire -- (a+a') → a
+    | N_cond (SrcWire,Wire) Wire
+    | N_merge Wire Wire -- (a+a') → a
     | N_gt (NumWire,NumWire) BoolWire -- N(a)*N(b) → (a>b)?
     | N_nonZero NumWire BoolWire
 
     -- extended node primitives
     | N_tok String   Wire Wire -- ABC's {tokens}; type not locally known
     | N_sub BoxLabel Wire Wire -- call a named local subroutine
+    deriving (Show)
 
 instance Show (Label n) where 
     showsPrec _ (Label n) = showChar '_' . shows n
@@ -214,9 +186,11 @@ newCWire = Left <$> newLabel
 newBool :: MkGraph BoolWire
 newNumber :: MkGraph NumWire
 newSrc :: MkGraph SrcWire
+newCodeBundle :: MkGraph CodeBundle
 newBool = newCWire
 newNumber = newCWire
 newSrc = newCWire
+newCodeBundle = CodeBundle <$> newSrc <*> newBool <*> newBool
 
 newLabel :: MkGraph (Label n) 
 newLabel = 
@@ -364,56 +338,57 @@ onFst f ae = asProd ae >>= \ (a,e) -> f a >>= \ a' -> return (Prod a' e)
 
 opL',opR',opW',opZ',opV',opC' :: Box
 
--- nc
-
 opL' abc = 
-    asSum abc >>= \ (inBC, a, bc) ->
-    asSum bc >>= \ (inC_when_inBC, b, c) ->
-    boolAnd inBC inC_when_inBC >>= \ inC -> 
-    return (Sum inC (Sum inBC a b) c)
+    asSum abc >>= \ (inA, a, bc) ->
+    asSum bc >>= \ (inB_unless_inA, b, c) ->
+    boolOr inA inB_unless_inA >>= \ inAB ->
+    return (Sum inAB (Sum inA a b) c)
 opR' abc =
-    asSum abc >>= \ (inC, ab, c) ->
-    asSum ab >>= \ (inB_unless_inC, a, b) ->
-    boolOr inB_unless_inC inC >>= \ inBC ->
-    return (Sum inBC a (Sum inC b c))
+    asSum abc >>= \ (inAB, ab, c) ->
+    asSum ab >>= \ (inA_when_inAB, a, b) ->
+    boolAnd inAB inA_when_inAB >>= \ inA ->
+    return (Sum inA a (Sum inAB b c))
 opW' abc =
-    asSum abc >>= \ (inBC,a,bc) ->
-    asSum bc >>= \ (inC_when_inBC,b,c) ->
-    boolAnd inBC inC_when_inBC >>= \ inC ->
-    boolNot inBC >>= \ inA ->
-    boolOr inA inC >>= \ inAC ->
-    return (Sum inAC b (Sum inBC a c))
+    asSum abc >>= \ (inA,a,bc) ->
+    asSum bc >>= \ (inB_unless_inA,b,c) ->
+    boolNot inA >>= \ notInA ->
+    boolAnd notInA inB_unless_inA >>= \ inB ->
+    return (Sum inB b (Sum inA a c))
 opZ' abcd =
-    asSum abcd >>= \ (inBCD,a,bcd) ->
+    asSum abcd >>= \ (inA,a,bcd) ->
     opW' bcd >>= \ cbd ->
-    return (Sum inBCD a cbd)
-opV' a = newVar >>= Sum (Right False) a
+    return (Sum inA a cbd)
+opV' a = newVar >>= Sum (Right True) a
 opC' av =
-    asSum av >>= \ (inV,a,v) ->
-    boolNot inV >>= \ notInVoid ->
-    boolAssert notInVoid >>
+    asSum av >>= \ (inA,a,v) ->
+    boolAssert inA >> 
     return a
 
 -- access components of a wire; also, infer structure of wires
 asProd :: Wire -> MkGraph (Wire,Wire)
-asSum :: Wire -> MkGraph (BoolWire, Wire, Wire)
 asUnit :: Wire -> MkGraph ()
+asNumber :: Wire -> MkGraph NumWire
+asSum :: Wire -> MkGraph (BoolWire, Wire, Wire)
 asCode :: Wire -> MkGraph CodeBundle
 
 asProd (Prod a b) = return (a,b)
 asProd (Var w) = autoElab w (Prod <$> newVar <*> newVar) >>= asProd
 asProd v = fail $ "expecting product @ " ++ show v
 
-asSum (Sum c a b) = return (c,a,b)
-asSum (Var w) = autoElab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
-asSum v = fail $ "expecting sum @ " ++ show v 
-
 asUnit Unit = return ()
 asUnit (Var w) = autoElab w (pure Unit) >>= asUnit
 asUnit v = fail $ "expecting unit @ " ++ show v
 
+asNumber (Num a) = return a
+asNumber (Var w) = autoElab w (Num <$> newNumber) >>= \ asNum 
+asNumber v = fail $ "expecting number @ " ++ show v
+
+asSum (Sum c a b) = return (c,a,b)
+asSum (Var w) = autoElab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
+asSum v = fail $ "expecting sum @ " ++ show v 
+
 asCode (Code cb) = return cb
-asCode (Var w) = autoElab w (CodeBundle <$> newSrc <*> newBool <*> newBool) >>= asCode
+asCode (Var w) = autoElab w (Code <$> newCodeBundle) >>= asCode where
 asCode v = fail $ "expecting code @ " ++ show v
 
 autoElab :: WireLabel -> MkGraph Wire -> MkGraph Wire
@@ -444,7 +419,7 @@ boolOr (Left x) (Left y) =
 boolAnd (Right True) w = return w
 boolAnd w (Right True) = return w
 boolAnd (Right False) _ = return (Right False)
-boolAnd w (Right False) = return (Right False)
+boolAnd _ (Right False) = return (Right False)
 boolAnd (Left x) (Left y) =
     newLabel >>= \ z ->
     emitNode (N_boolAnd (x,y) z) >> 
@@ -492,6 +467,7 @@ opBL ops = return . Prod . Code . cb where
 opTL txt = return . Prod . (textToWire txt)
 
 -- todo: optimize this for common known cases
+-- such as &≡ (assert equivalence)
 opTok sealer@(':':_) w = return (Seal sealer w)
 opTok ('.':s) w = unseal (':':s) w 
 opTok tok w =
@@ -509,11 +485,117 @@ opCopy ae =
     boolCopyable a >>= \ mayCopy ->
     boolAssert mayCopy >>
     return (Prod a (Prod a e))
+
+opDrop ae =
+    asProd ae >>= \ (a,e) ->
+    boolDroppable a >>= \ mayDrop ->
+    boolAssert mayDrop >>
+    return e
+
+opAdd abe =
+    asProd abe >>= \ (a,be) ->
+    asProd be >>= \ (b,e) ->
+    asNumber a >>= \ na ->
+    asNumber b >>= \ nb ->
+    numberAdd na nb >>= \ nc ->
+    return (Prod (Num nc) e)
+
+numberAdd :: NumWire -> NumWire -> MkGraph NumWire
+numberAdd (Right a) (Right b) = return $ Right (a+b)
+numberAdd a b =
+    newNumber >>= \ c ->
+    emitNode (N_add (a,b) c) >>
+    return c
+
+opNeg ae =
+    asProd ae >>= \ (a,e) ->
+    asNumber a >>= \ na ->
+    numberNeg na >>= \ nc ->
+    return (Prod (Num nc) e)
+
+numberNeg :: NumWire -> MkGraph NumWire
+numberNeg (Right a) = return $ Right (negate a)
+numberNeg v =
+    newNumber >>= \ r ->
+    emitNode (N_neg v r) >>
+    return r
+
+opMul abe = 
+    asProd abe >>= \ (a,be) ->
+    asProd be >>= \ (b,e) ->
+    asNumber a >>= \ na ->
+    asNumber b >>= \ nb ->
+    numberMul na nb >>= \ nc ->
+    return (Prod (Num nc) e)
+
+numberMul :: NumWire -> NumWire -> MkGraph NumWire
+numberMul (Right a) (Right b) = return $ Right (a*b)
+numberMul a b =
+    newNumber >>= \ r ->
+    emitNode (N_mul (a,b) r) >> 
+    return r
+
+opInv ae =
+    asProd ae >>= \ (a,e) ->
+    asNumber a >>= \ na ->
+    numberInv na >>= \ nc ->
+    return (Prod (Num nc) e)
+
+numberInv :: NumWire -> MkGraph NumWire
+numberInv (Right a) =
+    if (0 == a) then fail "invert (/) on zero" else
+    return (Right (recip a))
+numberInv v =
+    newNumber >>= \ r ->
+    emitNode (N_inv v r) >>
+    return r
+
+opDivMod bae =
+    asProd bae >>= \ (b,ae) ->
+    asProd ae >>= \ (a,e) ->
+    asNumber b >>= \ nb ->
+    asNumber a >>= \ na ->
+    numberDivMod na nb >>= \ (nq,nr) -> 
+    return (Prod (Num nr) (Prod (Num nq) e))
+
+numberDivMod :: NumWire -> NumWire -> MkGraph (NumWire, NumWire)
+numberDivMod _ (Right b) | (0 == b) = fail $ "divmod (Q) by 0"
+numberDivMod (Right a) (Right b) =
+    let (q,r) = divModQ a b in
+    return (Right (fromIntegral q), Right r)
+numberDivMod a b =
+    
+    
+
+opApply bxe =
+    asProd bxe >>= \ (b,xe) ->
+    asProd xe >>= \ (x,e) ->
+    asCode b >>= \ cb ->
+    callCode b x >>= \ x' ->
+    return (Prod x' e)
+
+callCode :: SrcWire -> Box
+callCode (Right abc) x = abc2sub abc >>= flip callSubroutine x
+callCode (Left w) x =
+    newVar >>= \ x' ->
+    emitNode (N_apply (w,x) x') >>
+    return x'
+
+opCond  bxye =
+    asProd bxye >>= \ (b,xye) ->
+    asProd xye >>= \ (xy,e) ->
+    asSum xy >>= \ (inY,x,y) ->
+    asCode b >>= \ cb ->
+    boolAssert (cb_drop cb) >>
     
 
 
-opCopy,opDrop :: Box
-opAdd,opNeg,opMul,opInv,opDivMod :: Box
+    | N_quote Wire SrcWire -- a → (s→(a*s))
+    | N_comp (SrcWire,SrcWire) SrcWire -- (a→b)*(b→c) → (a→c)
+        
+
+
+
 opApply,opCond,opQuote,opCompose,opAff,opRel :: Box
 opDistrib,opFactor,opMerge,opAssert :: Box
 opGT :: Box
