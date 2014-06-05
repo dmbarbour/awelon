@@ -10,10 +10,13 @@
 -- (leveraging ABC's causal commutativity and spatial idempotence) but
 -- are unlikely to actually be developed (at least not in Haskell).
 --
+-- Thoughts: I should probably separate partial evaluation from graph
+-- construction...
+--
 -- Even with this minimalism, it takes a surprising amount of work to
 -- perform a decent language translation....
 --
-module ABC.Graph 
+module Graph 
     ( abc2graph
     , Box
     , Wire(..), CodeBundle(..)
@@ -67,7 +70,7 @@ data Wire
     | Num  NumWire
     | Code CodeBundle
     | Prod Wire Wire | Unit
-    | Sum  BoolWire Wire Wire  -- (true+false) to avoid 'not' operations @ ?,C
+    | Sum  BoolWire Wire Wire  -- (true+false) to avoid 'not' operations ?,C
     | Seal String Wire
     -- Note: for sum compositions, outer booleans override inner booleans.
 
