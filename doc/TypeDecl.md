@@ -1,24 +1,43 @@
-Currently, ABC has no effective way to declare types.
+Here are a few idioms to declare types in Awelon project.
 
-It used to be, you could use observer operators (`P`, `S`, `B`, `N`) together with assertions to say a little something about types. However, I've removed these observers.
+## Void Operations
 
-An interesting possibility I'm considering is to introduce or utilize a concept of a virtual fork:
+We can distribute a value across void, then operate on the false version:
 
-        X :: a*e → ((a+a)*e)  
+        a * e → a * ((1+0) * e) → ((a*1 + a*0) * e) → 
+          ((a*0 + a*1) * e) → [(a*?)→y]*((a*0 + a*1)*e) → (y+a*1)*e →
+          (a*1)*e → a * e
 
-Where, in this case, the result is certainly in the right-hand side, but (unlike `V`) we have some assumed type relationship to the left-hand side. The result could be merged with `K` or `M` (but not `C`).
+Any errors detected in this 'false' operation `[(a*?)→y]` can be understood as type errors. Thus, false operations can serve a similar role to type declarations. However, one cannot readily declare (in this design) that certain types should be polymorphic.
 
-Essentially, this allows us to say that some function *should* be applicable to a value, without actually applying it.
+## Annotations useful for Typechecking
 
-**Question:** Can this be implemented without new operators?
+We can use some annotations. Presumably, we could have annotations of the form:
 
-**Answer:** Now that I think about it, probably yes. Some sort of distribution across void should work:
-      
-        true.b swap distrib trimBoolean
+        {&type} :: (TypeDesc`a * (a * e)) → (TypeDesc`a * (a * e))
+          ^ this is not recommended
 
-        [x -- (x+x)] (in right)
+But I'm not very fond of this approach because it requires explicit maintenance of the type description, and because the type description language would become too much of a baked-in standard. However, there may be other annotations that are useful and simple. One such annotation is:
 
-Maybe I should create a pair of functions for distrib inR and distrib inL. 
+        {&≡} :: (a*(a*e)) → (a*(a*e)); assert equality on `a` values
 
+Asserting equality of values can be useful, for example when dealing with types parameterized by functions. Examples of such types include a map with a user-provided key comparison function. A small set of useful, simple annotations could possibly go far for type declarations. 
 
+## Naming Conventions
+
+Awelon Object (AO) language makes heavy use of naming conventions, e.g. for automatic testing and documentation. Adding a naming convention like `type.` or `typeOf.` would not be a stretch. Perhaps we could use `typeOf.word` to implicitly declare a type for a specific word (in a manner the IDE can track), while `type.` might operate on an arbitrary block (and be considered a form of testing).
+
+Again, this introduces an issue of managing type descriptions. However, since this is at the Awelon Object layer, and not part of the normal runtime for words, there are far fewer issues with ad-hoc type descriptors that can be upgraded as the IDE improves.
+
+At the moment, I don't have a good idea exactly what kind of type descriptors I want. But the following criteria are useful guides:
+
+* types should be compositional, i.e. such that the type of a composition is a composition of types
+* types should support polymorphism for specific inputs to a word
+* should support dependent types
+* should support some type inference
+* ability to refine the domain for a word by use of types
+
+I wonder, actually, whether approaching this as a describing a proof strategy, similar to theorem provers, rather than conventional type declarations.
+
+Other interesting features would be some sort of quickcheck-like feature, e.g. such that types can guide construction and analysis of values, and support for ad-hoc property tests. With this criteria, a useful model for types might be a grammar, or somehow related to grammars.
 
