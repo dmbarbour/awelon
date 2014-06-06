@@ -24,7 +24,7 @@ The personal Awelon user environment will happen later, most likely targeting au
 
 Libraries and highly performant implementations are still lacking. ABC potentially permits many optimizations, but I've been aiming to delay work on those until I can implement them from within AO. 
 
-For now, we do have a naive interpreter `aoi` and a simple translate-to-Haskell form `aoExec`. The latter seems to run between 6x to 120x faster for tested programs, but remains painful and impractical to use... and doesn't seem like a good basis for a development environment. My current goal is to compromise between the interactivity of `aoi` with the performance of `aoExec` by leveraging Haskell's System.Plugins to just-in-time compile code for execution. This will involve a major rewrite on a separate branch.
+For now, we do have a REPL interpreter `aoi` and a command line multi-utility `ao`. Performance is mediocre, suitable for small toy programs but not for full services and applications. Current efforts are on improving dynamic compilation (via Haskell's System.Plugins) such that we can achieve excellent performance in real service/application scenarios.
 
 ### Getting Started
 
