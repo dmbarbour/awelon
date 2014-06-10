@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-} 
 
 -- | Translate ABC code into a box-and-wire graph
 --
@@ -25,8 +26,7 @@
 --
 module ABCGraph
     ( abc2graph
-    , Wire(..)
-    , Node(..)
+    , Wire(..),Label(..),Node(..)
     ) where
 
 import Control.Applicative
@@ -36,8 +36,9 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
 import Control.Monad.Trans.Writer.Strict
 import Data.Functor.Identity
-
 import Data.Ratio
+
+import ABC.Operators
 
 data Wire
     = Var WireLabel
@@ -63,7 +64,7 @@ data CodeBundle = CodeBundle
     { cb_src :: SrcWire
     , cb_aff :: BoolWire
     , cb_rel :: BoolWire
-    }
+    } deriving (Eq)
 
 type WireLabel = Label Wire
 type NumWire = Label Rational
@@ -106,23 +107,21 @@ data Node
     
     -- conditional behavior
     | CondAp (BoolWire,SrcWire,Wire) WireLabel
-    | Mux (BoolWire,Wire,Wire) WireLabel -- (cond,onTrue,onFalse) dest
+    | Merge (BoolWire,Wire,Wire) WireLabel -- (cond,onFalse,onTrue) result
 
     -- extended behaviors
     | Invoke String Wire WireLabel
     deriving (Show)
 
+abc2graph :: [Op] -> Either String [Node]
+abc2graph ops = evalMkGraph (runABC ops >> gets fst) ([],0)
+
 type MkGraph = StateT GCX (ErrorT String Identity)
 type GCX = ([Node],Integer)
 type Box = Wire -> MkGraph Wire
 
-runMkGraph :: GCX -> MkGraph a -> Either String (a,GCX)
-evalMkGraph :: MkGraph a -> Either String a
-gcx0 :: GCX
-
-runMkGraph gcx op = runIdentity $ runErrorT $ runStateT op gcx
-evalMkGraph = runIdentity . runErrorT . flip evalStateT gcx0
-gcx0 = ([],0)
+evalMkGraph :: GCX -> MkGraph a -> Either String a
+evalMkGraph gcx = runIdentity . runErrorT . flip evalStateT gcx
 
 newLabel :: MkGraph (Label t)
 newLabel =
@@ -267,10 +266,11 @@ opC' av =
 
 opBL ops v = mkBlock ops >>= \ cb -> return (Prod (Block cb) v)
 
-mkBlock :: [Op] -> MkGraph CodeBlock
-mkBlock ops = CodeBlock <$> newSrcConst ops 
-                        <*> newBoolConst False
-                        <*> newBoolConst False 
+-- make a block (initially copyable and droppable)
+mkBlock :: [Op] -> MkGraph CodeBundle
+mkBlock ops = CodeBundle <$> newSrcConst ops 
+                         <*> newBoolConst False
+                         <*> newBoolConst False 
 
 opTL txt v = textToWire txt >>= \ txtWire -> return (Prod txtWire v)
 
@@ -297,8 +297,7 @@ opAdd abe =
     asProd be >>= \ (b,e) ->
     asNumber a >>= \ na ->
     asNumber b >>= \ nb ->
-    newNumWire >>= \ nr ->
-    emitNode (Add (na,nb) nr) >>
+    numAdd na nb >>= \ nr ->
     return (Prod (Num nr) e)
 
 opMul abe =
@@ -306,23 +305,19 @@ opMul abe =
     asProd be >>= \ (b,e) ->
     asNumber a >>= \ na ->
     asNumber b >>= \ nb ->
-    newNumWire >>= \ nr ->
-    emitNode (Mul (na,nb) nr) >>
+    numMul na nb >>= \ nr ->
     return (Prod (Num nr) e)
 
 opNeg ae =
     asProd ae >>= \ (a,e) ->
     asNumber a >>= \ na ->
-    newNumWire >>= \ nr ->
-    emitNode (Neg na nr) >>
+    numNeg na >>= \ nr ->
     return (Prod (Num nr) e)
 
 opInv ae = 
     asProd ae >>= \ (a,e) ->
     asNumber a >>= \ na ->
-    assertNonZero na >>
-    newNumWire >>= \ nr ->
-    emitNode (Inv na nr) >>
+    numInv na >>= \ nr ->
     return (Prod (Num nr) e)
 
 opDivMod bae = 
@@ -330,11 +325,29 @@ opDivMod bae =
     asProd ae >>= \ (a,e) ->
     asNumber b >>= \ divisor ->
     asNumber a >>= \ dividend -> 
-    assertNonZero divisor >>
+    numDivMod dividend divisor >>= \ (quotient,remainder) ->
+    return (Prod (Num remainder) (Prod (Num quotient) e))
+
+numAdd, numMul :: NumWire -> NumWire -> MkGraph NumWire
+numNeg, numInv :: NumWire -> MkGraph NumWire
+numDivMod :: NumWire -> NumWire -> MkGraph (NumWire,NumWire)
+
+numAdd na nb = newNumWire >>= \ nc -> emitNode (Add (na,nb) nc) >> return nc
+numMul na nb = newNumWire >>= \ nc -> emitNode (Mul (na,nb) nc) >> return nc
+numNeg na = newNumWire >>= \ nr -> emitNode (Neg na nr) >> return nr
+numInv na = 
+    newNumWire >>= \ nr -> 
+    assertNonZero na >>
+    emitNode (Inv na nr) >> 
+    return nr
+numDivMod dividend divisor = 
     newNumWire >>= \ quotient ->
     newNumWire >>= \ remainder ->
+    assertNonZero divisor >>
     emitNode (DivMod (dividend,divisor) (quotient,remainder)) >>
-    return (Prod (Num remainder) (Prod (Num quotient) e))
+    return (quotient,remainder)
+
+
 
 assertNonZero :: NumWire -> MkGraph ()
 assertNonZero r = 
@@ -351,8 +364,8 @@ opApply bxe =
     emitNode (Apply (src,x) x') >>
     return (Prod (Var x') e)
 
-mkIdentityFn :: MkGraph CodeBlock
-mkIdentityFn = CodeBlock <$>  newSrcConst [] 
+mkIdentityFn :: MkGraph CodeBundle
+mkIdentityFn = CodeBundle <$> newSrcConst [] 
 
 opCond bse =
     asProd bse >>= \ (b,se) ->
@@ -363,8 +376,9 @@ opCond bse =
     (boolAssert <*> boolNot (cb_rel cb)) >>
     boolNot inY >>= \ inX ->
     newLabel >>= \ x' ->
-    emitNode (CondAp (inX,src,x) x' >>
-    return (Prod (Sum inY (Var x') y) e)
+    emitNode (CondAp (inX,src,x) x') >>
+    let s' = Sum inY (Var x') y in
+    return (Prod s' e)
 
 opQuote xe =
     asProd xe >>= \ (x,e) ->
@@ -372,7 +386,7 @@ opQuote xe =
     (boolNot <*> boolDroppable x) >>= \ rel ->
     newSrcWire >>= \ src ->
     emitNode (Quote x src) >>
-    let cb = CodeBlock { cb_src = src, cb_rel = rel, cb_aff = aff } in
+    let cb = CodeBundle { cb_src = src, cb_rel = rel, cb_aff = aff } in
     return (Prod (Block cb) e)
 
 opCompose yxe =
@@ -384,7 +398,7 @@ opCompose yxe =
     boolOr (cb_aff xy) (cb_aff yz) >>= \ aff ->
     newSrcWire >>= \ src ->
     emitNode (Compose (cb_src xy, cb_src yz) src) >>
-    let cbxz = CodeBlock { cb_src = src, cb_aff = aff, cb_rel = rel } in
+    let cbxz = CodeBundle { cb_src = src, cb_aff = aff, cb_rel = rel } in
     return (Prod (Block cbxz) e)
 
 opAff be = 
@@ -421,10 +435,10 @@ opFactor se =
 
 opMerge se =
     asProd se >>= \ (s,e) ->
-    asSum s >>= \ sum ->
+    asSum s >>= \ (b,x,y) ->
     newWireLabel >>= \ r ->
-    emitNode (Merge sum r) >>
-    return (Prod (Var r) e)
+    emitNode (Merge (b,x,y) r) >>
+    return (Prod r e)
 
 opAssert se =
     asProd se >>= \ (s,e) ->
@@ -461,7 +475,6 @@ opDigit d xe =
     emitNode (Add (nxD,nd) r) >>  -- (x*10)+d
     return (Prod (Num r) e)
 
-
 -- we'll actually create one wire per character...
 -- (consequently, this is a very big operation)
 --
@@ -484,7 +497,7 @@ asSum :: Wire -> MkGraph (BoolWire, Wire, Wire)
 asCode :: Wire -> MkGraph CodeBundle
 
 asProd (Prod a b) = return (a,b)
-asProd (Var w) = elab v (Prod <$> newVarWire <*> newVarWire) >>= asProd
+asProd (Var w) = elab w (Prod <$> newVar <*> newVar) >>= asProd
 asProd v = fail $ "product expected @ " ++ tydesc v
 
 asUnit Unit = return ()
@@ -492,20 +505,19 @@ asUnit (Var w) = elab w (pure Unit) >>= asUnit
 asUnit v = fail $ "expecting unit @ " ++ tydesc v
 
 asNumber (Num a) = return a
-asNumber (Var w) = elab w (Num <$> newNumber) >>= \ asNum 
+asNumber (Var w) = elab w (Num <$> newNumWire) >>= asNumber
 asNumber v = fail $ "expecting number @ " ++ tydesc v
 
 asSum (Sum c a b) = return (c,a,b)
-asSum (Var w) = elab w (Sum <$> newBool <*> newVar <*> newVar) >>= asSum
+asSum (Var w) = elab w (Sum <$> newBoolWire <*> newVar <*> newVar) >>= asSum
 asSum v = fail $ "expecting sum @ " ++ tydesc v 
 
-asCode (Code cb) = return cb
-asCode (Var w) = elab w (Code <$> newCodeBundle) >>= asCode where
+asCode (Block cb) = return cb
+asCode (Var w) = elab w (Block <$> newCodeBundle) >>= asCode where
 asCode v = fail $ "expecting code @ " ++ tydesc v
 
 elab :: WireLabel -> MkGraph Wire -> MkGraph Wire
 elab v mkW = mkW >>= \ w -> emitNode (Elab v w) >> return w
-
 
 boolOr  :: BoolWire -> BoolWire -> MkGraph BoolWire
 boolAnd :: BoolWire -> BoolWire -> MkGraph BoolWire
@@ -535,7 +547,7 @@ boolCopyable Unit = newBoolConst True
 boolCopyable (Sum _c a b) = boolAnd <*> boolCopyable a <*> boolCopyable b
 boolCopyable (Seal _s v) = boolCopyable v
 
-newVarWire :: MkGraph Wire
+newVar :: MkGraph Wire
 newWireLabel :: MkGraph WireLabel
 newNumWire :: MkGraph NumWire
 newSrcWire :: MkGraph SrcWire
@@ -546,7 +558,7 @@ newNumConst :: Rational -> MkGraph NumWire
 newSrcConst :: [Op] -> MkGraph SrcWire
 newVoid :: MkGraph Wire
 
-newVarWire = Var <$> newWireLabel
+newVar = Var <$> newWireLabel
 newWireLabel = newLabel
 newNumWire = newLabel
 newSrcWire = newLabel
@@ -556,4 +568,29 @@ newBoolConst b = newBoolWire >>= \ r -> emitNode (BoolConst b r) >> return r
 newNumConst n = newNumWire >>= \ r -> emitNode (NumConst n r) >> return r
 newSrcConst ops = newSrcWire >>= \ r -> emitNode (SrcConst ops r) >> return r
 newVoid = newWireLabel >>= \ lbl -> emitNode (Void () lbl) >> return (Var lbl)
+
+
+
+instance Show (Label n) where 
+    showsPrec _ (Label n) = showChar '_' . shows n
+
+instance Show Wire where 
+    showsPrec _ (Var (Label n)) = showChar 'v' . shows n
+    showsPrec _ (Num (Label n)) = showChar 'n' . shows n
+    showsPrec _ (Block cb) = 
+        case cb_src cb of
+            (Label n) -> showChar 'b' . shows n
+    showsPrec _ (Prod a b) = 
+        showChar '(' . shows a . 
+        showChar '*' . shows b .
+        showChar ')'
+    showsPrec _ Unit = showString "1"
+    showsPrec _ (Sum _ a b) =
+        showChar '(' . shows a .
+        showChar '+' . shows b .
+        showChar ')'
+    showsPrec _ (Seal s v) = 
+        shows v . 
+        showChar '{' . showString s . showChar '}'
+
 
