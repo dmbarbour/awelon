@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternGuards #-} 
 
 -- | Translate ABC code into a box-and-wire graph
+-- (to later include steps for simplification and optimization)
 --
 -- An earlier effort at this collapsed to cumulative complexity,
 -- presumably because it attempted too many responsibilities (such
@@ -97,7 +98,7 @@ data Node
     | BoolDroppable WireLabel BoolWire
 
     -- assertions
-    | BoolAssert BoolWire ()
+    | BoolAssert BoolWire () 
 
     -- higher order programming
     | SrcConst [Op] SrcWire
@@ -113,8 +114,16 @@ data Node
     | Invoke String Wire WireLabel
     deriving (Show)
 
-abc2graph :: [Op] -> Either String [Node]
-abc2graph ops = evalMkGraph (runABC ops >> gets fst) ([],0)
+abc2graph :: [Op] -> Either String (Wire,[Node],Wire)
+abc2graph = evalMkGraph ([],0) . mkGraph
+
+mkGraph :: [Op] -> MkGraph (Wire,[Node],Wire)
+mkGraph ops =
+    newVar >>= \ w0 ->
+    runABC ops w0 >>= \ wf ->
+    -- TODO: simplify; optimize; elaborate w0
+    gets fst >>= \ ns ->
+    return (w0,ns,wf)
 
 type MkGraph = StateT GCX (ErrorT String Identity)
 type GCX = ([Node],Integer)
@@ -127,8 +136,8 @@ newLabel :: MkGraph (Label t)
 newLabel =
     get >>= \ (ns,s) ->
     let s' = s + 1 in
-    put (ns,s') >>
-    return $! (Label s')
+    s' `seq` put (ns,s') >>
+    return (Label s')
 
 emitNode :: Node -> MkGraph ()
 emitNode n = modify $ \ (ns,s) -> (n:ns,s)
@@ -261,7 +270,7 @@ opV' a =
     return (Sum inV a v)
 opC' av =
     asSum av >>= \ (inV,a,v) ->
-    (boolAssert <*> boolNot inV) >>
+    boolNot inV >>= boolAssert >>
     return a
 
 opBL ops v = mkBlock ops >>= \ cb -> return (Prod (Block cb) v)
@@ -285,11 +294,11 @@ unseal s v = fail $ "expecting {:"++s++"} @ " ++ tydesc v
 
 opCopy ae =
     asProd ae >>= \ (a,e) ->
-    (boolAssert <*> boolCopyable a) >>
+    boolCopyable a >>= boolAssert >>
     return (Prod a (Prod a e))
 opDrop ae =
     asProd ae >>= \ (a,e) ->
-    (boolAssert <*> boolDroppable a) >>
+    boolDroppable a >>= boolAssert >>
     return e
 
 opAdd abe =
@@ -364,16 +373,13 @@ opApply bxe =
     emitNode (Apply (src,x) x') >>
     return (Prod (Var x') e)
 
-mkIdentityFn :: MkGraph CodeBundle
-mkIdentityFn = CodeBundle <$> newSrcConst [] 
-
 opCond bse =
     asProd bse >>= \ (b,se) ->
     asProd se >>= \ (s,e) ->
     asSum  s >>= \ (inY, x, y) ->
     asCode b >>= \ cb ->
     let src = cb_src cb in
-    (boolAssert <*> boolNot (cb_rel cb)) >>
+    boolNot (cb_rel cb) >>= boolAssert >>
     boolNot inY >>= \ inX ->
     newLabel >>= \ x' ->
     emitNode (CondAp (inX,src,x) x') >>
@@ -382,8 +388,8 @@ opCond bse =
 
 opQuote xe =
     asProd xe >>= \ (x,e) ->
-    (boolNot <*> boolCopyable x) >>= \ aff ->
-    (boolNot <*> boolDroppable x) >>= \ rel ->
+    boolCopyable x >>= boolNot >>= \ aff ->
+    boolDroppable x >>= boolNot >>= \ rel ->
     newSrcWire >>= \ src ->
     emitNode (Quote x src) >>
     let cb = CodeBundle { cb_src = src, cb_rel = rel, cb_aff = aff } in
@@ -394,10 +400,10 @@ opCompose yxe =
     asProd xe >>= \ (xy,e) ->
     asCode xy >>= \ cbxy ->
     asCode yz >>= \ cbyz ->
-    boolOr (cb_rel xy) (cb_rel yz) >>= \ rel ->
-    boolOr (cb_aff xy) (cb_aff yz) >>= \ aff ->
+    boolOr (cb_rel cbxy) (cb_rel cbyz) >>= \ rel ->
+    boolOr (cb_aff cbxy) (cb_aff cbyz) >>= \ aff ->
     newSrcWire >>= \ src ->
-    emitNode (Compose (cb_src xy, cb_src yz) src) >>
+    emitNode (Compose (cb_src cbxy, cb_src cbyz) src) >>
     let cbxz = CodeBundle { cb_src = src, cb_aff = aff, cb_rel = rel } in
     return (Prod (Block cbxz) e)
 
@@ -438,7 +444,7 @@ opMerge se =
     asSum s >>= \ (b,x,y) ->
     newWireLabel >>= \ r ->
     emitNode (Merge (b,x,y) r) >>
-    return (Prod r e)
+    return (Prod (Var r) e)
 
 opAssert se =
     asProd se >>= \ (s,e) ->
@@ -454,7 +460,7 @@ opGT yxe =
     asNumber y >>= \ ny ->
     asNumber x >>= \ nx ->
     newBoolWire >>= \ bGT ->
-    emitNode (GreaterThan (y,x) bGT) >>
+    emitNode (GreaterThan (ny,nx) bGT) >>
     let onFalse = Prod (Num ny) (Num nx) in
     let onTrue  = Prod (Num nx) (Num ny) in
     let sum = Sum bGT onFalse onTrue in
@@ -488,7 +494,7 @@ textToWire (c:cs) =
     newBoolConst False >>= \ bDone ->
     textToWire cs >>= \ csWire ->
     newNumConst (fromIntegral (fromEnum c)) >>= \ cWire ->
-    return (Sum bDone (Prod cWire csWire) Unit) 
+    return (Sum bDone (Prod (Num cWire) csWire) Unit) 
 
 asProd :: Wire -> MkGraph (Wire,Wire)
 asUnit :: Wire -> MkGraph ()
@@ -534,17 +540,29 @@ boolAssert b = emitNode (BoolAssert b ())
 boolDroppable (Var v) = newBoolWire >>= \ r -> emitNode (BoolDroppable v r) >> return r
 boolDroppable (Num _) = newBoolConst True
 boolDroppable (Block cb) = boolNot (cb_rel cb)
-boolDroppable (Prod a b) = boolAnd <*> boolDroppable a <*> boolDroppable b 
+boolDroppable (Prod a b) = 
+    boolDroppable a >>= \ droppableA ->
+    boolDroppable b >>= \ droppableB ->
+    boolAnd droppableA droppableB
 boolDroppable Unit = newBoolConst True
-boolDroppable (Sum _c a b) = boolAnd <*> boolDroppable a <*> boolDroppable b
+boolDroppable (Sum _c a b) = 
+    boolDroppable a >>= \ droppableA ->
+    boolDroppable b >>= \ droppableB ->
+    boolAnd droppableA droppableB
 boolDroppable (Seal _s v) = boolDroppable v
 
 boolCopyable (Var v) = newBoolWire >>= \ r -> emitNode (BoolCopyable v r) >> return r
 boolCopyable (Num _) = newBoolConst True
 boolCopyable (Block cb) = boolNot (cb_aff cb)
-boolCopyable (Prod a b) = boolAnd <*> boolCopyable a <*> boolCopyable b
+boolCopyable (Prod a b) = 
+    boolCopyable a >>= \ copyableA ->
+    boolCopyable b >>= \ copyableB ->
+    boolAnd copyableA copyableB
 boolCopyable Unit = newBoolConst True
-boolCopyable (Sum _c a b) = boolAnd <*> boolCopyable a <*> boolCopyable b
+boolCopyable (Sum _c a b) = 
+    boolCopyable a >>= \ copyableA ->
+    boolCopyable b >>= \ copyableB ->
+    boolAnd copyableA copyableB
 boolCopyable (Seal _s v) = boolCopyable v
 
 newVar :: MkGraph Wire
@@ -572,14 +590,12 @@ newVoid = newWireLabel >>= \ lbl -> emitNode (Void () lbl) >> return (Var lbl)
 
 
 instance Show (Label n) where 
-    showsPrec _ (Label n) = showChar '_' . shows n
+    showsPrec _ (Label n) = showChar '#' . shows n
 
 instance Show Wire where 
-    showsPrec _ (Var (Label n)) = showChar 'v' . shows n
-    showsPrec _ (Num (Label n)) = showChar 'n' . shows n
-    showsPrec _ (Block cb) = 
-        case cb_src cb of
-            (Label n) -> showChar 'b' . shows n
+    showsPrec _ (Var n) = shows n
+    showsPrec _ (Num n) = shows n
+    showsPrec _ (Block cb) = shows (cb_src cb)
     showsPrec _ (Prod a b) = 
         showChar '(' . shows a . 
         showChar '*' . shows b .
