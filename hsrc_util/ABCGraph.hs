@@ -28,6 +28,7 @@
 module ABCGraph
     ( abc2graph
     , Wire(..),Label(..),Node(..)
+    , nodeInputs, nodeOutputs, wireLabels
     ) where
 
 import Control.Applicative
@@ -71,7 +72,7 @@ type WireLabel = Label Wire
 type NumWire = Label Rational
 type BoolWire = Label Bool
 type SrcWire = Label [Op]
-newtype Label n = Label Integer deriving (Ord,Eq)
+newtype Label n = Label { lbNum :: Integer } deriving (Ord,Eq)
 
 -- NOTE: copy, drop, and most data plumbing operations are implicit
 -- (nodes do assert elements are copyable or droppable)
@@ -122,8 +123,9 @@ mkGraph ops =
     newVar >>= \ w0 ->
     runABC ops w0 >>= \ wf ->
     -- TODO: simplify; optimize; elaborate w0
-    gets fst >>= \ ns ->
-    return (w0,ns,wf)
+    --  but I can do this later
+    gets (reverse . fst) >>= \ nodes ->
+    return (w0,nodes,wf)
 
 type MkGraph = StateT GCX (ErrorT String Identity)
 type GCX = ([Node],Integer)
@@ -609,4 +611,67 @@ instance Show Wire where
         shows v . 
         showChar '{' . showString s . showChar '}'
 
+
+nodeInputs, nodeOutputs :: Node -> [Integer]
+wireLabels :: Wire -> [Integer]
+
+nodeInputs (Elab (Label n) _) = [n]
+nodeInputs (Void () _) = []
+nodeInputs (NumConst _ _) = []
+nodeInputs (Add (Label a, Label b) _) = [a,b]
+nodeInputs (Neg (Label a) _) = [a]
+nodeInputs (Mul (Label a, Label b) _) = [a,b]
+nodeInputs (Inv (Label a) _) = [a]
+nodeInputs (DivMod (Label a, Label b) _) = [a,b]
+nodeInputs (IsNonZero (Label a) _) = [a]
+nodeInputs (GreaterThan (Label a, Label b) _) = [a,b]
+nodeInputs (BoolConst _ _) = []
+nodeInputs (BoolOr (Label a, Label b) _) = [a,b]
+nodeInputs (BoolAnd (Label a, Label b) _) = [a,b]
+nodeInputs (BoolNot (Label a) _) = [a]
+nodeInputs (BoolCopyable (Label a) _) = [a]
+nodeInputs (BoolDroppable (Label a) _) = [a]
+nodeInputs (BoolAssert (Label a) _) = [a]
+nodeInputs (SrcConst _ _) = []
+nodeInputs (Quote w _) = wireLabels w
+nodeInputs (Compose (Label a, Label b) _) = [a,b]
+nodeInputs (Apply (Label a, w) _) = a : wireLabels w
+nodeInputs (CondAp (Label c, Label b, w) _) = c : b : wireLabels w
+nodeInputs (Merge (Label c, a, b) _) = c : (wireLabels a ++ wireLabels b)
+nodeInputs (Invoke _ w _) = wireLabels w
+
+nodeOutputs (Elab _ w) = wireLabels w
+nodeOutputs (Void _ (Label w)) = [w]
+nodeOutputs (NumConst _ (Label n)) = [n]
+nodeOutputs (Add _ (Label n)) = [n]
+nodeOutputs (Neg _ (Label n)) = [n]
+nodeOutputs (Mul _ (Label n)) = [n]
+nodeOutputs (Inv _ (Label n)) = [n]
+nodeOutputs (DivMod _ (Label q, Label r)) = [q,r]
+nodeOutputs (IsNonZero _ (Label b)) = [b]
+nodeOutputs (GreaterThan _ (Label b)) = [b]
+nodeOutputs (BoolConst _ (Label b)) = [b]
+nodeOutputs (BoolOr _ (Label b)) = [b]
+nodeOutputs (BoolAnd _ (Label b)) = [b]
+nodeOutputs (BoolNot _ (Label b)) = [b]
+nodeOutputs (BoolCopyable _ (Label b)) = [b]
+nodeOutputs (BoolDroppable _ (Label b)) = [b]
+nodeOutputs (BoolAssert _ ()) = []
+nodeOutputs (SrcConst _ (Label s)) = [s]
+nodeOutputs (Quote _ (Label s)) = [s]
+nodeOutputs (Compose _ (Label s)) = [s]
+nodeOutputs (Apply _ (Label r)) = [r]
+nodeOutputs (CondAp _ (Label r)) = [r]
+nodeOutputs (Merge _ (Label r)) = [r]
+nodeOutputs (Invoke _ _ (Label r)) = [r]
+
+wireLabels = flip wl [] where
+    wl (Var v) = em v
+    wl (Num n) = em n
+    wl (Block cb) = em (cb_src cb) . em (cb_aff cb) . em (cb_rel cb)
+    wl (Prod a b) = wl a . wl b
+    wl Unit = id
+    wl (Sum c a b) = em c . wl a . wl b
+    wl (Seal _ v) = wl v
+    em lb lst = lbNum lb : lst
 
