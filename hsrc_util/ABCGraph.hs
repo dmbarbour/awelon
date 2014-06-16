@@ -4,18 +4,16 @@
 -- (to later include steps for simplification and optimization)
 --
 -- An earlier effort at this collapsed to cumulative complexity,
--- presumably because it attempted too many responsibilities (such
--- as partial evaluation and inlining). 
+-- presumably because it attempted too many responsibilities, such
+-- as partial evaluation, inlining, and conditionals.
 --
--- Any 'wire' in this graph may be active or inactive. Typically, the
--- activity is determined at runtime. Activity corresponds roughly to
--- the 'Maybe' type - i.e. a wire maybe carries a value at runtime.
--- For a product type (a*b), both `a` and `b` are either both active
--- or both inactive. For a sum type (a+b), at most one of `a` and `b`
--- are active. At compile time, a sum type (a+b) might be represented
--- as a pair (Maybe a)*(Maybe b), such that we can operate on branches
--- independently. (This is analogous to the interpretation of signals
--- in Sirea and RDP.)
+-- Conditional behavior doesn't translate readily from ABC into
+-- Haskell. I could possibly use Either types, or perhaps (a+b) to
+-- (Maybe a * Maybe b). The latter corresponds to representation of
+-- sum typed signals in Sirea, and has the advantage of allowing
+-- separate processing of both branches (at cost of representing
+-- some invalid states). For the moment, the goal is mostly to
+-- get it working.
 --
 -- At the moment, this activity is not tracked in ABCGraph except at
 -- sum types, which allow changes in activity. However, if I later 
@@ -66,7 +64,7 @@ data CodeBundle = CodeBundle
     { cb_src :: SrcWire
     , cb_aff :: BoolWire
     , cb_rel :: BoolWire
-    } deriving (Eq)
+    } deriving (Eq,Show)
 
 type WireLabel = Label Wire
 type NumWire = Label Rational
@@ -77,8 +75,15 @@ newtype Label n = Label { lbNum :: Integer } deriving (Ord,Eq)
 -- NOTE: copy, drop, and most data plumbing operations are implicit
 -- (nodes do assert elements are copyable or droppable)
 data Node
-    = Elab WireLabel Wire -- elaborate a wire description
-    | Void () WireLabel -- a wire from nowhere (via `V`)...
+    = Void () WireLabel -- a wire from nowhere (via `V`)...
+
+    -- structure
+    | ElabSum WireLabel (BoolWire,WireLabel,WireLabel)
+    | ElabProd WireLabel (WireLabel,WireLabel)
+    | ElabNum WireLabel NumWire
+    | ElabCode WireLabel CodeBundle
+    | ElabUnit WireLabel ()
+    | ElabSeal String WireLabel WireLabel
 
     -- math
     | NumConst Rational NumWire
@@ -291,7 +296,10 @@ opTok tok w = newLabel >>= \ r -> emitNode (Invoke tok w r) >> return (Var r)
 
 unseal :: String -> Box
 unseal s (Seal s' w) | (s == s') = return w
-unseal s (Var w) = elab w (Seal s <$> newVar) >>= unseal s
+unseal s (Var w) = 
+    newWireLabel >>= \ r -> 
+    emitNode (ElabSeal s w r) >> 
+    return (Var r)
 unseal s v = fail $ "expecting {:"++s++"} @ " ++ tydesc v
 
 opCopy ae =
@@ -505,27 +513,33 @@ asSum :: Wire -> MkGraph (BoolWire, Wire, Wire)
 asCode :: Wire -> MkGraph CodeBundle
 
 asProd (Prod a b) = return (a,b)
-asProd (Var w) = elab w (Prod <$> newVar <*> newVar) >>= asProd
+asProd (Var w) = 
+    newWireLabel >>= \ a ->
+    newWireLabel >>= \ b ->
+    emitNode (ElabProd w (a,b)) >>
+    return (Var a, Var b)
 asProd v = fail $ "product expected @ " ++ tydesc v
 
 asUnit Unit = return ()
-asUnit (Var w) = elab w (pure Unit) >>= asUnit
+asUnit (Var w) = emitNode (ElabUnit w ()) >> return ()
 asUnit v = fail $ "expecting unit @ " ++ tydesc v
 
 asNumber (Num a) = return a
-asNumber (Var w) = elab w (Num <$> newNumWire) >>= asNumber
+asNumber (Var w) = newNumWire >>= \ r -> emitNode (ElabNum w r) >> return r
 asNumber v = fail $ "expecting number @ " ++ tydesc v
 
 asSum (Sum c a b) = return (c,a,b)
-asSum (Var w) = elab w (Sum <$> newBoolWire <*> newVar <*> newVar) >>= asSum
+asSum (Var w) = 
+    newBoolWire >>= \ c ->
+    newWireLabel >>= \ a ->
+    newWireLabel >>= \ b ->
+    emitNode (ElabSum w (c,a,b)) >>
+    return (c,Var a, Var b)
 asSum v = fail $ "expecting sum @ " ++ tydesc v 
 
 asCode (Block cb) = return cb
-asCode (Var w) = elab w (Block <$> newCodeBundle) >>= asCode where
+asCode (Var w) = newCodeBundle >>= \ r -> emitNode (ElabCode w r) >> return r
 asCode v = fail $ "expecting code @ " ++ tydesc v
-
-elab :: WireLabel -> MkGraph Wire -> MkGraph Wire
-elab v mkW = mkW >>= \ w -> emitNode (Elab v w) >> return w
 
 boolOr  :: BoolWire -> BoolWire -> MkGraph BoolWire
 boolAnd :: BoolWire -> BoolWire -> MkGraph BoolWire
@@ -615,7 +629,12 @@ instance Show Wire where
 nodeInputs, nodeOutputs :: Node -> [Integer]
 wireLabels :: Wire -> [Integer]
 
-nodeInputs (Elab (Label n) _) = [n]
+nodeInputs (ElabSum  (Label n) _) = [n]
+nodeInputs (ElabProd (Label n) _) = [n]
+nodeInputs (ElabNum  (Label n) _) = [n]
+nodeInputs (ElabCode (Label n) _) = [n]
+nodeInputs (ElabUnit (Label n) _) = [n]
+nodeInputs (ElabSeal _ (Label n) _) = [n]
 nodeInputs (Void () _) = []
 nodeInputs (NumConst _ _) = []
 nodeInputs (Add (Label a, Label b) _) = [a,b]
@@ -640,7 +659,12 @@ nodeInputs (CondAp (Label c, Label b, w) _) = c : b : wireLabels w
 nodeInputs (Merge (Label c, a, b) _) = c : (wireLabels a ++ wireLabels b)
 nodeInputs (Invoke _ w _) = wireLabels w
 
-nodeOutputs (Elab _ w) = wireLabels w
+nodeOutputs (ElabSum _ (Label c,Label a,Label b)) = [c,a,b]
+nodeOutputs (ElabProd _ (Label a,Label b)) = [a,b]
+nodeOutputs (ElabNum _ (Label n)) = [n]
+nodeOutputs (ElabCode _ cb) = wireLabels (Block cb)
+nodeOutputs (ElabUnit _ ()) = []
+nodeOutputs (ElabSeal _ _ (Label w)) = [w]
 nodeOutputs (Void _ (Label w)) = [w]
 nodeOutputs (NumConst _ (Label n)) = [n]
 nodeOutputs (Add _ (Label n)) = [n]
