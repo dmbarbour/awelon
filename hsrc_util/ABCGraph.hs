@@ -34,7 +34,6 @@ import Control.Arrow
 import Control.Monad 
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
-import Control.Monad.Trans.Writer.Strict
 import Data.Functor.Identity
 import Data.Ratio
 
@@ -120,13 +119,13 @@ data Node
     | Invoke String Wire WireLabel
     deriving (Show)
 
-abc2graph :: [Op] -> Either String (Wire,[Node],Wire)
+abc2graph :: [Op] -> Either String (WireLabel,[Node],Wire)
 abc2graph = evalMkGraph ([],0) . mkGraph
 
-mkGraph :: [Op] -> MkGraph (Wire,[Node],Wire)
+mkGraph :: [Op] -> MkGraph (WireLabel,[Node],Wire)
 mkGraph ops =
-    newVar >>= \ w0 ->
-    runABC ops w0 >>= \ wf ->
+    newWireLabel >>= \ w0 ->
+    runABC ops (Var w0) >>= \ wf ->
     -- TODO: simplify; optimize; elaborate w0
     --  but I can do this later
     gets (reverse . fst) >>= \ nodes ->
