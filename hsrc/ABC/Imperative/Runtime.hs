@@ -25,8 +25,8 @@ invokeDefault :: (Monad cx) => String -> Prog cx
 invokeDefault ('&':anno) = invokeAnno anno
 invokeDefault s@(':':_) = return . (S s)
 invokeDefault ('.':s) = unseal s
-invokeDefault tok = const $ fail emsg where
-    emsg = "{" ++ tok ++ "} token not recognized"
+invokeDefault tok = fail . emsg where
+    emsg v = "{" ++ tok ++ "} token not recognized @ " ++ show v
 
 unseal :: (Monad cx) => String -> V cx -> cx (V cx)
 unseal s (S (':':s') v) | (s == s') = return v
