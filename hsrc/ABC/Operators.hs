@@ -116,11 +116,7 @@ readOp =
     (readOpC) 
 
 readBlock :: R.ReadP [Op]
-readBlock =
-    R.char '[' >>
-    R.many readOp >>= \ ops ->
-    R.char ']' >>
-    return ops
+readBlock = R.char '[' >> R.manyTill readOp (R.char ']')
 
 -- readText will remove the escapes (only LF is escaped)
 readText :: R.ReadP String
