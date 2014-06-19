@@ -1,6 +1,6 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a programming language built (very thinly) above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language (similar to Forth or Factor), but is distinguished from other such languages in several ways: 
+Awelon Object language (AO) is a programming language built (very thinly) above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language similar to Forth, Factor, Joy, or Cat, but is distinguished from these Forth-like languages in several ways: 
 
 * AO is not stack-based. It can operate on any value structured by pairs.
 * AO leverages pairs to model multiple stacks, Huet zippers, lenses, tools.
@@ -15,20 +15,9 @@ In AO, a **word** is both a unit of modularity and a functional software compone
 
 Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems might be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells that can be rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
 
-Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, tests, documents, resources, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. A good AO programming environment can augment AO and mitigate its weaknesses:
+Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, tests, documents, resources, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. In context of Awelon project, an AO dictionary may eventually become a convenient way to model user macros and tools.
 
-* style and color should replace rendering of frequent prefixes or suffixes
-* automatic word completion, fuzzy search sensitive to type and context
-* hyperlinking or zooming to quickly access definitions and documentation
-* automatic visualization of values in environment, reduces mental burden
-* graphical manipulation of rendered structures to simplify data shuffling
-* automatic animation highlighting changes in structure across words in def
-* automated refactoring support; discover similar code in other projects
-* live programming; continuous feedback of value over change in definition
-
-In the absence of such an IDE, AO has a steep learning curve and is not very human-friendly. Ultimately, AO is designed to support *tooling*, and the quality of the AO programming experience depends heavily upon available tools. Unfortunately, the great tools don't yet exist. 
-
-The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for bootstrap development.
+The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for development prior to richer environments.
 
 ## Literals: Numbers, Text, Blocks
 
@@ -209,6 +198,22 @@ Spreadsheets generally contain a single value per cell. The same is true in AO, 
 It is not difficult to model a REPL above a spreadsheet metaphor: simply use a linear sequence of cells (one for each step in the REPL). This pattern could be optimized and have a dedicated entry mode. This live programming REPL has a lot of nice advantages over a conventional REPL - i.e. one can immediately see how changes in code will change the outputs at each step.
 
 *Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a rendering context for common views of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`. 
+
+## IDE
+
+There is no Integrated Development Environment (IDE) for AO at the moment, but I believe a specialized IDE could greatly mitigate AO's weaknesses:
+
+* style and color should replace rendering of frequent prefixes or suffixes
+* automatic word completion, fuzzy search sensitive to type and context
+* hyperlinking or zooming to quickly access definitions and documentation
+* automatic visualization of values or types, reducing mental burden
+* graphical manipulation of rendered structures to simplify data shuffling
+* automatic animation highlighting changes in structure across words in def
+* automated refactoring support; discover similar code in other projects
+* live programming; continuous feedback of value over change in definition
+* development-time program search for data shuffling and other glue code
+
+I envision such an IDE being developed as a wiki. AO's word-based module/function structure is very amenable to wiki based development. In the absence of such an IDE, AO has a steep learning curve and is not very human-friendly. I believe the quality of the AO programming experience will depend heavily upon available tools. 
 
 ### Flat Namespace
 
