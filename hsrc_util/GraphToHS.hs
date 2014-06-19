@@ -32,6 +32,9 @@ type MkHS = StateT CX (ErrorT ErrorString Identity)
 evalMkHS :: MkHS a -> Either ErrorString a
 evalMkHS = runIdentity . runErrorT . flip evalStateT cx0
 
+cx0 :: CX
+cx0 = CX M.empty M.empty []
+
 -- | abc2hs takes a module name and the primary resource
 -- it will export both the 'resource' and perhaps the
 -- 'source' (an ABC string). 
@@ -44,6 +47,7 @@ abc2hs modName ops = evalMkHS $
 moduleText :: ModuleName -> ProgName -> [HaskellDef] -> ModuleString
 moduleText modName mainFn defs = fullTxt "" where
     fullTxt = lang.p.mod.p.imps.p.rsc.p.(ss defs).p
+    lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
     mod = showString "module " . showString modName .
           showString " ( resource ) where "
     imps = showString "import ABC.Imperative.Prelude"
@@ -75,7 +79,7 @@ defSub pn ops =
 
 emitCode :: HaskellDef -> MkHS ()
 emitCode def = modify $ \ cx ->
-    code' = def : cx_code cx in
+    let code' = def : cx_code cx in
     cx { cx_code = code' }
 
 buildSubTxt :: ProgName -> (WireLabel,[Node],Wire) -> MkHS HaskellDef

@@ -26,6 +26,7 @@
 module ABCGraph
     ( abc2graph
     , Wire(..),Label(..),Node(..)
+    , CodeBundle(..), WireLabel, NumWire, BoolWire, SrcWire
     , nodeInputs, nodeOutputs, wireLabels
     ) where
 
