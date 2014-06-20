@@ -46,7 +46,7 @@ abc2hs modName ops = evalMkHS $
 
 moduleText :: ModuleName -> ProgName -> [HaskellDef] -> ModuleString
 moduleText modName mainFn defs = fullTxt "" where
-    fullTxt = hdr.p.imps.p.rsc.p.(ss defs).p
+    fullTxt = hdr.p.imps.p.p.rsc.p.(ss defs).p
     -- lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
     hdr = showString "module " . showString modName .
           showString " ( resource ) where "
@@ -117,9 +117,9 @@ wirePattern = flip wp "" where
 -- Translate nodes to fragments of monadic Haskell code.
 -- This is monadic mostly to support `SrcConst`.
 mkNHS :: Node -> MkHS HaskellDef
-mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal in "
+mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal "
 mkNHS (ElabSum w (c,a,b)) = return $ 
-    "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum " ++ show w
+    "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum3 " ++ show w
 mkNHS (ElabProd w (a,b)) = return $ 
     "(" ++ show a ++ "," ++ show b ++ ") <- exProd " ++ show w
 mkNHS (ElabNum w n) = return $ 
@@ -128,39 +128,39 @@ mkNHS (ElabCode w cb) = return $
     let b = show $ cb_src cb in
     let k = show $ cb_rel cb in
     let f = show $ cb_aff cb in
-    "(" ++ show b ++ "," ++ show k ++ "," ++ show f ++ ") <- exBKF " ++ show w
+    "(" ++ b ++ "," ++ k ++ "," ++ f ++ ") <- exBKF " ++ show w
 mkNHS (ElabUnit w ()) = return $ "exUnit " ++ show w
 mkNHS (ElabSeal s w v) = return $ 
     show v ++ " <- exSeal " ++ show s ++ " " ++ show w
-mkNHS (NumConst r w) = return $ "let " ++ show w ++ " = " ++ show r ++ " in "
-mkNHS (Add (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " + " ++ show b ++ " in "
-mkNHS (Neg a b) = return $ "let " ++ show b ++ " = negate " ++ show a ++ " in "
-mkNHS (Mul (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " * " ++ show b ++ " in "
-mkNHS (Inv a b) = return $ "let " ++ show b ++ " = recip " ++ show a ++ " in "
+mkNHS (NumConst r w) = return $ "let " ++ show w ++ " = " ++ show r
+mkNHS (Add (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " + " ++ show b
+mkNHS (Neg a b) = return $ "let " ++ show b ++ " = negate " ++ show a
+mkNHS (Mul (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " * " ++ show b
+mkNHS (Inv a b) = return $ "let " ++ show b ++ " = recip " ++ show a
 mkNHS (DivMod (a,b) (q,r)) = return $ "let (" ++ show q ++ "," ++ show r ++ 
-    ") = divModR " ++ show a ++ " " ++ show b ++ " in "
-mkNHS (IsNonZero n b) = return $ "let " ++ show b ++ " = (0 /= " ++ show n ++ ") in "
-mkNHS (GreaterThan (x,y) b) = return $ "let " ++ show b ++ " = (" ++ show x ++ " > " ++ show y ++ ") in "
-mkNHS (BoolConst bc b) = return $ "let " ++ show b ++ " = " ++ show bc ++ " in "
-mkNHS (BoolOr (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " || " ++ show b ++ ") in "
-mkNHS (BoolAnd (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " && " ++ show b ++ ") in "
-mkNHS (BoolNot a b) = return $ "let " ++ show b ++ " = not " ++ show a ++ " in "
-mkNHS (BoolCopyable a b) = return $ "let " ++ show b ++ " = copyable " ++ show a ++ " in "
-mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show a ++ " in "
+    ") = divModR " ++ show a ++ " " ++ show b
+mkNHS (IsNonZero n b) = return $ "let " ++ show b ++ " = (0 /= " ++ show n ++ ")"
+mkNHS (GreaterThan (x,y) b) = return $ "let " ++ show b ++ " = (" ++ show x ++ " > " ++ show y ++ ")"
+mkNHS (BoolConst bc b) = return $ "let " ++ show b ++ " = " ++ show bc
+mkNHS (BoolOr (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " || " ++ show b ++ ")"
+mkNHS (BoolAnd (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " && " ++ show b ++ ")"
+mkNHS (BoolNot a b) = return $ "let " ++ show b ++ " = not " ++ show a
+mkNHS (BoolCopyable a b) = return $ "let " ++ show b ++ " = copyable " ++ show a
+mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show a
 mkNHS (BoolAssert b ()) = return $ "rtAssert " ++ show b 
 mkNHS (SrcConst ops b) = 
     mkSub ops >>= \ pn -> -- block as subprogram
     addText (show ops) >>= \ tn -> -- preserve ABC code in block
-    return $ "let " ++ show b ++ " = blockVal " ++ tn ++ " " ++ pn ++ " in "
-mkNHS (Quote w b) = return $ "let " ++ show b ++ " = quoteVal " ++ wirePattern w ++ " in "
+    return $ "let " ++ show b ++ " = blockVal " ++ tn ++ " " ++ pn
+mkNHS (Quote w b) = return $ "let " ++ show b ++ " = quoteVal " ++ wirePattern w
 mkNHS (Compose (xy,yz) xz) = return $ "let " ++ show xz ++ 
-    " = bcomp " ++ show xy ++ " " ++ show yz ++ " in "
+    " = bcomp " ++ show xy ++ " " ++ show yz
 mkNHS (Apply (src,arg) result) = return $ 
     show result ++ " <- b_prog " ++ show src ++ " " ++ wirePattern arg
 mkNHS (CondAp (c,src,arg) result) = return $ 
     show result ++ " <- condAp " ++ show c ++ " (b_prog " ++ show src ++ ") " ++ wirePattern arg
 mkNHS (Merge (c,a,b) r) = return $ "let " ++ show r ++ " = mergeSum3 " ++ show c ++
-    " " ++ wirePattern a ++ " " ++ wirePattern b ++ " in "
+    " " ++ wirePattern a ++ " " ++ wirePattern b
 mkNHS (Invoke s w r) = return $ 
     show r ++ " <- invoke " ++ show s ++ " " ++ wirePattern w
 
