@@ -7,13 +7,18 @@
 -- presumably because it attempted too many responsibilities, such
 -- as partial evaluation, inlining, and conditionals.
 --
--- Conditional behavior doesn't translate readily from ABC into
--- Haskell. I could possibly use Either types, or perhaps (a+b) to
--- (Maybe a * Maybe b). The latter corresponds to representation of
--- sum typed signals in Sirea, and has the advantage of allowing
--- separate processing of both branches (at cost of representing
--- some invalid states). For the moment, the goal is mostly to
--- get it working.
+-- Sadly, conditional behavior doesn't translate conveniently from ABC
+-- into Haskell. This can be difficult for the VRWLCDFMK operators. One
+-- option is to model all wires as potentially inactive, and perhaps to
+-- track the activity of individual wires.
+--
+-- Note: one naive effort modeled sums using (Bool,a,b) triples, but 
+-- did not tie the boolean condition together with the a,b values. This
+-- was unfortunate, as it failed to compose when we have 'deep' sums in
+-- the structure of the a or b values. I am going to need to rewrite the
+-- graph model to more precisely track activity (liveness). I would also
+-- like to integrate constants more precisely, as a simple form of partial
+-- evaluation (regardless of redundancy). 
 --
 -- At the moment, this activity is not tracked in ABCGraph except at
 -- sum types, which allow changes in activity. However, if I later 
