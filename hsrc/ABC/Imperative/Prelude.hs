@@ -18,7 +18,7 @@ module ABC.Imperative.Prelude
     , exProd, exSum3, sum3toV
     , exNum, exUnit, exSeal
     , exBlock, exBKF
-    , voidVal, isVoid
+    , newVoid
 
     , divModR
     , bcomp
@@ -68,7 +68,6 @@ rtAssert False = fail $ "runtime assertion failure (likely in JIT code)"
 -- | expecting a product
 exProd :: (Monad cx) => V cx -> cx (V cx, V cx)
 exProd (P a b) = return (a,b)
-exProd val | isVoid val = return (voidVal,voidVal)
 exProd val = fail $ "product expected @ " ++ show val
 
 -- | a representation for a void value
@@ -76,12 +75,9 @@ exProd val = fail $ "product expected @ " ++ show val
 -- This is not a value that can normally be generated or processed
 -- by AO. It is currently necessary because we can try to elaborate
 -- dead branch values, especially if we inline some operations.
-voidVal :: V cx 
-voidVal = S "V" U
+newVoid :: (Monad cx) => cx (V cx) 
+newVoid = return (error "not a value")
 
-isVoid :: V cx -> Bool
-isVoid (S "V" U) = True
-isVoid _ = False
 
 -- | expecting a sum
 -- 
@@ -91,9 +87,8 @@ isVoid _ = False
 --
 -- It is possible that we'll extract other values from void.
 exSum3 :: (Monad cx) => V cx -> cx (Bool, V cx, V cx)
-exSum3 (L a) = return (False, a, voidVal)
-exSum3 (R b) = return (True,  voidVal, b)
-exSum3 val | isVoid val = return (False, voidVal, voidVal)
+exSum3 (L a) = return (False, a, error "not in right")
+exSum3 (R b) = return (True,  error "not in left", b)
 exSum3 val = fail $ "sum expected @ " ++ show val
 
 -- | obtain a sum from a pair of values and condition
@@ -111,24 +106,21 @@ mergeSum3 True  _ b = b
 -- if the condition is true.
 condAp :: (Monad cx) => Bool -> Prog cx -> Prog cx
 condAp True p = p
-condAp False  _ = const (return voidVal) 
+condAp False  _ = const $ return $ error "condition does not apply"
 
 -- | expect a number
 exNum :: (Monad cx) => V cx -> cx (Rational)
 exNum (N n) = return n
-exNum val | isVoid val = return (-1/12) -- arbitrary... 
 exNum val = fail $ "number expected @ " ++ show val
 
 -- | expect unit
 exUnit :: (Monad cx) => V cx -> cx ()
 exUnit U = return ()
-exUnit val | isVoid val = return ()
 exUnit val = fail $ "unit expected @ " ++ show val
 
 -- | expect a block
 exBlock :: (Runtime cx) => V cx -> cx (Block cx)
 exBlock (B b) = return b
-exBlock val | isVoid val = return deadBlock
 exBlock val = fail $ "block expected @ " ++ show val
 
 -- | extract a block together with relevance and affine attributes
@@ -139,22 +131,9 @@ exBKF val =
     let bf = b_aff b in
     return (b,bk,bf)
 
---
--- A dead block should never be executed, and only has a temporary
--- existence within a JIT in case of inlining some operations that 
--- expect a block. The token, in practice, will not escape unless 
--- there is a serious bug in the runtime or JIT.
-deadBlock :: (Runtime cx) => Block cx
-deadBlock = Block False False deadCode deadProg where
-    deadCode = S.singleton (Tok deadTok)
-    deadProg = invoke deadTok
-    deadTok  = "~~this should be dead code~~"
-
-
 -- | expect a sealed value, and unseal it
 exSeal :: (Monad cx) => String -> V cx -> cx (V cx)
 exSeal s (S s' val) | s == s' = return val
-exSeal _ val | isVoid val = return voidVal
 exSeal s val = fail $ "value sealed by {" ++ s ++ "} expected @ " ++ show val
 
 

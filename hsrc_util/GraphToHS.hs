@@ -117,7 +117,7 @@ wirePattern = flip wp "" where
 -- Translate nodes to fragments of monadic Haskell code.
 -- This is monadic mostly to support `SrcConst`.
 mkNHS :: Node -> MkHS HaskellDef
-mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal "
+mkNHS (Void () w) = return $ show w ++ " <- newVoid "
 mkNHS (ElabSum w (c,a,b)) = return $ 
     "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum3 " ++ show w
 mkNHS (ElabProd w (a,b)) = return $ 
