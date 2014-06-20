@@ -47,7 +47,8 @@ abc2hs modName ops = evalMkHS $
 moduleText :: ModuleName -> ProgName -> [HaskellDef] -> ModuleString
 moduleText modName mainFn defs = fullTxt "" where
     fullTxt = lang.p.mod.p.imps.p.rsc.p.(ss defs).p
-    lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
+    -- lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
+    lang = id
     mod = showString "module " . showString modName .
           showString " ( resource ) where "
     imps = showString "import ABC.Imperative.Prelude"
@@ -74,7 +75,7 @@ mkSub ops =
 defSub :: ProgName -> [Op] -> MkHS ()
 defSub pn ops = 
     case abc2graph ops of
-        Left err -> fail $ err ++ " @ " ++ shows (BL ops)  
+        Left err -> fail $ err ++ " @ " ++ show (BL ops)  
         Right g -> buildSubTxt pn g >>= emitCode
 
 emitCode :: HaskellDef -> MkHS ()
@@ -84,8 +85,85 @@ emitCode def = modify $ \ cx ->
 
 buildSubTxt :: ProgName -> (WireLabel,[Node],Wire) -> MkHS HaskellDef
 buildSubTxt pn (w0,ns,wf) =
-    mkSubBody wf ns >>= \ bodyTxt ->
+    mkHS wf ns >>= \ bodyTxt ->
     return (progText pn w0 bodyTxt)
+
+-- full haskell text from appropriately sorted graph
+mkHS :: Wire -> [Node] -> MkHS HaskellDef
+mkHS (Var s) (ap@(Apply (src,w) s') : nodes) | (s == s') = -- tail-call
+    if null nodes then return $ "b_prog " ++ show src ++ " " ++ wirePattern w
+                  else mkHS (Var s) (nodes ++ [ap])
+mkHS w [] = return $ "return " ++ wirePattern w -- normal return
+mkHS w (n:ns) = 
+    mkNHS n >>= \ op ->
+    mkHS w ns >>= \ ops ->
+    return (op ++ ('\n' : ops))
+
+-- capture a pattern as a value
+wirePattern :: Wire -> HaskellDef
+wirePattern = flip wp "" where
+    wp (Var v) = shows v
+    wp (Num n) = showString "(N " . shows n . showChar ')'
+    wp (ABCGraph.Block cb) = 
+        showString "(B " . shows (cb_src cb) . 
+        showString "{ b_aff = " . shows (cb_aff cb) . 
+        showString ", b_rel = " . shows (cb_rel cb) . 
+        showString "})"
+    wp (Prod a b) = showString "(P " . wp a . showChar ' ' . wp b . showChar ')'
+    wp Unit = showChar 'U'
+    wp (Sum c a b) = showString "(sum3toV " . shows c . showChar ' ' . 
+                     wp a . showChar ' ' . wp b . showChar ')'
+    wp (Seal s v) = showString "(S " . shows s . showChar ' ' . wp v . showChar ')'
+
+-- Translate nodes to fragments of monadic Haskell code.
+-- This is monadic mostly to support `SrcConst`.
+mkNHS :: Node -> MkHS HaskellDef
+mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal in "
+mkNHS (ElabSum w (c,a,b)) = return $ "exSum3 " ++ show w ++ 
+    " >>= \\ (" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") -> "
+mkNHS (ElabProd w (a,b)) = return $ "exProd " ++ show w ++ 
+    " >>= \\ (" ++ show a ++ "," ++ show b ++ ") -> "
+mkNHS (ElabNum w n) = return $ "exNum " ++ show w ++ " >>= \\ " ++ show n ++ " -> "
+mkNHS (ElabCode w cb) = return $ "exBKF " ++ show w ++ 
+    let b = show $ cb_src cb in
+    let k = show $ cb_rel cb in
+    let f = show $ cb_aff cb in
+    " >>= \\ (" ++ b ++ "," ++ k ++ "," ++ f ++ ") ->"
+mkNHS (ElabUnit w ()) = return $ "exUnit " ++ show w ++ " >>= \\ () -> "
+mkNHS (ElabSeal s w v) = return $ "exSeal " ++ show s ++ " " ++ show w ++ 
+    " >>= \\ " ++ show v ++ " -> "
+mkNHS (NumConst r w) = return $ "let " ++ show w ++ " = " ++ show r ++ " in "
+mkNHS (Add (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " + " ++ show b ++ " in "
+mkNHS (Neg a b) = return $ "let " ++ show b ++ " = negate " ++ show a ++ " in "
+mkNHS (Mul (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " * " ++ show b ++ " in "
+mkNHS (Inv a b) = return $ "let " ++ show b ++ " = recip " ++ show a ++ " in "
+mkNHS (DivMod (a,b) (q,r)) = return $ "let (" ++ show q ++ "," ++ show r ++ 
+    ") = divModR " ++ show a ++ " " ++ show b ++ " in "
+mkNHS (IsNonZero n b) = return $ "let " ++ show b ++ " = (0 /= " ++ show n ++ ") in "
+mkNHS (GreaterThan (x,y) b) = return $ "let " ++ show b ++ " = (" ++ show x ++ " > " ++ show y ++ ") in "
+mkNHS (BoolConst bc b) = return $ "let " ++ show b ++ " = " ++ show bc ++ " in "
+mkNHS (BoolOr (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " || " ++ show b ++ ") in "
+mkNHS (BoolAnd (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " && " ++ show b ++ ") in "
+mkNHS (BoolNot a b) = return $ "let " ++ show b ++ " = not " ++ show a ++ " in "
+mkNHS (BoolCopyable a b) = return $ "let " ++ show b ++ " = copyable " ++ show a ++ " in "
+mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show b ++ " in "
+mkNHS (BoolAssert b ()) = return $ "rtAssert " ++ show b ++ " >>= \\ () -> "
+mkNHS (SrcConst ops b) = 
+    mkSub ops >>= \ pn -> -- block as subprogram
+    addText (show ops) >>= \ tn -> -- preserve ABC code in block
+    return $ "let " ++ show b ++ " = blockVal " ++ tn ++ " " ++ pn ++ " in "
+mkNHS (Quote w b) = return $ "let " ++ show b ++ " = quoteVal " ++ wirePattern w ++ " in "
+mkNHS (Compose (xy,yz) xz) = return $ "let " ++ show xz ++ 
+    " = bcomp " ++ show xy ++ " " ++ show yz ++ " in "
+mkNHS (Apply (src,arg) result) = return $ "b_prog " ++ show src ++ 
+    " " ++ wirePattern arg ++ " >>= \\ " ++ show result ++ " -> "
+mkNHS (CondAp (c,src,arg) result) = return $ "condAp " ++ show c ++ 
+    "(b_prog " ++ show src ++ ") " ++ wirePattern arg ++ " >>= \\ " ++ show result ++ " -> "
+mkNHS (Merge (c,a,b) r) = return $ "let " ++ show r ++ " = mergeSum3 " ++ show c ++
+    " " ++ wirePattern a ++ " " ++ wirePattern b ++ " in "
+mkNHS (Invoke s w r) = return $ "invoke " ++ show s ++ 
+    " " ++ wirePattern w ++ " >>= \\ " ++ show r ++ " -> "
+
 
 progText :: ProgName -> WireLabel -> String -> HaskellDef
 progText pn w0 body = (hdr.p.onMatch.p)"" where
