@@ -105,8 +105,11 @@
 @fixpoint %r [%^'wol] %rwo %^'wol
 @fixpoint.old [dup bind] composel dup bind
 
-@doc..fixfirst "[(f*e)→e] -- [e→e]; fixpoint first argument in pair"
-@.fixfirst %r [%^'wo] %rwo %^'wol
+@doc..fixfirst "[(f*a)→b] -- [a→b]; fixpoint first argument in pair"
+@.fixfirst %r .firstfixfirst %l
+
+@doc..firstfixfirst "([(f*a)→b]*e)→([a→b]*e); a minimal fixpoint"
+@.firstfixfirst [%^'wo] %rwo %^'wo
 
 @doc.fixpointLinear   "fixpoint adding linearity attribute"
 @doc.fixpointAffine   "fixpoint adding affine attribute"
