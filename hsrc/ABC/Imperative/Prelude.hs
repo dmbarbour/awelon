@@ -106,11 +106,12 @@ mergeSum3 :: Bool -> V cx -> V cx -> V cx
 mergeSum3 False a _ = a
 mergeSum3 True  _ b = b
 
--- | condAp is intended to work together with sum3. This applies a 
--- function if the given boolean is False, indicating Left branch.
+-- | conditional application; note that at this point
+-- the boolean is directional, we'll apply the program
+-- if the condition is true.
 condAp :: (Monad cx) => Bool -> Prog cx -> Prog cx
-condAp False p = p
-condAp True  _ = const (return voidVal) 
+condAp True p = p
+condAp False  _ = const (return voidVal) 
 
 -- | expect a number
 exNum :: (Monad cx) => V cx -> cx (Rational)
