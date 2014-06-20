@@ -407,9 +407,9 @@ Frequently used sources can sometimes be cached together with precompiled forms 
 
 I plan to develop a larger bytecode above ABC: ABC Deflated, or ABCD.
 
-ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, correct, widely used sequences of ABC. ABC streams may then be compressed against this dictionary. But compression isn't the only desired characteristic.
+ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, correct, widely used sequences of ABC. An ABC runtime will be expected to have a database of these definitions, and perhaps even have specialized optimizations for them. ABC streams may then be compressed against this dictionary, or alternatively generated using these operators directly. 
 
-A carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and rewrite optimizations. For example, we may introduce operators to map or fold over lists, and operators for linear algebras and matrix manipulation.
+But compression isn't the only desired characteristic. A carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and useful optimizations. For example, we may introduce operators to map or fold over lists, and operators for linear algebras and matrix manipulation.
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will grow much beyond the two-octet UTF-8 space. 
 
