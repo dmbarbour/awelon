@@ -4,7 +4,7 @@
 -- Note: the utility functions provided here may change when the
 -- JIT implementations change. This is rather ad-hoc at the moment,
 -- since the JIT code itself is not yet part of this library. I'm
--- at a "just make it work" stage in the JIT development.
+-- at a "please, just make it work" stage in the JIT development.
 --
 module ABC.Imperative.Prelude
     ( module ABC.Operators
@@ -12,20 +12,58 @@ module ABC.Imperative.Prelude
     , module ABC.Imperative.Resource
     , module ABC.Imperative.Runtime
     , module ABC.Imperative.Operations
-    , (>=>), return
+    , (%), (>=>)
+    , rtAssert
 
-    , exProd, exSum3, sum3toV, condAp
-    , exNum, exUnit, exBlock, exSeal
+    , exProd, exSum3, sum3toV
+    , exNum, exUnit, exSeal
+    , exBlock, exBKF
+    , voidVal, isVoid
+
+    , divModR
+    , bcomp
+    , blockVal
+    , quoteVal
+    , condAp
+    , mergeSum3
     ) where
 
+-- import Prelude (negate,recip,(*),(+),(/=))
 import Control.Monad
+import Data.Ratio ((%))
+import Data.Monoid
 import ABC.Operators
+import ABC.Quote
 import ABC.Imperative.Value
 import ABC.Imperative.Resource
 import ABC.Imperative.Runtime
 import ABC.Imperative.Operations
 import qualified Data.Sequence as S
 
+-- | compose two blocks
+bcomp :: (Monad cx) => Block cx -> Block cx -> Block cx
+bcomp = mappend
+
+-- | create an initial block value (i.e. from JIT)
+blockVal :: String -> (V cx -> cx (V cx)) -> Block cx
+blockVal abc prog = Block False False (S.fromList (read abc)) prog
+
+-- | create a block that adds a literal value to the environment
+quoteVal :: (Monad cx) => V cx -> Block cx
+quoteVal val = block where
+    block = Block { b_aff = aff, b_rel = rel, b_code = code, b_prog = prog }
+    aff = not (copyable val)
+    rel = not (droppable val)
+    code = S.fromList (quote val)
+    prog = return . P val
+
+-- | divMod for rationals
+divModR :: Rational -> Rational -> (Rational,Rational)
+divModR a b = let (nq,nr) = divModQ a b in (fromIntegral nq, nr)
+
+rtAssert :: (Monad m) => Bool -> m ()
+rtAssert True = return ()
+rtAssert False = fail $ "runtime assertion failure (likely in JIT code)"
 
 -- | expecting a product
 exProd :: (Monad cx) => V cx -> cx (V cx, V cx)
@@ -58,9 +96,15 @@ exSum3 (R b) = return (True,  voidVal, b)
 exSum3 val | isVoid val = return (False, voidVal, voidVal)
 exSum3 val = fail $ "sum expected @ " ++ show val
 
+-- | obtain a sum from a pair of values and condition
 sum3toV :: Bool -> V cx -> V cx -> V cx
 sum3toV False a _ = (L a)
 sum3toV True _ b  = (R b)
+
+-- | merge from a sum3
+mergeSum3 :: Bool -> V cx -> V cx -> V cx
+mergeSum3 False a _ = a
+mergeSum3 True  _ b = b
 
 -- | condAp is intended to work together with sum3. This applies a 
 -- function if the given boolean is False, indicating Left branch.
@@ -85,6 +129,14 @@ exBlock :: (Runtime cx) => V cx -> cx (Block cx)
 exBlock (B b) = return b
 exBlock val | isVoid val = return deadBlock
 exBlock val = fail $ "block expected @ " ++ show val
+
+-- | extract a block together with relevance and affine attributes
+exBKF :: (Runtime cx) => V cx -> cx (Block cx, Bool, Bool)
+exBKF val =
+    exBlock val >>= \ b ->
+    let bk = b_rel b in
+    let bf = b_aff b in
+    return (b,bk,bf)
 
 --
 -- A dead block should never be executed, and only has a temporary
