@@ -11,7 +11,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
 import Data.Functor.Identity
 import qualified Data.Map as M
-import ABC.Imperative.Value
+--import ABC.Imperative.Value
 import ABC.Operators
 import ABCGraph
 import Util (indent)
@@ -46,14 +46,13 @@ abc2hs modName ops = evalMkHS $
 
 moduleText :: ModuleName -> ProgName -> [HaskellDef] -> ModuleString
 moduleText modName mainFn defs = fullTxt "" where
-    fullTxt = lang.p.mod.p.imps.p.rsc.p.(ss defs).p
+    fullTxt = hdr.p.imps.p.rsc.p.(ss defs).p
     -- lang = showString "{-# LANGUAGE NoImplicitPrelude #-}"
-    lang = id
-    mod = showString "module " . showString modName .
+    hdr = showString "module " . showString modName .
           showString " ( resource ) where "
     imps = showString "import ABC.Imperative.Prelude"
     rsc = showString "resource :: Resource" . p .
-          showString "resource = Resource " . showString mainFn
+          showString "resource = Resource " . showString mainFn . p
     ss (d:ds) = showString d . p . ss ds
     ss [] = id
     p = showChar '\n'
@@ -119,19 +118,20 @@ wirePattern = flip wp "" where
 -- This is monadic mostly to support `SrcConst`.
 mkNHS :: Node -> MkHS HaskellDef
 mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal in "
-mkNHS (ElabSum w (c,a,b)) = return $ "exSum3 " ++ show w ++ 
-    " >>= \\ (" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") -> "
-mkNHS (ElabProd w (a,b)) = return $ "exProd " ++ show w ++ 
-    " >>= \\ (" ++ show a ++ "," ++ show b ++ ") -> "
-mkNHS (ElabNum w n) = return $ "exNum " ++ show w ++ " >>= \\ " ++ show n ++ " -> "
-mkNHS (ElabCode w cb) = return $ "exBKF " ++ show w ++ 
+mkNHS (ElabSum w (c,a,b)) = return $ 
+    "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum " ++ show w
+mkNHS (ElabProd w (a,b)) = return $ 
+    "(" ++ show a ++ "," ++ show b ++ ") <- exProd " ++ show w
+mkNHS (ElabNum w n) = return $ 
+    show n ++ " <- exNum " ++ show w
+mkNHS (ElabCode w cb) = return $ 
     let b = show $ cb_src cb in
     let k = show $ cb_rel cb in
     let f = show $ cb_aff cb in
-    " >>= \\ (" ++ b ++ "," ++ k ++ "," ++ f ++ ") ->"
-mkNHS (ElabUnit w ()) = return $ "exUnit " ++ show w ++ " >>= \\ () -> "
-mkNHS (ElabSeal s w v) = return $ "exSeal " ++ show s ++ " " ++ show w ++ 
-    " >>= \\ " ++ show v ++ " -> "
+    "(" ++ show b ++ "," ++ show k ++ "," ++ show f ++ ") <- exBKF " ++ show w
+mkNHS (ElabUnit w ()) = return $ "exUnit " ++ show w
+mkNHS (ElabSeal s w v) = return $ 
+    show v ++ " <- exSeal " ++ show s ++ " " ++ show w
 mkNHS (NumConst r w) = return $ "let " ++ show w ++ " = " ++ show r ++ " in "
 mkNHS (Add (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " + " ++ show b ++ " in "
 mkNHS (Neg a b) = return $ "let " ++ show b ++ " = negate " ++ show a ++ " in "
@@ -146,8 +146,8 @@ mkNHS (BoolOr (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " || "
 mkNHS (BoolAnd (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " && " ++ show b ++ ") in "
 mkNHS (BoolNot a b) = return $ "let " ++ show b ++ " = not " ++ show a ++ " in "
 mkNHS (BoolCopyable a b) = return $ "let " ++ show b ++ " = copyable " ++ show a ++ " in "
-mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show b ++ " in "
-mkNHS (BoolAssert b ()) = return $ "rtAssert " ++ show b ++ " >>= \\ () -> "
+mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show a ++ " in "
+mkNHS (BoolAssert b ()) = return $ "rtAssert " ++ show b 
 mkNHS (SrcConst ops b) = 
     mkSub ops >>= \ pn -> -- block as subprogram
     addText (show ops) >>= \ tn -> -- preserve ABC code in block
@@ -155,21 +155,21 @@ mkNHS (SrcConst ops b) =
 mkNHS (Quote w b) = return $ "let " ++ show b ++ " = quoteVal " ++ wirePattern w ++ " in "
 mkNHS (Compose (xy,yz) xz) = return $ "let " ++ show xz ++ 
     " = bcomp " ++ show xy ++ " " ++ show yz ++ " in "
-mkNHS (Apply (src,arg) result) = return $ "b_prog " ++ show src ++ 
-    " " ++ wirePattern arg ++ " >>= \\ " ++ show result ++ " -> "
-mkNHS (CondAp (c,src,arg) result) = return $ "condAp " ++ show c ++ 
-    "(b_prog " ++ show src ++ ") " ++ wirePattern arg ++ " >>= \\ " ++ show result ++ " -> "
+mkNHS (Apply (src,arg) result) = return $ 
+    show result ++ " <- b_prog " ++ show src ++ " " ++ wirePattern arg
+mkNHS (CondAp (c,src,arg) result) = return $ 
+    show result ++ " <- condAp " ++ show c ++ " (b_prog " ++ show src ++ ") " ++ wirePattern arg
 mkNHS (Merge (c,a,b) r) = return $ "let " ++ show r ++ " = mergeSum3 " ++ show c ++
     " " ++ wirePattern a ++ " " ++ wirePattern b ++ " in "
-mkNHS (Invoke s w r) = return $ "invoke " ++ show s ++ 
-    " " ++ wirePattern w ++ " >>= \\ " ++ show r ++ " -> "
+mkNHS (Invoke s w r) = return $ 
+    show r ++ " <- invoke " ++ show s ++ " " ++ wirePattern w
 
 
 progText :: ProgName -> WireLabel -> String -> HaskellDef
 progText pn w0 body = (hdr.p.onMatch.p)"" where
     hdr = showString pn . showString " :: (Runtime cx) => Prog cx"
     onMatch = showString pn . showChar ' ' . shows w0 . 
-              showString " = \n" . showString (indent "  " body)
+              showString " = do \n" . showString (indent "  " body)
     p = showChar '\n'
 
 addText :: String -> MkHS TextName 

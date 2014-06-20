@@ -50,8 +50,8 @@
 --
 module JIT 
     ( abc_jit, abc2hs -- default implementation
-    -- deprecated implementations
-    , abc2hs_naive
+    , abc2hs_auto 
+    , opsToModName
     ) where
 
 import Control.Applicative 
@@ -59,7 +59,7 @@ import Control.Monad
 import qualified Control.Exception as Err
 import Control.Concurrent
 
-import qualified Data.Map as M
+--import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -80,6 +80,8 @@ import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Resource
 import ABC.Imperative.Runtime
+
+import GraphToHS
 
 type Error = String
 type Unique = String
@@ -136,7 +138,7 @@ abc_jit ops =
     let createTheResource =
             FS.createTree rscDir >>
             FS.writeTextFile abcFile (T.pack (show ops)) >>
-            either fail (FS.writeTextFile hsFile . T.pack) (abc2hs' rn ops)
+            either fail (FS.writeTextFile hsFile . T.pack) (abc2hs rn ops)
     in
     let makeArgs = 
             ["-outputdir",FS.encodeString jitDir
@@ -169,7 +171,8 @@ abc_jit ops =
         Sys.LoadFailure errs -> fail (L.unlines errs)
         Sys.LoadSuccess _ rsc -> return (asProg rsc)
 
--- create a unique module name for a given ABC program
+-- | create a unique module name for a given ABC program
+--
 -- currently, generates a module name of the form:
 --
 --    A01.B23.C456789abcdefghijklmnopqrstuvwxyz....
@@ -199,6 +202,10 @@ pathAndPrefix = pp FS.empty where
         _ -> error "illegal state for JIT.pathAndPrefix"
 
 
+abc2hs_auto :: [Op] -> Either Error String
+abc2hs_auto ops = abc2hs (opsToModName ops) ops
+
+{-
 
 abc2hs :: [Op] -> Either Error String
 abc2hs ops = abc2hs' (opsToModName ops) ops where
@@ -258,6 +265,9 @@ op2hs_naive (BL ops) = showString "bl" . opsStr . progVal where
     opsStr = shows (show ops) -- show all ops in a string
     progVal = showChar '(' . ops2hs_naive ops . showChar ')'
 op2hs_naive op = error $ "op2hs_naive missing def for " ++ show op
+
+-}
+
 
 toBase32 :: B.ByteString -> String
 toBase32 = fmap toLower . B32.encode . B.unpack

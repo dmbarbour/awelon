@@ -364,7 +364,7 @@ newTestPB d fwarn = return b where
 printImperativeJIT :: String -> IO ()
 printImperativeJIT aoStr =
     getDict >>= \ d -> 
-    case compileAOString d aoStr >>= abc2hs . simplify of
+    case compileAOString d aoStr >>= abc2hs_auto . simplify of
         Left err -> putErrLn err >> Sys.exitFailure
         Right hsCode -> Sys.putStrLn hsCode
 

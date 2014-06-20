@@ -31,12 +31,10 @@ module ABCGraph
     ) where
 
 import Control.Applicative
-import Control.Arrow
 import Control.Monad 
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Error
 import Data.Functor.Identity
-import Data.Ratio
 
 import ABC.Operators
 
@@ -276,7 +274,7 @@ opV' a =
     newBoolConst False >>= \ inV ->
     return (Sum inV a v)
 opC' av =
-    asSum av >>= \ (inV,a,v) ->
+    asSum av >>= \ (inV,a,_v) ->
     boolNot inV >>= boolAssert >>
     return a
 
@@ -458,7 +456,7 @@ opMerge se =
 
 opAssert se =
     asProd se >>= \ (s,e) ->
-    asSum s >>= \ (inB,a,b) ->
+    asSum s >>= \ (inB,_a,b) ->
     boolAssert inB >>
     -- should I include a transition in the graph,
     -- e.g. supporting `Maybe a` to just `a`?
@@ -473,8 +471,8 @@ opGT yxe =
     emitNode (GreaterThan (ny,nx) bGT) >>
     let onFalse = Prod (Num ny) (Num nx) in
     let onTrue  = Prod (Num nx) (Num ny) in
-    let sum = Sum bGT onFalse onTrue in
-    return (Prod sum e)
+    let s' = Sum bGT onFalse onTrue in
+    return (Prod s' e)
 
 opIntroNum e = 
     newNumConst 0 >>= \ n -> 
@@ -581,7 +579,6 @@ boolCopyable (Sum _c a b) =
     boolAnd copyableA copyableB
 boolCopyable (Seal _s v) = boolCopyable v
 
-newVar :: MkGraph Wire
 newWireLabel :: MkGraph WireLabel
 newNumWire :: MkGraph NumWire
 newSrcWire :: MkGraph SrcWire
@@ -592,7 +589,6 @@ newNumConst :: Rational -> MkGraph NumWire
 newSrcConst :: [Op] -> MkGraph SrcWire
 newVoid :: MkGraph Wire
 
-newVar = Var <$> newWireLabel
 newWireLabel = newLabel
 newNumWire = newLabel
 newSrcWire = newLabel
@@ -606,7 +602,7 @@ newVoid = newWireLabel >>= \ lbl -> emitNode (Void () lbl) >> return (Var lbl)
 
 
 instance Show (Label n) where 
-    showsPrec _ (Label n) = showChar '#' . shows n
+    showsPrec _ (Label n) = showChar '_' . shows n
 
 instance Show Wire where 
     showsPrec _ (Var n) = shows n
