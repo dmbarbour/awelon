@@ -6,6 +6,11 @@
 -- since the JIT code itself is not yet part of this library. I'm
 -- at a "please, just make it work" stage in the JIT development.
 --
+-- For the moment, I'll be using Haskell's laziness and 'error'
+-- values instead of 'Maybe' types to encode computations off the
+-- main path. This is a horrible hack, and I feel awful about it, 
+-- but it's also very simple and can generate decent error info.
+--
 module ABC.Imperative.Prelude
     ( module ABC.Operators
     , module ABC.Imperative.Value
@@ -16,9 +21,8 @@ module ABC.Imperative.Prelude
     , rtAssert
 
     , exProd, exSum3, sum3toV
-    , exNum, exUnit, exSeal
-    , exBlock, exBKF
-    , newVoid
+    , exNum, exSeal, exBlock, exBKF
+    , voidVal
 
     , divModR
     , bcomp
@@ -61,23 +65,27 @@ quoteVal val = block where
 divModR :: Rational -> Rational -> (Rational,Rational)
 divModR a b = let (nq,nr) = divModQ a b in (fromIntegral nq, nr)
 
-rtAssert :: (Monad m) => Bool -> m ()
-rtAssert True = return ()
-rtAssert False = fail $ "runtime assertion failure (likely in JIT code)"
+rtAssert :: (Monad m) => String -> Bool -> m ()
+rtAssert _ True = return ()
+rtAssert msg False = fail $ "assertion failure: " ++ msg
 
 -- | expecting a product
-exProd :: (Monad cx) => V cx -> cx (V cx, V cx)
-exProd (P a b) = return (a,b)
-exProd val = fail $ "product expected @ " ++ show val
+exProd :: (Monad cx) => V cx -> (V cx, V cx)
+exProd (P a b) = (a,b)
+exProd val | isVoid val = (voidVal, voidVal)
+exProd val = error $ "product expected @ " ++ show val
 
 -- | a representation for a void value
 --
 -- This is not a value that can normally be generated or processed
 -- by AO. It is currently necessary because we can try to elaborate
 -- dead branch values, especially if we inline some operations.
-newVoid :: (Monad cx) => cx (V cx) 
-newVoid = return (error "not a value")
+voidVal :: V cx
+voidVal = (S "void" U)
 
+isVoid :: V cx -> Bool
+isVoid (S "void" U) = True
+isVoid _ = False
 
 -- | expecting a sum
 -- 
@@ -86,10 +94,11 @@ newVoid = return (error "not a value")
 -- to the Left|Right positions.
 --
 -- It is possible that we'll extract other values from void.
-exSum3 :: (Monad cx) => V cx -> cx (Bool, V cx, V cx)
-exSum3 (L a) = return (False, a, error "not in right")
-exSum3 (R b) = return (True,  error "not in left", b)
-exSum3 val = fail $ "sum expected @ " ++ show val
+exSum3 :: (Monad cx) => V cx -> (Bool, V cx, V cx)
+exSum3 (L a) = (False, a, voidVal)
+exSum3 (R b) = (True,  voidVal, b)
+exSum3 val | isVoid val = (error "sum from void", voidVal, voidVal)
+exSum3 val = error $ "sum expected @ " ++ show val
 
 -- | obtain a sum from a pair of values and condition
 sum3toV :: Bool -> V cx -> V cx -> V cx
@@ -106,34 +115,25 @@ mergeSum3 True  _ b = b
 -- if the condition is true.
 condAp :: (Monad cx) => Bool -> Prog cx -> Prog cx
 condAp True p = p
-condAp False  _ = const $ return $ error "condition does not apply"
+condAp False _ = const (return voidVal)
 
 -- | expect a number
-exNum :: (Monad cx) => V cx -> cx (Rational)
-exNum (N n) = return n
-exNum val = fail $ "number expected @ " ++ show val
-
--- | expect unit
-exUnit :: (Monad cx) => V cx -> cx ()
-exUnit U = return ()
-exUnit val = fail $ "unit expected @ " ++ show val
+exNum :: (Monad cx) => V cx -> Rational
+exNum (N n) = n
+exNum val = error $ "number expected @ " ++ show val
 
 -- | expect a block
-exBlock :: (Runtime cx) => V cx -> cx (Block cx)
-exBlock (B b) = return b
-exBlock val = fail $ "block expected @ " ++ show val
+exBlock :: (Runtime cx) => V cx -> Block cx
+exBlock (B b) = b
+exBlock val = error $ "block expected @ " ++ show val
 
 -- | extract a block together with relevance and affine attributes
-exBKF :: (Runtime cx) => V cx -> cx (Block cx, Bool, Bool)
-exBKF val =
-    exBlock val >>= \ b ->
-    let bk = b_rel b in
-    let bf = b_aff b in
-    return (b,bk,bf)
+exBKF :: (Runtime cx) => V cx -> (Block cx, Bool, Bool)
+exBKF val = let b = exBlock val in (b, b_rel b, b_aff b)
 
 -- | expect a sealed value, and unseal it
-exSeal :: (Monad cx) => String -> V cx -> cx (V cx)
-exSeal s (S s' val) | s == s' = return val
-exSeal s val = fail $ "value sealed by {" ++ s ++ "} expected @ " ++ show val
+exSeal :: (Monad cx) => String -> V cx -> V cx
+exSeal s (S s' val) | s == s' = val
+exSeal s val = error $ "value sealed by {" ++ s ++ "} expected @ " ++ show val
 
 

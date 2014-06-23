@@ -117,21 +117,27 @@ wirePattern = flip wp "" where
 -- Translate nodes to fragments of monadic Haskell code.
 -- This is monadic mostly to support `SrcConst`.
 mkNHS :: Node -> MkHS HaskellDef
-mkNHS (Void () w) = return $ show w ++ " <- newVoid "
+mkNHS (Void () w) = return $ "let " ++ show w ++ " = voidVal "
 mkNHS (ElabSum w (c,a,b)) = return $ 
-    "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum3 " ++ show w
+    "let ~(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") = exSum3 " ++ show w
+    -- "(" ++ show c ++ "," ++ show a ++ "," ++ show b ++ ") <- exSum3 " ++ show w
 mkNHS (ElabProd w (a,b)) = return $ 
-    "(" ++ show a ++ "," ++ show b ++ ") <- exProd " ++ show w
+    "let ~(" ++ show a ++ "," ++ show b ++ ") = exProd " ++ show w
+    -- "(" ++ show a ++ "," ++ show b ++ ") <- exProd " ++ show w
 mkNHS (ElabNum w n) = return $ 
-    show n ++ " <- exNum " ++ show w
+    "let " ++ show n ++ " = exNum " ++ show w
+    -- show n ++ " <- exNum " ++ show w
 mkNHS (ElabCode w cb) = return $ 
     let b = show $ cb_src cb in
     let k = show $ cb_rel cb in
     let f = show $ cb_aff cb in
-    "(" ++ b ++ "," ++ k ++ "," ++ f ++ ") <- exBKF " ++ show w
-mkNHS (ElabUnit w ()) = return $ "exUnit " ++ show w
-mkNHS (ElabSeal s w v) = return $ 
-    show v ++ " <- exSeal " ++ show s ++ " " ++ show w
+    "let ~(" ++ b ++ "," ++ k ++ "," ++ f ++ ") = exBKF " ++ show w
+    -- "(" ++ b ++ "," ++ k ++ "," ++ f ++ ") <- exBKF " ++ show w
+mkNHS (ElabUnit w ()) = return $ "-- note: " ++ show w ++ " should be unit "
+mkNHS (ElabSeal s w v) = 
+    addText s >>= \ tn ->
+    return $  "let " ++ show v ++ " = exSeal " ++ tn ++ " " ++ show w
+    -- show v ++ " <- exSeal " ++ show s ++ " " ++ show w
 mkNHS (NumConst r w) = return $ "let " ++ show w ++ " = " ++ show r
 mkNHS (Add (a,b) c) = return $ "let " ++ show c ++ " = " ++ show a ++ " + " ++ show b
 mkNHS (Neg a b) = return $ "let " ++ show b ++ " = negate " ++ show a
@@ -147,7 +153,9 @@ mkNHS (BoolAnd (a,b) c) = return $ "let " ++ show c ++ " = (" ++ show a ++ " && 
 mkNHS (BoolNot a b) = return $ "let " ++ show b ++ " = not " ++ show a
 mkNHS (BoolCopyable a b) = return $ "let " ++ show b ++ " = copyable " ++ show a
 mkNHS (BoolDroppable a b) = return $ "let " ++ show b ++ " = droppable " ++ show a
-mkNHS (BoolAssert b ()) = return $ "rtAssert " ++ show b 
+mkNHS (BoolAssert msg b ()) =
+    addText msg >>= \ tn ->
+    return $ "rtAssert " ++ tn ++ " " ++ show b 
 mkNHS (SrcConst ops b) = 
     mkSub ops >>= \ pn -> -- block as subprogram
     addText (show ops) >>= \ tn -> -- preserve ABC code in block
@@ -161,8 +169,9 @@ mkNHS (CondAp (c,src,arg) result) = return $
     show result ++ " <- condAp " ++ show c ++ " (b_prog " ++ show src ++ ") " ++ wirePattern arg
 mkNHS (Merge (c,a,b) r) = return $ "let " ++ show r ++ " = mergeSum3 " ++ show c ++
     " " ++ wirePattern a ++ " " ++ wirePattern b
-mkNHS (Invoke s w r) = return $ 
-    show r ++ " <- invoke " ++ show s ++ " " ++ wirePattern w
+mkNHS (Invoke s w r) = 
+    addText s >>= \ tn ->
+    return $ show r ++ " <- invoke " ++ tn ++ " " ++ wirePattern w
 
 
 progText :: ProgName -> WireLabel -> String -> HaskellDef

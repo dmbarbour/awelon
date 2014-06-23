@@ -107,7 +107,7 @@ data Node
     | BoolDroppable WireLabel BoolWire
 
     -- assertions
-    | BoolAssert BoolWire () 
+    | BoolAssert String BoolWire () 
 
     -- higher order programming
     | SrcConst [Op] SrcWire
@@ -280,7 +280,7 @@ opV' a =
     return (Sum inV a v)
 opC' av =
     asSum av >>= \ (inV,a,_v) ->
-    boolNot inV >>= boolAssert >>
+    boolNot inV >>= boolAssert "C" >>
     return a
 
 opBL ops v = mkBlock ops >>= \ cb -> return (Prod (Block cb) v)
@@ -303,15 +303,15 @@ unseal s (Var w) =
     newWireLabel >>= \ r -> 
     emitNode (ElabSeal s w r) >> 
     return (Var r)
-unseal s v = fail $ "expecting {:"++s++"} @ " ++ tydesc v
+unseal s v = fail $ "expecting sealed value{"++s++"} @ " ++ tydesc v
 
 opCopy ae =
     asProd ae >>= \ (a,e) ->
-    boolCopyable a >>= boolAssert >>
+    boolCopyable a >>= boolAssert "copyable" >>
     return (Prod a (Prod a e))
 opDrop ae =
     asProd ae >>= \ (a,e) ->
-    boolDroppable a >>= boolAssert >>
+    boolDroppable a >>= boolAssert "droppable" >>
     return e
 
 opAdd abe =
@@ -375,7 +375,7 @@ assertNonZero :: NumWire -> MkGraph ()
 assertNonZero r = 
     newBoolWire >>= \ b -> 
     emitNode (IsNonZero r b) >> 
-    boolAssert b
+    boolAssert "non-zero divisor" b
 
 opApply bxe =
     asProd bxe >>= \ (b,xe) ->
@@ -392,7 +392,7 @@ opCond bse =
     asSum  s >>= \ (inY, x, y) ->
     asCode b >>= \ cb ->
     let src = cb_src cb in
-    boolNot (cb_rel cb) >>= boolAssert >>
+    boolNot (cb_rel cb) >>= boolAssert "op ? with relevant block" >>
     boolNot inY >>= \ inX ->
     newLabel >>= \ x' ->
     emitNode (CondAp (inX,src,x) x') >>
@@ -462,16 +462,16 @@ opMerge se =
 opAssert se =
     asProd se >>= \ (s,e) ->
     asSum s >>= \ (inB,_a,b) ->
-    boolAssert inB >>
+    boolAssert "K" inB >>
     -- should I include a transition in the graph,
     -- e.g. supporting `Maybe a` to just `a`?
     return (Prod b e)
 
-opGT yxe =
-    asProd yxe >>= \ (y,xe) ->
-    asProd xe >>= \ (x,e) ->
-    asNumber y >>= \ ny ->
+opGT xye =
+    asProd xye >>= \ (x,ye) ->
+    asProd ye >>= \ (y,e) ->
     asNumber x >>= \ nx ->
+    asNumber y >>= \ ny ->
     newBoolWire >>= \ bGT ->
     emitNode (GreaterThan (ny,nx) bGT) >>
     let onFalse = Prod (Num ny) (Num nx) in
@@ -547,14 +547,14 @@ asCode v = fail $ "expecting code @ " ++ tydesc v
 boolOr  :: BoolWire -> BoolWire -> MkGraph BoolWire
 boolAnd :: BoolWire -> BoolWire -> MkGraph BoolWire
 boolNot :: BoolWire -> MkGraph BoolWire
-boolAssert :: BoolWire -> MkGraph ()
+boolAssert :: String -> BoolWire -> MkGraph ()
 boolDroppable :: Wire -> MkGraph BoolWire
 boolCopyable :: Wire -> MkGraph BoolWire
 
 boolOr a b = newBoolWire >>= \ r -> emitNode (BoolOr (a,b) r) >> return r
 boolAnd a b = newBoolWire >>= \ r -> emitNode (BoolAnd (a,b) r) >> return r
 boolNot b = newBoolWire >>= \ r -> emitNode (BoolNot b r) >> return r
-boolAssert b = emitNode (BoolAssert b ())
+boolAssert s b = emitNode (BoolAssert s b ())
 
 boolDroppable (Var v) = newBoolWire >>= \ r -> emitNode (BoolDroppable v r) >> return r
 boolDroppable (Num _) = newBoolConst True
@@ -651,7 +651,7 @@ nodeInputs (BoolAnd (Label a, Label b) _) = [a,b]
 nodeInputs (BoolNot (Label a) _) = [a]
 nodeInputs (BoolCopyable (Label a) _) = [a]
 nodeInputs (BoolDroppable (Label a) _) = [a]
-nodeInputs (BoolAssert (Label a) _) = [a]
+nodeInputs (BoolAssert _ (Label a) _) = [a]
 nodeInputs (SrcConst _ _) = []
 nodeInputs (Quote w _) = wireLabels w
 nodeInputs (Compose (Label a, Label b) _) = [a,b]
@@ -681,7 +681,7 @@ nodeOutputs (BoolAnd _ (Label b)) = [b]
 nodeOutputs (BoolNot _ (Label b)) = [b]
 nodeOutputs (BoolCopyable _ (Label b)) = [b]
 nodeOutputs (BoolDroppable _ (Label b)) = [b]
-nodeOutputs (BoolAssert _ ()) = []
+nodeOutputs (BoolAssert _ _ ()) = []
 nodeOutputs (SrcConst _ (Label s)) = [s]
 nodeOutputs (Quote _ (Label s)) = [s]
 nodeOutputs (Compose _ (Label s)) = [s]
