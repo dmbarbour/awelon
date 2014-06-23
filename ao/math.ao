@@ -27,6 +27,18 @@
 @− .sub
 @- .sub
 
+@test.math.mul 6 7 .mul 42 assertEQ
+@test.math.add 6 7 .add 13 assertEQ
+@test.math.sub 13 6 .sub 7 assertEQ
+@test.math.div 42 6 .div 7 assertEQ
+@test.math.divFrac 42 9 .div 14/3 assertEQ
+@test.math.square 7 .square 49 assertEQ
+@test.math.quotient 11 3 .quot 3 assertEQ
+@test.math.remainder 11 3 .rem 2 assertEQ
+@test.math.remainderFrac 10 4/3 .rem 2/3 assertEQ
+
+
+
 @inc 1 .add
 @incd swap inc swap
 @dec 1 .sub
@@ -86,6 +98,14 @@
 @lt  .lt
 @gte .gte
 @lte .lte
+
+@test.gt 12 11 .gt assert
+@test.lt 11 12 .lt assert
+@test.gte.e 12 12 .gte assert
+@test.lte.e 11 11 .lte assert
+@test.gte.g 12 11 .gte assert
+@test.lte.l 11 12 .lte assert
+
 
 @doc..gt1 "a x -- (a + a); a > x?; for numbers a,x"
 @doc..lt1 "a x -- (a + a); a < x?; for numbers a,x"
