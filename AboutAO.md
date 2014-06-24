@@ -77,7 +77,7 @@ The canonical expansion of inlined ABC is simply each ABC operator alone. For ex
 
 AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and discretionary sealers... preferably at parse-time. This restriction on capabilities is discussed below. 
 
-*Note:* AO does not allow inlining of ABCD. ABCD extends ABC with a fixed dictionary, which is redundant in context of AO's own dictionary feature. Instead, ABCD should always be generated as a postprocess to compress a raw ABC stream. However, annotations may encourage a specific compression.
+*Note:* AO does not allow inlining of ABCD. ABCD extends ABC with a fixed dictionary, which is redundant in context of AO's own dictionary feature. Instead, ABCD should always be generated as a postprocess to compress a raw ABC stream. However, annotations or naming conventions may encourage a specific compression to ABCD.
 
 ## Proper Capability Security
 

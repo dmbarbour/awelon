@@ -24,7 +24,6 @@ module ABC.Imperative.Prelude
     , exNum, exSeal, exBlock, exBKF
     , voidVal
 
-    , divModR
     , bcomp
     , blockVal
     , quoteVal
@@ -61,16 +60,12 @@ quoteVal val = block where
     code = S.fromList (quote val)
     prog = return . P val
 
--- | divMod for rationals
-divModR :: Rational -> Rational -> (Rational,Rational)
-divModR a b = let (nq,nr) = divModQ a b in (fromIntegral nq, nr)
-
 rtAssert :: (Monad m) => String -> Bool -> m ()
 rtAssert _ True = return ()
 rtAssert msg False = fail $ "assertion failure: " ++ msg
 
 -- | expecting a product
-exProd :: (Monad cx) => V cx -> (V cx, V cx)
+exProd :: V cx -> (V cx, V cx)
 exProd (P a b) = (a,b)
 exProd val | isVoid val = (voidVal, voidVal)
 exProd val = error $ "product expected @ " ++ show val
@@ -94,7 +89,7 @@ isVoid _ = False
 -- to the Left|Right positions.
 --
 -- It is possible that we'll extract other values from void.
-exSum3 :: (Monad cx) => V cx -> (Bool, V cx, V cx)
+exSum3 :: V cx -> (Bool, V cx, V cx)
 exSum3 (L a) = (False, a, voidVal)
 exSum3 (R b) = (True,  voidVal, b)
 exSum3 val | isVoid val = (error "sum from void", voidVal, voidVal)
@@ -118,21 +113,21 @@ condAp True p = p
 condAp False _ = const (return voidVal)
 
 -- | expect a number
-exNum :: (Monad cx) => V cx -> Rational
+exNum :: V cx -> Rational
 exNum (N n) = n
 exNum val = error $ "number expected @ " ++ show val
 
 -- | expect a block
-exBlock :: (Runtime cx) => V cx -> Block cx
+exBlock :: V cx -> Block cx
 exBlock (B b) = b
 exBlock val = error $ "block expected @ " ++ show val
 
 -- | extract a block together with relevance and affine attributes
-exBKF :: (Runtime cx) => V cx -> (Block cx, Bool, Bool)
+exBKF :: V cx -> (Block cx, Bool, Bool)
 exBKF val = let b = exBlock val in (b, b_rel b, b_aff b)
 
 -- | expect a sealed value, and unseal it
-exSeal :: (Monad cx) => String -> V cx -> V cx
+exSeal :: String -> V cx -> V cx
 exSeal s (S s' val) | s == s' = val
 exSeal s val = error $ "value sealed by {" ++ s ++ "} expected @ " ++ show val
 

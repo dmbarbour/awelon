@@ -34,6 +34,7 @@ import qualified Data.Sequence as S
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 import ABC.Quote
+import ABC.Operators (abcDivMod)
 
 opFail :: (Monad m) => String -> V m -> m (V m)
 opFail s v = fail $ s ++ " @ " ++ show v
@@ -184,8 +185,7 @@ inv v = opFail "/" v
 
 divQ (P (N divisor) (P (N dividend) e)) = return result where
     result = (P (N remainder) (P (N quotient) e))
-    (quotientI,remainder) = dividend `divModQ` divisor
-    quotient  = fromIntegral quotientI
+    (quotient,remainder) = dividend `abcDivMod` divisor
 divQ v = opFail "Q" v
 
 gt (P x@(N nx) (P y@(N ny) e)) =

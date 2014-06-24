@@ -148,7 +148,7 @@ abc_jit ops =
             ,"-fno-warn-missing-signatures"
             ,"-fno-warn-unused-binds"
             ,"-fno-warn-unused-matches"
-            ,"-O1"
+            ,"-O2"
             ]
     in
     let makeTheObjectFile =
@@ -274,9 +274,10 @@ toBase32 = fmap toLower . B32.encode . B.unpack
 
 -- create a (cryptographically) unique string for some 
 -- given source code using base32 and SHA3-384. This is
--- both case insensitive and alphanumeric.
+-- both case insensitive and alphanumeric. It preserves
+-- 320 bits of the hash.
 uniqueStr :: [Op] -> Unique
-uniqueStr = L.take 60 . toBase32 . getCodeHash 
+uniqueStr = L.take 64 . toBase32 . getCodeHash 
 
 getCodeHash :: [Op] -> B.ByteString
 getCodeHash = B.toBytes . sha3_384 . T.encodeUtf8 . T.pack . show where

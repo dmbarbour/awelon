@@ -4,6 +4,7 @@
 --   plus useful Show and Read instances
 module ABC.Operators
     ( Op(..), opCharList, opsCancel
+    , abcDivMod
     ) where
 
 import Control.Applicative ((<$>))
@@ -11,6 +12,7 @@ import Text.Read (Read(..))
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Text.ParserCombinators.ReadPrec as RP
 import qualified Data.List as L
+import Data.Ratio
 
 -- | all of ABC's operators
 data Op
@@ -117,6 +119,16 @@ readOp =
 
 readBlock :: R.ReadP [Op]
 readBlock = R.char '[' >> R.manyTill readOp (R.char ']')
+
+-- | abcDivMod computes the function associated with operator 'Q'
+--    abcDivMod dividend divisor → (quotient, remainder)
+abcDivMod :: Rational -> Rational -> (Rational,Rational)
+abcDivMod x y =
+    let n = numerator x * denominator y in
+    let d = denominator x * numerator y in
+    let dr = denominator x * denominator y in
+    let (q,r) = n `divMod` d in
+    (fromInteger q, r % dr)
 
 -- readText will remove the escapes (only LF is escaped)
 readText :: R.ReadP String

@@ -10,7 +10,6 @@
 module ABC.Imperative.Value
     ( V(..), Prog, Block(..)
     , copyable, droppable
-    , divModQ
     , valToText, textToVal
     , listToVal, valToList
     , simplEQ, assertEQ
@@ -92,16 +91,6 @@ instance (Monad cx) => Monoid (Block cx) where
         rel' = b_rel xy || b_rel yz
         code' = b_code xy S.>< b_code yz
         prog' = b_prog xy >=> b_prog yz
-
--- | divModQ :: dividend -> divisor -> (quotient, remainder)
-divModQ :: Rational -> Rational -> (Integer, Rational)
-divModQ x y =
-    let n = numerator x * denominator y in
-    let d = denominator x * numerator y in
-    let dr = denominator x * denominator y in
-    let (q,r) = n `divMod` d in
-    (q, r % dr)
-
 
 valToList :: (V cx -> Maybe a) -> V cx -> Maybe [a]
 valToList f (L (P a as)) = (:) <$> f a <*> valToList f as
