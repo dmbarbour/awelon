@@ -148,13 +148,14 @@ abc_jit ops =
             ,"-fno-warn-missing-signatures"
             ,"-fno-warn-unused-binds"
             ,"-fno-warn-unused-matches"
+            ,"-package","ao"
             ,"-O2"
             ]
     in
     let makeTheObjectFile =
             Sys.make (FS.encodeString hsFile) makeArgs >>= \ makeStatus ->
             case makeStatus of
-                Sys.MakeFailure errs -> fail (L.unlines errs)
+                Sys.MakeFailure errs -> fail $ "MAKE ERROR: " ++ (L.unlines errs)
                 Sys.MakeSuccess _ objFile ->
                     let everythingIsAwesome = (oFile == FS.decodeString objFile) in
                     unless everythingIsAwesome $ fail $ 
@@ -168,7 +169,7 @@ abc_jit ops =
     let loadRsc = Sys.load (FS.encodeString oFile) [] [] "resource" in 
     withLoadMutex loadRsc >>= \ loadStatus ->
     case loadStatus of
-        Sys.LoadFailure errs -> fail (L.unlines errs)
+        Sys.LoadFailure errs -> fail $ "LOAD ERROR: " ++ (L.unlines errs)
         Sys.LoadSuccess _ rsc -> return (asProg rsc)
 
 -- | create a unique module name for a given ABC program
