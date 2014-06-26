@@ -26,9 +26,26 @@ Libraries and highly performant implementations are still lacking. ABC potential
 
 For now, we do have a REPL interpreter `aoi` and a command line multi-utility `ao`. Performance is mediocre, suitable for small toy programs but not for full services and applications. Current efforts are on improving dynamic compilation (via Haskell's System.Plugins) such that we can achieve excellent performance in real service/application scenarios.
 
+### Environment Configuration
+
+**Cabal Configuration:** via ~/.cabal/config on a Linux system
+
+        library-for-ghci: True
+
+This is necessary to generate the file used by plugins for JIT. Apparently, not every version of cabal has this set by default (it was default enabled for 1.16.0.2, and default disabled for 1.20.0.0). 
+
+**Environment Variables:**
+
+* **AO_PATH**: where to search for AO files; no default
+* **AOI_DICT**: imports for `aoi` executable; default "aoi"
+* **AO_DICT**: imports for `ao` executable; default "ao"
+* **AO_TEMP**: directory for JIT and other tasks; default "./aotmp"
+
+Developers must set AO_PATH. Usually, this should just be a single directory with all the AO files (AO has a flat namespace anyway, and should eventually upgrade to a database).
+
 ### Getting Started
 
-At the moment, we have an AO compiler to ABC, a slow ABC interpreter, and a haskeline REPL. To get started, fork this github repo, clone your fork, then run 'cabal configure && cabal install' in the root directory. Ensure `~/.cabal/bin` is on your PATH, and add a new environment variable AO_PATH pointing to the cloned `ao` directory. 
+At the moment, we have an AO compiler to ABC, a slow ABC interpreter, and a haskeline REPL. To get started, fork this github repo, clone your fork, configure your environment (above), then run 'cabal configure && cabal install' in the root directory. Ensure `~/.cabal/bin` is on your PATH. 
 
 The `aoi` executable doesn't allow you to define new words. You can edit the dictionary, however, and hit Ctrl+C to reload it at any time. The `ao` executable can run `test.` words (with `ao test`) or provide relatively imprecise type information (with `ao type word`).
 

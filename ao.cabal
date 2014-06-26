@@ -1,5 +1,5 @@
 Name: ao
-Version: 0.17.1
+Version: 0.18
 Synopsis: Interpreter for AO 
 Category: Awelon
 Description:
@@ -22,6 +22,10 @@ Description:
   
   The long term goal of this package is to get AO development into a
   state where it can easily bootstrap.
+  
+  CONFIGURATION NOTES: Not all versions of cabal-install have the
+  library-for-ghci option enabled by default. It must be enabled to
+  generate the files used by the plugins system for JIT.
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com
