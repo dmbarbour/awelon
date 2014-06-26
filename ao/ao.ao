@@ -11,7 +11,7 @@ std
      obtain random numbers (cryptographic entropy)
      read and write files
      read environment variables 
-     unsafely destroy any value (even relevant values)
+     unsafely duplicate or destroy any value
      any annotation is also available as a command
  
  For specifics, see words with suffix `.io`.
@@ -47,10 +47,8 @@ std
 @getOSEnv.io "getOSEnv" p command.io
 
 @doc.randomBytes.io "count -- (list of octets); (io) secure random source"
-
 @randomBytes.io "randomBytes" p command.io
 @rand8.io 1 randomBytes.io assert wx drop
-
 
 @doc.Filesystem
 "As command line utilities, `ao` and `aoi` offer some operations for working with the local filesystem through the power block. This is rather ad-hoc and minimal. Filesystem operations are asynchronous, meaning the powerblock is returned immediately even if the effect takes longer. Reads and writes to the same filename are serialized. A filename is given as text. 

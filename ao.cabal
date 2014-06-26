@@ -23,9 +23,7 @@ Description:
   The long term goal of this package is to get AO development into a
   state where it can easily bootstrap.
   
-  CONFIGURATION NOTES: Not all versions of cabal-install have the
-  library-for-ghci option enabled by default. It must be enabled to
-  generate the files used by the plugins system for JIT.
+  CONFIGURATION NOTES: enable library-for-ghci or JIT won't work
 
 Author: David Barbour
 Maintainer: dmbarbour@gmail.com

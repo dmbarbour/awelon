@@ -1,6 +1,19 @@
 
 Awelon Bytecode has always been intended for compilation, to support performance. Currently, this is performed entirely at the bytecode layer, but it might be worth while to compile at the AO layer as well.
 
+## The Compiler
+
+Currently, there is an ABC to Haskell compiler built into the `ao` and `aoi` executables. Compilation is achieved by translating ABC code to Haskell then using the `plugins` package to compile and load it. Plugins are given module names based on the secure hash of the ABC code being compiled, and export a simple `resource` value that is polymorphic to different runtimes.
+
+This isn't a very good compiler. There are many optimizations it does not perform, the handling of sum types is rather awkward, and (at the moment) the performance of the compiled code is not considerably better than that of the interpreted code. Indeed, I wouldn't lose much by deleting the current compiler.
+
+What I'd like to do is reimplement the compiler within AO and bootstrap it properly. 
+
+At least for now, the JIT framework should provide a decent (though non-optimal) target for compiled code. I'd like to eventually ween Awelon project entirely off of Haskell. But that certainly won't happen right away! 
+
+Nonetheless...
+
+I shouldn't have much difficulty implementing the older, trivial ABC to Haskell compilation to get started on this bootstrap process.
 
 ## Controlling Compilation
 
