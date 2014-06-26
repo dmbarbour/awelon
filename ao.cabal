@@ -33,7 +33,7 @@ License: BSD3
 license-file: LICENSE.txt
 Stability: experimental
 build-type: Simple
-cabal-version: >= 1.16
+cabal-version: >= 1.16.0.3
 
 Source-repository head
   type: git
@@ -58,7 +58,6 @@ Executable aoi
      , dataenc (>= 0.14)
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
-
 
 Executable ao
   hs-source-dirs: hsrc_ao hsrc_util
