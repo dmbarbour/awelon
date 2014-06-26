@@ -148,6 +148,7 @@ abc_jit ops =
             ,"-fno-warn-missing-signatures"
             ,"-fno-warn-unused-binds"
             ,"-fno-warn-unused-matches"
+            ,"-package","ao"
             ,"-O2"
             ]
     in
