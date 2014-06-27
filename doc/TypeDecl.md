@@ -41,3 +41,16 @@ I wonder, actually, whether approaching this as a describing a proof strategy, s
 
 Other interesting features would be some sort of quickcheck-like feature, e.g. such that types can guide construction and analysis of values, and support for ad-hoc property tests. With this criteria, a useful model for types might be a grammar, or somehow related to grammars.
 
+
+## Multiple Type Systems?
+
+One of the difficulties I've had with 'typechecking' is the whole issue of: what should be the 'official' type system? I guess that I've been *assuming* that I should only have one type system per AO installation (or something like that). 
+
+This assumption is something of an intellectual trap, based on my long history working with PLs that each have just one type system. But having a single 'official' type system actually creates its own challenges, e.g. with respect to standards management and growth.
+
+Let's consider the alternative.
+
+Our dictionary can feasibly support multiple type systems, using naming conventions. Every type system may then be used to compute pass/fail/undecided (along with specific warnings or notices) on every word in the dictionary. An undecided option might also be the result of a timeout.
+
+There may be a little support for type declarations, i.e. such that developers can insist that a value is polymorphic in certain ways. These mechanisms should be common to all type systems, such that all of them can leverage type declarations in a simple way. (This suggests an API for type systems against which type declarations are described.)
+
