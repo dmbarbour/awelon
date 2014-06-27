@@ -106,6 +106,8 @@
 @test.gte.g 12 11 .gte assert
 @test.lte.l 11 12 .lte assert
 
+@test.gt.sort.a 5 3 .gt merge x 3 assertEQ1.n 5 assertEQ1d.n
+@test.gt.sort.b 3 5 .gt merge x 3 assertEQ1.n 5 assertEQ1d.n  
 
 @doc..gt1 "a x -- (a + a); a > x?; for numbers a,x"
 @doc..lt1 "a x -- (a + a); a < x?; for numbers a,x"
