@@ -13,6 +13,21 @@ ao
 @doc.cls "(io) clear the current stack (including relevant blocks)"
 @cls reifyStack destroy.io
 
-@help %v doc.aoi.utility debugPrintText drop %c
+@help %v doc.aoi.help debugPrintText drop %c
 
 
+@doc.aoi.help
+"Each line is an AO command. Multi-line text is unavailable except
+ by adding it to the dictionary or reading a file. All asynchronous 
+ operations must complete between lines.
+ 
+ Special commands, used alone on a line, include:
+ 
+     @reload - update the dictionary from the filesystem
+     @undo - return to a prior state (modulo side-effects)
+ 
+ To edit or define a word, modify the dictionary then reload.
+ 
+ See also: `ao exec.s` for non-interactive AO streams, and `ao test`
+ to automate tests performed in the REPL. 
+~ 
