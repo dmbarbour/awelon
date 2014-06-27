@@ -90,12 +90,16 @@ Library
     , system-filepath (>= 0.4.10)
     , containers (>= 0.5 && < 0.7)
     , transformers
+    , cryptohash (>= 0.11)
+    , base64-bytestring (>= 1.0)
+    , bytestring, byteable
 
   Exposed-Modules:
 
     ABC.Operators
     ABC.Quote
     ABC.Simplify
+    ABC.Hash
 
     ABC.Imperative.Value
     ABC.Imperative.Operations
@@ -103,6 +107,7 @@ Library
     ABC.Imperative.Runtime
     ABC.Imperative.Resource
     ABC.Imperative.Prelude
+    -- ABC.Imperative.JIT
 
     AO.Code
     AO.Parser
