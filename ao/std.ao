@@ -76,7 +76,9 @@
 ~ 
 
 @doc.compile
-"The `{&compile}` annotation supports explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
+"The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
+ 
+         {&compile} :: (a→b) → (a→b); compiles the function
  
  Dynamic compilation may become static compilation via partial evaluation. However, developers may also access static compilation directly; see `doc.prefix.#`. The latter has some advantages with respect to avoiding redundant expansion and processing.
 ~

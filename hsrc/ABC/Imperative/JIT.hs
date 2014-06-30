@@ -40,9 +40,9 @@ abcToModuleName = hashToModuleName . abcHash
 -- (lossy, but retains at least 320 bits for uniqueness)
 hashToModuleName :: String -> String
 hashToModuleName s = 
-    let (a,sa) = L.splitAt 2 (fmap modChar s) in
-    let (b,sb) = L.splitAt 2 sa in
-    let c = L.take 60 sb in
+    let (a,a') = L.splitAt 2 (fmap modChar s) in
+    let (b,b') = L.splitAt 2 a' in
+    let c = L.take 60 b' in
     let sa = showChar 'A' . showString a in
     let sb = showChar 'B' . showString b in
     let dot = showChar '.' in
