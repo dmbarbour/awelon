@@ -1,34 +1,30 @@
 
-Awelon Bytecode has always been intended for compilation, to support performance. Currently, this is performed entirely at the bytecode layer, but it might be worth while to compile at the AO layer as well.
+Awelon Bytecode (ABC) has always been intended for compilation (both static and dynamic) to support performance. 
+
+Compilation is also feasible at the Awelon Object (AO) layer. However, compilation at the ABC layer is better for streaming and for achieving my long-term goals. That said, it seems reasonable that developers should be able to guide compilation via the AO layer, either by annotation or by naming conventions.
+
+Use of annotations to guide compilation has and advantage and disadvantage of being potentially dynamic. Names to guide compilation, however, would be static in a very simple way. 
 
 ## The Compiler
 
-Currently, there is an ABC to Haskell compiler built into the `ao` and `aoi` executables. Compilation is achieved by translating ABC code to Haskell then using the `plugins` package to compile and load it. Plugins are given module names based on the secure hash of the ABC code being compiled, and export a simple `resource` value that is polymorphic to different runtimes.
+At the moment, `ao` and `aoi` can utilize the Haskell `plugins` package to load code written in Haskell as a plugin. The idea is to compile ABC to (presumably) efficient Haskell, leverage the Haskell optimizer, and load it as a plugin. Note: the performance at the moment is not very good. I might need to specialize for a specific runtime model, rather than abstract across runtimes. 
 
-This isn't a very good compiler. There are many optimizations it does not perform, the handling of sum types is rather awkward, and (at the moment) the performance of the compiled code is not considerably better than that of the interpreted code. Indeed, I wouldn't lose much by deleting the current compiler.
+Currently, there is an ABC to Haskell compiler written in Haskell, but this is a problematic state of affairs. First, it requires recompiling the Haskell code in order to update the compiler. Second, it doesn't generalize well to cross-compilation to other target languages (e.g. C, OpenCL). Long term, I'd like to wean Awelon project entirely off of Haskell.
 
-What I'd like to do is reimplement the compiler within AO and bootstrap it properly. 
+At the moment, the implemented compiler is not a very good compiler. There are many optimizations it does not perform, the handling of sum types is rather awkward, and (at the moment) the performance of the compiled code is not considerably better than that of the interpreted code. Indeed, I wouldn't lose much by deleting the current compiler for rewrite purposes.
 
-At least for now, the JIT framework should provide a decent (though non-optimal) target for compiled code. I'd like to eventually ween Awelon project entirely off of Haskell. But that certainly won't happen right away! 
-
-Nonetheless...
-
-I shouldn't have much difficulty implementing the older, trivial ABC to Haskell compilation to get started on this bootstrap process.
+I aim to rewrite the compiler in AO, and bootstrap properly, but stick with the plugins model for now.
 
 ## Controlling Compilation
 
-However, a reasonable question is just how I want to go about achieving this. 
+At the moment, dynamic compilation is supported by use of an `{&compile}` annotation. My idea for static compilation is to target AO words that start with `#`, i.e. such that `#foo` is implicitly compiled. This should offer AO developers some effective, ad-hoc, and relatively transparent support for compilation.
 
-One approach I've tried is to compile the full dictionary into a Haskell file, operating at the level of individual words. This achieves decent performance, and could likely do better (my original compile was quite naive). But it also requires a big, expensive recompile after any change in the dictionary. I did not like this consequence, and eventually scrapped the approach.
+ABC already has an approach to model separate compilation and linking: we use `{#secureHashOfBytecode}` to identify a resource by its secure hash and logically load it in place. This is a simple approach that is compatible with distributed systems and streaming bytecode. 
 
-Another approach I've developed is use of dynamic compilation, a `{&compile}` annotation that operates on a block. This is potentially very useful for dynamic code, but at runtime it can lead to large overheads. Potentially, we can also perform JIT based on recognizing how often a block is called.
+In context, it may be worthwhile to explicitly use the `{#secureHashOfBytecode}` technique for `{&compile}` and `#foo` compilations. This could help prepare Awelon project for distributed programming. Further, it may mitigate redundant storage and processing of code due to common reuse of words.
 
-An interesting possibility that I have not developed: precompile just a subset of words, and load them as plugins. These words might be identified by name, e.g. using prefix `#` such that `#foo` is automatically compiled into a `{#secureHashResource}`. This could feasibly simplify development of 'hard' vs. 'soft' layers, and could jumpstart support for secure hash resources on larger scales.
+## Multiple Compilers?
 
-If I do this well, I shouldn't need to recompile the whole dictionary on each change... only a small subset that is both used and precompiled. This should support effective performance and perhaps better reuse of code and memory. 
-
-
-
-
+An interesting possibility is to support multiple compilation words in the dictionary, and perhaps to compile programs multiple times and compare the results. I'm not sure how I'd want to expose this to users, yet, so more development of this idea is necessary.
 
 
