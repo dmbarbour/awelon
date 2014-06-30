@@ -102,13 +102,5 @@ std
 @asynch [{&asynch}] .apply
 @asynch.io "&asynch" p command.io
  
-@doc.compile
-"Awelon Bytecode (ABC) was designed with the assumption that it will be compiled to achieve acceptable performance. Awelon idioms place a heavy emphasis on staged programming, e.g. where developers might construct programs that construct programs, composing hundreds of blocks. While ahead-of-time compilation for AO is pretty good in many use cases, it fares poorly for staged programming. Dynamic or just-in-time compilation can offer excellent performance at the cost of some extra latency when compiling the code. 
- 
- AO can provide access to compiled performance either implicity (through the VM) or explicitly (via annotations). The 'compile' word, presented here, uses an annotation to indicate a block should be compiled.
- 
- CAUTION: In the current implementation of `ao` and `aoi` utilities, compiled code is never garbage collected. This means developers must currently be conservative about using dynamic compilation based on runtime inputs. Also, the compilation and loading overhead is enormous. Eventually, AO should have a runtime with fast compiles and garbage collection. But we're not there yet... and it might never happen for the Haskell implementation.
-~
-@compile [{&compile}] .apply
 @compile.io "&compile" p command.io
 

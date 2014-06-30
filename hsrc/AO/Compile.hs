@@ -1,6 +1,8 @@
 
 -- | Efficiently obtain ABC code for a given AO command.
 -- This is a pure compilation, and ignores metadata.
+--
+-- See Also: AO.Precompile
 module AO.Compile 
     ( compileAOtoABC
     , aopToABC

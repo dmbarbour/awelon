@@ -60,7 +60,7 @@
 @test.until1.1  0 [inc]  0 [dupd gteb] bind until1 1 assertEQ1.n
 @test.until1.0  0 [inc]  0 [dupd gteb] bind until  0 assertEQ1.n
 
-@doc.prefix.bench 
+@doc.prefix.bench.
 "benchmarks; not part of the usual test suite
  
  note: these may cause trouble for partial evaluators (but they're also a nice validation that partial evaluators don't do too much work)

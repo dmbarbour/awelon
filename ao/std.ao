@@ -15,7 +15,7 @@
  The intention is to mitigate this issue at the editor. A set of rules (configurable per user, view, or project) shall translate common prefixes and suffixes into rendering with colors and styles and possible icons. For example, `foo.x` and `foo.y` might render the same text (just `foo`) but with different colors for the `x` vs. `y` context. Similarly, fuzzy autocomplete mechanisms in the editor can eliminate need to fully write out large words. `foo.x` might be found by typing just `fx`.
 ~
 
-@doc.prefix.doc
+@doc.prefix.doc.
 "AO does not have 'comments' in the usual sense. Instead, a word that starts with `doc.` can document some aspect of a dictionary - e.g. a word, project, or convention. This makes documentation a first-class, computable value, though most of the time it will simply be some text.
  
  In some cases, developers will be tempted to inject remarks directly into a word. This is doable (just `"this is a comment" drop` would do) but discouraged. Instead, consider refactoring the definition into words that can be documented independently, or that have self-explanatory names.
@@ -23,7 +23,7 @@
  At the moment, documentation lacks a clear convention or format, just a pseudo-markdown. Most likely, this will be addressed when we start processing documentation into HTML pages or similar.
 ~
 
-@doc.prefix.test
+@doc.prefix.test.
 "Automated testing is an effective means to maintain software quality, avoid regressions, and achieve confidence in code. Test driven design can keep designs well grounded and incremental.  
  
  In AO, automatic testing is expressed simply by using the prefix 'test.' in the definitions of words. Test words can be systematically executed in a standard environment with a confined powerblock. A test can fail due to type errors, assertion failures, taking too much time or space, or emitting an error message effectfully through the powerblock.
@@ -37,7 +37,7 @@
 @doc.cmd.test "msg -- result; (io) call powerblock in standard location"
 @cmd.test %zwl .apply x %rwz
 
-@doc.prefix.eqv 
+@doc.prefix.eqv.
 "There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests, and provide hints or tests for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two subprograms should be equivalent.
  
  The type of any 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
@@ -67,7 +67,23 @@
 @assertEQ1dd  rotd  assertEQ1 unrot
 @assertEQ1ddd rolld assertEQ1 unroll
 
-@doc.prefix.id 
+@doc.prefix.#
+"Words starting with `#`, e.g. `#foo` or `#listReverse`, are implicitly targeted for optimization and separate compilation by a conforming runtime. This naming convention can help developers guide static compilation, linking, and mitigate memory and bandwidth overheads.
+ 
+ In Awelon Bytecode, capability text of form `{#secureHashOfBytecode}` is used to invoke external bytecode resources, i.e. by logically inlining them. Use of these resources is compatible with AO's 'inline everything' macro semantics. It is also compatible with streaming or distributed code systems. In a distributed system, secure hash resources might be downloaded via secure hash, compiled and cached locally, then linked and invoked as needed. Downloads are location independent, but search may be guided by other annotations.
+ 
+ The idea is that words such as `#foo` should typically compile to a `{#secureHashOfBytecode}`. Originally, it was envisioned that separate compilation would be inferred by a smart compiler or service, guided by a long memory of common and stable subprograms. However, explicit guidance can work in the meantime and will become soft guidance later. In addition to static compilation, developers can access explicit dynamic compilation by use of the `{&compile}` annotation; see `doc.compile`. 
+~ 
+
+@doc.compile
+"The `{&compile}` annotation supports explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
+ 
+ Dynamic compilation may become static compilation via partial evaluation. However, developers may also access static compilation directly; see `doc.prefix.#`. The latter has some advantages with respect to avoiding redundant expansion and processing.
+~
+@compile [{&compile}] .apply
+
+
+@doc.prefix.id.
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
  
  The 'id' prefix is a specialized equivalence that also implies idempotence and commutativity. Look into the 'idempotent', 'commutative', and 'eqv' prefixes.
@@ -183,14 +199,6 @@
  
  Despite being insecure, hard-coded sealers are useful. They simplify reasoning and search for which code can access a value. They help document that some intermediate structures from an API are intended to be private or opaque. Introducing a new token for a test can help developers enforce parametricity. Value sealing can guard against accidental bindings, similar to 'newtype' in some other languages.
 ~
-
-@doc.prefix.seal "seal the first item on the stack"
-@doc.prefix.unseal "unseal the first item on the stack"
-@doc.prefix.sealer "an insecure sealing capability"
-@doc.prefix.unsealer "an insecure unsealing capability"
-
-@doc.seal "guard a value against accidental observation"
-@doc.unseal "unseal a value guarded by 'seal'"
 @sealer [{:}]
 @unsealer [{.}]
 @seal sealer .apply
