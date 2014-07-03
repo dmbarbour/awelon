@@ -70,7 +70,6 @@ helpMsg =
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \The 'exec.abc' utilities will escape any {tokens} not valid in AO. \n\
     \The '.s' input stream is stdin, processed one paragraph at a time. \n\
-    \Partial compilation is based on `#` prefix AO words. \n\
     \\n\
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\

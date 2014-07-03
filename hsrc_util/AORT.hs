@@ -345,7 +345,9 @@ tryAORT (P (B b) a) =
         Right v -> return $  R v
         Left _err -> 
             let msg = "{try} aborted with: " ++ show _err in
-            putErrLn msg >> return (L a)
+            let msgV = S "tryFail" (textToVal msg) in 
+            putErrLn msg >> 
+            return (L (P msgV a))
 tryAORT v = fail $ "{try} @ " ++ show v
 
 execPower :: V AORT -> AORT (V AORT)

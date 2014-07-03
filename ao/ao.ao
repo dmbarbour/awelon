@@ -72,16 +72,16 @@ std
 @doc.duplicate.io "a -- a a; (io) duplicate will copy any input, including affine blocks (unsafe)"
 @duplicate.io "duplicate" p command.io wx
 
-@doc.tryCap.io " -- [([a→b]*a)→(a+b)]; (io) obtain capability to confine error"
+@doc.tryCap.io " -- [([a→b]*a)→((E*a)+b)]; (io) obtain capability to confine error"
 @tryCap.io intro1 "newTryCap" p command.io
 
-@doc.tryWrap.io "[a→b]--[a→(a+b)]; (io) modify a function to trap error"
+@doc.tryWrap.io "[a→b]--[a→((E*a)+b)]; (io) modify a function to trap error"
 @tryWrap.io tryCap.io .bind
 
 @doc.tryAp.io 
-"a [a→b] -- (a+b); (io) attempt to apply, but isolate failure
+"a [a→b] -- ((E*a)+b); (io) attempt to apply, but isolate failure
  
- Failures primarily include failed assertions and type errors. On failure, an error message (meant for humans) is included with the original argument. There is no guarantee that side-effects are atomic, though they should be if feasible.
+ Failures primarily include failed assertions and type errors. On failure, a sealed error message E is included with the original argument, and will typically be logged as well. The error message is intended for humans, and can only be unsealed by the powerblock.
  
  The ability to isolate failure is considered a protected capability - in part for security reasons, but in larger part to simplify reasoning about static safety and partial failure of subprograms. By controlling this capability, a parent program can control which subprograms are allowed to partially fail and keep running. Developers are discouraged from using `try` except in special cases, such as when running runtime-generated untrusted code.
  
