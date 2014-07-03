@@ -1,19 +1,25 @@
 
--- | This is an idea for partially pre-compiling the AO dictionary
--- by recognizing words starting with `#` for separate compilation
--- and linking. This enables a very flexible mix of compiled code
--- together with interpreted code.
+-- | This is an idea for partially pre-compiling the AO dictionary.
 --
--- Words such as #foo have their definitions modified to invocation:
+-- The convention for deciding which words to precompile has not yet
+-- settled. The encoding below compiles words starting with `#`, but
+-- it is already obvious that this was a bad idea. We might instead
+-- compile words for which `compile.foo` is defined, or a variation
+-- on that.
 --
---    {#secureHashOfBytecode}
--- 
--- However, this occurs in a recursive manner, such that if #foo uses
--- #bar, #foo will at some point inline the secure hash used in #bar.
+-- Precompiled words will show up in the resulting ABC using the
+-- full provider-independent capability:
 --
--- This module only compiles these words down to the Awelon bytecode,
--- and minimally modifies the dictionary. Further compilation of the
--- target words is necessary to achieve any real benefit from it.
+--     {#secureHashOfCiphertext:secureHashOfBytecode}
+--
+-- Which is to say, precompiled words is aimed to jumpstart Awelon's
+-- distribution and separate compilation features. A runtime that
+-- supports precompiled words can easily be extended to download the
+-- resources from a remote server.
+--
+-- This module will output the code segments that should be further
+-- compiled, along with their identifiers. Further compilation is 
+-- left to the runtime.
 --
 module AO.Precompile 
     ( preCompileDict

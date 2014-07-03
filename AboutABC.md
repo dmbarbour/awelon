@@ -63,9 +63,17 @@ Text is shorthand for producing a list of small numbers between 0 and 1114111 (0
 
 Effects in ABC are achieved by invoking environment-provided operators: `{foo}` invokes the environment with token "foo" and the tacit argument. 
 
-This token is unforgeable from within ABC. There are no operators to invoke the environment with computed text. In potentially open or distributed system, the token should also be unforgeable from outside of ABC. This feature is achieved by cryptographic means - e.g. encrypted text, signed text, or secure random GUID. 
+Tokens are *unforgeable* from within ABC. That is, even given the string "foo", there is no way to construct invocation `{foo}`. In an open or distributed system, the token should also be protected from external forgery, which is achieved by cryptographic mechanisms (e.g. encryption, secure hashing, signatures). 
 
-Access to effects can then be [securely distributed](http://en.wikipedia.org/wiki/Capability-based_security) by wrapping invocations within a block like `[{foo}]`. In this role, blocks are often called capabilities.
+By using blocks, e.g. `[{foo}]`, we effectively have first-class but unforgeable access to whatever effect the invocation of `{foo}` achieves. This is a capability, and is suitable for secure programming, via [capability security](http://en.wikipedia.org/wiki/Capability-based_security) in open or distributed systems, which is a primary target area for ABC. Consequently, an invocation token may also be described as 'capability text'. 
+
+Effectful tokens are typically specific to a virtual machine or runtime environment. However, there are some standard conventions for the special exceptions where we want a token to have a common meaning across independent runtimes in a distributed system. These are usually identified based on the first character:
+
+* `{&ann}` - annotation, identity behavior, for performance and debugging.
+* `{:seal}` and `{.seal}` - sealers and unsealers for rights amplification.
+* `{#secureHash…}` - link and load, separate compilation
+
+These are discussed with more detail in later sections.
 
 *Note:* tokens may not contain characters `{`, `}`, or LF (10). 
 
@@ -383,25 +391,87 @@ NOTE: In addition to unique sealers, a high level language (like AO) might suppo
 
 NOTE: if serialized, sealed values might be represented as encrypted capability text. This won't apply to low-security discretionary sealers, but it can apply to instance specific or runtime generated sealers. Prefix `$` is tentatively reserved for this purpose. 
 
+### Separate Compilation and Dynamic Linking
+
+The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. 
+
+The natural alternative to repeating a large code structure is to simply name it once then repeat the (presumably much smaller) name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by a more rigorous naming system.
+
+Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted and the name includes a decryption key. 
+
+This works as follows:
+
+* the secure hash of the bytecode becomes a symmetric encryption key
+* compress then encrypt the bytecode to form a ciphertext
+* the secure hash of the ciphertext becomes the lookup key
+* store the ciphertext, indexing on the lookup key
+* resulting full name is simply 'lookupKey:decryptionKey'
+* which is equivalent to 'hashOfCipherText:hashOfBytecode'
+
+To use an external resource requires an invocation on the environment to load and link the resource. The proposed standard convention for this simply prefixes the name with `#`.
+
+        {#hashOfCipherText:hashOfBytecode}
+
+To utilize the resource, the above process runs in reverse: we download, decrypt, and decompress the resource, and validate it both against the secure hash and as valid ABC code. This might be a 'deep' linking operation, gathering all resources up front. Modulo the possibility of network disruption (which may cause the program to fail), the invocation should be equivalent to inlining the identified bytecode. 
+
+In practice, named resources are good opportunities for separate compilation. Chances are decent that, if we encounter a named resource, it's because we'll use it again. We can compile the resource once then cache it for future use. 
+
+Regarding concrete algorithms:
+
+* use SHA3-384 for the secure hash algorithm, two parts:
+*   keep first 192 bits from the cipher text
+*   keep last 192 bits from the bytecode
+* compression algorithm is not yet chosen, perhaps gzip, lzma (7z), or lzham
+* AES encryption with 192 bit key (from secure hash of bytecode)
+
+I'm interested in ensuring a deterministic identifier for each bytecode sequence. This means I should to standardize whatever compression algorithm is used, along with any extra parameters to it. 
+
+#### Secure Distribution with Untrusted Storage
+
+In a decentralized distributed system, it's often useful to have untrusted cloud servers act as storage for information without allowing them to inspect the information they store. In this case, it may be useful to *encrypt* every resource when storing it to the cloud, and use a larger capability to additionally decrypt the resource. 
+
+A simple design is effectively a subset of Tahoe-LAFS: 
+
+* use the secure hash of the bytecode as an encryption key
+* use the secure hash of the encrypted code as the lookup key
+
+The capability is then expanded to look like:
+
+        {#secureHashOfCipherText:secureHashOfBytecode}
+
+Usefully, this is entirely deterministic. And the resulting structure should be easy to validate on both machines. And the total 384 bits will contribute to uniqueness, so I still have the same amount of uniqueness.
+
+ Also, I could use 192-bit secure hashes, in this case, and still achieve a similar degree of uniqueness overall. The total encoding (including curly braces, hashes, and separator) would now be 68 octets. 
+
+
+
+
+
+
+
+In this case, we identify the resource by the secure hash of the encrypted value, then we'll decrypt the resource using the secure hash of the value being decrypted (as a symmetric key). This might be represented in capability text as:
+
+        {#secureHashOfEncryptedValue:secureHashOfDecryptedValue}
+
+A host carries the encrypted source, which we locate by secure hash. We can download the resource, decrypt it, then validate the secure hash. 
+
+It's easy for runtimes to use encryption in a deterministic way. 
+
+
+
+
+
+Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; computable type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
+
+To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required.
+
+Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. Unlike traditional shared object and linker models, ABC's design works effectively in context of secure, streamable code.
+
 ### ABC Paragraphs
 
 ABC encourages an informal notion of "paragraphs" at least in a streaming context. A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
 
 A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're advantageous to everyone involved, i.e. for performance and reasoning.
-
-### Secure Hash Sources for Code Reuse and Separate Compilation
-
-It is not uncommon in a project or service to reuse large, specialized software elements: frameworks, templates, plugins, widgets, diagrams, texts, tables, images, agents, codecs, and other software components. In an ABC stream, the most direct way to reuse code is to repeat it in the stream. Unfortunately, reuse by repetition is inefficient for bandwidth and storage. 
-
-An alternative to repeating code is to name it. Then we can reuse large code by repeating the much shorter name. Unfortunately, most naming systems have properties that repeating code does not: collisions, potential cycles, location dependence, update and version consistency issues. These features are troublesome for security, safety, and distribution. Fortunately, we can address these issues by a more rigorous naming system. Instead of allowing humans pick names, we leverage a [secure hash function](http://en.wikipedia.org/wiki/Cryptographic_hash_function) of the content. Collisions and cycles are effectively eliminated. The 'update' and 'reuse' and 'location' concerns are cleanly separated.
-
-ABC leverages its effects model to access these `{#secureHash}` sources. 
-
-Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; computable type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
-
-To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required. 
-
-Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. Unlike traditional shared object and linker models, ABC's design works effectively in context of secure, streamable code.
 
 ## Awelon Bytecode Deflated (ABCD)
 

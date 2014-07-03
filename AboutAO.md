@@ -157,7 +157,9 @@ To support early development using filesystem and text editor, AO has a simple *
 
 Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. If a word is already defined, the earlier definition is replaced and a warning is issued. Cyclic definitions are an error and are removed from the dictionary.
 
-The *import* section, before the first entry, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). Each import file is processed once, regardless of duplication or cycles, favoring an order such that those listed last are loaded last. A dictionary as a whole is specified from a root file or text.
+The *import* section, before the first entry separator, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). Each import file is processed once, regardless of duplication or cycles, favoring an order such that those listed last are loaded last. A dictionary as a whole is specified from a root file or text.
+
+These AO dictionary files are unlikely to scale well beyond 10k words. Eventually, they will be deprecated in favor of a database or similar.
 
 ### Processing of AO Dictionary
 

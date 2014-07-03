@@ -17,14 +17,24 @@ I aim to rewrite the compiler in AO, and bootstrap properly, but stick with the 
 
 ## Controlling Compilation
 
-At the moment, dynamic compilation is supported by use of an `{&compile}` annotation. My idea for static compilation is to target AO words that start with `#`, i.e. such that `#foo` is implicitly compiled. This should offer AO developers some effective, ad-hoc, and relatively transparent support for compilation.
+At the moment, dynamic compilation is supported by use of an `{&compile}` annotation, of identity type on blocks `[a→b]→[a→b]`. I'm well enough satisfied by this.
 
-ABC already has an approach to model separate compilation and linking: we use `{#secureHashOfBytecode}` to identify a resource by its secure hash and logically load it in place. This is a simple approach that is compatible with distributed systems and streaming bytecode. 
+I am also interested in supporting 'static' compilation, per word in the dictionary. Per-word compilation can potentially mitigate exponential expansion overheads associated with AO's 'inline everything' model, and jumpstart early use of external bytecode resources.
 
-In context, it may be worthwhile to explicitly use the `{#secureHashOfBytecode}` technique for `{&compile}` and `#foo` compilations. This could help prepare Awelon project for distributed programming. Further, it may mitigate redundant storage and processing of code due to common reuse of words.
+The question I have is how to best control per-word compilation. Some possibilities:
+
+* Use a prefix, e.g. `#` so `#foo` is implicitly targeted for compilation
+* Define a separate preCompiledWords file or definition
+* Annotate the `foo` definition for compilation
+* Define `compile.foo` for each `foo` that I wish to precompile
+* Heuristically infer words for compilation
+
+Use of a prefix initially appealed to me, but with hindsight it's hard to understand why. It seems a tight coupling between names and performance is very painful during development. Use of a separate file seems like it might be disadvantageous long-term, and is contrary to my dictionary-as-OS concept. Use of a single compilation word centralizes a lot of management, and thus requires careful administration. Annotations don't really have a well-defined scope as components, which can make them more difficult to process.
+
+It seems to me the best option is to focus on per-word compilation, and perhaps the heuristic approach.
+
+An interesting possibility is to automatically combine these. I could try to use a word like `compile.foo` to *modify* the compilation heuristic in the particular case of `foo`. 
 
 ## Multiple Compilers?
 
 An interesting possibility is to support multiple compilation words in the dictionary, and perhaps to compile programs multiple times and compare the results. I'm not sure how I'd want to expose this to users, yet, so more development of this idea is necessary.
-
-
