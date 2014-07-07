@@ -395,77 +395,31 @@ NOTE: if serialized, sealed values might be represented as encrypted capability 
 
 The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. 
 
-The natural alternative to repeating a large code structure is to simply name it once then repeat the (presumably much smaller) name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by a more rigorous naming system.
+The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by a more rigorous naming system.
 
 Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted and the name includes a decryption key. 
 
-This works as follows:
+In concrete pseudocode:
 
-* the secure hash of the bytecode becomes a symmetric encryption key
-* compress then encrypt the bytecode to form a ciphertext
-* the secure hash of the ciphertext becomes the lookup key
-* store the ciphertext, indexing on the lookup key
-* resulting full name is simply 'lookupKey:decryptionKey'
-* which is equivalent to 'hashOfCipherText:hashOfBytecode'
+        makeResource(bytecode) : string
+            encryptionKey = secondHalfOf(SHA3-384(bytecode))
+            cipherText = AES(compress(bytes),encryptionKey)
+            lookupKey = firstHalfOf(SHA3-384(bytes))
+            store(lookupKey,cipherText)
+            name = base64url(lookupKey) + ":" + 
+                   base64url(encryptionKey)
+            return name
 
-To use an external resource requires an invocation on the environment to load and link the resource. The proposed standard convention for this simply prefixes the name with `#`.
+The ciphertext may be stored almost anywhere, even on untrusted cloud servers. 
 
+Later, ABC can utilize the resource by invoking `#name`:
+
+        {#lookupKey:encryptionKey}
         {#hashOfCipherText:hashOfBytecode}
 
-To utilize the resource, the above process runs in reverse: we download, decrypt, and decompress the resource, and validate it both against the secure hash and as valid ABC code. This might be a 'deep' linking operation, gathering all resources up front. Modulo the possibility of network disruption (which may cause the program to fail), the invocation should be equivalent to inlining the identified bytecode. 
+Utilization simply operates in reverse. First, we download the resource using the lookup key. Decrypt, decompress. Validate the bytecode both against its hash and as a well-typed ABC subprogram. Optionally compile and cache the resource for future use, which gives an effective for separate compilation. Logically, invocation should be equivalent to inlining the bytecode resource.
 
-In practice, named resources are good opportunities for separate compilation. Chances are decent that, if we encounter a named resource, it's because we'll use it again. We can compile the resource once then cache it for future use. 
-
-Regarding concrete algorithms:
-
-* use SHA3-384 for the secure hash algorithm, two parts:
-*   keep first 192 bits from the cipher text
-*   keep last 192 bits from the bytecode
-* compression algorithm is not yet chosen, perhaps gzip, lzma (7z), or lzham
-* AES encryption with 192 bit key (from secure hash of bytecode)
-
-I'm interested in ensuring a deterministic identifier for each bytecode sequence. This means I should to standardize whatever compression algorithm is used, along with any extra parameters to it. 
-
-#### Secure Distribution with Untrusted Storage
-
-In a decentralized distributed system, it's often useful to have untrusted cloud servers act as storage for information without allowing them to inspect the information they store. In this case, it may be useful to *encrypt* every resource when storing it to the cloud, and use a larger capability to additionally decrypt the resource. 
-
-A simple design is effectively a subset of Tahoe-LAFS: 
-
-* use the secure hash of the bytecode as an encryption key
-* use the secure hash of the encrypted code as the lookup key
-
-The capability is then expanded to look like:
-
-        {#secureHashOfCipherText:secureHashOfBytecode}
-
-Usefully, this is entirely deterministic. And the resulting structure should be easy to validate on both machines. And the total 384 bits will contribute to uniqueness, so I still have the same amount of uniqueness.
-
- Also, I could use 192-bit secure hashes, in this case, and still achieve a similar degree of uniqueness overall. The total encoding (including curly braces, hashes, and separator) would now be 68 octets. 
-
-
-
-
-
-
-
-In this case, we identify the resource by the secure hash of the encrypted value, then we'll decrypt the resource using the secure hash of the value being decrypted (as a symmetric key). This might be represented in capability text as:
-
-        {#secureHashOfEncryptedValue:secureHashOfDecryptedValue}
-
-A host carries the encrypted source, which we locate by secure hash. We can download the resource, decrypt it, then validate the secure hash. 
-
-It's easy for runtimes to use encryption in a deterministic way. 
-
-
-
-
-
-Here, 'secureHash' will (most likely) be SHA3-384 of an ABC subprogram, encoded as 64 octets in base64url (`A-Z` `a-z` `0-9` `-_`). When `{#secureHash}` is encountered in the ABC stream, we obtain the associated resource, validate it against the hash, validate it as an independent ABC subprogram (e.g. blocks balanced; text terminates; computable type), then essentially inline the subprogram. These sources may be 'deep', referencing more `{#secureHash}` sources.
-
-To obtain sources, we search local cache or query proxy services, using the hash as an identifier. In many contexts, the sender is an implicit proxy; annotations in a stream may suggest extra proxies to search. To mitigate latency concerns for deep sources, a proxy is free to send a few extra sources that it anticipates will soon be required.
-
-Frequently used sources can sometimes be cached together with precompiled forms for performance. Thus, `{#secureHash}` sources serve as a simple foundation for separate compilation and linking in ABC. Unlike traditional shared object and linker models, ABC's design works effectively in context of secure, streamable code.
+The only function not fully decided yet is the `compress` step. After investigation, I'm leaning towards LZW + Huffman, or a simple variation on each. LZW has the advantage of being almost entirely deterministic, in the sense that there are no arbitrary decision for the compressor to make.
 
 ### ABC Paragraphs
 
