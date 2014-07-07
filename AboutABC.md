@@ -422,7 +422,8 @@ Utilization simply operates in reverse. First, we download the resource using th
 At this point, the `compress(bytes)` function has not fully been decided. Candidates:
 
 * A viable candidate algorithm is LZW + Huffman. However, LZW is not very good for large sources or ABC streams that change patterns (e.g. due to use of embedded DSLs and the not easily compressed `#name` resources). 
-* I am developing an alternative candidate, LZW-GC + Polar. LZW-GC adds an exponential decay factor that incrementally forgets old patterns in favor of new ones. Polar encoding is a simple alternative to Huffman encoding that is very cheap to compute in case of fast adaptive encodings. 
+
+* I am developing an alternative candidate, LZW-GC + Polar, suitable for large resources or streams. LZW-GC adds an exponential decay factor that incrementally forgets old patterns in favor of new ones. [Polar encoding](http://www.ezcodesample.com/prefixer/prefixer_article.html) is a simple alternative to Huffman encoding that is very cheap to compute to better support fast streaming compression.
 
 ### ABC Paragraphs
 

@@ -13,9 +13,7 @@ Awelon Object language (AO) is a programming language built (very thinly) above 
 
 In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The relationship between words their definitions is maintained by a **dictionary** with a flat namespace. The formal semantics for every word is simply the inline expansion of its definition. Recursive definitions are invalid; loops are instead expressed using fixpoint combinators. Expansion ends at a finite sequence of text, numbers, blocks, and inlined ABC.
 
-Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Spreadsheet-like systems might be modeled within a dictionary using naming conventions like `a1$foo` and `b3$foo` to define cells that can be rendered together as spreadsheet 'foo'. (Interactive development in AO uses spreadsheet instead of REPL.) Conventional desktop and console apps may precipitate from a dictionary with each `app.xyzzy` word resulting in an 'xyzzy' executable.
-
-Ultimately, an AO dictionary represents a complete system with hundreds of projects, services, tests, documents, resources, and applications. The dictionary will evolve due to cross-project refactoring and integration testing. In context of Awelon project, an AO dictionary may eventually become a convenient way to model user macros and tools.
+Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Conventions may guide use of word-level separate compilation and linking. The vision for AO is a growing, organic dictionary, with a hundred thousand words for hundreds of projects, tests, documents, services, and software components. Some parts of the dictionary will calcify, while others are subject to large scale refactorings across projects.
 
 The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for development prior to richer environments.
 
@@ -69,15 +67,15 @@ By convention and role, we call the value `s` the stack, and `e` the environment
 
 ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In addition, capabilities may be syntactically represented using `{` to following `}`.
 
-        %vrwlc      (aka `swap`)
-        %lwcwrwc    (aka `rot4`)
+        %vrwlc      (a primitive swap)
+        %lwcwrwc    (a primitive rot4)
         {&par}      (an annotation)
 
-The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the definition of `%vrwlc` is effectively `%v %r %w %l %c`. ABC's drop operator would be represented as `%%`. 
+The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the expansion of `%vrwlc` is equivalent to `%v %r %w %l %c`. ABC's drop operator would be represented as `%%`.
 
-AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and discretionary sealers... preferably at parse-time. This restriction on capabilities is discussed below. 
+AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and hard-coded sealers sealers... preferably at parse-time. This restriction is valuable for proper capability security.
 
-*Note:* AO does not allow inlining of ABCD. ABCD extends ABC with a fixed dictionary, which is redundant in context of AO's own dictionary feature. Instead, ABCD should always be generated as a postprocess to compress a raw ABC stream. However, annotations or naming conventions may encourage a specific compression to ABCD.
+*Note:* AO developers cannot directly utilize ABCD or ABC's separately compiled resources. However, words may be configured indirectly for compilation, and thus may implicitly be reduced to ABCD or separately compiled resources.
 
 ## Proper Capability Security
 

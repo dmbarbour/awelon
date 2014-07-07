@@ -67,23 +67,52 @@
 @assertEQ1dd  rotd  assertEQ1 unrot
 @assertEQ1ddd rolld assertEQ1 unroll
 
-@doc.prefix.#
-"Words starting with `#`, e.g. `#foo` or `#listReverse`, are implicitly targeted for optimization and separate compilation by a conforming runtime. This naming convention can help developers guide static compilation, linking, and mitigate memory and bandwidth overheads.
- 
- In Awelon Bytecode, capability text of form `{#secureHashOfBytecode}` is used to invoke external bytecode resources, i.e. by logically inlining them. Use of these resources is compatible with AO's 'inline everything' macro semantics. It is also compatible with streaming or distributed code systems. In a distributed system, secure hash resources might be downloaded via secure hash, compiled and cached locally, then linked and invoked as needed. Downloads are location independent, but search may be guided by other annotations.
- 
- The idea is that words such as `#foo` should typically compile to a `{#secureHashOfBytecode}`. Originally, it was envisioned that separate compilation would be inferred by a smart compiler or service, guided by a long memory of common and stable subprograms. However, explicit guidance can work in the meantime and will become soft guidance later. In addition to static compilation, developers can access explicit dynamic compilation by use of the `{&compile}` annotation; see `doc.compile`. 
-~ 
-
 @doc.compile
 "The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
  
          {&compile} :: (a→b) → (a→b); compiles the function
  
- Dynamic compilation may become static compilation via partial evaluation. However, developers may also access static compilation directly; see `doc.prefix.#`. The latter has some advantages with respect to avoiding redundant expansion and processing.
+ Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.link!` for more.
 ~
 @compile [{&compile}] .apply
 
+@doc.prefix.link!
+"Awelon Bytecode (ABC) can support separate compilation and linking via its invocation model. An ABC resource is given a deterministic, cryptographically unique name based on the underlying bytecode. This is easiest to explain this with a little pseudocode:
+ 
+         makeResource(bytecode):
+             hashBC = drop(24,SHA3-384(bytecode))
+             cipherText = AES_encrypt(compress(bytecode),hashBC)
+             hashCT = take(24,SHA3-384(cipherText))
+             store(hashCT,cipherText)
+             resourceId = encode_base64url(hashCT) + ":" + 
+                          encode_base64url(hashBC)
+             return resourceId
+ 
+  The resulting ciphertext resource may securely be stored anywhere, even on untrusted servers. This can be useful for data distribution networks. The final resource invocation is 68 bytes long and has the form:
+ 
+         {#hashCT:hashBC}
+ 
+ This invocation is logically equivalent to inlining the identified bytecode resource. To load the resource, we can easily reverse the above process:
+ 
+         loadResource(resourceId):
+             hashCT = decode_base64url(take(32,resourceId))
+             hashBC = decode_base64url(drop(33,resourceId))
+             cipherText = fetch(hashCT)
+             bytecode = decompress(AES_decrypt(cipherText,hashBC))
+             assertValidHash(bytecode,hashBC)
+             assertValidABC(bytecode)
+             return bytecode
+ 
+ Relevantly, loading a named resource is an excellent (albeit implicit) opportunity for separate compilation. We can download the resource, compile it once, and cache the compiled form for future use. Named resources will tend to be subprograms that benefit from compilation and are likely to see reuse.
+ 
+ Prefix `link!` enables guidance of per-word linking and separate compilation.
+ 
+ For every word `foo`, we can define word `link!foo`. If `link!foo` is defined, a conforming AO implementation shall replace foo's simplified bytecode with an invocation of the appropriate resource ID. This applies recursively, such that `foo` itself may depend on other linked resources. The definition for `link!foo` is not currently considered. Its presence in the dictionary is a sufficient declaration.
+ 
+ Essentially, `link!` allows developers to treat a dictionary as a mixed toolbox of soft and hard software components, without hindering redefinition of those components.
+ 
+ *Note:* compression algorithm not decided; likely LZW+Huffman or derivative.
+~
 
 @doc.prefix.id.
 "There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
