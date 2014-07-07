@@ -419,7 +419,10 @@ Later, ABC can utilize the resource by invoking `#name`:
 
 Utilization simply operates in reverse. First, we download the resource using the lookup key. Decrypt, decompress. Validate the bytecode both against its hash and as a well-typed ABC subprogram. Optionally compile and cache the resource for future use, which gives an effective for separate compilation. Logically, invocation should be equivalent to inlining the bytecode resource.
 
-At this point, the `compress(bytes)` function has not fully been decided. A primary requirement is determinism, i.e. that compression have zero heuristic or implementation-dependent decisions. The LZW compression algorithm, together with a Huffman encoding, is a promising basis. At this point, I'm experimenting with a simple variation called LZW-GC that should be more suitable to very large resources or streaming programs.
+At this point, the `compress(bytes)` function has not fully been decided. Candidates:
+
+* A viable candidate algorithm is LZW + Huffman. However, LZW is not very good for large sources or ABC streams that change patterns (e.g. due to use of embedded DSLs and the not easily compressed `#name` resources). 
+* I am developing an alternative candidate, LZW-GC + Polar. LZW-GC adds an exponential decay factor that incrementally forgets old patterns in favor of new ones. Polar encoding is a simple alternative to Huffman encoding that is very cheap to compute in case of fast adaptive encodings. 
 
 ### ABC Paragraphs
 
