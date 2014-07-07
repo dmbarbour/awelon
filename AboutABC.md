@@ -14,7 +14,7 @@ Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a str
 * **functional** higher order expressions, immutable values, pure by default
 * **bytecode** UTF-8 for text, but ABC codes within Latin-1 character set
 
-ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended for compilation or JIT. ABC supports linking and invoking external code via `{#secureHash}`, as an effective basis for structure sharing and cachable compilation.
+ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended for compilation or JIT. ABC supports linking and invoking external code via invoking `{#abcResourceName}`, as an effective basis for structure sharing and cachable compilation.
 
 ## The ABC Stream
 
@@ -71,7 +71,7 @@ Effectful tokens are typically specific to a virtual machine or runtime environm
 
 * `{&ann}` - annotation, identity behavior, for performance and debugging.
 * `{:seal}` and `{.seal}` - sealers and unsealers for rights amplification.
-* `{#secureHash…}` - link and load, separate compilation
+* `{#abcResourceName}` - link and load, separate compilation
 
 These are discussed with more detail in later sections.
 
@@ -419,7 +419,7 @@ Later, ABC can utilize the resource by invoking `#name`:
 
 Utilization simply operates in reverse. First, we download the resource using the lookup key. Decrypt, decompress. Validate the bytecode both against its hash and as a well-typed ABC subprogram. Optionally compile and cache the resource for future use, which gives an effective for separate compilation. Logically, invocation should be equivalent to inlining the bytecode resource.
 
-The only function not fully decided yet is the `compress` step. After investigation, I'm leaning towards LZW + Huffman, or a simple variation on each. LZW has the advantage of being almost entirely deterministic, in the sense that there are no arbitrary decision for the compressor to make.
+At this point, the `compress(bytes)` function has not fully been decided. A primary requirement is determinism, i.e. that compression have zero heuristic or implementation-dependent decisions. The LZW compression algorithm, together with a Huffman encoding, is a promising basis. At this point, I'm experimenting with a simple variation called LZW-GC that should be more suitable to very large resources or streaming programs.
 
 ### ABC Paragraphs
 
@@ -437,7 +437,7 @@ But compression isn't the only desired characteristic. A carefully developed ABC
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will grow much beyond the two-octet UTF-8 space. 
 
-ABCD is intended to be used together with `{#secureHash}` sources. 
+ABCD is intended to be used together with separate ABC resources.
 
 ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced by typical caching models.
 
