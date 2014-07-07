@@ -107,9 +107,9 @@
  
  Prefix `link!` enables guidance of per-word linking and separate compilation.
  
- For every word `foo`, we can define word `link!foo`. If `link!foo` is defined, a conforming AO implementation shall replace foo's simplified bytecode with an invocation of the appropriate resource ID. This applies recursively, such that `foo` itself may depend on other linked resources. The definition for `link!foo` is not currently considered. Its presence in the dictionary is a sufficient declaration.
+ For every word `foo`, we can define word `link!foo`. If `link!foo` is defined, a conforming AO implementation will replace foo's bytecode with an invocation of the associated resource ID. This applies recursively, such that `foo` itself may depend on other linked resources. The definition for `link!foo` is not currently considered. Its presence in the dictionary is a sufficient declaration.
  
- Essentially, `link!` allows developers to treat a dictionary as a mixed toolbox of soft and hard software components, without hindering redefinition of those components.
+ Essentially, `link!` allows developers to treat a dictionary as a toolbox of reusable software components, and bootstraps early use of resource IDs such that we'll later be prepared to use them for distributed software and web applications. Long term, this prefix might be deprecated in favor of heuristic software decisions.
  
  *Note:* compression algorithm not decided; likely LZW+Huffman or derivative.
 ~
