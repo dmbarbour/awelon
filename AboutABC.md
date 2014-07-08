@@ -397,33 +397,42 @@ The most direct way to reuse code in ABC is simply to repeat it. But reuse by re
 
 The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by a more rigorous naming system.
 
-Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted and the name includes a decryption key. 
+Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted and the name includes a decryption key. Concrete pseudocode:
 
-In concrete pseudocode:
+        makeResource(bytecode)
+            hashBC = drop(24,SHA3-384(bytecode))
+            cipherText = AES_encrypt(compress(bytes),hashBC)
+            hashCT = take(24,SHA3-384(cipherText))
+            store(hashCT,cipherText)
+            resourceId = encode_base64url(hashCT) + ":" + 
+                         encode_base64url(hashBC)
+            return resourceId
 
-        makeResource(bytecode) : string
-            encryptionKey = secondHalfOf(SHA3-384(bytecode))
-            cipherText = AES(compress(bytes),encryptionKey)
-            lookupKey = firstHalfOf(SHA3-384(bytes))
-            store(lookupKey,cipherText)
-            name = base64url(lookupKey) + ":" + 
-                   base64url(encryptionKey)
-            return name
+The resulting ciphertext may securely be stored anywhere, even untrusted cloud servers. The servers can easily validate the lookup key (the hash of the ciphertext), and thus resist some denial of service attacks. ABC can then load and link the resource via invocation: `{#resourceId}`. This process is essentially the reverse of the above, plus a few validations:
 
-The ciphertext may be stored almost anywhere, even on untrusted cloud servers. 
+        loadResource(resourceId) 
+            hashBC = decode_base64url(drop(33,resourceId))
+            hashCT = decode_base64url(take(32,resourceId))
+            cipherText = fetch(hashCT)
+            bytecode = decompress(AES_decrypt(cipherText,hashBC))
+            validateHash(bytecode,hashBC)
+            validateABC(bytecode)
+            return bytecode
 
-Later, ABC can utilize the resource by invoking `#name`:
+If successfully accessed, a resource invocation should be logically equivalent to inlining the identified bytecode. It is possible that `fetch` may fail, e.g. because the network is down. We can mitigate this by looking up resources ahead of time, e.g. during `validateABC`. After downloading a resource, we might locally cache the bytecode, and possibly compile it for performance.
 
-        {#lookupKey:encryptionKey}
-        {#hashOfCipherText:hashOfBytecode}
+I've selected hash algorithm SHA3-384 and encryption algorithm AES. 
 
-Utilization simply operates in reverse. First, we download the resource using the lookup key. Decrypt, decompress. Validate the bytecode both against its hash and as a well-typed ABC subprogram. Optionally compile and cache the resource for future use, which gives an effective for separate compilation. Logically, invocation should be equivalent to inlining the bytecode resource.
+The primary candidate for compression is LZW-GC + Huffman. Considerations:
 
-At this point, the `compress(bytes)` function has not fully been decided. Candidates:
+* resources will range 3+ orders magnitude in size (e.g. 200B - 200kB)
+* some resources have large amounts of embedded text (EDSLs, content)
+* need deterministic compression (no implementation-dependent decisions) 
+* some resources are deeply structured with `{#resourceId}` dependencies
+* simplicity of specification is important, lower maintenance overheads
+* space-time performance should be statically predictable and not slow
 
-* A viable candidate algorithm is LZW + Huffman. However, LZW is not very good for large sources or ABC streams that change patterns (e.g. due to use of embedded DSLs and the not easily compressed `#name` resources). 
-
-* I am developing an alternative candidate, LZW-GC + Polar, suitable for large resources or streams. LZW-GC adds an exponential decay factor that incrementally forgets old patterns in favor of new ones. [Polar encoding](http://www.ezcodesample.com/prefixer/prefixer_article.html) is a simple alternative to Huffman encoding that is very cheap to compute to better support fast streaming compression.
+LZW is a tempting basis because it is highly deterministic; there are no ambiguous or heuristic decisions to make. LZW-GC is an adaptive variation of LZW that will be suitable for larger resources. For performance, we can probably stick with a dictionary of 4095 or 8191 elements (plus a stop code for Huffman). Huffman encoding mitigates the larger token sizes, and can be deterministic.
 
 ### ABC Paragraphs
 
