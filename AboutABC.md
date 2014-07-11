@@ -391,49 +391,19 @@ NOTE: In addition to unique sealers, a high level language (like AO) might suppo
 
 ### Separate Compilation and Dynamic Linking
 
-The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. 
+The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. Recursively, we name and reuse ever larger redundant structures. 
 
-The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system.
+Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system. 
 
-Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted by use of the hash. Pseudocode:
+Instead of human-provided names, we can compute a cryptographically unique name by applying a secure hash to the bytecode. This becomes the 'short' name for the ABC code, albeit longer than a human would normally use. We then use ABC's effects model to invoke this resource as needed, and it's ideally equivalent to repeating the code in line:
 
-        makeResource(bytecode)
-            hashBC = drop(24,SHA3-384(bytecode))
-            cipherText = AES_encrypt(compress(bytes),hashBC)
-            hashCT = take(24,SHA3-384(cipherText))
-            store(hashCT,cipherText)
-            resourceId = encode_base64url(hashCT) + ":" + 
-                         encode_base64url(hashBC)
-            return resourceId
+        {#secureHashOfBytecode}
 
-The resulting ciphertext may securely be stored anywhere, even untrusted cloud servers. The servers can easily validate the lookup identity, thus protecting against some denial of service attacks. In context of reusable software, this [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) is desirable, as it avoids replicating resources and results in better caching and reuse properties. 
+Besides saving bandwidth and storage, named code servies as an opportunity for caching, separate compilation, and optimization. Named code is named in part because it's likely to see use more than once.
 
-However, convergent encryption is subject to 'confirmation' attacks if we can guess the module's structure and what the information might look like. To help mitigate this, a higher level language should allow marking some compiled words or resources as privacy-sensitive, such that we automatically mix some random data with the bytecode when compiling those resources, e.g. by adding `"random string\n~%` to the bytecode. 
+Sadly, from a security perspective, using a secure hash to name resources does have a few weaknesses. It is subject to confirmation attacks if used for sensitive but guessable information. And the sensitive resources cannot be stored on untrusted machines. Basically, resources identified by `{#secureHashOfResource}` should be treated similarly to open source software packages.
 
-ABC may then load and link the resource via invocation: `{#resourceId}`. This process is essentially the reverse of the above, plus a few validations:
-
-        loadResource(resourceId) 
-            hashBC = decode_base64url(drop(33,resourceId))
-            hashCT = decode_base64url(take(32,resourceId))
-            cipherText = fetch(hashCT)
-            bytecode = decompress(AES_decrypt(cipherText,hashBC))
-            validateHash(bytecode,hashBC)
-            validateABC(bytecode)
-            return bytecode
-
-If successfully accessed, a resource invocation should be logically equivalent to inlining the identified bytecode. It is possible that `fetch` may fail, e.g. because the network is down. We can mitigate this by looking up resources ahead of time, e.g. during `validateABC`. After downloading a resource, we might locally cache the bytecode, and possibly compile it for performance.
-
-I've selected hash algorithm SHA3-384 and encryption algorithm AES. There are still minor details to work out, such as modes and initialization vectors for encryption. 
-
-A compression algorithm is not yet decided. Considerations:
-
-* resources will range 4+ orders magnitude in size (e.g. 200B - 2MB)
-* many resources have large amounts of embedded text (EDSLs, content)
-* some resources deeply structured with `{#resourceId}` dependencies
-* need simple specification: no ambiguity, deterministic, just works
-* space-time requirements should be very predictable and not slow
-
-It's the large resources and embedded text that really benefit from compression, especially in context of mobile networking. A reasonable candidate algorithm is LZW + Huffman, or a variant on LZW. LZW is not a very good compression algorithm, but does meet the simplicity and determinism requirements. I'm developing experimental variants of LZW that leverage a simple garbage collection model (exponential decay instead of least-recently used). The GC aspect won't help for most resources, but could allow a common compression algorithm to work for both resources and long-running ABC streams. LZW-GC is tempting in this case.
+*Aside:* Potentially, we might additionally compress and encrypt the bytecode, and modify the name so it has a separate `{#lookupKey:decryptKey}` pair. These keys could still be derived from content, but are also still subject to confirmation attacks. I [detail this possibility in another document](doc/ProviderIndependentSecurity.md).
 
 ### ABC Paragraphs
 
