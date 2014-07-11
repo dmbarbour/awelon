@@ -387,17 +387,15 @@ Developers can reason about sealed values by reasoning about distribution of sea
 
 and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
 
-NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, e.g. to model abstract data types, newtypes, or modules. These might use an insecure value such as `{:foo}`. To protect against untrusted foreign code in open systems, it is also reasonable to have a variation that rewrites for each application instance, e.g. `{:$myFoo}`. 
-
-NOTE: if serialized, sealed values might be represented as encrypted capability text. This won't apply to low-security discretionary sealers, but it can apply to instance specific or runtime generated sealers. Prefix `$` is tentatively reserved for this purpose. 
+NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, i.e. to prevent accidental misuse of a value. These can serve a role similar to newtype (without truly securing the value).
 
 ### Separate Compilation and Dynamic Linking
 
 The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. 
 
-The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by a more rigorous naming system.
+The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. This can apply recursively, such that we name ever redundant larger structures. Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system.
 
-Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted and the name includes a decryption key. Concrete pseudocode:
+Instead of human names, a cryptographically unique name is deterministically derived from the content. This involves use of secure hash algorithms. Additionally, to support provider-independent security (i.e. such that we can upload sensitive code to an untrusted cloud) the bytecode resources are encrypted by use of the hash. Pseudocode:
 
         makeResource(bytecode)
             hashBC = drop(24,SHA3-384(bytecode))
@@ -408,7 +406,11 @@ Instead of human names, a cryptographically unique name is deterministically der
                          encode_base64url(hashBC)
             return resourceId
 
-The resulting ciphertext may securely be stored anywhere, even untrusted cloud servers. The servers can easily validate the lookup key (the hash of the ciphertext), and thus resist some denial of service attacks. ABC can then load and link the resource via invocation: `{#resourceId}`. This process is essentially the reverse of the above, plus a few validations:
+The resulting ciphertext may securely be stored anywhere, even untrusted cloud servers. The servers can easily validate the lookup identity, thus protecting against some denial of service attacks. In context of reusable software, this [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) is desirable, as it avoids replicating resources and results in better caching and reuse properties. 
+
+However, convergent encryption is subject to 'confirmation' attacks if we can guess the module's structure and what the information might look like. To help mitigate this, a higher level language should allow marking some compiled words or resources as privacy-sensitive, such that we automatically mix some random data with the bytecode when compiling those resources, e.g. by adding `"random string\n~%` to the bytecode. 
+
+ABC may then load and link the resource via invocation: `{#resourceId}`. This process is essentially the reverse of the above, plus a few validations:
 
         loadResource(resourceId) 
             hashBC = decode_base64url(drop(33,resourceId))
@@ -421,18 +423,17 @@ The resulting ciphertext may securely be stored anywhere, even untrusted cloud s
 
 If successfully accessed, a resource invocation should be logically equivalent to inlining the identified bytecode. It is possible that `fetch` may fail, e.g. because the network is down. We can mitigate this by looking up resources ahead of time, e.g. during `validateABC`. After downloading a resource, we might locally cache the bytecode, and possibly compile it for performance.
 
-I've selected hash algorithm SHA3-384 and encryption algorithm AES. 
+I've selected hash algorithm SHA3-384 and encryption algorithm AES. There are still minor details to work out, such as modes and initialization vectors for encryption. 
 
-The primary candidate for compression is LZW-GC + Huffman. Considerations:
+A compression algorithm is not yet decided. Considerations:
 
-* resources will range 3+ orders magnitude in size (e.g. 200B - 200kB)
-* some resources have large amounts of embedded text (EDSLs, content)
-* need deterministic compression (no implementation-dependent decisions) 
-* some resources are deeply structured with `{#resourceId}` dependencies
-* simplicity of specification is important, lower maintenance overheads
-* space-time performance should be statically predictable and not slow
+* resources will range 4+ orders magnitude in size (e.g. 200B - 2MB)
+* many resources have large amounts of embedded text (EDSLs, content)
+* some resources deeply structured with `{#resourceId}` dependencies
+* need simple specification: no ambiguity, deterministic, just works
+* space-time requirements should be very predictable and not slow
 
-LZW is a tempting basis because it is highly deterministic; there are no ambiguous or heuristic decisions to make. LZW-GC is an adaptive variation of LZW that will be suitable for larger resources. For performance, we can probably stick with a dictionary of 4095 or 8191 elements (plus a stop code for Huffman). Huffman encoding mitigates the larger token sizes, and can be deterministic.
+It's the large resources and embedded text that really benefit from compression, especially in context of mobile networking. A reasonable candidate algorithm is LZW + Huffman, or a variant on LZW. LZW is not a very good compression algorithm, but does meet the simplicity and determinism requirements. I'm developing experimental variants of LZW that leverage a simple garbage collection model (exponential decay instead of least-recently used). The GC aspect won't help for most resources, but could allow a common compression algorithm to work for both resources and long-running ABC streams. LZW-GC is tempting in this case.
 
 ### ABC Paragraphs
 

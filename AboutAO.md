@@ -103,21 +103,14 @@ Value sealing with sealer/unsealer pairs is useful for many security patterns (s
 
 Value sealing is a form of annotation in the sense that it doesn't have any observable semantics. That is, for a correct program, all sealer/unsealer pairs can be removed from the program without changing its behavior. Value sealing only causes some incorrect programs to fail or be rejected.
 
-Sealers and unsealers are represented as capabilities:
+Sealers and unsealers are represented in AO as invocations:
 
         {:foo}      sealer 'foo' seals the value
         {.foo}      unseal value from sealer 'foo'
 
 In general, any sealed value must be treated as an opaque, atomic entity until unsealed. Only a few whole-value operations - in particular, copy and drop and quotation - are permitted if also allowed on the underlying value. 
 
-As an intermediate level of security, developers can also express *instance specific* sealers, i.e. which secure against *foreign code* (e.g. blocks or ABC streams received from a network or external file). Syntactically, this involves an extra prefix character `$`. For example:
-
-        {:$myFoo}   sealer 'myFoo' specific to application instance
-        {.$myFoo}   unseal 'myFoo' specific to application instance
-
-If exposed to the network, such an instance specific sealers would be rewritten - in a cryptographically secure manner (e.g. HMAC or PKI) - based on an ad-hoc, external, VM-layer notion of origin, ownership, or application instance. Introspection on the dictionary through a powerblock might also be associated with new 'child' instances. No other instance will have exactly the same `$myFoo`. 
-
-For full security, developers must generate sealers through a powerblock or related capability.
+For true security, developers must generate sealer/unsealer pairs effectfully, via powerblock or related capability. 
 
 ## Processing AO
 
