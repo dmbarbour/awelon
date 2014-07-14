@@ -313,42 +313,39 @@ It also may give ABC a more dynamic feel, especially combined with dependently t
 
 ### Annotations as Capabilities
 
-Annotations are expressed as capability text using prefix `&` as in `{&asynch}`. Annotations must not impact the observable, formal semantics of a program. Annotations may suggest or hint at performance attributes, but not enforce any properties. Despite these limitations, annotations are potentially useful for many ad-hoc purposes:
+Annotations are expressed as capability text using prefix `&` as in `{&asynch}`. Annotations must not impact the observable, formal semantics of a valid program - i.e. a valid program should behave equivalently if any given annotation is removed. However, annotations are useful for debugging, performance suggestions, and to help identify invalid programs. 
 
-* suggest a block compute lazily
-* suggest use of lazy, strict, or parallel evaluation
-* suggest blocks be computed on GPU or FPGA
+* suggest use of parallel evaluation; `{&asynch}`
+* suggest dynamic compilation of a block; `{&compile}`
 * suggest use of memoization or caching
-* suggest specialization or JIT of a constructed block
-* provide hints for proving safety or termination
-* assert properties inaccessible to `K`, e.g. purity of a block or equivalence of two blocks.
-* improve blame, error, or warning messages; add a warning
-* track locations in original source code
-* debugger support - breakpoints, location info, console traces
+* hints for typing safety or proving termination
+* assert structural equivalence of two values; `{&≡}`
+* improve blame, error, and warning messages
+* breakpoints, location info, console traces
 
-When an ABC subsystem doesn't understand an annotation, it should ignore it (treat it as an identity operator) rather than raise an error. If part of an ABC processing pipeline, it should pass the annotation on unchanged since it might be meaningful in a later stage. Annotations may be removed when aggressively optimizing.
+The intention with annotations is that they can be rather ad-hoc, and that ABC runtimes may ignore those it does not recognize. When processing ABC through optimization pipelines, unrecognized annotations should generally be passed forward.
 
 ### Spatial-Temporal Types and Capabilities
 
-ABC is designed for RDP, and RDP's design leverages a model of spatial-temporal types to support modeling of overlay networks, heterogeneous computation, and distributed systems. 
+ABC is designed for RDP, and RDP's design leverages a model of spatial-temporal types in a context of programming overlay networks, heterogeneous computing, and distributed systems. For security reasons, these spatial-temporal types cannot be directly observed or manipulated by ABC primitives. However, they may be influenced or observed by capability invocations.
 
 A 'spatial' type is essentially a description of *where* a value is. This includes physical locations with varying precision - server, client, GPU, FPGA, specific threads. Additionally, virtual or logical locations may be modeled to simplify reasoning about interactions between subprograms, or to model staging or pipelines.
 
 A 'temporal' type is a description of *when* a value can be observed, and might be described as a rational number of seconds from program start. Temporal types are useful to control reactive feedback loops and to understand and manage latencies in distributed systems. Upper bounds - expirations - are also useful. They help model timeout protocols, control distribution, and interact in interesting ways with substructural types.
 
-Manipulations of spatial and temporal types are effectful and are performed through capabilities. Consequently, the exact model can be a matter of convention apart from ABC's definition. My current vision has the following characteristics:
+The space-time model is a matter of convention, with a de-facto standard that is not part of ABC's definition. It is enforced through the capabilities protocols. My current vision has the following characteristics:
 
-1. Adding two numbers, comparing two values, etc. typically requires they coexist in space-time. Some delay for adding or comparing numbers may be implicit, but movement is generally explicit. 
-2. Distribution of values (operator `D`) across a sum type are often constrained based on where the values are located or where the sum type may be observed. Conversely, location may contribute to compatibility of values on merge (operator `M`).
-3. Temporal manipulations use a monotonic 'temporal cursor' metaphor. This cursor is a non-linear capability that may be advanced incrementally then applied to various values, delaying them or dooming them to expire. There may also be a method to synchronize cursors.
-4. Spatial manipulations are specific and absolute, i.e. representing specific edges in a directed connectivity graph, not just 'goto location'. They may also be restricted on temporal coordinate. Constraints on connectivity are useful for staging, security, and modeling complex physical systems.
-5. Capabilities to manipulate spatial-temporal attributes are separate from capabilities to observe/introspect the same. This restriction on information is useful for security and portability reasons.
+1. Adding two numbers, comparing two values, quoting a structure, etc. requires all inputs coexist in space-time. Some delay for adding or comparing numbers may be implicit, but movement is generally explicit. 
+2. Temporal manipulations use a 'temporal cursor' concept: rather than delaying values directly, you advance values to a cursor, which can be manipulated independently. (The idea is to maximize idempotence and commutativity of delay operations.)
+3. New substructural types may be introduced, notably *expiration* for blocks. A block can be marked for expiration, such that it is an error to apply it after a known point in time. For relevant blocks, it may further be an error to delay it beyond that point. Similarly, blocks may be specific to location.
+4. Spatial manipulations are very specific, i.e. each capability representing a *directed edge* between spaces in a connectivity graph. Developers can constrain the connectivity graph in useful ways, e.g. to enforce staging of computation. 
+5. For security reasons, reflection on spatial-temporal types is separate from distribution and manipulation. In general, we don't want most code to be sensitive to where it executes.
 
 The intention is that these capabilities are distributed *statically*, i.e. using partial evaluation or a staged model, such that the spatial-temporal information is available at compile-time. Also, while spatial-temporal types and capabilities are intended primarily for RDP, I expect they would be useful for imperative programming.
 
-*NOTE:* Spatial manipulations in distributed systems must admit the possibility of non-deterministic disruption. In many cases, it is useful to model a 'connection' or channel in order to better control how partial failures are observed. Appropriate protocols may be enforced by substructural types.
+*NOTE:* Distributed systems must admit the possibility of non-deterministic disruption. In many cases, it can be useful to model distribution capabilities as having the possibility of failure. 
 
-*NOTE:* Physical resources are almost always location specific, and must be manipulated from the right location. Accessing the location can potentially be conflated with acquisition of the resource. 
+*NOTE:* Physical resources are almost always location specific, and must be manipulated from the right location. The idea is to put code near the resource, rather than to remotely manipulate it.
 
 ### Uniqueness Types and Capabilities
 
@@ -391,19 +388,39 @@ NOTE: In addition to unique sealers, a high level language (like AO) might suppo
 
 ### Separate Compilation and Dynamic Linking
 
-The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth or storage, and can hinder effective use of cached. The natural alternative to repeating a large code structure is to simply name it once then repeat the presumably much smaller name. Recursively, we name and reuse ever larger redundant structures. 
+The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth and storage, and can hinder caching and compilation. 
 
-Conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system. 
+The natural alternative to repeating a large code structure is to simply name it once then repeat the much smaller name. Unfortunately, conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system. 
 
-Instead of human-provided names, we can compute a cryptographically unique name by applying a secure hash to the bytecode. This becomes the 'short' name for the ABC code, albeit longer than a human would normally use. We then use ABC's effects model to invoke this resource as needed, and it's ideally equivalent to repeating the code in line:
+Instead of human-provided names, we compute a cryptographically unique name by applying a secure hash to the bytecode. As a preliminary model, we might do just that. We then use ABC's effects model to invoke the named resource as needed:
 
-        {#secureHashOfBytecode}
+        {#secureHashOfBytecode}         (preliminary)
 
-Besides saving bandwidth and storage, named code servies as an opportunity for caching, separate compilation, and optimization. Named code is named in part because it's likely to see use more than once.
+This invocation is ideally equivalent to repeating the named subprogram inline (though a program may fail if the runtime cannot deeply download and validate all named resources). Further, in addition to saving bandwidth and storage, the named code serves as an opportunity for caching, separate compilation, and optimization. Named code is named in part because it's likely to see use more than once. 
 
-Sadly, from a security perspective, using a secure hash to name resources does have a few weaknesses. It is subject to confirmation attacks if used for sensitive but guessable information. And the sensitive resources cannot be stored on untrusted machines. Basically, resources identified by `{#secureHashOfResource}` should be treated similarly to open source software packages.
+This preliminary naming model has a weakness: sensitive bytecode must be stored on trusted servers. This hinders use of content distribution networks or untrusted clouds. To overcome this weakness, we must encrypt the bytecode, and the name must support decryption. Thusly, we split the unique name in two parts: one to download, one to decrypt. An enhanced model:
 
-*Aside:* Potentially, we might additionally compress and encrypt the bytecode, and modify the name so it has a separate `{#lookupKey:decryptKey}` pair. These keys could still be derived from content, but are also still subject to confirmation attacks. I [detail this possibility in another document](doc/ProviderIndependentSecurity.md).
+        encryptionKey = secureHashA(bytecode)
+        cipherText = encrypt(compress(bytecode),encryptionKey)
+        lookupKey = secureHashB(cipherText)
+        store(lookupKey,cipherText)
+
+        using {#lookupKey:encryptionKey} 
+         i.e. {#hashOfCiphertext:hashOfBytecode}
+
+Servers may independently validate the proposed lookup key. Compression just prior to encryption can reduce costs for storage, decryption, latency, and mobile bandwidth. ABC should compress relatively well. The encryption here is symmetric.
+
+Algorithmic details are not settled. Thoughts:
+
+* want a simple, unambiguous, deterministic specificiation
+* secure hash A,B: separate halves of SHA3-384
+* base64url encoding of hashes in capability text
+* compress: LZW+Huffman (or LZW variant, like LZAP or LZW-GC)
+* encrypt: AES in CTR mode; fixed nonce (or simple function of key)
+
+Authentication is built into the name, so there is no need for authenticating encryption modes. The nonce is effectively irrelevant for security, since each key is already used only once.
+
+*Aside:* Both the preliminary and encrypted naming models have a weakness against confirmation attacks [1](http://en.wikipedia.org/wiki/Convergent_encryption)[2](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html). This can be addressed by mixing an unguessable identity into the bytecode for sensitive resources. The challenge of identifying sensitive resources is left to higher level languages, such as AO.
 
 ### ABC Paragraphs
 
@@ -421,9 +438,9 @@ But compression isn't the only desired characteristic. A carefully developed ABC
 
 Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will grow much beyond the two-octet UTF-8 space. 
 
-ABCD is intended to be used together with separate ABC resources.
+ABCD is intended to be used together with linking of ABC sources.
 
-ABCD is suitable for relatively short, frequent, widely used functions. Sources are suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Sources aren't so constrained; they are easily deprecated and replaced by typical caching models.
+ABCD is suitable for relatively short, frequent, widely used functions. Linking is suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Linking isn't so constrained; sources are easily deprecated and replaced by typical caching models.
 
 Between these two features, ABC can be minimal without concern for performance or parsimony.
 
