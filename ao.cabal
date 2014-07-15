@@ -99,7 +99,7 @@ Library
     ABC.Operators
     ABC.Quote
     ABC.Simplify
-    ABC.Hash
+    ABC.Resource
 
     ABC.Imperative.Value
     ABC.Imperative.Operations

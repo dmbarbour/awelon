@@ -1,25 +1,29 @@
 
--- | This is an idea for partially pre-compiling the AO dictionary.
+-- | AO's 'inline everything' semantics are simple for reasoning, but
+-- not efficient. It makes poor reuse of memory, CPU cache, separate
+-- compilation, and bandwidth. To mitigate this, AO systems leverage
+-- ABC's separate compilation and linking model. Any sequence of ABC
+-- can be given a cryptographically unique resource token, which may
+-- then be invoked to logically inline the associated ABC.
 --
--- The convention for deciding which words to precompile has not yet
--- settled. The encoding below compiles words starting with `#`, but
--- it is already obvious that this was a bad idea. We might instead
--- compile words for which `compile.foo` is defined, or a variation
--- on that.
+-- See module ABC.Resource for more about the resource model. 
 --
--- Precompiled words will show up in the resulting ABC using the
--- full provider-independent capability:
+-- Long term, the idea is that we should use machine learning to chop
+-- large ABC programs into highly reusable, near-optimal components. 
 --
---     {#secureHashOfCiphertext:secureHashOfBytecode}
+-- But this module is concerned with a short term solution. A subset
+-- of words in the AO dictionary will be treated as ABC resources by
+-- replacing their definitions with the appropriate invocation. The
+-- ABC resources may truly be compiled separately for performance.
+-- 
+-- The selection of words for compilation is based on convention. At
+-- this time, we simply compile every word `foo` for which there is
+-- a word `compile!foo` defined in the dictionary. This is rather
+-- ad-hoc, but it will do the job well enough for now.
 --
--- Which is to say, precompiled words is aimed to jumpstart Awelon's
--- distribution and separate compilation features. A runtime that
--- supports precompiled words can easily be extended to download the
--- resources from a remote server.
---
--- This module will output the code segments that should be further
--- compiled, along with their identifiers. Further compilation is 
--- left to the runtime.
+-- TODO: eventually, I need to support sensitivity concerns, i.e. to
+-- compile sensitive ABC modules using an unguessable secret to guard
+-- against confirmation attacks.
 --
 module AO.Precompile 
     ( preCompileDict
@@ -38,7 +42,7 @@ import AO.Compile
 import AO.InnerDict
 
 import ABC.Operators
-import ABC.Hash
+import ABC.Resource
 import ABC.Quote
 import ABC.Simplify
 
@@ -47,20 +51,20 @@ type PreCompD = M.Map HashString [Op] -- hash string to operators
 type InnerD md = M.Map Word (AO_Code, md) -- original or final code
 type PCX = (M.Map Word HashString, M.Map HashString [Op])
 
--- | precompile all words whose names start with `#`.
+-- | precompile all words for which `compile!word` is defined
 -- 
--- Precompiled code is emitted as a map of abcHash values to
--- Awelon bytecode, pre-simplified but otherwise unmodified.
+-- Precompiled code is emitted as a map of abcResourceToken values 
+-- to Awelon bytecode, pre-simplified but otherwise unmodified.
 preCompileDict :: AODict md -> (AODict md, PreCompD)
 preCompileDict = flip evalState (M.empty,M.empty) . runPreCompile
 
--- find words starting with '#'
-isPCW :: Word -> Bool
-isPCW = maybe False ((== '#') . fst) . T.uncons
+isPCW :: M.Map Word a -> Word -> Bool
+isPCW d w = M.member cw d where
+    cw = T.pack "compile!" `T.append` w
 
 runPreCompile :: AODict md -> State PCX (AODict md, PreCompD)
 runPreCompile (AODict d0) =
-    let lTargets = L.filter isPCW $ M.keys d0 in
+    let lTargets = L.filter (isPCW d0) $ M.keys d0 in
     mapM_ (preComp d0) lTargets >> -- accumulates in state
     get >>= \ (hsWords,preCompD) ->
     let df = foldr updateWord d0 (M.toList hsWords) in
@@ -69,7 +73,7 @@ runPreCompile (AODict d0) =
 updateWord :: (Word, HashString) -> InnerD md -> InnerD md
 updateWord (w,hs) = M.update fn w where
     fn (_,meta) = pure (code',meta)
-    code' = [AO_Tok ('#':hs)] -- single token
+    code' = [AO_Tok hs] -- single token
 
 -- compile a word to a hash string
 preComp :: InnerD md -> Word -> State PCX HashString
@@ -80,7 +84,9 @@ preComp d w =
         Nothing ->
             let code = fst (d M.! w) in
             simplify <$> (aoCodeToABC d code) >>= \ ops ->
-            let hs = abcHash ops in
+            -- todo: modify this to more directly construct
+            --  both encrypted and decrypted storage for tokens.
+            let hs = abcResourceToken ops in
             get >>= \ (mW,mHS) ->
             put (M.insert w hs mW, M.insert hs ops mHS) >>
             return hs
@@ -92,7 +98,7 @@ aoCodeToABC _ [] = return []
 
 -- obtain bytecode, translating precompiled words to tokens
 aoActionToABC :: InnerD md -> AO_Action -> State PCX [Op]
-aoActionToABC d (AO_Word w) | isPCW w   = preComp d w >>= \ hs -> return [Tok ('#':hs)] 
+aoActionToABC d (AO_Word w) | isPCW d w = preComp d w >>= \ hs -> return [Tok ('#':hs)] 
                             | otherwise = aoCodeToABC d (fst (d M.! w))
 aoActionToABC d (AO_Block aoOps) = aoCodeToABC d aoOps >>= \ ops -> return [BL ops]
 aoActionToABC _ (AO_Num r) = return $ quotes r [Op_l]

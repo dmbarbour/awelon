@@ -21,19 +21,12 @@ At the moment, dynamic compilation is supported by use of an `{&compile}` annota
 
 I am also interested in supporting 'static' compilation, per word in the dictionary. Per-word compilation can potentially mitigate exponential expansion overheads associated with AO's 'inline everything' model, and jumpstart early use of external bytecode resources.
 
-The question I have is how to best control per-word compilation. Some possibilities:
+The question I have is how to best guide per-word compilation.
 
-* Use a prefix, e.g. `#` so `#foo` is implicitly targeted for compilation
-* Define a separate preCompiledWords file or definition
-* Annotate the `foo` definition for compilation
-* Define `compile.foo` for each `foo` that I wish to precompile
-* Heuristically infer words for compilation
+Use of a prefix (e.g. words starting with `#` are compiled) initially appealed to me, but with hindsight it's hard to understand why. A tight coupling between names and performance is very painful during development, when we're trying to tweak the performance. Also, it would not compose well if we tried to use the same convention to guide other aspects of implementation.
 
-Use of a prefix initially appealed to me, but with hindsight it's hard to understand why. It seems a tight coupling between names and performance is very painful during development. Use of a separate file seems like it might be disadvantageous long-term, and is contrary to my dictionary-as-OS concept. Use of a single compilation word centralizes a lot of management, and thus requires careful administration. Annotations don't really have a well-defined scope as components, which can make them more difficult to process.
+So, the guidance should be separate from the word itself. The most promising possibility is to simply define `compile!foo` for every word `foo` we wish to compile (ignoring the actual contents of `compile!foo`). 
 
-It seems to me the best option is to focus on per-word compilation, and perhaps the heuristic approach.
-
-An interesting possibility is to automatically combine these. I could try to use a word like `compile.foo` to *modify* the compilation heuristic in the particular case of `foo`. 
 
 ## Multiple Compilers?
 

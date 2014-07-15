@@ -71,7 +71,7 @@ Effectful tokens are typically specific to a virtual machine or runtime environm
 
 * `{&ann}` - annotation, identity behavior, for performance and debugging.
 * `{:seal}` and `{.seal}` - sealers and unsealers for rights amplification.
-* `{#abcResourceName}` - link and load, separate compilation
+* `{#abcResourceToken}` - link and load, separate compilation
 
 These are discussed with more detail in later sections.
 

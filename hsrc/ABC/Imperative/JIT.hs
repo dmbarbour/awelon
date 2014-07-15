@@ -29,15 +29,15 @@ import qualified System.Environment as Env
 import qualified Control.Exception as Err
 
 import ABC.Operators
-import ABC.Hash
+import ABC.Resource
 
 -- | compute a cryptographically unique module name for ABC code
--- (will always be equivalent to `hashToModuleName . abcHash`)
+-- (equivalent to `hashToModuleName . tail . abcResourceToken`)
 abcToModuleName :: [Op] -> String
-abcToModuleName = hashToModuleName . abcHash
+abcToModuleName = hashToModuleName . L.tail . abcResourceToken
 
 -- | compute a module name from the hash of the ABC code
--- (lossy, but retains at least 320 bits for uniqueness)
+-- (lossy, but retains 320 bits from 384 for uniqueness)
 hashToModuleName :: String -> String
 hashToModuleName s = 
     let (a,a') = L.splitAt 2 (fmap modChar s) in
