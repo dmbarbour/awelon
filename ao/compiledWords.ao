@@ -1,0 +1,4 @@
+@doc.import.compiledWords "just a bunch of compilation directives"
+
+@compile!fibonacci
+

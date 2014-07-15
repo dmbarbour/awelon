@@ -31,7 +31,6 @@ import AO.Code
 import AO.AOFile
 import AO.Parser
 import AO.Compile
-import qualified AO.Precompile
 import JIT
 import AORT
 import Util
@@ -48,14 +47,12 @@ helpMsg =
     \    ao abc command        dump simplified ABC for AO command \n\
     \    ao abc.raw command    dump raw ABC for AO command \n\
     \    ao abc.ann command    dump annotated ABC for AO command \n\
-    \    ao abc.cc command     dump partially compiled ABC for AO command \n\
     \    ao exec command       execute AO command \n\
     \    ao exec.abc command   execute ABC code \n\
     \    \n\
     \    ao abc.s              dump simplified ABC for AO on input stream \n\
     \    ao abc.raw.s          dump raw ABC for AO on input stream \n\
     \    ao abc.ann.s          dump annotated ABC for AO on input stream \n\
-    \    ao abc.cc.s           dump partially compiled ABC for AO on input stream \n\
     \    ao exec.s             execute AO command from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
@@ -74,7 +71,6 @@ helpMsg =
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
     \    AO_DICT: root dictionary text; default \"ao\" \n\
-    \    \n\
     \    AO_TEMP: directory for temporaries; default \"aotmp\" \n\
     \"
 -- todo: typechecking! 
@@ -88,11 +84,10 @@ data CMode = CMode
     { cm_simplify :: [Op] -> [Op]
     , cm_annotate :: Dict -> Dict
     }
-modeSimp, modeRaw, modeAnn, modePre :: CMode
+modeSimp, modeRaw, modeAnn :: CMode
 modeSimp = CMode simplify id
 modeRaw  = CMode id       id
 modeAnn  = CMode id       annoDict
-modePre  = CMode simplify preCompDict
 
 -- very simple command line processing
 runMode :: [String] -> IO ()
@@ -100,13 +95,11 @@ runMode ["help"]         = Sys.putStrLn helpMsg
 runMode ["abc",cmd]      = mkCmdS cmd >>= dumpABC modeSimp
 runMode ["abc.raw",cmd]  = mkCmdS cmd >>= dumpABC modeRaw
 runMode ["abc.ann",cmd]  = mkCmdS cmd >>= dumpABC modeAnn
-runMode ["abc.cc",cmd]   = mkCmdS cmd >>= dumpABC modePre
 runMode ["exec",cmd]     = mkCmdS cmd >>= execAO
 runMode ["exec.abc",cmd] = mkCmdS cmd >>= execABC
 runMode ["abc.s"]        = stdCmdS >>= dumpABC modeSimp
 runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC modeRaw
 runMode ["abc.ann.s"]    = stdCmdS >>= dumpABC modeAnn
-runMode ["abc.cc.s"]     = stdCmdS >>= dumpABC modePre
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
 runMode ["jit",cmd]      = printImperativeJIT cmd
@@ -195,9 +188,6 @@ annoDict = unsafeUpdateAODict (M.mapWithKey annoLoc) where
         let exitTok = "&-" ++ loc in
         let c' = AO_Tok entryTok : (c ++ [AO_Tok exitTok]) in
         (c',aofm)  
-
-preCompDict :: Dict -> Dict
-preCompDict = fst . AO.Precompile.preCompileDict
 
 execAO :: [String] -> IO ()
 execAO ss = 
