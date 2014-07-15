@@ -98,7 +98,7 @@ aoCodeToABC _ [] = return []
 
 -- obtain bytecode, translating precompiled words to tokens
 aoActionToABC :: InnerD md -> AO_Action -> State PCX [Op]
-aoActionToABC d (AO_Word w) | isPCW d w = preComp d w >>= \ hs -> return [Tok ('#':hs)] 
+aoActionToABC d (AO_Word w) | isPCW d w = preComp d w >>= \ hs -> return [Tok hs] 
                             | otherwise = aoCodeToABC d (fst (d M.! w))
 aoActionToABC d (AO_Block aoOps) = aoCodeToABC d aoOps >>= \ ops -> return [BL ops]
 aoActionToABC _ (AO_Num r) = return $ quotes r [Op_l]

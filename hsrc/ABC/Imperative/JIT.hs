@@ -32,7 +32,8 @@ import ABC.Operators
 import ABC.Resource
 
 -- | compute a cryptographically unique module name for ABC code
--- (equivalent to `hashToModuleName . tail . abcResourceToken`)
+-- 
+-- This uses the same token generated for separate compilation.
 abcToModuleName :: [Op] -> String
 abcToModuleName = hashToModuleName . L.tail . abcResourceToken
 

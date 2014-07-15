@@ -167,6 +167,7 @@ Independently of how a dictionary is maintained, it may be processed in several 
 *   `doc.foo` - automatic documentation or reports 
 *   `app.foo` - automatic executable generation
 *   `b3$foo` - word as cell `b3` in the `foo` spreadsheet
+*   `compile!foo` - suggest AO system separately compile `foo`
 *   programming environment extensions or configuration variables
 *   live services: web services, publish/subscribe, control systems
 
