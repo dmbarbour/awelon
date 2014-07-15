@@ -71,7 +71,7 @@ Effectful tokens are typically specific to a virtual machine or runtime environm
 
 * `{&ann}` - annotation, identity behavior, for performance and debugging.
 * `{:seal}` and `{.seal}` - sealers and unsealers for rights amplification.
-* `{#abcResourceToken}` - link and load, separate compilation
+* `{#hashOfCiphertext:hashOfBytecode}` - link and load, separate compilation
 
 These are discussed with more detail in later sections.
 
@@ -400,9 +400,9 @@ This invocation is ideally equivalent to repeating the named subprogram inline (
 
 This preliminary naming model has a weakness: sensitive bytecode must be stored on trusted servers. This hinders use of content distribution networks or untrusted clouds. To overcome this weakness, we must encrypt the bytecode, and the name must support decryption. Thusly, we split the unique name in two parts: one to download, one to decrypt. An enhanced model:
 
-        encryptionKey = secureHashA(bytecode)
+        encryptionKey = secureHashBC(bytecode)
         cipherText = encrypt(compress(bytecode),encryptionKey)
-        lookupKey = secureHashB(cipherText)
+        lookupKey = secureHashCT(cipherText)
         store(lookupKey,cipherText)
 
         using {#lookupKey:encryptionKey} 
@@ -413,7 +413,7 @@ Servers may independently validate the proposed lookup key. Compression just pri
 Algorithmic details are not settled. Thoughts:
 
 * want a simple, unambiguous, deterministic specificiation
-* secure hash A,B: separate halves of SHA3-384
+* secure hash CT, BC: independent halves of SHA3-384
 * base64url encoding of hashes in capability text
 * compress: LZW+Huffman (or LZW variant, like LZAP or LZW-GC)
 * encrypt: AES in CTR mode; fixed nonce (or simple function of key)

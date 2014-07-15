@@ -72,46 +72,26 @@
  
          {&compile} :: (a→b) → (a→b); compiles the function
  
- Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.link!` for more.
+ Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.compile!` for more.
 ~
 @compile [{&compile}] .apply
 
-@doc.prefix.link!
-"Awelon Bytecode (ABC) can support separate compilation and linking via its invocation model. An ABC resource is given a deterministic, cryptographically unique name based on the underlying bytecode. This is easiest to explain this with a little pseudocode:
+@doc.prefix.compile!
+"Awelon Bytecode (ABC) supports separate compilation and linking via its invocation model. An ABC resource is given a deterministic, cryptographically unique name based on the underlying bytecode. The resource is encrypted for easy integration with content distribution networks and cloud servers. This is easiest to explain this with a little pseudocode:
  
          makeResource(bytecode):
-             hashBC = drop(24,SHA3-384(bytecode))
-             cipherText = AES_encrypt(compress(bytecode),hashBC)
-             hashCT = take(24,SHA3-384(cipherText))
+             hashBC = secureHashBC(bytecode)
+             cipherText = encrypt(hashBC,compress(bytecode))
+             hashCT = secureHashCT(cipherText)
              store(hashCT,cipherText)
-             resourceId = encode_base64url(hashCT) + ":" + 
-                          encode_base64url(hashBC)
-             return resourceId
+             resourceToken = #hashCT:hashBC (base64url encoded)
+             return resourceToken
  
-  The resulting ciphertext resource may securely be stored anywhere, even on untrusted servers. This can be useful for data distribution networks. The final resource invocation is 68 bytes long and has the form:
+ The resource is then loaded and invoked using: `{#hashCT:hashBC}`. Modulo difficulty downloading the named bytecode (which can usually be handled up front) this invocation is logically equivalent to inlining the identified bytecode. The loading process essentially reverses the above process.
  
-         {#hashCT:hashBC}
+ In addition to potential memory and bandwidth savings, use of named ABC resources is an implicit opportunity for separate compilation. We're likely to use a name more than once. A resource can be downloaded, compiled once, and cached for multiple uses. Infrequently used resources may gradually be removed from cache.
  
- This invocation is logically equivalent to inlining the identified bytecode resource. To load the resource, we can easily reverse the above process:
- 
-         loadResource(resourceId):
-             hashCT = decode_base64url(take(32,resourceId))
-             hashBC = decode_base64url(drop(33,resourceId))
-             cipherText = fetch(hashCT)
-             bytecode = decompress(AES_decrypt(cipherText,hashBC))
-             assertValidHash(bytecode,hashBC)
-             assertValidABC(bytecode)
-             return bytecode
- 
- Relevantly, loading a named resource is an excellent (albeit implicit) opportunity for separate compilation. We can download the resource, compile it once, and cache the compiled form for future use. Named resources will tend to be subprograms that benefit from compilation and are likely to see reuse.
- 
- Prefix `link!` enables guidance of per-word linking and separate compilation.
- 
- For every word `foo`, we can define word `link!foo`. If `link!foo` is defined, a conforming AO implementation will replace foo's bytecode with an invocation of the associated resource ID. This applies recursively, such that `foo` itself may depend on other linked resources. The definition for `link!foo` is not currently considered. Its presence in the dictionary is a sufficient declaration.
- 
- Essentially, `link!` allows developers to treat a dictionary as a toolbox of reusable software components, and bootstraps early use of resource IDs such that we'll later be prepared to use them for distributed software and web applications. Long term, this prefix might be deprecated in favor of heuristic software decisions.
- 
- *Note:* compression algorithm not decided; likely LZW+Huffman or derivative.
+ Prefix `compile!` serves as a directive. When we define `compile!foo`, we direct the AO system to implement word `foo` as an ABC resource. The definition of `compile!foo` is not relevant. In addition to performance tweaking, this is useful for early development of the compilation and code distribution systems.
 ~
 
 @doc.prefix.id.
