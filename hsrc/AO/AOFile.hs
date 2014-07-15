@@ -30,6 +30,10 @@
 -- still be emitted. There is no requirement to import a definition
 -- before using a word; only the final dictionary is relevant.
 --
+-- For now, the presence of words of form `compile!foo` will direct
+-- some words to be implemented as separate ABC resources. These
+-- can be accessed via `loadRscFile`.  
+--
 -- Long term, the intention is to eschew the filesystem and use a
 -- database approach with caching and incremental update. However,
 -- the '.ao' format may still be useful for import/export.
@@ -37,9 +41,14 @@
 module AO.AOFile
     ( loadAOFiles, AOFile(..)
     , aoFilesToDefs, AOFMeta(..)
+    , loadAODict0
+    
+    -- integrating AO precompilation and ABC resource models
     , loadAODict
+    , loadRscFile, saveRscFile
     ) where
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -47,7 +56,9 @@ import Control.Monad.Trans.State
 import Data.Either
 import Data.Text (Text)
 import qualified Data.List as L
+import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Pos as P
 import Text.Parsec.Text() 
@@ -55,10 +66,13 @@ import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.Environment as Env
 import qualified System.IO.Error as Err
+import qualified Data.ByteString.Base64.URL as B64
 
 import AO.Parser
 import AO.Dict
 import AO.Code
+import AO.Precompile
+import ABC.Resource
 
 type Import   = Text
 type Line     = Int
@@ -286,12 +300,82 @@ aoFilesToDefs = L.concatMap defsInFile where
 
 -- | Load an AO dictionary from a root source, then process this
 -- into an AODict. All errors are reported through the same 
--- interface. 
+-- interface. Does not run code through precompilation.
+loadAODict0 :: (AOFileRoot s, MonadIO m) 
+           => s -> (String -> m ()) -> m (AODict AOFMeta)
+loadAODict0 src warnOp = 
+    loadAOFiles src warnOp >>=  
+    buildAODict (warnOp . showDictIssue) . aoFilesToDefs
+
+-- | Load an AO dictionary and additionally precompile it, saving
+-- the ciphertext resources into an AO_TEMP subdirectory. These
+-- resources may later be fetched (and additional ones saved) by
+-- use of `loadRscFile` and `saveRscFile`.
 loadAODict :: (AOFileRoot s, MonadIO m) 
            => s -> (String -> m ()) -> m (AODict AOFMeta)
 loadAODict src warnOp =
-    loadAOFiles src warnOp >>=  
-    buildAODict (warnOp . showDictIssue) . aoFilesToDefs
+    loadAODict0 src warnOp >>= \ d0 ->
+    let (df,(_prcd,secd)) = preCompileDict d0 in
+    emitCT warnOp secd >>
+    return df
+
+-- the base64 encoding of the 192-bit hash, with a minor wrapper to
+-- integrate with filesystems. Only 160-bits are preserved in a
+-- case-insensitive filesystem, but that should still be good enough.
+hctFile :: HashCT -> FS.FilePath
+hctFile = ext . FS.fromText . pref . T.decodeUtf8 . B64.encode where
+    pref = T.cons 'R'
+    ext = flip FS.addExtension $ T.pack "hct"
+
+emitCT :: (MonadIO m) => (String -> m ()) -> M.Map HashCT [CipherText] -> m ()
+emitCT _ secd | M.null secd = return ()
+emitCT warnOp secd = 
+    liftIO getRscDir >>= \ rscDir ->
+    mapM_ (saveCT warnOp rscDir) (M.toList secd) 
+
+saveCT :: (MonadIO m) => (String -> m ()) -> FS.FilePath -> (HashCT,[CipherText]) -> m ()
+saveCT warnOp rsc (hct,[ct]) =
+    let fp = rsc FS.</> hctFile hct in
+    let trySaveFile = Err.tryIOError (FS.writeFile fp ct) in
+    liftIO trySaveFile >>= either (warnOp . show) return
+saveCT warnOp _ (hct,_) = warnOp emsg where
+    emsg = "secure hash collision (192 bit) @ " ++ FS.encodeString (hctFile hct)
+
+loadRscFile :: (MonadIO m) => HashCT -> m [CipherText]
+loadRscFile hct = 
+    liftIO getRscDir >>= \ rsc ->
+    let fp = rsc FS.</> hctFile hct in
+    let tryReadFile = Err.tryIOError (FS.readFile fp) in
+    let zeroOrOne = either (const []) (:[]) in
+    liftIO (zeroOrOne <$> tryReadFile)
+
+saveRscFile :: (MonadIO m) => HashCT -> CipherText -> m ()
+saveRscFile hct ct =
+    liftIO getRscDir >>= \ rsc ->
+    let fp = rsc FS.</> hctFile hct in
+    let trySaveFile = Err.tryIOError (FS.writeFile fp ct) in
+    (liftIO trySaveFile) >>= either (fail . show) return
+
+-- (idempotent) obtain (and create) the ABC ciphertext resource 
+-- storage directory. This will serve as the primary location for
+-- resources until we upgrade to a proper database. 
+getRscDir :: IO FS.FilePath
+getRscDir =  
+    getAO_TEMP >>= \ aoTmp ->
+    let rscDir = aoTmp FS.</> FS.fromText (T.pack "rsc") in
+    FS.createDirectory True rscDir >>
+    return rscDir
+
+-- (idempotent) obtain (and create) the AO_TEMP directory
+-- may raise an IOError based on permissions or similar
+getAO_TEMP :: IO FS.FilePath
+getAO_TEMP = 
+    let getVar = Err.tryIOError (Env.getEnv "AO_TEMP") in
+    let withDefault = either (const "aotmp") id in
+    withDefault <$> getVar >>= \ d0 -> 
+    let fp0 = FS.fromText (T.pack d0) in
+    FS.createTree fp0 >>
+    FS.canonicalizePath fp0
 
 showDictIssue :: AODictIssue AOFMeta -> String
 showDictIssue (AODefOverride w defs) = 

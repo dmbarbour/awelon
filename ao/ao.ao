@@ -1,4 +1,4 @@
-std
+std compiledWords
 @doc.import.ao "default root import for `ao` executable. See @doc.ao.utility ."
 
 @doc.ao.utility
