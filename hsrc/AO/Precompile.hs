@@ -36,7 +36,6 @@ import Control.Monad.Trans.State
 import Control.Arrow (first)
 
 import qualified Data.Map as M
-import qualified Data.List as L
 import qualified Data.Text as T
 
 import AO.Code
@@ -48,8 +47,14 @@ import ABC.Resource
 import ABC.Quote
 import ABC.Simplify
 
-type PreCompD  = M.Map ResourceToken [Op] -- access precompiled words
-type SecStoreD = M.Map HashCT [CipherText]  -- secure store for resources
+-- | local cache of tokens to computed bytecode
+type PreCompD  = M.Map ResourceToken [Op]
+
+-- | cache of ciphertexts; secure hash is redundant here, just the
+-- secure hash of the ciphertext. We'll assume there are no 384-bit
+-- collisions. If one is found, it is likely to cause an error 
+-- downstream.
+type SecStoreD = M.Map SecureHash CipherText 
 
 data PCX md = PCX
     { pcx_dict :: M.Map Word (AO_Code, md)
@@ -58,7 +63,8 @@ data PCX md = PCX
     , pcx_secd :: SecStoreD
     }
 
--- | precompile all words for which `compile!word` is defined
+-- | precompile all words for which `compile!word` is defined. Here,
+-- the `compile!` prefix serves as a directive to the AO system.
 -- 
 -- Precompiled code is emitted as a map of abcResourceToken values 
 -- to Awelon bytecode, pre-simplified but otherwise unmodified.
@@ -67,11 +73,11 @@ preCompileDict (AODict d) = toResult $ execState runPreCompile s0 where
     toResult s = (AODict (pcx_dict s), (pcx_prcd s, pcx_secd s))
     s0 = PCX d M.empty M.empty M.empty  
 
-
-
 runPreCompile :: State (PCX md) ()
 runPreCompile = gets (M.keys . pcx_dict) >>= mapM_ preComp
 
+-- test if `compile!word` is defined, and that the word has not 
+-- already been compiled (e.g. as part of compiling another word).
 needPreComp :: Word -> State (PCX md) Bool
 needPreComp w =
     let cw = T.pack "compile!" `T.append` w in
@@ -80,7 +86,7 @@ needPreComp w =
     let bAlreadyDone = M.member w (pcx_pcw s) in 
     return (bWantPreComp && not bAlreadyDone)
 
--- precompile words if doing so is relevant.
+-- precompile words when doing so is relevant.
 preComp :: Word -> State (PCX md) ()
 preComp w =
     needPreComp w >>= \ b ->
@@ -91,12 +97,11 @@ preComp w =
     makeResource storeSecD ops >>= \ tok ->
     updateDict w tok ops
 
-storeSecD :: HashCT -> CipherText -> State (PCX md) ()
-storeSecD k ct = modify fnAdd where
-    fnAdd pcx = pcx { pcx_secd = M.alter fnAddL k (pcx_secd pcx) }
-    fnAddL Nothing = Just [ct]
-    fnAddL (Just cts) | L.elem ct cts = Just cts -- duplicate
-                      | otherwise     = Just (ct:cts) -- 192 bit hash collision
+-- assuming no full 384-bit secure hash collisions.
+storeSecD :: SecureHash -> CipherText -> State (PCX md) ()
+storeSecD k ct = modify $ \ s ->
+    let secd' = M.insert k ct (pcx_secd s) in
+    s { pcx_secd = secd' }
 
 updateDict :: Word -> ResourceToken -> [Op] -> State (PCX md) ()
 updateDict w tok ops = modify $ \ s ->

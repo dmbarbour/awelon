@@ -3,6 +3,11 @@
 -- | To support JIT via System.Plugins, it's useful to ensure 
 -- a common type having a single symbol. Resource can serve 
 -- this role.
+--
+-- Typically, this implementation resource will correspond to
+-- a given ResourceToken (from ABC.Resource). Named resources 
+-- are an effective basic unit for separate compilation, reuse,
+-- and cache.
 module ABC.Imperative.Resource 
     ( Resource(..), Prog, asProg
     ) where

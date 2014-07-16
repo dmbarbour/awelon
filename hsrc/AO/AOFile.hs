@@ -43,7 +43,7 @@ module AO.AOFile
     , aoFilesToDefs, AOFMeta(..)
     , loadAODict0
     
-    -- integrating AO precompilation and ABC resource models
+    -- using filesystem as database for ABC resources
     , loadAODict
     , loadRscFile, saveRscFile
     ) where
@@ -55,8 +55,10 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Either
 import Data.Text (Text)
+import Data.ByteString (ByteString)
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.ByteString as B
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Text.Parsec as P
@@ -307,54 +309,70 @@ loadAODict0 src warnOp =
     loadAOFiles src warnOp >>=  
     buildAODict (warnOp . showDictIssue) . aoFilesToDefs
 
--- | Load an AO dictionary and additionally precompile it, saving
--- the ciphertext resources into an AO_TEMP subdirectory. These
--- resources may later be fetched (and additional ones saved) by
--- use of `loadRscFile` and `saveRscFile`.
+-- | Load an AO dictionary and additionally precompile it, i.e. such
+-- that if we define `compile!fibonacci` then the word `fibonacci` 
+-- will be compiled into a separate ABC resource. Uses same location
+-- as `saveRscFile`.
 loadAODict :: (AOFileRoot s, MonadIO m) 
            => s -> (String -> m ()) -> m (AODict AOFMeta)
 loadAODict src warnOp =
     loadAODict0 src warnOp >>= \ d0 ->
     let (df,(_prcd,secd)) = preCompileDict d0 in
-    emitCT warnOp secd >>
+    mapM_ (uncurry saveRscFile) (M.toList secd) >>
     return df
 
--- the base64 encoding of the 192-bit hash, with a minor wrapper to
--- integrate with filesystems. Only 160-bits are preserved in a
--- case-insensitive filesystem, but that should still be good enough.
-hctFile :: HashCT -> FS.FilePath
-hctFile = ext . FS.fromText . pref . T.decodeUtf8 . B64.encode where
-    pref = T.cons 'R'
-    ext = flip FS.addExtension $ T.pack "hct"
+-- write a file, creating directory if needed
+save :: FS.FilePath -> ByteString -> IO ()
+save fp content = FS.createTree (FS.directory fp) >> FS.writeFile fp content
 
-emitCT :: (MonadIO m) => (String -> m ()) -> M.Map HashCT [CipherText] -> m ()
-emitCT _ secd | M.null secd = return ()
-emitCT warnOp secd = 
-    liftIO getRscDir >>= \ rscDir ->
-    mapM_ (saveCT warnOp rscDir) (M.toList secd) 
-
-saveCT :: (MonadIO m) => (String -> m ()) -> FS.FilePath -> (HashCT,[CipherText]) -> m ()
-saveCT warnOp rsc (hct,[ct]) =
-    let fp = rsc FS.</> hctFile hct in
-    let trySaveFile = Err.tryIOError (FS.writeFile fp ct) in
-    liftIO trySaveFile >>= either (warnOp . show) return
-saveCT warnOp _ (hct,_) = warnOp emsg where
-    emsg = "secure hash collision (192 bit) @ " ++ FS.encodeString (hctFile hct)
-
+-- | loadRscFile will load all candidate cipher texts associated
+-- with a given HashCT value. Under normal conditions, 192-bit
+-- HashCT collisions should be so rare as to be unheard of, so
+-- this will usually return only one or zero values. The full
+-- 384 bit ResourceToken is used for uniqueness in the end.
 loadRscFile :: (MonadIO m) => HashCT -> m [CipherText]
-loadRscFile hct = 
-    liftIO getRscDir >>= \ rsc ->
-    let fp = rsc FS.</> hctFile hct in
-    let tryReadFile = Err.tryIOError (FS.readFile fp) in
-    let zeroOrOne = either (const []) (:[]) in
-    liftIO (zeroOrOne <$> tryReadFile)
+loadRscFile hct = liftIO $ 
+    getRscDir >>= \ rsc ->
+    let fdir = rsc FS.</> hctDir hct in
+    FS.isDirectory fdir >>= \ bDir ->
+    if not bDir then return [] else
+    FS.listDirectory fdir >>= \ lFiles ->
+    let ct = T.pack "ct" in
+    let lCTFiles = L.filter (`FS.hasExtension` ct) lFiles in
+    mapM (Err.tryIOError . FS.readFile) lCTFiles >>= \ lCipherTexts ->
+    return (rights lCipherTexts)
 
-saveRscFile :: (MonadIO m) => HashCT -> CipherText -> m ()
-saveRscFile hct ct =
+-- | save a ciphertext with a given secure hash as identity. The 
+-- resource is saved such that `loadRscFile` can load it. Uses an 
+-- AO_TEMP (environment variable) subdirectory in the file system.
+saveRscFile :: (MonadIO m) => SecureHash -> CipherText -> m ()
+saveRscFile h ct =
     liftIO getRscDir >>= \ rsc ->
-    let fp = rsc FS.</> hctFile hct in
-    let trySaveFile = Err.tryIOError (FS.writeFile fp ct) in
-    (liftIO trySaveFile) >>= either (fail . show) return
+    let fp = rsc FS.</> hctFile h in
+    let trySave = Err.tryIOError (save fp ct) in
+    liftIO trySave >>= either (fail . show) return
+
+-- Generate a file path associated with a secure hash of a resource.
+-- All '.ct' files in a directory will be considered candidate 
+-- ciphertexts. Splits toplevel directories to avoid huge, flat
+-- directories.
+hctDir :: HashCT -> FS.FilePath
+hctDir hct = a FS.</> b FS.</> c where
+    b64 = (T.decodeUtf8 . B64.encode . B.take 24) hct
+    a = (FS.fromText . T.cons 'A' . T.take 2) b64 -- 4096 dirs
+    b = (FS.fromText . T.cons 'B' . T.take 2  . T.drop 2) b64 -- another 4096
+    c = (FS.fromText . T.cons 'C' . T.drop 4) b64
+
+-- Generate a cryptographically unique filename given the full secure 
+-- hash of the conent. This is 384 bits, or over 320 bits in a case
+-- insensitive filesystem. This degree of uniqueness almost certainly 
+-- is overkill for any application, but is not too expensive.
+hctFile :: SecureHash -> FS.FilePath
+hctFile h = dir FS.</> rsc where
+    dir = (hctDir . B.take 24) h
+    hf  = (T.decodeUtf8 . B64.encode . B.drop 24) h
+    rsc = ((FS.<.> ct) . FS.fromText . T.cons 'R') hf
+    ct  = T.pack "ct"
 
 -- (idempotent) obtain (and create) the ABC ciphertext resource 
 -- storage directory. This will serve as the primary location for

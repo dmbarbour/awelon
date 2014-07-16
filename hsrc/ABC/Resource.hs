@@ -51,11 +51,15 @@
 -- decided yet.
 -- 
 module ABC.Resource 
-    ( HashBC, HashCT
-    , CipherText, ResourceToken
-    , secureHashBC, secureHashCT
+    ( CipherText, ResourceToken
+    , SaveMethod, LoadMethod
     , makeResource, loadResource
     , abcResourceToken
+    -- miscellaneous
+    , HashCT, HashBC
+    , secureHashCT, secureHashBC, secureHashBC'
+    , SecureHash, secureHash
+    , encodeABC, decodeABC
     ) where
 
 import Data.Functor.Identity
@@ -71,11 +75,28 @@ import qualified Crypto.Hash as CH
 import qualified Data.ByteString.Base64.URL as B64
 import ABC.Operators
 
--- | HashCT and HashBC are 24 octet bytestrings
+-- | HashCT and HashBC are 192 bit (24 octet) strings
+--
+-- Concretely:
+--   HashCT is first  192 bits of SHA3-384 of the ciphertext.
+--   HashBC is second 192 bits of SHA3-384 of the bytecode (as UTF-8)
+--
+-- Independent halves of SHA3-384 ensures independence of hash values
+-- without relying on quality of encryption or compression. The total
+-- 384 bits from HashCT and HashBC contribute to the unique identity
+-- of a ResourceToken.
+-- 
 type HashBC = ByteString
 type HashCT = ByteString
 
--- | encrypted, compressed bytecode
+-- | SecureHash is simply the full SHA3-384 value (48 octets)
+type SecureHash = ByteString
+
+-- | Cipher text in this case is compressed and encrypted bytecode.
+-- 
+-- At the moment, compression and encryption algorithms is not yet 
+-- decided, and this is simply identical to the bytecode. But that
+-- won't always hold.
 type CipherText = ByteString
 
 -- | A resource token is the text that goes between curly braces
@@ -84,17 +105,28 @@ type CipherText = ByteString
 -- with the secure hashes encoded in base64url.
 type ResourceToken = String
 
+-- | Store a ciphertext somewhere, to be later looked up by secure
+-- hash. The full secure hash is given here just to avoid local
+-- redundant computation. In some situations, it may be appropriate
+-- to validate the secure hash for security or integrity reasons.
+type SaveMethod m = SecureHash -> CipherText -> m ()
+
+-- | Load a ciphertext given HashCT, i.e. the first half of the full
+-- SHA3-384 SecureHash of the ciphertext. In the unlikely case of a
+-- 192-bit hash collision, or for some simple storage models, we may
+-- return multiple candidate texts. 
+type LoadMethod m = HashCT -> m [CipherText]
 
 -- | generate secure hash for a series of operations.
 -- (second half of SHA3-384 on UTF-8 encoding of ABC)
 secureHashBC :: [Op] -> HashBC
 secureHashBC = secureHashBC' . encodeABC
 
--- | encode ABC as a bytestring
+-- | encode ABC as a UTF-8 bytestring
 encodeABC :: [Op] -> ByteString
 encodeABC = T.encodeUtf8 . T.pack . show
 
--- | decode bytestring as ABC program
+-- | decode bytestring as ABC program (or fail returning Nothing)
 decodeABC :: ByteString -> Maybe [Op]
 decodeABC bcBytes = 
     case T.decodeUtf8' bcBytes of
@@ -105,48 +137,47 @@ decodeABC bcBytes =
                 [(ops,"")] -> Just ops
                 _ -> Nothing 
 
--- generate secure hash for the bytecode from bytestring
+-- | generate secure hash for the bytecode from bytestring
+-- eqv. to `drop 24 . secureHash`
 secureHashBC' :: ByteString -> HashBC
-secureHashBC' = B.drop 24 . sha3_384
+secureHashBC' = B.drop 24 . secureHash
 
 -- | secure hash for the ciphertext (used as lookup key)
--- (first half of SHA3-384)
+-- first half of SHA3-384, eqv. to `take 24 . secureHash`
 secureHashCT :: CipherText -> HashCT
-secureHashCT = B.take 24 . sha3_384 
+secureHashCT = B.take 24 . secureHash
 
--- | given a storage function and resource, create the ABC resource
--- and return deterministic, unique resource token. This token can
--- later be used with loadResource to obtain the bytecode.
-makeResource :: (Monad m) => (HashCT -> CipherText -> m ()) -> [Op] -> m ResourceToken
-makeResource fnStore bytecode =
-    let bcBytes = encodeABC bytecode in
-    let hashBC = secureHashBC' bcBytes in
-    let cipherText = encrypt hashBC (compress bcBytes) in
-    let hashCT = secureHashCT cipherText in
-    fnStore hashCT cipherText >>
-    let resourceId = "#" ++ toBase64 hashCT ++ ":" ++ toBase64 hashBC in
-    return resourceId
+-- | generate a complete secure hash (SHA3-384, as 48 octets)
+secureHash :: ByteString -> SecureHash
+secureHash = sha3_384
+
+-- | given a storage method and an ABC subprogram, create the ABC 
+-- resource and return a deterministic, unique resource token. 
+--
+makeResource :: (Monad m) => (SaveMethod m) -> [Op] -> m ResourceToken
+makeResource fnSave bytecode = saveCode >> return rscTok where
+    bcBytes = encodeABC bytecode
+    hashBC = secureHashBC' bcBytes
+    cipherText = encrypt hashBC (compress bcBytes)
+    fullHashCT = secureHash cipherText
+    saveCode = fnSave fullHashCT cipherText
+    hashCT = B.take 24 fullHashCT
+    rscTok = "#" ++ toBase64 hashCT ++ ":" ++ toBase64 hashBC
 
 -- | purely compute the resource token without storing the resource
 abcResourceToken :: [Op] -> ResourceToken
 abcResourceToken = runIdentity . makeResource nullStore where
     nullStore _hashCT _cipherText = return ()
 
--- | given a resource loading function, access an ABC resource via
--- token. In unlikely case of HashCT collisions, multiple candidate
--- cipher texts can be returned. The bytecode hash will provide an
--- additional uniqueness filter.
---
--- loadResource will validate that all hashes are matched and that
--- the bytecode can parse as ABC. It will fail if no valid resources
--- are loaded, or (very improbably!) in case of full 384-bit secure
--- hash collision. 
---
-loadResource :: (Monad m) => (HashCT -> m [CipherText]) -> ResourceToken -> m [Op]
+-- | given a load method and a full resource token, obtain a single
+-- resource that should be cryptographically unique. Or `fail` if 
+-- no such resource can be loaded. Also performs a minimal, shallow
+-- validation that the hashes match and ABC parses.
+loadResource :: (Monad m) => (LoadMethod m) -> ResourceToken -> m [Op]
 loadResource fnLoad tok@(splitToken -> Just (hashCT,hashBC)) =
-    fnLoad hashCT >>= \ lLoadedTexts -> 
-    let lMatchHashCT = L.filter ((== hashCT) . secureHashCT) lLoadedTexts in
-    let lbcBytes = L.nub $ fmap (decompress . decrypt hashBC) lMatchHashCT in
+    fnLoad hashCT >>= \ lCandidate -> 
+    let lMatchHashCT = L.filter ((== hashCT) . secureHashCT) lCandidate in
+    let lbcBytes = L.nub $ mapMaybe (decompress . decrypt hashBC) lMatchHashCT in
     let lMatchHashBC = L.filter ((== hashBC) . secureHashBC') lbcBytes in
     let lOps = mapMaybe decodeABC lMatchHashBC in
     case lOps of
@@ -187,7 +218,7 @@ fromBase64 = e2mb . B64.decode . T.encodeUtf8 . T.pack where
 
 
 -- todo: implement encryption
-encrypt :: HashBC -> ByteString ->  CipherText
+encrypt :: HashBC -> ByteString -> CipherText
 encrypt _key = id
 
 -- todo: implement decryption
@@ -199,5 +230,5 @@ compress :: ByteString -> ByteString
 compress = id
 
 -- todo: implement decompression
-decompress :: ByteString -> ByteString
-decompress = id
+decompress :: ByteString -> Maybe ByteString
+decompress = Just
