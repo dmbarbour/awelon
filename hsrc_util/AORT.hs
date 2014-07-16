@@ -61,9 +61,11 @@ import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 
+import ABC.Resource
+import AO.AOFile
+
 import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
 import Util
-import JIT
 import WorkerPool
 import KeyedSched
 
@@ -162,23 +164,34 @@ debugPrintRaw = putErrLn . show
 debugPrintText (valToText -> Just txt) = putErrLn txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
--- compile a block {&compile}
+-- compile a block into an external ABC resource
+--
+--    {&compile} :: Block → Block
+--
+-- Takes a dynamic block of ABC and returns an equivalent block that
+-- hopefully computes more efficiently. This may rewrite the block 
+-- to use ABC resources. Some blocks, e.g. those that are recognized
+-- as already in an optimal compiled form, may be returned unchanged.
+--
+-- At the moment, {&compile} rewrites the block into an ABC resource,
+-- which may then implicitly be compiled and loaded separately. 
+-- 
 compileBlock :: Prog AORT
-compileBlock (B b) = B <$> (asynch $ compileBlock' b)
-compileBlock v = fail $ "{&compile} @ " ++ show v
+compileBlock (B b) =
+    let abc = (simplify . S.toList . b_code) b in
+    if not (shouldCompile abc) then return (B b) else
+    ksynch "rsc" (makeResource saveRscFile abc) >>= \ rscTok ->
+    let b' = b { b_code = S.singleton (Tok rscTok)
+               , b_prog = invoke rscTok
+               }
+    in 
+    return (B b')
+compileBlock v = fail $ "{&compile} @ " ++ show v -- type error
 
-compileBlock' :: (Runtime m) => Block m -> AORT (Block m)
-compileBlock' b = 
-    let abc = simplify $ S.toList $ b_code b in
-    liftIO (try $ abc_jit abc) >>= \ errOrProg ->
-    case errOrProg of 
-        Left err -> -- for now, warn
-            let emsg = showString "in block " . shows (B b) . showChar '\n' .
-                       showString "error in compile " . showChar '\n' $
-                       indent "  " (show err) 
-            in 
-            putErrLn emsg >> return b
-        Right prog -> return (b { b_code = S.fromList abc, b_prog = prog })
+shouldCompile :: [Op] -> Bool
+shouldCompile [] = False -- nothing to compile
+shouldCompile [Tok ('#':_)] = False -- already compiled
+shouldCompile _ = True -- otherwise, don't be picky
 
 -- prepare a block to compute asynchronously
 asynchBlock :: Prog AORT
@@ -300,9 +313,8 @@ aoListDirectory v = fail $ "listDirectory @ " ++ show v
 -- All operations on a given filename are serialized. This
 -- ensures that reads and writes won't overlap, and that all
 -- writes are properly ordered. There may be error in case
--- of symbolic links, and there may be loss of parallelism
+-- of filesystem links, and there may be loss of parallelism
 -- if some files use the same name in different directories.
---
 fsynch :: FS.FilePath -> AORT a -> AORT a
 fsynch = ksynch . FS.encodeString . FS.filename
 
