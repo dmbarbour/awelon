@@ -10,6 +10,7 @@ import ABC.Imperative.Value
 
 -- | an ABC environment must handle capability tokens.
 -- (Though, it is free to fail if a token is unrecognized.)
+--   todo: consider switch to `String -> cx (Prog cx)` for staging.
 class (Monad cx, Applicative cx) => Runtime cx where
     invoke :: String -> Prog cx
     invoke = invokeDefault
