@@ -31,7 +31,7 @@ ABC is represented in a stream of UTF-8 encoded characters. There are no section
         {capabilityText}
         vrwlc
 
-This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports two whitespace characters (LF (10) and SP (32)) assigning them the meaning 'identity', to simplify formatting of ABC.
+This visibility seems useful for didactic purposes and debugging. For similar reasons, ABC supports two whitespace characters (LF (10) and SP (32)) assigning to them the identity function (type `∀x.x→x`), to simplify formatting of ABC for human view.
 
 ## ABC Behavior Overview
 
@@ -55,7 +55,7 @@ A block contains a finite sequence of ABC code, and may be understood as a first
 
 Numbers use operator `# :: e → (N(0)*e)` to introduce a new zero, then each digit `0-9` has meaning of the form `3 :: N(x)*e → N(10x+3)*e`. Thus, numbers aren't literals, but natural numbers such as `#123` are close enough for legibility. Rational numbers are produced through operations on natural numbers, e.g. `#2#3/*` is two thirds.
 
-Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. A list has fixpoint type `µL.((element*L)+1)`. 
+Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. A text list has fixpoint type `µL.((c*L)+1)`, where `c` is a codepoint value. ABC does not have support for binaries, but will typically represent raw binary data using base64url text. 
 
 *NOTE:* ABC has no support for binary literals, but text can encode LZHAM compressed base-64 with reasonable efficiency.
 
@@ -63,9 +63,9 @@ Text is shorthand for producing a list of small numbers between 0 and 1114111 (0
 
 Effects in ABC are achieved by invoking environment-provided operators: `{foo}` invokes the environment with token "foo" and the tacit argument. 
 
-Tokens are *unforgeable* from within ABC. That is, even given the string "foo", there is no way to construct invocation `{foo}`. In an open or distributed system, the token should also be protected from external forgery, which is achieved by cryptographic mechanisms (e.g. encryption, secure hashing, signatures). 
+Tokens are *unforgeable* from within ABC. That is, given the string "foo", there is no primitive ABC operator to construct invocation `{foo}`. In an open or distributed system, a token should also be protected from external forgery. This is typically achieved by cryptographic mechanisms, e.g. encryption, secure hashing, signatures, or generation of securely random numbers. 
 
-By using blocks, e.g. `[{foo}]`, we effectively have first-class but unforgeable access to whatever effect the invocation of `{foo}` achieves. This is a capability, and is suitable for secure programming, via [capability security](http://en.wikipedia.org/wiki/Capability-based_security) in open or distributed systems, which is a primary target area for ABC. Consequently, an invocation token may also be described as 'capability text'. 
+By capturing an invocation within a block, e.g. `[{foo}]`, we effectively have first-class but unforgeable access to whatever effect the invocation achieves. This is a capability, and is suitable for secure programming under the [capability security model](http://en.wikipedia.org/wiki/Capability-based_security). This is useful in open and distributed systems, which are primary target areas for ABC. Consequently, an invocation token is sometimes described as capability text. 
 
 Effectful tokens are typically specific to a virtual machine or runtime environment. However, there are some standard conventions for the special exceptions where we want a token to have a common meaning across independent runtimes in a distributed system. These are usually identified based on the first character:
 
