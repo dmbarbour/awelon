@@ -56,8 +56,8 @@ Executable aoi
      , system-filepath (>= 0.4.10)
      , plugins (>= 1.5.4)
      , entropy (>= 0.2.2)
-     , cryptohash (>= 0.11)
-     , dataenc (>= 0.14)
+     , base64-bytestring (>= 1.0)
+
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 
@@ -75,8 +75,8 @@ Executable ao
      , system-filepath (>= 0.4.10)
      , plugins (>= 1.5.4)
      , entropy (>= 0.2.2)
-     , cryptohash (>= 0.11)
-     , dataenc (>= 0.14)
+     , base64-bytestring (>= 1.0)
+
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
 

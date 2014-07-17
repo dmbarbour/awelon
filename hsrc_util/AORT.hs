@@ -20,15 +20,14 @@ module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
     , AORT_ERRORS(..) -- error aggregation
     , asynch  
-    , scrubABC
 
     -- eventually, I might support some configuration
     --  but isn't needed while 'ao' and 'aoi' are only
     --  clients and one goal is equivalent behavior
     , newDefaultRuntime
     , newDefaultEnvironment
-    , aoStdEnv
 
+    , aoStdEnv
     ) where
 
 import Control.Applicative
@@ -55,12 +54,13 @@ import qualified Data.Text as T
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import qualified Data.List as L
+import qualified Data.ByteString.Base64.URL as B64
 
 import ABC.Simplify
 import ABC.Operators
 import ABC.Imperative.Value
 import ABC.Imperative.Runtime
-
+import ABC.Imperative.Interpreter
 import ABC.Resource
 import AO.AOFile
 
@@ -84,12 +84,22 @@ newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
 -- At the moment, this is a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
 data AORT_CX = AORT_CX
-    { aort_anno     :: String -> Maybe (Prog AORT)
-    , aort_power    :: String -> Maybe (Prog AORT)
+    { aort_secret   :: String -- power invocation is {!secret}
+    , aort_anno     :: String -> Maybe (Prog AORT)  -- for {&anno}
+    , aort_power    :: String -> Maybe (Prog AORT)  -- argument to power
+    -- , aort_linker   :: MVar AORT_LN -- ABC resources & caches
     , aort_tasks    :: MVar [MVar [Err.SomeException]] -- entry per asynch
     , aort_asynch   :: IO () -> IO () -- using a worker pool
     , aort_ksynch   :: String -> IO () -> IO () -- one op per key; same worker pool
     } 
+
+-- | AORT_LN is the code linker for AORT.
+--
+-- Currently, it is quite trivial, just loading the raw bytecode. 
+-- But it should eventually integrate just-in-time compilation for
+-- each loaded resource.
+--
+-- type AORT_LN = M.Map ResourceToken [Op]
 
 newtype AORT_ERRORS = AORT_ERRORS [Err.SomeException] 
     deriving (Show, Typeable)
@@ -99,10 +109,17 @@ instance Err.Exception AORT_ERRORS
 --
 -- This will wait on all asynchronous operations, and will aggregate
 -- any errors and (if any errors) throw an AORT_ERRORS exception. 
+--
+-- In aoi, runRT corresponds to a single command. 
+-- In ao exec, runRT corresponds to a paragraph.
+-- 
+-- Resources loaded during a run may be unloaded afterwards. 
+-- 
 runRT :: AORT_CX -> AORT a -> IO a
 runRT cx op = 
     try (runRT' cx op) >>= \ result ->
     taskWait cx >>= \ childErrors ->
+    -- todo: clear loaded resources, etc.
     case (result,childErrors) of
         (Right r, []) -> return r
         (Right _, es) -> Err.throwIO (AORT_ERRORS es)
@@ -128,13 +145,25 @@ newDefaultRuntime =
     newWorkerPool nWorkers >>= \ sched ->
     newKeyedSched sched >>= \ ksched ->
     newMVar [] >>= \ taskList ->
-    let cx = AORT_CX { aort_anno   = defaultAnno
+    newSecret >>= \ secret ->
+    let cx = AORT_CX { aort_secret = secret
+                     , aort_anno   = defaultAnno
                      , aort_power  = defaultPower
                      , aort_tasks  = taskList 
                      , aort_asynch = sched
                      , aort_ksynch = ksched
                      }
     in return cx
+
+-- a secret is randomly generated for each AO instance.
+--
+-- It is kept around to support `@undo` in aoi. Otherwise,
+-- it could even be generated after each side-effect.
+newSecret :: IO String
+newSecret = bytesToString <$> Entropy.getEntropy nBytes where
+    bytesToString = fmap toChar . B.unpack . B64.encode
+    toChar = toEnum . fromIntegral 
+    nBytes = 24
 
 -- default annotations support for AORT
 --
@@ -164,7 +193,7 @@ debugPrintRaw = putErrLn . show
 debugPrintText (valToText -> Just txt) = putErrLn txt
 debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 
--- compile a block into an external ABC resource
+-- compile a block
 --
 --    {&compile} :: Block → Block
 --
@@ -218,22 +247,17 @@ aoStdEnv pb = (P U (P U (P (B pb) (P (P sn U) U))))
 
 -- | create a standard environment with a default powerblock
 newDefaultEnvironment :: AORT (V AORT)
-newDefaultEnvironment = pure (aoStdEnv aortPowerBlock)
+newDefaultEnvironment = aoStdEnv <$> mkPowerBlock
 
--- For now, just using a fixed powers token. In case of open systems,
--- it might be useful to use a randomized token... OTOH, it should be
--- okay to translate tokens at the boundary (e.g. using HMACs on local
--- tokens, and tagging/rewriting remote tokens as they arrive). I plan
--- to try the rewrite-at-VM-boundaries method, first.
-powerTok :: String
-powerTok = "!"
-
--- obtain a block representing access to default AORT powers.
-aortPowerBlock :: Block AORT
-aortPowerBlock = Block { b_code = S.singleton (Tok powerTok)
-                       , b_prog = invoke powerTok -- keeping it simple
-                       , b_aff = True, b_rel = True }
-
+mkPowerBlock :: AORT (Block AORT)
+mkPowerBlock =
+    readRT aort_secret >>= \ s ->
+    let powerTok = ('!':s) in
+    let powerBlock = Block { b_code = S.singleton (Tok powerTok)
+                           , b_prog = invoke powerTok
+                           , b_aff = True, b_rel = True }
+    in
+    return powerBlock
 
 -- Default powers use the command string, rather than the token.
 -- Toplevel powers are mostly used for one-off reads and writes.
@@ -362,11 +386,18 @@ tryAORT (P (B b) a) =
             return (L (P msgV a))
 tryAORT v = fail $ "{try} @ " ++ show v
 
-execPower :: V AORT -> AORT (V AORT)
-execPower (P (valToText -> Just cmd) arg) = 
+execPower :: String -> V AORT -> AORT (V AORT)
+execPower s v = 
+    readRT aort_secret >>= \ s' ->
+    if (s == s') then execPower' v else
+    fail $ "{!" ++ s ++ "} is invalid powerblock"
+
+execPower' :: V AORT -> AORT (V AORT)
+execPower' (P (valToText -> Just cmd) arg) =
     execCmd cmd arg >>= \ result ->
-    return (P (B aortPowerBlock) result)
-execPower v = fail $ "{!} expecting (command*arg) @ " ++ show v
+    mkPowerBlock >>= \ pb ->
+    return (P (B pb) result)
+execPower' v = fail $ "{!powerBlock} expecting (command*arg) @ " ++ show v
 
 execAnno :: String -> Prog AORT
 execAnno s arg = 
@@ -385,29 +416,16 @@ execCmd cmd arg =
         Nothing -> fail $ "command not recognized: " ++ cmd
 
 -- ... enough to get started for now ...
+-- thoughts: it might be useful to support two-stage powers,
+-- i.e. instead of String -> Val -> m Val
+--      consider   String -> m (Val -> m Val)
+-- This would allow some dispatching to be performed ahead of time.
 instance Runtime AORT where
     invoke ('&':s) = execAnno s
-    invoke s | (s == powerTok) = execPower
+    invoke s@('#':_) = invokeResource s
+    invoke ('!':secret) = execPower secret
     invoke s | (s == tryTok) = tryAORT
     invoke s = invokeDefault s
-
--- | For a raw ABC input stream, we want to forbid tokens that are
--- not supported by AO. This ensures equivalence for expressiveness
--- and security between `ao exec` and `ao exec.abc` for example. 
---
--- Currently, this is accomplished by escaping non-AO tokens with
--- the '~' character. This ensures clients cannot install a new
--- power block (under normal conditions). 
-scrubABC :: [Op] -> [Op]
-scrubABC = fmap scrubTok where
-    scrubTok (Tok t) | not (okayInAO t) = Tok (scrub t)
-    scrubTok (BL ops) = BL (scrubABC ops)
-    scrubTok op = op
-    scrub = ('~':)
-    okayInAO ('&':_anno) = True
-    okayInAO (':':_sealer) = True
-    okayInAO ('.':_unseal) = True
-    okayInAO _ = False
 
 -- | Execute a subprogram asynchronously.
 --
@@ -459,5 +477,18 @@ taskWait cx =
     putMVar mv [] >>
     mapM takeMVar tasks >>= 
     return . L.concat
+
+-- | for now, invokeResource will simply load and apply the resource.
+-- I should add a cache, at least on a per-paragraph basis. Further
+-- using a staged constructor could be useful (perhaps using unsafe
+-- IO?) to process invokeResource before receiving the argument.
+invokeResource :: ResourceToken -> Prog AORT
+invokeResource rscTok v =
+    -- load from file (todo: use local cache)
+    loadResource loadRscFile rscTok >>= \ ops ->
+    -- for now, just interpret the ops
+    interpret ops v
+    
+
 
 

@@ -24,6 +24,7 @@ import qualified Text.Parsec as P
 
 import ABC.Simplify (simplify)
 import ABC.Operators
+import ABC.Resource
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
 import AO.Dict
@@ -31,7 +32,6 @@ import AO.Code
 import AO.AOFile
 import AO.Parser
 import AO.Compile
-import JIT
 import AORT
 import Util
 
@@ -53,9 +53,12 @@ helpMsg =
     \    ao abc.s              dump simplified ABC for AO on input stream \n\
     \    ao abc.raw.s          dump raw ABC for AO on input stream \n\
     \    ao abc.ann.s          dump annotated ABC for AO on input stream \n\
-    \    ao exec.s             execute AO command from input stream \n\
+    \    ao exec.s             execute AO commands from input stream \n\
     \    ao exec.abc.s         execute ABC from input stream \n\
     \    \n\
+    \    ao rsc rscTok         dump ABC for ABC resource invocation {#rscTok} \n\
+    \    \n\
+    \    (JIT inoperative at moment) \n\
     \    ao jit command        print haskell code for imperative JIT \n\
     \    ao test.jit           run all `test.` words using JIT \n\
     \    \n\
@@ -65,8 +68,7 @@ helpMsg =
     \    ao def  word          print full accepted definition of word \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
-    \The 'exec.abc' utilities will escape any {tokens} not valid in AO. \n\
-    \The '.s' input stream is stdin, processed one paragraph at a time. \n\
+    \Streams process stdin to stdout, one AO or ABC paragraph at a time. \n\
     \\n\
     \Environment Variables: \n\
     \    AO_PATH: where to search for '.ao' files \n\
@@ -102,13 +104,14 @@ runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC modeRaw
 runMode ["abc.ann.s"]    = stdCmdS >>= dumpABC modeAnn
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
-runMode ["jit",cmd]      = printImperativeJIT cmd
+runMode ["rsc",rsc]      = printResource rsc
+--runMode ["jit",cmd]      = printImperativeJIT cmd
 runMode ["list",ptrn]    = listWords ptrn
 runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
 runMode ["def",word]     = printDef word
 runMode ["test"]         = runAOTests (return . interpret . simplify)
-runMode ["test.jit"]     = runAOTests (abc_jit . simplify)
+--runMode ["test.jit"]     = runAOTests (abc_jit . simplify)
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
     eMsg = "arguments not recognized; try `ao help`"
 
@@ -195,10 +198,9 @@ execAO ss =
     let compile (n,s) = simplify <$> compilePara d n s in
     execOps $ fmap compile $ L.zip [1..] ss
 
--- note that execABC will scrub the ABC input to ensure 
--- security and expression equivalence to AO inputs.
+-- execute ABC in its raw form.
 execABC :: [String] -> IO ()
-execABC = execOps . fmap (return . scrubABC . simplify . read)  
+execABC = execOps . fmap (return .  simplify . read)  
 
 type CX = AORT_CX
 type RtVal = V AORT
@@ -358,6 +360,7 @@ newTestPB d fwarn = return b where
     runCmd "error" (valToText -> Just msg) = fwarn msg >> fail "error command"
     runCmd s v = fail $ "unrecognized command: " ++ s ++ " with arg " ++ show v
 
+{-
 -- for now, I just emit code. I might later need to emit a context
 -- that is held by the runtime and recovered dynamically.
 printImperativeJIT :: String -> IO ()
@@ -366,7 +369,13 @@ printImperativeJIT aoStr =
     case compileAOString d aoStr >>= abc2hs_auto . simplify of
         Left err -> putErrLn err >> Sys.exitFailure
         Right hsCode -> Sys.putStrLn hsCode
+-}
 
+printResource :: String -> IO ()
+printResource s = tryIO load >>= either onFail onPass where
+    load = loadResource loadRscFile ('#':s)
+    onFail e = putErrLn (show e) >> Sys.exitFailure
+    onPass = Sys.putStrLn . show
 
 {-
 

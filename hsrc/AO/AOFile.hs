@@ -70,6 +70,8 @@ import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import qualified Data.ByteString.Base64.URL as B64
 
+-- import qualified System.IO as Sys
+
 import AO.Parser
 import AO.Dict
 import AO.Code
@@ -333,14 +335,20 @@ save fp content = FS.createTree (FS.directory fp) >> FS.writeFile fp content
 loadRscFile :: (MonadIO m) => HashCT -> m [CipherText]
 loadRscFile hct = liftIO $ 
     getRscDir >>= \ rsc ->
-    let fdir = rsc FS.</> hctDir hct in
-    FS.isDirectory fdir >>= \ bDir ->
+    let d = rsc FS.</> hctDir hct in
+    getCTFiles d >>= \ lCTFiles ->
+    mapM (Err.tryIOError . FS.readFile) lCTFiles >>= \ lCipherTexts ->
+    --mapM_ (Sys.hPutStrLn Sys.stderr . show) (lefts lCipherTexts) >>
+    return (rights lCipherTexts)
+
+getCTFiles :: FS.FilePath -> IO [FS.FilePath]
+getCTFiles d = 
+    FS.isDirectory d >>= \ bDir ->
     if not bDir then return [] else
-    FS.listDirectory fdir >>= \ lFiles ->
+    FS.listDirectory d >>= \ lFiles ->
     let ct = T.pack "ct" in
     let lCTFiles = L.filter (`FS.hasExtension` ct) lFiles in
-    mapM (Err.tryIOError . FS.readFile) lCTFiles >>= \ lCipherTexts ->
-    return (rights lCipherTexts)
+    return lCTFiles
 
 -- | save a ciphertext with a given secure hash as identity. The 
 -- resource is saved such that `loadRscFile` can load it. Uses an 
