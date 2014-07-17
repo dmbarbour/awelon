@@ -122,7 +122,7 @@ aoActionToABC (AO_Word w) =
     preComp w >> -- precompile word (if necessary)
     gets pcx_dict >>= \ d ->
     aoCodeToABC (fst (d M.! w))
-aoActionToABC (AO_Block aoOps) = aoCodeToABC aoOps >>= \ ops -> return [BL ops]
+aoActionToABC (AO_Block aoOps) = aoCodeToABC aoOps >>= \ ops -> return [BL ops, Op_l]
 aoActionToABC (AO_Num r) = return $ quotes r [Op_l]
 aoActionToABC (AO_Text txt) = return $ quotes (TL txt) [Op_l]
 aoActionToABC (AO_ABC aOp) = return [aopToABC aOp]
