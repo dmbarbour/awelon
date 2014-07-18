@@ -8,43 +8,132 @@ AO supports literal numbers and text
          text
         ~
 
-But I can imagine I'd like to support many ad-hoc literals in the future, especially as I move towards live programming: canvases, sliders, matrices, colors and color pickers, and so on.
+But I can imagine applications for:
 
-It would not be difficult to use ad-hoc literal types through the IDE, then generate the appropriate AO code on-the-fly. This would essentially be a language layer above AO. However, I think it would be best to standardize this such that AO code written using such literals can be viewed and edited in a consistent manner across IDEs and browsers.
+* music staff
+* graphs 
+* decision trees
+* matrices and vectors
+* diagrams and images
+* colors
+* 3D meshes
 
-Hmm.
+Further, I love the idea of *interactive* literals such as:
 
-Perhaps it won't matter, ultimately, if I instead take the direction of deprecating AO in favor of the tools/hands and lenses/eyes applications and unified UI/PL model. AO has always been intended as a temporary language. But even so, it might be nice to operate on rich 'objects' in a manner compatible with embedding in an AO stream in context of a wiki-based IDE or similar. 
+* canvases
+* knobs and sliders
+* toggles
+* color pickers
+* shift views of a 3D mesh literal
+* play sounds when mousing over a music literal
 
-Thoughts:
+I think it's unreasonable to assume I could come up with any finite list of literals that is truly complete, and I wouldn't want to burden AO with a big list of literals anyway. But I might be able to develop a simple API for creating and interacting with ad-hoc literal types, and use either extension or convention to access this API. 
 
-There should either be some annotations or a naming convention involved to somehow 'announce' to the IDE that a user-defined literal view should be invoked. Annotations go all the way down to the ABC, and it might be nice if I can view literals even in the ABC (similar to how text and numbers are visible). However, it might be preferable that I don't embed expensive view-code in the generated ABC.
+## Requirements and Desiderata
 
-A literal must be isolated within the 'source code' of AO. That is, a literal is not simply a partially evaluated object or value; it should correspond to a finite sequence of the stream itself, and generally behave independently of usage context (though, that might be convention more than requirement). 
+Requirements:
 
-For more sophisticated literals, I might want to argument the 'view' of the literal independently of manipulating the literal itself. Hmm. So literals might need a few different independent attributes. But this probably isn't critical; I could manage the view and literal together, so long as I have an appropriate extractor function that can access the literal independently of the view.
+* literals add one value to the stack
+* literals are fully computable at compile-time
+* computation of a literal should be pure
+* meaning of a literal is independent of context
 
-## Potential Approach
+Desiderata:
 
-My first thought for approach is to use a simple `literal.` naming convention. A user-defined literal in the AO code consists of a pair of form:
-    
-        [a block of code] literal.foo
+* support for interactive manipulation of literals
+* extract and manipulate literals from ABC stream
+* extensible command set, views, and tooling
+* literal size commensurate with final output
+* consistent across IDEs and Awelon project languages
 
-The compatible IDE will hide or fade the block and the word, perhaps keeping them accessible in the background or in a separate widget. Instead, rendering of this literal pair will be guided by supplementary words such as `render.literal.foo` or perhaps `ui.literal.foo`. These words would be applied in a fresh context. (There is a lot of detail work that needs development here.) 
+The requirements seem easy to meet. AO and ABC are already capability languages, and are readily able to confine literal construction to a simple environment. The desiderata seem more challenging to meet, and may prove contradictory.
 
-The block associated with the literal will contain all *information* for that literal. Such a block could be constructed by many means:
+Analysis:
 
-* it could represent a sequence of attribute updates
-* it could represent a stream of 'gestures' manipulating a literal
-* it could model a process/object that may receive update and render commands
+* To interact with literals at the AO layer:
+  * literal is capable of receiving inputs
+  * result of processing input is updated literal
+  * edit-time computation for update and display
+  * hence edit-time interpretation or compilation
+* To extract and manipulate literals at the ABC layer:
+  * we must uniformly indicate literals in the ABC stream
+  * the literal must have a clear boundaries generated ABC
+  * literals must contain logic for views and updates
+  * literals must be self-describing; views, commands, etc.
+  * update logic must not depend upon AO dictionary
+* To support extensible command sets, views, and tooling:
+  * commands composable and programmable - paintbrushes, tools
+  * may rely much on convention
+  * upgrade paths by wrapping or export/import metaphors
+* For literal size commensurate with final output:
+  * literal must discard and reduce irrelevant inputs
+  * history of literal edits is not locally preserved
+  * type-specific logic refactors easily to ABC resources
+  * popular refined types eventually supported via ABCD 
+* Consistency across IDEs and Awelon project languages
+  * easy export and import via intermediate ABC
+  * literal values cannot depend upon AO dictionary 
+  * a simple, common type with predictable behavior
+  * may reduce value extraction to standard ABCD primitive
+  * consistent conventions per Awelon project language
 
-We don't necessarily want to keep a complete history of actions in the literal itself (text and numbers don't have that feature, for example). So I think the result of an update to the literal would be to rewrite the block, or perhaps to write a fresh one. Of course, it wouldn't be a problem to write a block that maintains history to some degree, e.g. in the 'stream of gestures' metaphor we might mostly extend the existing block.
+## Primary Design Candidate: Embedded Literal Objects
 
-It seems that literal blocks could reasonably grow very large, without much refactoring, unlikes typical AO code. This is probably a good thing: it fulfills a useful role to support large constructs without extensive refactoring. Nothing else in AO can do so effectively.
+In AO and ABC, blocks are the only values that can meaningfully 'receive inputs'. Blocks also have a well-defined boundary. By clever use of fixpoint functions, each block can generate a fresh block as the next literal. In this sense, literals might appear as simple process or object models:
 
+        µP.[cmd→(P*result)]
 
+Of course, we need common types and conventions to:
 
-We might generalize a little. Instead of just blocks, we could also support `42 literal.foo` and `"text" literal.foo`. Fundamentally, however, a block is more general than either of these options, and vastly more extensible. So I think it's better to stick with `[block] literal.foo` sequences for now.
+* render the literal to a canvas (self-render?)
+* obtain a menu of commands and documentation
+* compute the final literal value
 
+Assuming we handled all that, what are the implications of a block model?
 
+1. Such a block must exist at the ABC layer. It will not contain AO words. This is useful for various desiderata and requirements:
+  * interaction and updates will diverge from any dictionary
+  * literals extracted from ABC don't even start from dictionary
+  * context-independence in same sense as text and numbers
+  * independent of any language within Awelon project
+2. We must embed this ABC block within the higher level language that aims to support extensible program types. For AO, it can be awkward to embed raw ABC, e.g. `#42` becomes `%v 42 %c`. 
+3. The IDE must easily recognize the ABC block representing an embedded literal. Again, this seems awkward in AO as it stands. In the ABC layer, we might use a simple annotation, e.g. `[block]{&literal}` to specify the preceding block for display as a literal, then proceed to extract the literal value. But in AO, this corresponds to a more awkward `[block] %r {&literal}` or `%v [block] %c {&literal}`, which would not be consistent between IDEs.
+4. The IDE must systematically update the literal, i.e. reading it from the code, processing it with the command, then embedding it back into the source code. At least logically. An IDE might handle these literals specially and serialize as needed.
 
+Between the second and third forces, I believe I can make a strong case for dedicating a tiny slice of AO syntax (and that of future textual Awelon project languages) to embedding of literal objects, i.e. to reduce awkwardness and improve consistency. The proposal is to leverage unicode `〚` and `〛` (U+301A, U+301B):
+
+        〚raw awelon bytecode here〛                  in AO
+        [raw awelon bytecode here]{&literal}l       in ABC
+
+Higher unicode codepoints are painful to type on most keyboards. But, in this case, the IDE would be doing the grunt work, so it shouldn't become a problem. No ABC extensions are necessary. I'll likely seek something shorter than `{&literal}` for this role, perhaps `{&O}` or `{&?}`.
+
+I envision that an AO IDE might provide a menu of initial literal objects based on words in the dictionary like `literal.newMusicStaff` and `literal.newCanvas`. Selecting an item would compile that word down to ABC, and embed it between white square brackets. The literal would then be rendered on the IDE's canvas, perhaps staking out its own area, and would henceforth evolve independently of the original literal constructor.
+
+This proposal has a few challenges remaining:
+
+* lacks a clean separation of view from value
+* need a consistent, common command set for IDEs
+* conventions for extensible command set and upgrade
+* conventions for mashup and composition of literals
+
+We could have a standard command to 'evaluate' a literal, e.g. empty text (unit in right; true). Perhaps we define the word `⊷` (U+22B7) to perform this evaluation, such that the AO with embedded literals has textual form:
+
+        〚raw awelon bytecode here〛 ⊷
+
+But note that the evaluation is not the default behavior. I believe that keeping the embedded block-literal concept separate from the processing is a good idea. It keeps convention separate from the formal AO extension. We can combine raw literals, or perform context-dependent extractions if we really desire it.
+
+## Meta
+
+Literals are very problem specific, grow indefinitely, and resist most efforts at refactoring. The few refactorings we can perform are based on refining common structure into new literal types. I believe literals may serve a useful role, in counterpoint to AO words whose definitions cannot readily be more than 10-20 words. A picture can be worth a thousand words, more or less, without growing too unwieldy. No matter how sophisticated the literal, we only generate one value on the stack... and we can easily *see* the literal, i.e. asking it to render itself.
+
+A lot of embedded DSLs might be best modeled as embedded literal objects.
+
+These embedded literals assume a serializable stream of commands. Cooperative work will require further constraints on the nature of the literal.
+
+Of course, after specifying that a block is a literal, we must typically extract its value. Keeping this as a separate step in AO can be useful, since we might want to keep literal objects as literal objects, e.g. to perform post-hoc manipulations and compositions.
+
+## Deprecated Designs
+
+Some of my earlier designs focused on naming conventions. Some also focused on generating a new block of AO code after each update. E.g. we might have: `[a block of AO code] literal.foo` and we'd implicitly seek words like `ui.literal.foo` for rendering and commands. 
+
+This approach had an advantage of not embedding the entire UI model in the ABC, but that's also a disadvantage for viewing literals in the ABC stream or reusing them. In the new model, we must rely on partial evaluation to eliminate the UI context when deeply optimizing.

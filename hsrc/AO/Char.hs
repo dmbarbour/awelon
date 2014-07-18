@@ -7,20 +7,25 @@ module AO.Char
     , isSpace, isControl, isDigit, isNZDigit, isHexDigit
     ) where
 
+import qualified Data.List as L
+
 -- most word separators are spaces, but [] and (|) are also okay
--- (this parser doesn't actually support ambiguous (foo|bar) code)
+-- because it's convenient to write code of form [foo[bar]].
+--
+-- The current AO parser doesn't actually support ambiguous (foo|bar)
+-- code, but does reserve the relevant characters. 
 isWordSep :: Char -> Bool
-isWordSep c = sp || block || amb where
-    sp = isSpace c
-    block = ('[' == c) || (']' == c)
-    amb = ('(' == c) || ('|' == c) || (')' == c)
+isWordSep = flip L.elem " \n[](|)"
+
+-- characters restricted from use in words
+-- (minus control characters, including LF and DEL)
+wcBlacklist :: [Char]
+wcBlacklist = " []{}\"(|)⦃⦄⦅⦆〚〛"
 
 isWordStart, isWordCont :: Char -> Bool
-isWordCont c = not (sep || ctl || txt || tok) where
-    sep = isWordSep c
+isWordCont c = not (bl || ctl) where
+    bl = c `L.elem` wcBlacklist
     ctl = isControl c
-    txt = '"' == c
-    tok = '{' == c || '}' == c
 isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
 
 -- in token {foo} the token text 'foo' cannot

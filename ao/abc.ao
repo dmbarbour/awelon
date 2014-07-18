@@ -159,11 +159,9 @@
       Terminate by starting the next line with `~`.
      ~
  
- By design, only LF (10) is to be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. Within an ABC stream, text should typically be formatted to start at a new line (to simplify debugging). 
+ By design, only LF (10) is to be escaped, and it is escaped by the continuing line. The final LF before `~` is not part of the text. Within an ABC stream, text should usually be formatted to start at a new line (to simplify debugging). ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a list of small integers, e.g. of type µT.((N*T)+1). The numbers correspond directly to the unicode codepoints, i.e. between 0 and 1114111 inclusive, though developers are discouraged from encoding non-character codepoints (such as 0xD800 or 0xFFFE). 
  
- ABC doesn't have a distinct 'text type'. Instead, literal text is shorthand for constructing a list of small integers, e.g. of type µT.(1+(N*T)). The numbers correspond directly to the unicode codepoints, i.e. between 0 and 1114111 inclusive. While ABC permits encoding non-characters (such as U+FFFE or U+D800), it is discouraged. For the common use-cases, text represents labels, human natural language text, or DSL code, none of which require unusual characters. 
- 
- ABC doesn't have a binary mode. Binary might be represented using text, perhaps packing it into base64url or a compressed form plus a deflation algorithm.
+ Use cases for literal text include labels, embedded DSLs, human meaningful content, and potentially binary values (encoded in base64url, possibly pre-compressed). Binary representations are discouraged except for integration with non-Awelon systems. None of these normal use cases requires unusual codepoints.
 ~
 
 @doc.block.abc

@@ -61,7 +61,7 @@ AO literals have a slightly different type than ABC literals.
         In ABC: e -> L * e
         In AO: (s * e) -> ((L * s) * e)
 
-By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after everly literal in AO. If necessary, AO developers may regain ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice. The codes `%l`, `%v`, and `%c` are examples of inline ABC.
+By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after every literal in AO. AO developers may express ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice. The codes `%l`, `%v`, and `%c` are examples of inline ABC. 
 
 ## Inline ABC
 
@@ -123,16 +123,17 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * inline ABC, e.g. `%vrwlc`
 * capability text `{` to following `}`
 * blocks `[` ... `]`
-* ambiguous structure `(`, `|`, `)`
 
-The latter feature is experimental. See [AboutAmbiguity.md](doc/AboutAmbiguity.md). Words in AO are very flexible in their structure. Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, quoting, and streaming. So the following rules apply:
+In addition, there are some experimental extensions to AO under evaluation. An [ambiguity](doc/AboutAmbiguity.md) extension uses `(`, `|`, and `)`. A concept for [embedded literal objects](doc/ExtensibleLiteralTypes.md) concept uses `〚` and `〛` (U+301A-B). I'm further reserving the other unicode white variants `⦃⦄⦅⦆` (U+2983-6) for future extensions and experiments.
+
+Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, quoting, streaming, and extending. So the following limits apply:
 
 * words may not start with `@`, `%`, or a digit
-* words may not contain `"`, `[`, `]`, `(`, `|`, `)`, `{`, `}`
+* words may not contain `"[]{}` or extension chars `(|)⦃⦄⦅⦆〚〛`
 * words may not contain C0 or C1 control characters, SP, or DEL
 * words starting with `+`, `-`, or `.` may not follow with a digit
 
-Excepting inline ABC pseudo-words, the structure of a word is not interpreted by AO. However, the structure of a word may have extrinsic meaning in the larger context, e.g. `test.foo` might be executed as an automatic test (see Processing, below). In addition to white space (SP, LF), characters `[`, `]`, `(`, `|`, `)` act as word separators. 
+In addition to white space (SP, LF), characters `[`, `]`, `(`, `|`, `)` act as word separators. The structure of a word is not interpreted within AO, though it may suggest a contextual meaning (e.g. `test.foo` becomes an automatic test) - see Processing, below. 
 
 ### AO Dictionary File
 
