@@ -107,7 +107,7 @@ Library
     ABC.Imperative.Runtime
     ABC.Imperative.Resource
     ABC.Imperative.Prelude
-    ABC.Imperative.JIT
+    -- ABC.Imperative.JIT
 
     AO.Code
     AO.Parser

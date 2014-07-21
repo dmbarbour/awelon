@@ -1,20 +1,16 @@
 
 -- | JIT support for functional & imperative interpretation of ABC.
 --
--- This provides the framework for compiling an ABC sequence into 
--- separate Haskell objects, then loading these as plugins. Ideally,
--- this compilation process could provide developers a high level of
--- performance.
+-- The basic concept is to take an ABC subprogram, compile it to 
+-- Haskell code, compile it further to Machine code using GHC, then
+-- dynamically load the resulting module. A similar approach might
+-- later use LLVM or ATS or C as target languages.
 --
--- The module name is a function of the ABC code (via secure hash).
--- The location in the filesystem is from the module name and the
--- AO_TEMP environment variable. The ABC to Haskell translation is a
--- parameter. The intention is to eventually bootstrap the compiler
--- by modeling it within AO, and using it to compile itself.
+-- This module does not provide an ABC-to-Haskell compiler, but does
+-- handle the other aspects. Haskell modules are named for the ABC
+-- resource token, and may acyclically rely upon other resources.
 --
--- JIT code may contain capabilities, including {#secureHash} sources.
--- So the compiler must be able to handle these, though simple `invoke`
--- should always work as a fallback.
+--
 --
 module ABC.Imperative.JIT 
     ( abcToModuleName, tokenToModuleName
@@ -41,8 +37,7 @@ tokenToModuleName :: String -> String
 tokenToModuleName ('#':s) = 
     let (a,a') = L.splitAt 2 (fmap modChar s) in
     let (b,b') = L.splitAt 2  a' in
-    let (c,c') = L.splitAt 28 b' in
-    let r = L.take 32 c' in
+    let (c,r ) = L.splitAt 28 b' in
     let sa = showChar 'A' . showString a in
     let sb = showChar 'B' . showString b in
     let sc = showChar 'C' . showString c in
