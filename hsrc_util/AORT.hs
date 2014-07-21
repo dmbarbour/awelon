@@ -15,7 +15,7 @@
 -- The primary goal is performance. Performance has been an obstacle
 -- to development of applications in AO. If JIT and other features can
 -- eliminate this obstacle, AO will be better situated for success.
--- 
+--
 module AORT
     ( AORT, AORT_CX, readRT, liftRT, runRT, liftIO
     , AORT_ERRORS(..) -- error aggregation
@@ -31,6 +31,7 @@ module AORT
     ) where
 
 import Control.Applicative
+import Control.Category ((>>>))
 import Control.Monad
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
@@ -51,6 +52,7 @@ import Data.Ratio
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import qualified Data.List as L
@@ -84,7 +86,9 @@ newtype AORT a = AORT (PureM (ReaderT AORT_CX IO) a)
 -- At the moment, this is a place holder. But I expect I'll eventually
 -- need considerable context to manage concurrency and resources.
 data AORT_CX = AORT_CX
-    { aort_secret   :: String -- power invocation is {!secret}
+    { aort_secret   :: B.ByteString -- random value per AORT instance
+    , aort_powerSec :: String
+    , aort_trySec   :: String
     , aort_anno     :: String -> Maybe (Prog AORT)  -- for {&anno}
     , aort_power    :: String -> Maybe (Prog AORT)  -- argument to power
     -- , aort_linker   :: MVar AORT_LN -- ABC resources & caches
@@ -145,8 +149,10 @@ newDefaultRuntime =
     newWorkerPool nWorkers >>= \ sched ->
     newKeyedSched sched >>= \ ksched ->
     newMVar [] >>= \ taskList ->
-    newSecret >>= \ secret ->
+    Entropy.getEntropy 48 >>= \ secret ->
     let cx = AORT_CX { aort_secret = secret
+                     , aort_powerSec = mac secret "power"
+                     , aort_trySec   = mac secret "try"
                      , aort_anno   = defaultAnno
                      , aort_power  = defaultPower
                      , aort_tasks  = taskList 
@@ -155,15 +161,12 @@ newDefaultRuntime =
                      }
     in return cx
 
--- a secret is randomly generated for each AO instance.
---
--- It is kept around to support `@undo` in aoi. Otherwise,
--- it could even be generated after each side-effect.
-newSecret :: IO String
-newSecret = bytesToString <$> Entropy.getEntropy nBytes where
-    bytesToString = fmap toChar . B.unpack . B64.encode
-    toChar = toEnum . fromIntegral 
-    nBytes = 24
+-- not quite a full HMAC, but good enough for now
+mac :: B.ByteString -> String -> String
+mac sec = 
+    T.pack >>> T.encodeUtf8 >>> B.append sec >>> 
+    secureHash >>> B.take 24 >>> B64.encode >>>
+    T.decodeUtf8 >>> T.unpack
 
 -- default annotations support for AORT
 --
@@ -251,7 +254,7 @@ newDefaultEnvironment = aoStdEnv <$> mkPowerBlock
 
 mkPowerBlock :: AORT (Block AORT)
 mkPowerBlock =
-    readRT aort_secret >>= \ s ->
+    readRT aort_powerSec >>= \ s ->
     let powerTok = ('!':s) in
     let powerBlock = Block { b_code = S.singleton (Tok powerTok)
                            , b_prog = invoke powerTok
@@ -362,18 +365,24 @@ valToBinary = valToL >=> return . B.pack where
 -- try a subprogram, but allow returning with failure
 --   1 → [(Block * Arg) → ((ErrorMsg*Arg) + Result)]
 -- this is protected as a capability in AO (for many reasons)
-newTryCap U = return (B b) where
-    b = Block { b_aff = False, b_rel = False
-              , b_code = S.singleton (Tok tryTok)
-              , b_prog = invoke tryTok }
+newTryCap U = 
+    readRT aort_trySec >>= \ s ->
+    let tryTok = "try!" ++ s in
+    return $ B $ Block { b_aff = False, b_rel = False
+                       , b_code = S.singleton (Tok tryTok)
+                       , b_prog = invoke tryTok
+                       }
 newTryCap v = fail $ "newTryCap @ " ++ show v
 
--- for now, let's just do a simple implementation...
-tryTok :: String
-tryTok = "try"
 
-tryAORT :: V AORT -> AORT (V AORT)
-tryAORT (P (B b) a) = 
+tryAORT :: String -> V AORT -> AORT (V AORT)
+tryAORT s v = 
+    readRT aort_trySec >>= \ s' ->
+    if (s == s') then tryAORT' v else
+    fail $ "invalid secret for {try} token"
+
+tryAORT' :: V AORT -> AORT (V AORT)
+tryAORT' (P (B b) a) = 
     liftRT pure >>= \ cx ->
     let op = try $ runRT cx $ b_prog b a in
     liftIO op >>= \ eb ->
@@ -384,11 +393,11 @@ tryAORT (P (B b) a) =
             let msgV = S "tryFail" (textToVal msg) in 
             putErrLn msg >> 
             return (L (P msgV a))
-tryAORT v = fail $ "{try} @ " ++ show v
+tryAORT' v = fail $ "{try} @ " ++ show v
 
 execPower :: String -> V AORT -> AORT (V AORT)
 execPower s v = 
-    readRT aort_secret >>= \ s' ->
+    readRT aort_powerSec >>= \ s' ->
     if (s == s') then execPower' v else
     fail $ "{!" ++ s ++ "} is invalid powerblock"
 
@@ -397,7 +406,7 @@ execPower' (P (valToText -> Just cmd) arg) =
     execCmd cmd arg >>= \ result ->
     mkPowerBlock >>= \ pb ->
     return (P (B pb) result)
-execPower' v = fail $ "{!powerBlock} expecting (command*arg) @ " ++ show v
+execPower' v = fail $ "{!powerblock} expects (command*arg) @ " ++ show v
 
 execAnno :: String -> Prog AORT
 execAnno s arg = 
@@ -424,7 +433,7 @@ instance Runtime AORT where
     invoke ('&':s) = execAnno s
     invoke s@('#':_) = invokeResource s
     invoke ('!':secret) = execPower secret
-    invoke s | (s == tryTok) = tryAORT
+    invoke ('t':'r':'y':'!':s) = tryAORT s
     invoke s = invokeDefault s
 
 -- | Execute a subprogram asynchronously.
