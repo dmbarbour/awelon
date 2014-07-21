@@ -17,16 +17,14 @@
 -- should always work as a fallback.
 --
 module ABC.Imperative.JIT 
-    ( abcToModuleName, hashToModuleName
-    , getJitDirectory
+    ( abcToModuleName, tokenToModuleName
     ) where
 
 import qualified Data.List as L
-import qualified Data.Text as T
-import qualified Filesystem as FS
-import qualified Filesystem.Path.CurrentOS as FS
-import qualified System.Environment as Env
-import qualified Control.Exception as Err
+--import qualified Data.Text as T
+--import qualified Filesystem as FS
+--import qualified Filesystem.Path.CurrentOS as FS
+--import qualified Control.Exception as Err
 
 import ABC.Operators
 import ABC.Resource
@@ -35,19 +33,22 @@ import ABC.Resource
 -- 
 -- This uses the same token generated for separate compilation.
 abcToModuleName :: [Op] -> String
-abcToModuleName = hashToModuleName . L.tail . abcResourceToken
+abcToModuleName = tokenToModuleName . abcResourceToken
 
 -- | compute a module name from the hash of the ABC code
 -- (lossy, but retains 320 bits from 384 for uniqueness)
-hashToModuleName :: String -> String
-hashToModuleName s = 
+tokenToModuleName :: String -> String
+tokenToModuleName ('#':s) = 
     let (a,a') = L.splitAt 2 (fmap modChar s) in
-    let (b,b') = L.splitAt 2 a' in
-    let c = L.take 60 b' in
+    let (b,b') = L.splitAt 2  a' in
+    let (c,c') = L.splitAt 28 b' in
+    let r = L.take 32 c' in
     let sa = showChar 'A' . showString a in
     let sb = showChar 'B' . showString b in
+    let sc = showChar 'C' . showString c in
     let dot = showChar '.' in
-    (sa.dot.sb.dot)('C':c)
+    (sa.dot.sb.dot.sc.dot)('R':r)
+tokenToModuleName s = "Ext." ++ tokenToModuleName ('#':s)
 
 -- squeeze a hash into a module name
 modChar :: Char -> Char
@@ -56,27 +57,14 @@ modChar c | ('a' <= c) && (c <= 'z') = c
 modChar c | ('0' <= c) && (c <= '9') = c
 modChar _ = '_' -- c should only be '_' or '-' if input is from base64
 
--- | (idempotent) obtain or create the JIT directory
-getJitDirectory :: IO FS.FilePath
-getJitDirectory =
-    getAO_TEMP >>= \ aoTmp ->
-    let jitDir = aoTmp FS.</> FS.fromText (T.pack "jit") in
-    FS.createDirectory True jitDir >>
-    return jitDir
-
--- (idempotent) obtain or create the AO_TEMP directory
-getAO_TEMP :: IO FS.FilePath
-getAO_TEMP = 
-    tryDef "aotmp" (Env.getEnv "AO_TEMP") >>= \ d0 ->
-    let fp0 = FS.fromText (T.pack d0) in
-    FS.createTree fp0 >>
-    FS.canonicalizePath fp0
+{-
 
 tryDef :: a -> IO a -> IO a
 tryDef def op = op `Err.catch` onExceptionReturn def where
 
 onExceptionReturn :: a -> Err.SomeException -> IO a
 onExceptionReturn v _ = return v
+-}
 
 {-
 
@@ -260,24 +248,6 @@ op2hs_naive (BL ops) = showString "bl" . opsStr . progVal where
 op2hs_naive op = error $ "op2hs_naive missing def for " ++ show op
 
 -}
-
--- (idempotent) obtain (and create) the JIT storage directory
--- may raise an IOError based on permissions or similar
-getJitTmpDir :: IO FS.FilePath
-getJitTmpDir =  
-    getAO_TEMP >>= \ aoTmp ->
-    let jitFullDir = aoTmp FS.</> FS.fromText (T.pack "jit") in
-    FS.createDirectory True jitFullDir >>
-    return jitFullDir
-
--- (idempotent) obtain (and create) the AO_TEMP directory
--- may raise an IOError based on permissions or similar
-getAO_TEMP :: IO FS.FilePath
-getAO_TEMP = 
-    (maybe "aotmp" id <$> tryJust (Env.getEnv "AO_TEMP")) >>= \ d0 ->
-    let fp0 = FS.fromText (T.pack d0) in
-    FS.createTree fp0 >>
-    FS.canonicalizePath fp0
 
 try :: IO a -> IO (Either Err.SomeException a)
 try = Err.try -- type forced

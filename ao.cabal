@@ -129,6 +129,7 @@ Library
   Other-Modules:
 
     AO.Char
+    AO.Env
     AO.InnerDict
   
   ghc-options: -Wall -auto-all

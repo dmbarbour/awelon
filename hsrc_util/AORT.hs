@@ -495,6 +495,7 @@ invokeResource :: ResourceToken -> Prog AORT
 invokeResource rscTok v =
     -- load from file (todo: use local cache)
     loadResource loadRscFile rscTok >>= \ ops ->
+    
     -- for now, just interpret the ops
     interpret ops v
     

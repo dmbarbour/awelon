@@ -48,7 +48,6 @@ module AO.AOFile
     , loadRscFile, saveRscFile
     ) where
 
-import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -66,7 +65,6 @@ import qualified Text.Parsec.Pos as P
 import Text.Parsec.Text() 
 import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
-import qualified System.Environment as Env
 import qualified System.IO.Error as Err
 import qualified Data.ByteString.Base64.URL as B64
 
@@ -76,6 +74,7 @@ import AO.Parser
 import AO.Dict
 import AO.Code
 import AO.Precompile
+import AO.Env
 import ABC.Resource
 
 type Import   = Text
@@ -136,30 +135,12 @@ loadAO ldRoot warn = ld_completed `liftM` execStateT ldDeep st0 where
 -- with the AO_PATH environment variable. Reduces path to canonical
 -- directories.
 initAO_PATH :: (MonadIO m) => LoadAO m ()
-initAO_PATH = getAO_PATH >>= procPaths where
-    getAO_PATH = liftIO $ Err.tryIOError (Env.getEnv "AO_PATH")
-    procPaths (Left _) = emitWarning eNoPath >> setPath []
-    procPaths (Right sps) =
-        let paths = FS.splitSearchPathString sps in
-        mapM getCanonDir paths >>= \ lErrOrDir ->
-        let (errs, dirs) = partitionEithers lErrOrDir in
-        mapM_ (emitWarning . show) errs >>
-        when (null dirs) (emitWarning eNoDirsInPath) >>
-        setPath dirs
-    setPath p = modify $ \ ld -> ld { ld_path = p }
-    eNoPath = "Environment variable AO_PATH is not defined."
-    eNoDirsInPath = "No accessible directories in AO_PATH!"
-    getCanonDir = liftIO . Err.tryIOError . canonicalizeDirPath
-
--- canonizalize + assert isDirectory (may fail with IOError)
-canonicalizeDirPath :: FS.FilePath -> IO FS.FilePath 
-canonicalizeDirPath fp = 
-    FS.canonicalizePath fp >>= \ cfp ->
-    FS.isDirectory cfp >>= \ bDir ->
-    if bDir then return cfp else -- success case
-    let emsg = show cfp ++ " is not a directory." in
-    let etype = Err.doesNotExistErrorType in
-    Err.ioError $ Err.mkIOError etype emsg Nothing (Just (show fp))
+initAO_PATH = 
+    liftIO getAO_PATH >>= \ p ->
+    let setP ld = ld { ld_path = p } in
+    modify setP >>
+    let eNoPath = "Bad environment variable AO_PATH" in
+    when (null p) (emitWarning eNoPath)
 
 -- Import AO file(s) associated with a given import name.
 --
@@ -381,27 +362,6 @@ hctFile h = dir FS.</> rsc where
     hf  = (T.decodeUtf8 . B64.encode . B.drop 24) h
     rsc = ((FS.<.> ct) . FS.fromText . T.cons 'R') hf
     ct  = T.pack "ct"
-
--- (idempotent) obtain (and create) the ABC ciphertext resource 
--- storage directory. This will serve as the primary location for
--- resources until we upgrade to a proper database. 
-getRscDir :: IO FS.FilePath
-getRscDir =  
-    getAO_TEMP >>= \ aoTmp ->
-    let rscDir = aoTmp FS.</> FS.fromText (T.pack "rsc") in
-    FS.createDirectory True rscDir >>
-    return rscDir
-
--- (idempotent) obtain (and create) the AO_TEMP directory
--- may raise an IOError based on permissions or similar
-getAO_TEMP :: IO FS.FilePath
-getAO_TEMP = 
-    let getVar = Err.tryIOError (Env.getEnv "AO_TEMP") in
-    let withDefault = either (const "aotmp") id in
-    withDefault <$> getVar >>= \ d0 -> 
-    let fp0 = FS.fromText (T.pack d0) in
-    FS.createTree fp0 >>
-    FS.canonicalizePath fp0
 
 showDictIssue :: AODictIssue AOFMeta -> String
 showDictIssue (AODefOverride w defs) = 
