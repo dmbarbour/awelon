@@ -9,6 +9,7 @@ module Main
 import Control.Applicative
 import Control.Monad
 
+import Data.Ratio
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.List as L
@@ -58,14 +59,15 @@ helpMsg =
     \    \n\
     \    ao rsc rscTok         dump ABC for ABC resource invocation {#rscTok} \n\
     \    \n\
-    \    (JIT inoperative at moment) \n\
-    \    ao jit command        print haskell code for imperative JIT \n\
-    \    ao test.jit           run all `test.` words using JIT \n\
-    \    \n\
     \    ao list pattern       list words matching pattern (e.g. test.*) \n\
     \    ao defs pattern       find definitions of words matching pattern \n\
     \    ao uses pattern       find uses of words matching pattern \n\
     \    ao def  word          print full accepted definition of word \n\
+    \    \n\
+    \    (Experimental Modes) \n\
+    \    \n\
+    \    ao ss command         pure AO byte stream transform (stdin→stdout) \n\
+    \        stdin,stdout: µS.[1→((octet*S)+1)] (linear); octet: 0..255 \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \Streams process stdin to stdout, one AO or ABC paragraph at a time. \n\
@@ -75,6 +77,15 @@ helpMsg =
     \    AO_DICT: root dictionary text; default \"ao\" \n\
     \    AO_TEMP: directory for temporaries; default \"aotmp\" \n\
     \"
+
+{-
+    \    \n\
+    \    (JIT inoperative at moment) \n\
+    \    ao jit command        print haskell code for imperative JIT \n\
+    \    ao test.jit           run all `test.` words using JIT \n\
+-}
+
+
 -- todo: typechecking! 
 -- when persistence is working, perhaps add an AO_HOME or similar.
 
@@ -104,6 +115,7 @@ runMode ["abc.raw.s"]    = stdCmdS >>= dumpABC modeRaw
 runMode ["abc.ann.s"]    = stdCmdS >>= dumpABC modeAnn
 runMode ["exec.s"]       = stdCmdS >>= execAO
 runMode ["exec.abc.s"]   = stdCmdS >>= execABC
+runMode ["ss",cmd]       = execSS cmd
 runMode ["rsc",rsc]      = printResource rsc
 --runMode ["jit",cmd]      = printImperativeJIT cmd
 runMode ["list",ptrn]    = listWords ptrn
@@ -220,6 +232,51 @@ execOps' cx v (readPara:more) =
     let prog = interpret ops in
     runRT cx (prog v) >>= \ v' ->
     execOps' cx v' more
+
+-- pure stream transformer process model (stdin→stdout) 
+execSS :: String -> IO ()
+execSS aoCmd =
+    getDict >>= \ d ->
+    case compileAOString d aoCmd of
+        Left err -> putErrLn err >> Sys.exitFailure
+        Right ops ->
+            Sys.hSetBinaryMode Sys.stdin True >>
+            Sys.hSetBinaryMode Sys.stdout True >>
+            newDefaultRuntime >>= \ cx ->
+            runRT cx (interpret ops stdIn >>= writeSS)
+
+-- stdIn modeled as a simple stream
+stdIn :: RtVal
+stdIn = B b where
+    b = Block { b_aff = True, b_rel = True, b_code = code, b_prog = prog }
+    code = S.singleton (Tok "stdin") -- never output 
+    prog U = liftIO $ 
+        Sys.hIsEOF Sys.stdin >>= \ bEOF -> 
+        if bEOF then return (R U) else
+        Sys.hGetChar Sys.stdin >>= \ c8 ->
+        let n = (N . fromIntegral . fromEnum) c8 in
+        return (L (P n stdIn))
+    prog v = fail $ show v ++ " @ {stdin} (unexpected input)"
+
+writeSS :: V AORT -> AORT ()
+writeSS (B b) = writeSS' (b_prog b)
+writeSS v = fail $ "expecting block of type µS.[1→((octet*S)+1)]; received " ++ show v
+
+writeSS' :: Prog AORT -> AORT ()
+writeSS' getC =
+    getC U >>= \ mbC -> -- get a character (maybe)
+    case mbC of
+        (L (P (N n) (B b))) | isOctet n ->
+            let c8 = (toEnum . fromIntegral . numerator) n in
+            liftIO (Sys.hPutChar Sys.stdout c8) >> -- write character to stdout
+            writeSS' (b_prog b) -- repeat on next character
+        (R U) -> return ()
+        v -> fail $ "illegal output from stdout stream: " ++ show v
+
+isOctet :: Rational -> Bool
+isOctet r = (1 == d) && (0 <= n) && (n < 256) where
+    d = denominator r 
+    n = numerator r
 
 -- pattern with simple wildcards.
 -- may escape '*' using '\*'
