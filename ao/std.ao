@@ -92,6 +92,21 @@
  In addition to potential memory and bandwidth savings, use of named ABC resources is an implicit opportunity for separate compilation. We're likely to use a name more than once. A resource can be downloaded, compiled once, and cached for multiple uses. Infrequently used resources may gradually be removed from cache.
  
  Prefix `compile!` serves as a directive. When we define `compile!foo`, we direct the AO system to implement word `foo` as an ABC resource. The definition of `compile!foo` is not relevant. In addition to performance tweaking, this is useful for early development of the compilation and code distribution systems.
+ 
+ See also: `doc.prefix.secret!`
+~
+
+@doc.prefix.secret!
+"ABC's linking model uses [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption), which is vulnerable to a class of 'confirmation' attacks, i.e. whereby an attacker might determine a ten digit bank account number by systematically encrypting all ten billion combinations and determining which one is stored on the content-distribution server. Confirmation attacks work against low-entropy data.
+ 
+ To resist confirmation attacks, we can mix in some high-entropy text - a 'convergence secret' - with the ABC resource when we're compiling it. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of about 2^192. In ABC, a convergence secret might look like:
+ 
+     "fXDvOPfmH8hhEhLrD0F034XEQuKfp9xg
+     ~%
+ 
+ The prefix `secret!` acts as a directive word; `secret!foo` indicates that word `foo` should, when compiled to AO, be mixed with a convergence secret. The convergence secret should be deterministic, stable, and cryptographically secure. A simple HMAC of a higher layer secret together with the protected code would work well enough. The secrecy indicator may further support policies such as filtering or encrypting secret words when exporting a 'public' dictionary.
+ 
+ Developers should mark as secret any words directly containing privacy sensitive or intellectual property sensitive information. There is no need to mark words transitively. 
 ~
 
 @doc.prefix.id.
