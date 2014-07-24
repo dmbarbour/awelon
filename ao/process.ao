@@ -1,82 +1,69 @@
 @doc.Processes
-"Consider an incremental process model, abstractly of form `µP.[a→(P*b)]`. Which is to say, process `P` is described as a step function that takes a single input of type `a` and generates a single output of type `b`, along with an updated process `P` for the next step (thus modeling stateful behavior). Each step should terminate, but the process overall might allow an unbounded number of steps. (A process that terminates should return a value indicating so.)
+"A process model describes an interactive behavior. A simple process model:
  
- OOP-like objects can be modeled using dependent types: `a` contains method name, `b` is result whose type depends on `a`, `P` is the object. It is also feasible for types `a` and `b` to vary between steps, e.g. to model multi-step protocols, typestate, or evolving objects.
+     µP.[a → (P * b)]               shorthand: [a ↣ b] (using U+21A3)
  
- Compared to conventional process-as-a-loop models, AO's model offers effective process control and composition without relying on side-effects or indeterminacy. Processes may trivially be halted between steps, or composed sequentially or in parallel (e.g. splitting a pair, combining results). Concurrent behaviors are readily expressed. A process can model environments and networks, routing messages or establishing channels between named child processes.  
+ In each interactive step, this process receives an input of type `a` and outputs a `b` along with the updated process. More generally, this process might be dependently typed. Further, the expected input and output types may evolve over interactive steps, e.g. type state, protocols, handshakes. 
  
- As shorthand for the type of a simple process, I'll use U+21A3: a ↣ b.
-  
- It is feasible to use the abstract process model directly, leveraging fixpoints. However, a symbolic representation could enable many explicit optimizations, and eliminate some unnecessary intermediate structures. An ABC optimizer on the final block could do some of this, but reducing the burden on smart compilers is a good thing. So the actual representation for AO's processes is symbolic, abstracted by a sealer, with staged compilation to a block upon request. 
+ This process model composes in many useful ways:
  
- NOTE: Processes encapsulate state, and thus diverge from source. Consequently, long-running processes aren't ideal for live programming or continuous deployment scenarios: we cannot reliably map an update on the source back into an update of the process. (Conversely, we cannot trivially trace an error in the process back to the source.) Reactive demand programming (RDP) is the preferred model for long-running behavior. The incremental process model is useful for folds, processing large data structures, and potentially for implementing RDP. 
+     (a ↣ b)*(b ↣ c) → (a ↣ c)                  Sequential
+     (a ↣ a')*(b ↣ b') → ((a*b) ↣ (a'*b'))      Concurrent
+     (a ↣ a')*(b ↣ b') → ((a+b) ↣ (a'+b'))      Conditional
+ 
+ Processes can also model most object oriented programming patterns.
+ 
+ Sadly, this process model is inefficient. A more sophisticated process model could expose structure, optimize dataflows, compose lifted functions, eschew fixpoints. Of course, KISS principle applies; there is value in simplicity. The simple process model proposed here will be developed under suffix `.p`, and may easily coexist with more sophisticated models (e.g. as a common target for integration).
 ~
-
-@doc.ProcessRep
-"A little on the concrete representation for incremental subprocesses.
- 
- Direct use of blocks are opaque. A very good compiler could offer very good performance, but it is more difficult to assure good performance because we cannot assume the quality of a (potentially JIT) compiler. A more symbolic model - free structure - can ensure greater optimizations by modeling it explicitly, and use of simpler techniques such as staged or partial evaluation. 
- 
- In addition, we can treat a behavior as modeling a stream process, not just a one-off input to output. An incremental process will presumably be executed many times by many subsequent inputs. Thus, it can be useful to treat inputs as streams rather than atoms. Relevantly, there is a useful distinction between a pair of streams vs. a stream of pairs:
- 
-     (a`Stream * b`Stream)    vs.    (a*b)`Stream
- 
- Similarly, we can distinguish a sum of streams vs. a stream of sums.
- 
-     (a`Stream + b`Stream)    vs.    (a+b)`Stream
- 
- However, in the sum case, the two aren't representationally equivalent. Consider a variation:
- 
-     ((1+a)`Stream * (1+b)`Stream) ~  (a+b)`Stream
- 
- Essentially, we can use a pair of streams with gaps to model a stream of independent options that has no gaps. Sadly, this means we can represent some invalid streams, and we must be careful and disciplined to avoid error. OTOH, this presents greater opportunities - e.g. we can model separate delays and paths for each stream.
- 
- It is useful to generalize this (1+a) pattern. Any process may, as a whole, be inactive. Every process is part of a larger process, with activity ultimately flowing from an implicit top level. Maintaining operational equivalencies leads to duration coupling invariants. A pair of streams represents either a stream of pairs (unzipped) or a stream of sums (to be interwoven). Each input corresponds to exactly one output, potentially with some delay. Incremental processes are very close to RDP, but do not insist on the same temporal continuity properties.
- 
- Some symbolic processes?
- 
-     id    :: [a↣a]
-     const :: c → [a↣(c*a)]
-     fmap  :: [a→b] → [a↣b] (assume pure function; allow dead code elim)
-     efmap :: [a→b] → [a↣b] (assume impure function; no dead code elim)
-     state :: (∃s.([(a*s)↣(b*s)]*s)) → [a↣b]
-     proc  :: (µP.[a→(P*b)]) → [a↣b]
- 
-     seq   :: ([a↣b]*[b↣c]) → [a↣c]
-     par   :: ([a↣a']*[b↣b']) → [(a*b)↣(a'*b')]
-     sum   :: ([a↣a']*[b↣b']) → [(a+b)↣(a'+b')]
- 
- But this is just a start. I also expect to optimize for data shuffling primitives, and I might also want some extensible compilation model (such that new symbols and optimizations can be introduced, e.g. to optimize any stream-processing or list-processing). In some broad sense, this process model may reflect most of ABC and AO.
- 
- The implementation of this symbolic model is trivial (label*value) pairs, where labels are generally text like "id" or "fmap", and the values are the arguments to the associated process. Rewrite rules mostly operate on sequences. Most complexity is shifted to the compiler, which must be aware of the symbols.
- 
- The concrete implementation of processes is kept weakly abstract by a sealer and smart constructors.
-~
-
-@doc.TODO.p
-"TODO: make it easy to develop rewrite rules and compilers of this form. 
- 
- AO is awful for direct expression of pattern-matching and transform logics (seeing as there is no syntactic support for pattern matching), but should be okay after a layer or two abstractions and indirections, or possibly using a DSL. Mostly, I need rewrite rules on a sequence, or a grammar model for sequence-to-sequence (or stream-to-stream, or set-of-streams to set-of-streams as a weighted optimization problem). Tree-based is much less essential.
- 
- TODO: make it easy to recognize pattern pairs for composition
-~
-
 @doc.suffix.p doc.Processes
 
-@sealer.p [{:p}]
-@unsealer.p [{.p}]
-@seal.p sealer.p .apply
-@unseal.p unsealer.p .apply
-@unseal2.p swap unseal.p swap unseal.p
+@doc.lift.p "[a → b] -- [a ↣ b]; function to process"
+@lift.p .bsecond .fixfirst
 
+@doc.step.p "a [a↣b] -- b [a↣b]; run process one step"
+@step.p .apply x
 
-@doc.suffix.abstract.p "naive implementation of abstract process model"
-@doc.lift.abstract.p "[a→b] -- µP.[a→(P*b)]"
-@lift.abstract.p .bsecond .fixfirst
-@doc.step.abstract.p "a [a↣b] -- b [a'↣b']; run process one step"
-@step.abstract.p .apply x
-@inc.abstract.p [%v 1 %r+c] lift.abstract.p
-@test.inc.abstract.p 
-  11 inc.abstract.p 
-  [step.abstract.p] 16 repeat
+@doc.compose.p "[a ↣ b] [b ↣ c] -- [a ↣ c]; compose two processes"
+@compose.p [step.compose.p] .fixfirst .bind .bind
+@step.compose.p %vrwrwr$rwzw$zrz'wozw'wolc
+@composel.p swap compose.p
+
+@test.compose.p
+ 0
+ 1 addC.p 
+ 2 mulC.p
+ compose.p
+ step.p step.p step.p step.p
+ 30 assertEQ1d.n
+ step.p step.p step.p step.p
+ 510 assertEQ1d.n
+
+@doc.first.p  "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
+@doc.second.p "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
+@doc.par.p    "[a ↣ a'] [b ↣ b'] -- [(a*b) ↣ (a'*b')]; run two processes in parallel"
+@doc.left.p   "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
+@doc.right.p  "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+
+@doc.scanList.p   "a`L [a ↣ b] -- b`L; process list all at once"
+@doc.scanStream.p "a`SS [a ↣ b] -- b`SS; process stream incrementally"
+
+@doc.delay.p "a -- [a ↣ a]; delays input one step; initial output provided"
+@delay.p [step.delay.p] .fixfirst .bind
+@step.delay.p %vrwrwz'wolc
+
+@doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
+@doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"
+@mul.p [%vr*c] lift.p
+@add.p [%vr+c] lift.p
+
+@doc.mulC.p "N(a) -- [N(b) ↣ N(a*b)]"
+@mulC.p [%vr*c] .bind lift.p
+
+@doc.addC.p "N(a) -- [N(b) ↣ N(a+b)]"
+@addC.p [%vr+c] .bind lift.p
+
+@inc.p 1 addC.p
+@test.inc.p 
+  11 inc.p 
+  [step.p] 16 repeat
   swap 27 assertEQ
