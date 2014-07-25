@@ -1,3 +1,5 @@
+loops blocks streams lists
+
 @doc.Processes
 "A process model describes an interactive behavior. A simple process model:
  
@@ -5,15 +7,15 @@
  
  In each interactive step, this process receives an input of type `a` and outputs a `b` along with the updated process. More generally, this process might be dependently typed. Further, the expected input and output types may evolve over interactive steps, e.g. type state, protocols, handshakes. 
  
- This process model composes in many useful ways:
+ This process model composes in useful ways:
  
-     (a ↣ b)*(b ↣ c) → (a ↣ c)                  Sequential
+     (a ↣ b) *(b ↣ c)  → (a ↣ c)                Sequential
      (a ↣ a')*(b ↣ b') → ((a*b) ↣ (a'*b'))      Concurrent
      (a ↣ a')*(b ↣ b') → ((a+b) ↣ (a'+b'))      Conditional
  
- Processes can also model most object oriented programming patterns.
+ Processes can also model most object oriented programming patterns, modulo those that rely heavily on aliasing. We can also model environments, e.g. organizations of named processes that can communicate via messages, which may have their own compositions. Processes are a relatively generic approach to programming.
  
- Sadly, this process model is inefficient. A more sophisticated process model could expose structure, optimize dataflows, compose lifted functions, eschew fixpoints. Of course, KISS principle applies; there is value in simplicity. The simple process model proposed here will be developed under suffix `.p`, and may easily coexist with more sophisticated models (e.g. as a common target for integration).
+ Sadly, this process model is inefficient. A more sophisticated process model could expose structure, optimize dataflows, compose lifted functions, minimize fixpoints. Of course, KISS principle applies; there is value in simplicity. The simple process model proposed here will be developed under suffix `.p`, and may easily coexist with more sophisticated models (e.g. as a common target for integration).
 ~
 @doc.suffix.p doc.Processes
 
@@ -38,18 +40,37 @@
  step.p step.p step.p step.p
  510 assertEQ1d.n
 
-@doc.first.p  "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
-@doc.second.p "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
-@doc.par.p    "[a ↣ a'] [b ↣ b'] -- [(a*b) ↣ (a'*b')]; run two processes in parallel"
-@doc.left.p   "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
-@doc.right.p  "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+@doc.state.p 
+"A stateful process can be modeled as a pure function that, in addition to its normal input and output, receives a state value and outputs an updated state value. This must be coupled with an initial state.
+ 
+     st [(st*a) → (st*b)] -- [a ↣ b]
+ 
+ Most stateful behaviors can be expressed this way.
+~
+@state.p [step.state.p] .bind .fixfirst .bind
+@step.state.p %wvrwr$rz'wolc
 
-@doc.scanList.p   "a`L [a ↣ b] -- b`L; process list all at once"
-@doc.scanStream.p "a`SS [a ↣ b] -- b`SS; process stream incrementally"
+@doc.first.p   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
+@first.p [step.first.p] .fixfirst .bind 
+@step.first.p %wz$rz'wo
+
+@doc.second.p   "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
+@second.p [step.second.p] .fixfirst .bind 
+@step.second.p %vrwrwrwzw$rwzwlwz'wolc
+
+@doc.left.p     "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
+@doc.right.p    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+
 
 @doc.delay.p "a -- [a ↣ a]; delays input one step; initial output provided"
 @delay.p [step.delay.p] .fixfirst .bind
 @step.delay.p %vrwrwz'wolc
+
+
+@doc.counter.p "-- [a ↣ (N*a)]; add index to output"
+@doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"
+@counter.p 0 counterFrom.p
+@counterFrom.p [%^ 1 %r+] state.p
 
 @doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
 @doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"

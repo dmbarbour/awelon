@@ -1,5 +1,4 @@
-   
-  process
+process loops
 
 @doc.Streams
 "A stream is an incremental source of values. A simple model for streams:

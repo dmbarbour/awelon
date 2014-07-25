@@ -1,10 +1,30 @@
-@doc.PrimitiveMath
-"The intention is for AO to operate easily with units and matrices. The prefix '.' for math is used for primitive math operations on naked, scalar numbers. These operators include `.add`, `.mul`, `.neg`, `.inv`, `.divMod`, `.sub`, and `.div`. 
-  
- More generally, AO will be leaning towards symbolic math libraries, i.e. such that we build expressions in a math DSL rather than directly compute results. This enables much richer analysis and optimization to be performed within the language, at expense of making it difficult to directly optimize the language (except by partial evaluation).
+@doc.Math
+"Awelon Bytecode (ABC) has a built in number type for exact rational numbers, and a small set of primitive operators (`+*-/Q` for add, multiply, negate, reciprocal, divmod) for manipulating these numbers. This is suitable for basic arithmetic. In some cases, a runtime may use inexact number representations, guided by annotation... but exact math is the default.
  
- The basic number type in is the exact rational number. However, ABC does not offer observation for the exact numerator or denominator of a rational number. Hence, the representation can vary some: programs could use inexact math in some cases, or an approach to exact math using lazy asymptotic bounds. Developers are free to annotate code requesting use of floating point numbers. Of course, annotations are discretionary, but I imagine many compilers will support it. ABC should never *silently* coerce to inexact math.
+ Awelon Object (AO) language provides convenient representation of numbers - e.g. decimal, hexadecimal, fractional. In addition, it is envisioned (though not yet practiced) that AO should make heavy use of units information - e.g. distinguishing 4 kilograms from 4 litres, i.e. as an alternative to conventional typing disciplines. Units are relatively easy to express in concatenative languages, e.g. the word `kilograms` might take a number off the stack and wrap it with the appropriate unit structure. 
+ 
+ On the assumption that most AO math functions shall support operators, the 'primitive' math operations are named with prefix `.`, as in `.add` and `.mul`. In addition, there is a class of pure math functions that operate on pairs or single values, meant for use with process models and stream processing, which have the form `add\N` and `mul\N`, where N is the arity.
+ 
+ Sadly, concatenative languages are not very nice for expressing sophisticated algebraic formula. The stack shuffling, duplication, and data plumbing can interfere greatly with comprehension compared to a more declarative approach. To address this we can feasibly leverage embedded DSLs and partial evaluation. Compare:
+ 
+     drop dup dup .mul swap .abs rot3 dup .mul swap .sub .add
+     drop [.square] [.abs] bi .neg [.square] dip .add
+     "x y z → y^2 + x^2 - |y|" doTheMath
+ 
+ These three lines essentially express the same behavior (assuming suitable implementations of each word), but the latter is decidedly more declarative and comprehensible. Unfortunately, it's still stuck in a nasty string. Long term, embedded DSLs should be able to leverage [embedded literal objects](http://awelonblue.wordpress.com/2014/07/22/embedded-literal-objects/) to achieve rich, compositional structure with various maths.
 ~
+
+@doc..mul "N(b) N(a) -- N(a*b)"
+@doc..add "N(b) N(a) -- N(a+b)"
+@doc..neg "N(a) -- N(-a)"
+@doc..inv "N(a) -- N(1/a); a must be non-zero"
+@doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
+@doc..quot "just the quotient from .divMod"
+@doc..rem "just the remainder from .divMod"
+@doc..sub "N(a) N(b) -- N(a-b)"
+@doc..div "N(a) N(b) -- N(a/b)"
+@doc..square "N(a) -- N(a^2)"
+@doc..abs "N(a) -- N(|a|)"
 
 @.mul p %rr*l
 @.add p %rr+l
@@ -16,6 +36,32 @@
 @.sub .neg .add
 @.div .inv .mul
 @.square dup .mul
+@.abs %r inner..abs %l
+@inner..abs 0 %r> [%-vrw%c] %r?VRW [%%] %r?LCM
+
+@doc.add\2 "(N(a)*N(b))→N(a+b)"
+@doc.mul\2 "(N(a)*N(b))→N(a*b)"
+@doc.neg\1 "N(a)→N(0-a)"
+@doc.inv\1 "N(a)→N(1/a)"
+@doc.divMod\2 "(N(a)*N(b))→(N(q)*N(r)); a = qb+r; q integral, r between 0 and b"
+@doc.quot\2 "(N(a)*N(b))→N(q); just quotient from divMod\2"
+@doc.rem\2  "(N(a)*N(b))→N(r); just remainder from divMod\2"
+@doc.sub\2  "(N(a)*N(b))→N(a-b)"
+@doc.div\2  "(N(a)*N(b))→N(a/b)"
+@doc.square\1 "N(a)→N(a^2)"
+@doc.abs\1  "N(a)→N(|a|)"
+
+@add\2 %vr+c
+@mul\2 %vr*c
+@neg\1 %v-c
+@inv\1 %v/c
+@divMod\2 %vrwQwlc
+@quot\2 %vrwQ%c
+@rem\2  %vrwQw%c
+@sub\2  %vrw-+c
+@div\2  %vrw/*c
+@square\1 %v^*c
+@abs\1  %v inner..abs %c
 
 @+ .add
 @* .mul
@@ -36,7 +82,27 @@
 @test.math.quotient 11 3 .quot 3 assertEQ
 @test.math.remainder 11 3 .rem 2 assertEQ
 @test.math.remainderFrac 10 4/3 .rem 2/3 assertEQ
+@test.math.abs 
+    3 .abs 3 assertEQ1
+    0 .abs 0 assertEQ1
+   -3 .abs 3 assertEQ1
 
+@test.add\2 6 7 pw [add\2] .apply 13 assertEQ
+@test.mul\2 6 7 pw [mul\2] .apply 42 assertEQ
+@test.neg\1 7 [neg\1] .apply -7 assertEQ
+@test.inv\1 8 [inv\1] .apply 1/8 assertEQ
+@test.quot\2
+  11 3    pw [quot\2] .apply 3 assertEQ1
+  11 2/3  pw [quot\2] .apply 16 assertEQ1
+  11 -2/3 pw [quot\2] .apply -17 assertEQ1
+@test.rem\2
+  11 3    pw [rem\2] .apply 2 assertEQ1
+  11 2/3  pw [rem\2] .apply 1/3 assertEQ1
+  11 -2/3 pw [rem\2] .apply -1/3 assertEQ1
+@test.sub\2 13 6 pw [sub\2] .apply 7 assertEQ1
+@test.div\2 42 6 pw [div\2] .apply 7 assertEQ1
+@test.square\1 9 [square\1] .apply 81 assertEQ1
+@test.abs\1 -3 [abs\1] .apply 3 assertEQ1
 
 
 @inc 1 .add
@@ -44,15 +110,6 @@
 @dec 1 .sub
 @decd swap dec swap
 
-@doc..mul "N(b) N(a) -- N(a*b)"
-@doc..add "N(b) N(a) -- N(a+b)"
-@doc..neg "N(a) -- N(-a)"
-@doc..inv "N(a) -- N(1/a); a must be non-zero"
-@doc..divMod "N(a) N(b) -- N(r) N(q) where a=q*b+r and r in (b,0] or [0,b)"
-@doc..quot "just the quotient from .divMod"
-@doc..rem "just the remainder from .divMod"
-@doc..sub "N(a) N(b) -- N(a-b)"
-@doc..div "N(a) N(b) -- N(a/b)"
 
 @id.mul1 1 .mul
 @id.div1 1 .div
