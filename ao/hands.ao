@@ -40,6 +40,8 @@
 @juggle2 %w roll2 %w
 @juggle3 %w roll3 %w
 @juggle4 %w roll4 %w
+@juggle5 %w roll5 %w
+@juggle6 %w roll6 %w
 
 @discard2 discard  discard
 @discard3 discard2 discard
