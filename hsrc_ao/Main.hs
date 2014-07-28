@@ -245,10 +245,10 @@ execSS aoCmd =
             newDefaultRuntime >>= \ cx ->
             runRT cx (interpret ops stdIn >>= writeSS)
 
--- stdIn modeled as a simple stream
+-- stdIn modeled as a simple affine stream
 stdIn :: RtVal
 stdIn = B b where
-    b = Block { b_aff = True, b_rel = True, b_code = code, b_prog = prog }
+    b = Block { b_aff = True, b_rel = False, b_code = code, b_prog = prog }
     code = S.singleton (Tok "stdin") -- never output 
     prog U = liftIO $ 
         Sys.hIsEOF Sys.stdin >>= \ bEOF -> 
