@@ -41,6 +41,9 @@ process loops lists blocks conditionals
 @onFini.foreach.s elim1 %wl drop %wl drop
 @onElem.foreach.s wx %wlwl dpw dip wx inline
 
+@doc.each.s doc.foreach.s
+@each.s foreach.s
+
 @test.foreach.s
  "hello, world!" fromList.s
  0 [.add] swapd foreach.s
