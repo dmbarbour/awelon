@@ -302,7 +302,7 @@
 
 @test.textIsList 
  "42" 
- empty.l 50 cons.l 52 cons.l
+ empty.l 0x32 cons.l 0x34 cons.l
  assertTextEQ1
 @id.textDrop "presumably any text" drop
 
