@@ -29,7 +29,7 @@
 @nip2 %rw drop2 %wl
 @nip3 %rw drop3 %wl
 @nip4 %rw drop4 %wl
-@dropd swap drop
+@dropd nip
 @swap  %rwrwzwlwl
 @swapd %rw swap %wl
 @rot swapd swap
