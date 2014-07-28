@@ -27,13 +27,16 @@
  
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
-     .apply :: x [x→y] -- y ; apply block to just top object on stack
-     apply  :: x [x--y] -- y; apply block to just top object on stack
+     .apply  :: x [x→y] -- y ; apply block to just top object on stack
+     .applyd :: [x→y] x -- y ; apply block under object
+     apply  :: x [x--y] -- y ; apply block to just top object on stack
        this variation provides a fresh stack and empty hand
        (the powerblock, named stacks, etc. are hidden)
+     applyd :: [x--y] x -- y ; apply block under top object on stack
      applyNtoM :: takes N arguments on stack, generates M results on stack
        hides everything else (empty hand, no powerblock or named stacks)
        N and M in range 0..7. 0 outputs suggests effectful block.
+     applyNtoMd :: applyNtoM with block below the N arguments
      applyS :: apply to full stack (hiding rest of environment)
      dip    :: h [] -- ; apply block to all except top element on stack
      dip2   :: h1 h2 [] -- ; apply block to all except top two elements
@@ -41,7 +44,7 @@
      inline :: [] -- ; apply block as if inline (hand is visible)
      keep   :: x [x -- y] -- y x; copies element on stack
  
- The set of application words will undoubtedly evolve with experience.
+ The set of application words will undoubtedly evolve with experience and convenience in mind.
  
  Todo: add common bi/tri variants from Factor's vocabulary
 ~
@@ -62,6 +65,9 @@
 @inline %rvr$c
 @keep dupd dip
 
+@.applyd swap .apply
+@applyd swap apply
+
 @dip2 dpw dip  wx
 @dip3 dpw dip2 wx
 @dip4 dpw dip3 wx
@@ -80,6 +86,14 @@
 @apply1to6 [pw] compose apply1to5 wx
 @apply1to7 [pw] compose apply1to6 wx
 
+@apply1to1d roll2 apply1to1
+@apply1to2d roll2 apply1to2
+@apply1to3d roll2 apply1to3
+@apply1to4d roll2 apply1to4
+@apply1to5d roll2 apply1to5
+@apply1to6d roll2 apply1to6
+@apply1to7d roll2 apply1to7
+
 @apply2to1 compressArgs apply1to1
 @apply2to2 compressArgs apply1to2
 @apply2to3 compressArgs apply1to3
@@ -87,6 +101,14 @@
 @apply2to5 compressArgs apply1to5
 @apply2to6 compressArgs apply1to6
 @apply2to7 compressArgs apply1to7
+
+@apply2to1d roll3 apply2to1
+@apply2to2d roll3 apply2to2
+@apply2to3d roll3 apply2to3
+@apply2to4d roll3 apply2to4
+@apply2to5d roll3 apply2to5
+@apply2to6d roll3 apply2to6
+@apply2to7d roll3 apply2to7
 
 @apply3to1 compressArgs apply2to1
 @apply3to2 compressArgs apply2to2
@@ -96,6 +118,14 @@
 @apply3to6 compressArgs apply2to6
 @apply3to7 compressArgs apply2to7
 
+@apply3to1d roll4 apply3to1
+@apply3to2d roll4 apply3to2
+@apply3to3d roll4 apply3to3
+@apply3to4d roll4 apply3to4
+@apply3to5d roll4 apply3to5
+@apply3to6d roll4 apply3to6
+@apply3to7d roll4 apply3to7
+
 @apply4to1 compressArgs apply3to1
 @apply4to2 compressArgs apply3to2
 @apply4to3 compressArgs apply3to3
@@ -103,6 +133,14 @@
 @apply4to5 compressArgs apply3to5
 @apply4to6 compressArgs apply3to6
 @apply4to7 compressArgs apply3to7
+
+@apply4to1d roll5 apply4to1
+@apply4to2d roll5 apply4to2
+@apply4to3d roll5 apply4to3
+@apply4to4d roll5 apply4to4
+@apply4to5d roll5 apply4to5
+@apply4to6d roll5 apply4to6
+@apply4to7d roll5 apply4to7
 
 @apply5to1 compressArgs apply4to1
 @apply5to2 compressArgs apply4to2
@@ -112,6 +150,14 @@
 @apply5to6 compressArgs apply4to6
 @apply5to7 compressArgs apply4to7
 
+@apply5to1d roll6 apply5to1
+@apply5to2d roll6 apply5to2
+@apply5to3d roll6 apply5to3
+@apply5to4d roll6 apply5to4
+@apply5to5d roll6 apply5to5
+@apply5to6d roll6 apply5to6
+@apply5to7d roll6 apply5to7
+
 @apply6to1 compressArgs apply5to1
 @apply6to2 compressArgs apply5to2
 @apply6to3 compressArgs apply5to3
@@ -120,6 +166,14 @@
 @apply6to6 compressArgs apply5to6
 @apply6to7 compressArgs apply5to7
 
+@apply6to1d roll7 apply6to1
+@apply6to2d roll7 apply6to2
+@apply6to3d roll7 apply6to3
+@apply6to4d roll7 apply6to4
+@apply6to5d roll7 apply6to5
+@apply6to6d roll7 apply6to6
+@apply6to7d roll7 apply6to7
+
 @apply7to1 compressArgs apply6to1
 @apply7to2 compressArgs apply6to2
 @apply7to3 compressArgs apply6to3
@@ -127,6 +181,14 @@
 @apply7to5 compressArgs apply6to5
 @apply7to6 compressArgs apply6to6
 @apply7to7 compressArgs apply6to7
+
+@apply7to1d roll8 apply7to1
+@apply7to2d roll8 apply7to2
+@apply7to3d roll8 apply7to3
+@apply7to4d roll8 apply7to4
+@apply7to5d roll8 apply7to5
+@apply7to6d roll8 apply7to6
+@apply7to7d roll8 apply7to7
 
 @compressArgs dpw [wx] composel
 
@@ -148,10 +210,23 @@
 @apply6to0 compressArgs apply5to0
 @apply7to0 compressArgs apply6to0
 
+@apply1to0d roll2 apply1to0
+@apply2to0d roll3 apply2to0
+@apply3to0d roll4 apply3to0
+@apply4to0d roll5 apply4to0
+@apply5to0d roll6 apply5to0
+@apply6to0d roll7 apply6to0
+@apply7to0d roll8 apply7to0
+
 @test.apply4to2 
   2 3 4 5 [.add unrot .add] apply4to2 
-  5 assertEQ1 swap 
-  9 assertEQ1 
+  5 assertEQ1.n swap 
+  9 assertEQ1.n
+
+@test.apply4to2d
+  [.add .mul .add 42] 2 3 4 5 apply4to2d
+  42 assertEQ1.n
+  29 assertEQ1d.n
 
 @id.apply.id [id] apply
 @id.compose [id] compose
