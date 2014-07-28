@@ -1,17 +1,47 @@
-process loops
+process loops lists blocks conditionals
 
 @doc.Streams
-"A stream is an incremental source of values. A simple model for streams:
+"A stream is an incremental sequence of values. The incremental nature gives stream processing a few performance advantages, at least for very long streams or short-circuiting computations. 
  
-     µS.[1→((elem*S)+1)]
+     µS.[1→((elem*S)+1)]            shorthand: elem`S
  
- This model allows incremental computation of elements and eventual termination of the stream. The computation is driven by the observer, but is not interactive - i.e. the observer cannot influence the future values in the stream. A stream is allowed to terminate. In many cases, streams will also be linear or affine.
-  
- The simple stream model will have poor performance for sequential composition or for mapping many pure functions over the stream. A more sophisticated stream model could achieve better performance via latent optimizations, but I believe the simple stream model is worth developing.
+ This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. In most cases we use streams in AO, we want them to eventually terminate; termination is modeled here by returning unit in the right. 
  
- This simple stream model uses words with suffix `.ss`. 
+ The simple streams model isn't ideally efficient, especially with deep composition. A more sophisticated streams model or stream builder might support some rich, symbolic optimizations. However, the simple streams model is worth developing for integrating systems and as a compilation target.
+ 
+ Words for this simple stream model use suffix `.s`
 ~
+@doc.suffix.s doc.Streams
 
-@doc.suffix.ss doc.Streams
+@doc.empty.s "-- a`S; add empty stream to stack"
+@empty.s [%vvrwlcVVRWLCc]
 
+@doc.cons.s "a`L a -- a`L; add element at head of stream"
+@doc.pushback.s "synonym for `cons.s`; adds element to front of stream"
+@cons.s p inL %r' [%c] %rol
+@putback.s cons.s
 
+@doc.fromList.s "a`L -- a`S; treat a list as a stream"
+@doc.toStream.l doc.fromList.s
+@toStream.l fromList.s
+@fromList.s [step.fromList.s] .fixfirst .bind
+@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%cv%] %r?WLCc
+
+@doc.foreach.s
+"Sequentially process every element from a finite stream. The expected type is roughly:
+ 
+     ..b a`S [..b a -- ..b] -- ..b
+ 
+ That is, we apply the same function with each element of the stream in the current AO environment. A non-terminating stream would cause divergence, and is an error, though it's ultimately up to the developer to avoid this error.
+~
+@foreach.s [step.foreach.s] bind fixpoint inline
+@step.foreach.s 
+  %rwrw intro1 .applyd 
+  [onElem.foreach.s] [onFini.foreach.s] if
+@onFini.foreach.s elim1 %wl drop %wl drop
+@onElem.foreach.s wx %wlwl dpw dip wx inline
+
+@doc.toList.s "a`S -- a`L; extract a list from a finite stream"
+@doc.fromStream.l doc.toList.s
+@fromStream.l toList.s
+@toList.s empty.l swap [cons.l] foreach.s reverse.l
