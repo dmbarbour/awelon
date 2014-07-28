@@ -318,24 +318,3 @@
 @assertTextEQ1d swapd assertTextEQ1 swap
 
 
-@doc.<: 
-"creates an empty list in the hand
- experimental pseudo-literal 
- 
-     <: 1 , 2 , 3 :>
- 
- This would add a list to the stack containing the given elements.
- 
- However, it might not be a very good approach. I have other ideas for extensible literal types with sufficient IDE support, e.g. supporting diagrams and widgets as literals.
-~
-@doc.,  "cons to list in hand"
-@doc.:> "finish list; move from hand to stack"
-@<: empty.l take
-@, putd cons.l take
-@:> , put reverse.l
-
-
-
-
-
-
