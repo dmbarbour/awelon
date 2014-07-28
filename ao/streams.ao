@@ -1,11 +1,11 @@
 process loops lists blocks conditionals
 
 @doc.Streams
-"A stream is an incremental sequence of values. The incremental nature gives stream processing a few performance advantages, at least for very long streams or short-circuiting computations. 
+"A stream is an incremental sequence of values. The incremental nature gives stream processing a few advantages for reasoning about space requirements when processing very long running streams. 
  
      µS.[1→((elem*S)+1)]            shorthand: elem`S
  
- This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. In most cases we use streams in AO, we want them to eventually terminate; termination is modeled here by returning unit in the right. 
+ This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. These streams are also allowed to terminate, by returning unit in the right. In most cases we'll want to work with terminating streams.
  
  The simple streams model isn't ideally efficient, especially with deep composition. A more sophisticated streams model or stream builder might support some rich, symbolic optimizations. However, the simple streams model is worth developing for integrating systems and as a compilation target.
  
@@ -17,7 +17,7 @@ process loops lists blocks conditionals
 @empty.s [%vvrwlcVVRWLCc]
 
 @doc.cons.s "a`L a -- a`L; add element at head of stream"
-@doc.pushback.s "synonym for `cons.s`; adds element to front of stream"
+@doc.putback.s "synonym for `cons.s`; adds element to front of stream"
 @cons.s p inL %r' [%c] %rol
 @putback.s cons.s
 
@@ -28,20 +28,55 @@ process loops lists blocks conditionals
 @step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%cv%] %r?WLCc
 
 @doc.foreach.s
-"Sequentially process every element from a finite stream. The expected type is roughly:
+"Sequentially process every element from a finite stream. The type is roughly:
  
      ..b a`S [..b a -- ..b] -- ..b
  
  That is, we apply the same function with each element of the stream in the current AO environment. A non-terminating stream would cause divergence, and is an error, though it's ultimately up to the developer to avoid this error.
 ~
-@foreach.s [step.foreach.s] bind fixpoint inline
+@foreach.s [step.foreach.s] .bind .fixfirst inline
 @step.foreach.s 
-  %rwrw intro1 .applyd 
+  %wzw intro1 .applyd 
   [onElem.foreach.s] [onFini.foreach.s] if
 @onFini.foreach.s elim1 %wl drop %wl drop
 @onElem.foreach.s wx %wlwl dpw dip wx inline
+
+@test.foreach.s
+ "hello, world!" fromList.s
+ 0 [.add] swapd foreach.s
+ 1193 assertEQ1.n
 
 @doc.toList.s "a`S -- a`L; extract a list from a finite stream"
 @doc.fromStream.l doc.toList.s
 @fromStream.l toList.s
 @toList.s empty.l swap [cons.l] foreach.s reverse.l
+
+@test.toList.s "hello, world!" dup fromList.s toList.s assertEQ1
+@id.listToStreamToList   fromList.s toList.s
+@id.streamToListToStream toList.s fromList.s
+
+@doc.fmap.s "a`S [a → b] -- b`S; map a function to a stream"
+@fmap.s [step.fmap.s] .bind .fixfirst .bind
+@step.fmap.s %lwvvrwlcw$wD [onElem.fmap.s] %r?VRW [%%] %r?WLCc
+@onElem.fmap.s %rz$vrwrw'wowlc
+
+@test.fmap.s
+ "hello" fromList.s
+ 4 [add\2] .bind fmap.s
+ toList.s
+ "lipps" assertEQ1
+
+
+@doc.lefts.s 
+"Filter a stream, keeping only the left elements.
+ 
+     (a+b)`S -- a`S     (requires droppable b)
+ 
+ In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which considered an error in Awelon. So developers should be careful with filtering of streams.
+~
+@lefts.s [step.lefts.s] .fixfirst .bind
+@step.lefts.s "TODO: step.lefts.s" assert
+
+@doc.rights.s "(a+b)`S -- b`S; see `doc.lefts.s`"
+
+
