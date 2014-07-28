@@ -40,9 +40,10 @@
 @doc.reverse.l "a`L -- a`L; reverse order of elements in list"
 @doc.reverseAppend.l "a1`L a2`L -- (reverse a2 ++ a1)`L; auxillary"
 
-@each.l [step.each.l] bind fixpoint inline
-@step.each.l rot [action.each.l] [elim1 drop2] if
-@action.each.l wx roll pw rot dip wx inline
+@each.l [step.each.l] .bind .fixfirst inline
+@step.each.l %wzw [action.each.l] [fini.each.l] if
+@fini.each.l elim1 %wl drop %wl drop
+@action.each.l wx %wlwl dpw dip wx inline
 @fold.l [each.l] apply3to1
 
 @map.l mapReverse.l reverse.l
