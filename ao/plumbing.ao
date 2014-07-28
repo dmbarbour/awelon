@@ -48,9 +48,11 @@
 @roll2 swap
 @roll3 rot
 @roll4 roll
-@roll5 pw roll4 dwx
-@roll6 pw roll5 dwx
-@roll7 pw roll6 dwx
+@roll5 %rw roll4 %wl swap 
+@roll6 %rw roll5 %wl swap
+@roll7 %rw roll6 %wl swap
+@roll8 %rw roll7 %wl swap
+@roll9 %rw roll8 %wl swap
 
 @roll2d swapd
 @roll3d rotd
@@ -58,13 +60,17 @@
 @roll5d %rw roll5 %wl
 @roll6d %rw roll6 %wl
 @roll7d %rw roll7 %wl
+@roll8d %rw roll8 %wl
+@roll9d %rw roll9 %wl
 
 @unroll2 swap
 @unroll3 unrot
 @unroll4 unroll
-@unroll5 dpw unroll4 wx
-@unroll6 dpw unroll5 wx
-@unroll7 dpw unroll6 wx
+@unroll5 swap %rw unroll4 %wl
+@unroll6 swap %rw unroll5 %wl
+@unroll7 swap %rw unroll6 %wl
+@unroll8 swap %rw unroll7 %wl
+@unroll9 swap %rw unroll8 %wl
 
 @unroll2d swapd
 @unroll3d unrotd
@@ -72,6 +78,8 @@
 @unroll5d %rw unroll5 %wl
 @unroll6d %rw unroll6 %wl
 @unroll7d %rw unroll7 %wl
+@unroll8d %rw unroll8 %wl
+@unroll9d %rw unroll9 %wl
 
 @test.unroll7
   1 2 3 4 5 6 7 unroll7
