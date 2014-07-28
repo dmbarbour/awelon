@@ -1,4 +1,4 @@
-@doc.MakingWithBlocks
+@doc.Blocks
 "A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
  
  * representing loop behaviors by copying and applying blocks
