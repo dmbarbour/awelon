@@ -37,7 +37,7 @@
 @.div .inv .mul
 @.square dup .mul
 @.abs %r inner..abs %l
-@inner..abs 0 %r> [%-vrw%c] %r?VRW [%%] %r?LCM
+@inner..abs 0 %r> [%-vrw%c] %r?VRW [%%] %r?WLCM
 
 @doc.add\2 "(N(a)*N(b))→N(a+b)"
 @doc.mul\2 "(N(a)*N(b))→N(a*b)"

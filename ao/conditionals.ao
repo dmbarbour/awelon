@@ -113,3 +113,8 @@ boolean
 ~
 @assert   %rKl
 
+@doc.assertInR "(a+b) -- b; see `doc.assert`"
+@assertInR assert
+
+@doc.assertInL "(a+b) -- a; see `doc.assert`"
+@assertInL mirror assert

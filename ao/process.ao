@@ -53,19 +53,50 @@ loops blocks streams lists
 @doc.first.p   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
 @first.p [step.first.p] .fixfirst .bind 
 @step.first.p %wz$rz'wo
+@test.first.p
+ 0 0 p inc.p first.p
+ step.p step.p step.p step.p
+ swap x 4 assertEQ1.n 0 assertEQ1d.n
 
 @doc.second.p   "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
 @second.p [step.second.p] .fixfirst .bind 
 @step.second.p %vrwrwrwzw$rwzwlwz'wolc
+@test.second.p
+ 0 0 p inc.p second.p
+ step.p step.p step.p step.p
+ swap x 0 assertEQ1.n 4 assertEQ1d.n
 
 @doc.left.p     "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
-@doc.right.p    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+@left.p [step.left.p] .fixfirst .bind
+@step.left.p %vrwrD [%vr$c] %r?FMz'wolc
+@test.left.p#inL
+ 0 inL
+ inc.p left.p
+ step.p step.p step.p step.p
+ swap assertInL 4 assertEQ1.n
+@test.left.p#inR
+ 0 inR
+ inc.p left.p
+ step.p step.p step.p step.p
+ swap assertInR 0 assertEQ1.n
 
+@doc.right.p    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+@right.p [step.right.p] .fixfirst .bind
+@step.right.p %vrwrDVRW [%vr$c] %r?WLCFMz'wolc
+@test.right.p#inL
+ 0 inL
+ inc.p right.p
+ step.p step.p step.p step.p
+ swap assertInL 0 assertEQ1.n
+@test.right.p#inR
+ 0 inR
+ inc.p right.p
+ step.p step.p step.p step.p
+ swap assertInR 4 assertEQ1.n
 
 @doc.delay.p "a -- [a ↣ a]; delays input one step; initial output provided"
 @delay.p [step.delay.p] .fixfirst .bind
 @step.delay.p %vrwrwz'wolc
-
 
 @doc.counter.p "-- [a ↣ (N*a)]; add index to output"
 @doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"
@@ -74,14 +105,13 @@ loops blocks streams lists
 
 @doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
 @doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"
-@mul.p [%vr*c] lift.p
-@add.p [%vr+c] lift.p
-
 @doc.mulC.p "N(a) -- [N(b) ↣ N(a*b)]"
-@mulC.p [%vr*c] .bind lift.p
-
 @doc.addC.p "N(a) -- [N(b) ↣ N(a+b)]"
-@addC.p [%vr+c] .bind lift.p
+
+@mul.p [mul\2] lift.p
+@add.p [add\2] lift.p
+@mulC.p [mul\2] .bind lift.p
+@addC.p [add\2] .bind lift.p
 
 @inc.p 1 addC.p
 @test.inc.p 
