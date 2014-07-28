@@ -66,8 +66,7 @@ helpMsg =
     \    \n\
     \    (Experimental Modes) \n\
     \    \n\
-    \    ao ss command         pure AO byte stream transform (stdin→stdout) \n\
-    \        stdin,stdout: µS.[1→((octet*S)+1)] (linear); octet: 0..255 \n\
+    \    ao ss command         pure octet stream transform (stdin -- stdout) \n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \Streams process stdin to stdout, one AO or ABC paragraph at a time. \n\
@@ -242,8 +241,12 @@ execSS aoCmd =
         Right ops ->
             Sys.hSetBinaryMode Sys.stdin True >>
             Sys.hSetBinaryMode Sys.stdout True >>
+            Sys.hSetBuffering Sys.stdout Sys.NoBuffering >>
             newDefaultRuntime >>= \ cx ->
-            runRT cx (interpret ops stdIn >>= writeSS)
+            runRT cx $ 
+                newDefaultEnvironment >>= \ (P stack env) ->
+                interpret ops (P (P stdIn stack) env) >>= \ (P (P (B bStdOut) _) _) ->
+                writeSS (b_prog bStdOut)
 
 -- stdIn modeled as a simple affine stream
 stdIn :: RtVal
@@ -258,18 +261,14 @@ stdIn = B b where
         return (L (P n stdIn))
     prog v = fail $ show v ++ " @ {stdin} (unexpected input)"
 
-writeSS :: V AORT -> AORT ()
-writeSS (B b) = writeSS' (b_prog b)
-writeSS v = fail $ "expecting block of type µS.[1→((octet*S)+1)]; received " ++ show v
-
-writeSS' :: Prog AORT -> AORT ()
-writeSS' getC =
+writeSS :: Prog AORT -> AORT ()
+writeSS getC =
     getC U >>= \ mbC -> -- get a character (maybe)
     case mbC of
         (L (P (N n) (B b))) | isOctet n ->
             let c8 = (toEnum . fromIntegral . numerator) n in
             liftIO (Sys.hPutChar Sys.stdout c8) >> -- write character to stdout
-            writeSS' (b_prog b) -- repeat on next character
+            writeSS (b_prog b) -- repeat on next character
         (R U) -> return ()
         v -> fail $ "illegal output from stdout stream: " ++ show v
 
