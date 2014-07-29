@@ -98,10 +98,15 @@ loops blocks streams lists
 @delay.p [step.delay.p] .fixfirst .bind
 @step.delay.p %vrwrwz'wolc
 
-@doc.counter.p "-- [a ↣ (N*a)]; add index to output"
+@doc.counter.p "-- [a ↣ (N*a)]; add index to output (starting from 1)"
 @doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"
-@counter.p 0 counterFrom.p
+@counter.p 1 counterFrom.p
 @counterFrom.p [%^ 1 %r+] state.p
+
+@doc.count.p "-- [a ↣ N]; (droppable a); as counter, but drop input"
+@doc.countFrom.p "N -- [a ↣ N]; (droppable a); as counterFrom, but drop input"
+@count.p 1 countFrom.p
+@countFrom.p [%vrw%^ 1 %r+lc] state.p
 
 @doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
 @doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"
