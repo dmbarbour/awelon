@@ -71,8 +71,21 @@ process loops lists blocks conditionals
 
 @doc.pmap.s "a`S [a ↣ b] -- b`S; fold a process over a stream"
 @pmap.s [step.pmap.s] .fixfirst .bind .bind
-@step.pmap.s %wlw %vvrwlcw$ %wD [onElem.pmap.s] %r?VRW [%%] %r?WLCc
+@step.pmap.s %wlwvvrwlcw$wD [onElem.pmap.s] %r?VRW [%%] %r?WLCc
 @onElem.pmap.s %rz$rz'wovrwrwz'wowlc
+
+@doc.addend.s "a`S a`S -- a`S; compose streams end-to-end (stream at top of stack runs last)"
+@addend.s [step.addend.s] .fixfirst .bind .bind
+@step.addend.s %lwvvrwlcw$wD [onElem.addend.s] %r?VRW [onFini.addend.s] %r?WLCMc
+@onElem.addend.s %rw'wovrwrwz'wowlVc
+@onFini.addend.s %r%vr$c
+
+@test.addend.s#empty empty.s empty.s addend.s intro1 .applyd assert elim1
+@test.addend.s
+ "hello," " world!" [fromList.s] bi& 
+ addend.s
+ toList.s
+ "hello, world!" assertTextEQ1
 
 @doc.lefts.s 
 "Filter a stream, keeping only the left elements.
