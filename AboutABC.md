@@ -402,7 +402,7 @@ This invocation tells the runtime to obtain the named resource and logically inl
 
 This preliminary naming model has a weakness: the bytecode is exposed to the storage service. Thus, developers must be especially careful about the distribution of 'sensitive' bytecode (for security or privacy or intellectual property reasons). This is inconvient. Ideally, we should be able to use content distribution networks, peer-to-peer distribution, cloud storage, and similar without confusing security concerns!
 
-Fortunately, this weakness is easily addressed. We simply encrypt the bytecode and add a decryption key to the name. To keep the naming system simple and deterministic, we use a secure hash of the bytecode for the decryption key, and a secure hash of the ciphertext for the lookup key. We may also desire a compression step to save bandwidth and storage. The relevant pseudocode:
+Fortunately, this weakness is easily addressed. We simply encrypt the bytecode and add a decryption key to the name. To keep the naming system simple and deterministic, we use a secure hash of the bytecode for the decryption key, and a secure hash of the ciphertext for the lookup key. We can authenticate by the same hashes. In addition, since we cannot compress after encryption, we might want to compress to save bandwidth and storage. Some relevant pseudocode:
 
         encryptionKey = secureHashBC(bytecode)
         cipherText = encrypt(compress(bytecode),encryptionKey)
@@ -412,7 +412,7 @@ Fortunately, this weakness is easily addressed. We simply encrypt the bytecode a
         using {#lookupKey:encryptionKey} 
          i.e. {#hashOfCiphertext:hashOfBytecode}
 
-This design makes it trivial to authenticate resources, difficult to produce name collisions, and easy to share resources through untrusted servers. 
+I would expect most resources range about three orders of magnitude, i.e. from hundreds of bytes to hundreds of kilobytes. They might go bigger for large data objects, e.g. 3D models, texture and material models, sound models. The repetitive data plumbing patterns of ABC should compress very effectively. 
 
 Algorithmic details are not fully settled. Thoughts:
 
@@ -421,10 +421,11 @@ Algorithmic details are not fully settled. Thoughts:
 * base64url encoding of hashes in token text (32 bytes for 192 bits)
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
-* compression: LZSS (w12,l5) is a promising candidate
-* ABC should compress very well compared to most languages. 
+* compression candidate: LZSS with fixed window, or LZSS+Huffman
 
-*ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
+In case of LZSS+Huffman, it might be worthwhile ensuring consistent 9-bit words for the Huffman encoder. This might be achieved by selecting LZSS sizes (W,L) = (13,4) or (12,5). Of these, (13,4) is likely the superior choice for effective compression. Without Huffman, an LZSS encoding at (11,4) or (12,4) is also tempting.
+
+*ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
 ### ABC Paragraphs
 
