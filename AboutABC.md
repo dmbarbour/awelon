@@ -390,15 +390,19 @@ NOTE: In addition to unique sealers, a high level language (like AO) might suppo
 
 The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth and storage, and can hinder caching and compilation. 
 
-The natural alternative to repeating a large code structure is to simply name it once then repeat the much smaller name. Unfortunately, conventional approaches to naming introduce their own problems: name collisions, cycles, location dependence, update and cache invalidation, version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous naming system. 
+A well understood alternative to repeating a large code structure is to simply name it once then repeat the name. When the name is smaller than the resource, this results in space and bandwidth savings. Further, even if the name is a bit larger than the resource, reuse of the name might amortize auxiliary processing costs. Names are thus excellent opportunities for caching, compilation, and so on.
 
-Instead of human-provided names, we compute a cryptographically unique name by applying a secure hash to the bytecode. As a preliminary model, we might do just that. We then use ABC's effects model to invoke the named resource as needed:
+Unfortunately, conventional approaches to naming introduce their own problems: name collisions, cycles, update and cache invalidation, location dependence, and version consistency issues. These misfeatures can be troublesome for security, safety, streaming, and distributed programming. Fortunately, we can address these problems by adopting a more rigorous, automatic naming system. Instead of human-provided names, we compute a cryptographically unique name by applying a secure hash to the bytecode. 
+
+We then use ABC's effects model to invoke the named resource as needed:
 
         {#secureHashOfBytecode}         (preliminary)
 
-This invocation is ideally equivalent to repeating the named subprogram inline (though a program may fail if the runtime cannot deeply download and validate all named resources). Further, in addition to saving bandwidth and storage, the named code serves as an opportunity for caching, separate compilation, and optimization. Named code is named in part because it's likely to see use more than once. 
+This invocation tells the runtime to obtain the named resource and logically inline the associated Awelon bytecode. Obtaining a resource might involve downloading it. Logically inlining a resource might involve compilation to machine code and a dynamic linking. Either of these steps might fail, in which case the program fails (early and gracefully, if efficiently feasible).
 
-This preliminary naming model has a weakness: sensitive bytecode must be stored on trusted servers. This hinders use of content distribution networks or untrusted clouds. To overcome this weakness, we must encrypt the bytecode, and the name must support decryption. Thusly, we split the unique name in two parts: one to download, one to decrypt. An enhanced model:
+This preliminary naming model has a weakness: the bytecode is exposed to the storage service. Thus, developers must be especially careful about the distribution of 'sensitive' bytecode (for security or privacy or intellectual property reasons). This is inconvient. Ideally, we should be able to use content distribution networks, peer-to-peer distribution, cloud storage, and similar without confusing security concerns!
+
+Fortunately, this weakness is easily addressed. We simply encrypt the bytecode and add a decryption key to the name. To keep the naming system simple and deterministic, we use a secure hash of the bytecode for the decryption key, and a secure hash of the ciphertext for the lookup key. We may also desire a compression step to save bandwidth and storage. The relevant pseudocode:
 
         encryptionKey = secureHashBC(bytecode)
         cipherText = encrypt(compress(bytecode),encryptionKey)
@@ -408,19 +412,19 @@ This preliminary naming model has a weakness: sensitive bytecode must be stored 
         using {#lookupKey:encryptionKey} 
          i.e. {#hashOfCiphertext:hashOfBytecode}
 
-Servers may independently validate the proposed lookup key. Compression just prior to encryption can reduce costs for storage, decryption, latency, and mobile bandwidth. ABC should compress relatively well. The encryption here is symmetric.
+This design makes it trivial to authenticate resources, difficult to produce name collisions, and easy to share resources through untrusted servers. 
 
-Algorithmic details are not settled. Thoughts:
+Algorithmic details are not fully settled. Thoughts:
 
 * want a simple, unambiguous, deterministic specificiation
 * secure hash CT, BC: independent halves of SHA3-384
-* base64url encoding of hashes in capability text
-* compress: LZW+Huffman (or LZW variant, like LZAP or LZW-GC)
-* encrypt: AES in CTR mode; fixed nonce (or simple function of key)
+* base64url encoding of hashes in token text (32 bytes for 192 bits)
+* encryption: AES in CTR mode, simply using a zero nonce/IV
+* authenticate and filter ciphertexts using both secure hashes
+* compression: LZSS (w12,l5) is a promising candidate
+* ABC should compress very well compared to most languages. 
 
-Authentication is built into the name, so there is no need for authenticating encryption modes. The nonce is effectively irrelevant for security, since each key is already used only once.
-
-*Aside:* Both the preliminary and encrypted naming models have a weakness against confirmation attacks [1](http://en.wikipedia.org/wiki/Convergent_encryption)[2](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html). This can be addressed by mixing an unguessable identity into the bytecode for sensitive resources. The challenge of identifying sensitive resources is left to higher level languages, such as AO.
+*ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
 ### ABC Paragraphs
 
