@@ -23,6 +23,11 @@ boolean
 @inRd swap inR swap
 @inLd swap inL swap
 
+@doc..inR "a→(0+a); primitive inR"
+@doc..inL "a→(a+0); primitive inL"
+@.inR %vVVRWLCc
+@.inL %vVc
+
 @doc.distribInR "b -- (b + b); in right; as `inR` but preserves x's type info in left"
 @doc.distribInL "a -- (a + a); in left; as `inL` but preserves x's type info in right"
 @distribInL false.b swap distrib trimBoolean
