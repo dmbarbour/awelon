@@ -62,6 +62,8 @@ process loops lists blocks conditionals
 @fmap.s [step.fmap.s] .bind .fixfirst .bind
 @step.fmap.s %lw %vvrwlcw$ %wD [onElem.fmap.s] %r?VRW [%%] %r?WLCc
 @onElem.fmap.s %rz$vrwrw'wowlc
+@doc..fmap.s "([a → b] * (a`S * e))→(b`S * e); map stream primitive"
+@.fmap.s [step.fmap.s] %r %w'wo .firstfixfirst %w'wo
 
 @test.fmap.s
  "hello" fromList.s
@@ -73,19 +75,49 @@ process loops lists blocks conditionals
 @pmap.s [step.pmap.s] .fixfirst .bind .bind
 @step.pmap.s %wlwvvrwlcw$wD [onElem.pmap.s] %r?VRW [%%] %r?WLCc
 @onElem.pmap.s %rz$rz'wovrwrwz'wowlc
+@doc..pmap.s  "([a↣b]*(a`S*e))→(b`S*e); fold process over stream in primitive environment"
+@.pmap.s [step.pmap.s] %r .firstfixfirst %w'wo %w'wo
 
 @doc.addend.s "a`S a`S -- a`S; compose streams end-to-end (stream at top of stack runs last)"
 @addend.s [step.addend.s] .fixfirst .bind .bind
 @step.addend.s %lwvvrwlcw$wD [onElem.addend.s] %r?VRW [onFini.addend.s] %r?WLCMc
 @onElem.addend.s %rw'wovrwrwz'wowlVc
 @onFini.addend.s %r%vr$c
+@doc..addend.s "(a`S*(a`S*e))→(a`S*e); addend streams (ABC layer stack)"
+@.addend.s [step.addend.s] %r .firstfixfirst %w'wo %w'wo
 
-@test.addend.s#empty empty.s empty.s addend.s intro1 .applyd assert elim1
+@test.addend.s#empty 
+ empty.s empty.s addend.s 
+ intro1 .applyd assertInR elim1
 @test.addend.s
  "hello," " world!" [fromList.s] bi& 
- addend.s
- toList.s
+ addend.s toList.s
  "hello, world!" assertTextEQ1
+
+@doc.flatten.s "(a`S)`S -- a`S; flatten a stream of streams"
+@flatten.s [step.flatten.s] .fixfirst .bind
+@step.flatten.s %wvvrwlcw$wD [onElem.flatten.s] %r?VRW [%% .inR] %r?WLCMc
+@onElem.flatten.s %wvrwrw'wo .addend.s %vr$c
+
+@test.flatten.s
+  empty.l 
+  "" cons.l
+  "!" cons.l
+  "" cons.l
+  "" cons.l
+  "world" cons.l
+  ", " cons.l
+  "hello" cons.l
+  [fromList.s] map.l
+  fromList.s flatten.s toList.s
+  "hello, world!" assertTextEQ1
+
+@doc.wordStreamToBitStream.s
+@doc.bitStreamToWordStream.s
+@doc.octetStreamToBitStream.s 
+@doc.bitStreamToOctetStream.s
+@doc.bitStreamToText.s
+
 
 @doc.lefts.s 
 "Filter a stream, keeping only the left elements.
