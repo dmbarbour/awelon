@@ -5,9 +5,9 @@ process loops lists blocks conditionals
  
      µS.[1→((elem*S)+1)]            shorthand: elem`S
  
- This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. These streams are also allowed to terminate, by returning unit in the right. In most cases we'll want to work with terminating streams.
+ This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. These streams are also allowed to terminate, by returning unit in the right. In most cases we'll want to work with terminating streams. This also admits the possibility of effectful streams.
  
- The simple streams model isn't ideally efficient, especially with deep composition. A more sophisticated streams model or stream builder might support some rich, symbolic optimizations. However, the simple streams model is worth developing for integrating systems and as a compilation target.
+ The simple streams model isn't ideally efficient, especially with deep composition. A more sophisticated streams model or stream builder might support some rich, symbolic optimizations. There are also useful variations on the model, e.g. augmenting queries and results with time information to limit query depth or support more interesting interleave. But the simple stream model has useful applications (e.g. incremental data processing, or compilation target for integration) and remains worth developing.
  
  Words for this simple stream model use suffix `.s`
 ~
@@ -58,9 +58,9 @@ process loops lists blocks conditionals
 @id.listToStreamToList   fromList.s toList.s
 @id.streamToListToStream toList.s fromList.s
 
-@doc.fmap.s "a`S [a → b] -- b`S; map a function to a stream"
+@doc.fmap.s "a`S [a → b] -- b`S; map a pure function over a stream"
 @fmap.s [step.fmap.s] .bind .fixfirst .bind
-@step.fmap.s %lwvvrwlcw$wD [onElem.fmap.s] %r?VRW [%%] %r?WLCc
+@step.fmap.s %lw %vvrwlcw$ %wD [onElem.fmap.s] %r?VRW [%%] %r?WLCc
 @onElem.fmap.s %rz$vrwrw'wowlc
 
 @test.fmap.s
@@ -69,13 +69,17 @@ process loops lists blocks conditionals
  toList.s
  "lipps" assertEQ1
 
+@doc.pmap.s "a`S [a ↣ b] -- b`S; fold a process over a stream"
+@pmap.s [step.pmap.s] .fixfirst .bind .bind
+@step.pmap.s %wlw %vvrwlcw$ %wD [onElem.pmap.s] %r?VRW [%%] %r?WLCc
+@onElem.pmap.s %rz$rz'wovrwrwz'wowlc
 
 @doc.lefts.s 
 "Filter a stream, keeping only the left elements.
  
      (a+b)`S -- a`S     (requires droppable b)
  
- In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which considered an error in Awelon. So developers should be careful with filtering of streams.
+ In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which is an error. So developers must be careful with filtering of streams.
 ~
 @lefts.s [step.lefts.s] .fixfirst .bind
 @step.lefts.s "TODO: step.lefts.s" assert
