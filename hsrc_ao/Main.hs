@@ -232,7 +232,7 @@ execOps' cx v (readPara:more) =
     runRT cx (prog v) >>= \ v' ->
     execOps' cx v' more
 
--- pure stream transformer process model (stdin→stdout) 
+-- pure stream transformer process model (stdin -- stdout) 
 execSS :: String -> IO ()
 execSS aoCmd =
     getDict >>= \ d ->
@@ -252,7 +252,7 @@ execSS aoCmd =
 stdIn :: RtVal
 stdIn = B b where
     b = Block { b_aff = True, b_rel = False, b_code = code, b_prog = prog }
-    code = S.singleton (Tok "stdin") -- never output 
+    code = S.singleton (Tok "stdin") -- visible via {&debug print raw}
     prog U = liftIO $ 
         Sys.hIsEOF Sys.stdin >>= \ bEOF -> 
         if bEOF then return (R U) else
