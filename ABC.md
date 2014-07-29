@@ -90,7 +90,7 @@ The encoding of sealed remains tentative. We must recognize affine vs. relevant 
 
 While annotations are not strongly standardized, it's nice to avoid conflicts and reuse annotations where feasible. I expect some de-facto standards to emerge. Here are some annotations currently in use:
 
-        {&≡}  (that's U+2261) - (a*(a*e))→(a*(a*e)); equality assertion
+        {&≡}  (that's U+2261) - (a*(a*e))→(a*(a*e)); assert structural equality
         {&async}              - [a→b]→[a→b]; compute block in parallel
         {&compile}            - [a→b]→[a→b]; optimize performance for block
         {&debug print raw}    - print ad-hoc input to error console (for human) 
@@ -112,4 +112,8 @@ April 2014:
 ## ABCD
 
 None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits.
+
+## Under Consideration
+
+Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.
 
