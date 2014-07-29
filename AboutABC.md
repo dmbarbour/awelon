@@ -421,9 +421,9 @@ Algorithmic details are not fully settled. Thoughts:
 * base64url encoding of hashes in token text (32 bytes for 192 bits)
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
-* compression candidate: LZSS with fixed window, or LZSS+Huffman
+* compression candidates: LZSS, LZW-GC, or LZAP-GC; possibly with Huffman
 
-In case of LZSS+Huffman, it might be worthwhile ensuring consistent 9-bit words for the Huffman encoder. This might be achieved by selecting LZSS sizes (W,L) = (13,4) or (12,5). Of these, (13,4) is likely the superior choice for effective compression. Without Huffman, an LZSS encoding at (11,4) or (12,4) is also tempting.
+I'll need to experiment empirically before making a decision on compression algorithms. LZSS has the advantage of a very short warmup time, and should work much better for small resources. The LZW variants have a long warmup time, but can better recognize old patterns that have proven useful. I expect Huffman encoding would augment LZW variants more than LZSS.
 
 *ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
