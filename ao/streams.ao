@@ -21,11 +21,8 @@ process loops lists blocks conditionals
 @cons.s p inL %r' [%c] %rol
 @putback.s cons.s
 
-@doc.fromList.s "a`L -- a`S; treat a list as a stream"
-@doc.toStream.l doc.fromList.s
-@toStream.l fromList.s
-@fromList.s [step.fromList.s] .fixfirst .bind
-@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%cv%] %r?WLCc
+@doc.singleton.s "a -- a`S; construct a single element stream"
+@singleton.s empty.s swap cons.s
 
 @doc.foreach.s
 "Sequentially process every element from a finite stream. The type is roughly:
@@ -49,10 +46,26 @@ process loops lists blocks conditionals
  0 [.add] swapd foreach.s
  1193 assertEQ1.n
 
+@doc.fromList.s "a`L -- a`S; treat a list as a stream"
+@doc.toStream.l doc.fromList.s
+@toStream.l fromList.s
+@fromList.s [step.fromList.s] .fixfirst .bind
+@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%cv%] %r?WLCc
+
+@doc.fromList\1.s "a`L → a`S; stream to list (without environment)"
+@doc.toStream\1.l doc.fromList\1.s
+@fromList\1.s %vv fromList.s %cc
+@toStream\1.l fromList\1.s
+
 @doc.toList.s "a`S -- a`L; extract a list from a finite stream"
 @doc.fromStream.l doc.toList.s
 @fromStream.l toList.s
 @toList.s empty.l swap [cons.l] foreach.s reverse.l
+
+@doc.toList\1.s "a`S → a`L; list to stream (without environment)"
+@doc.fromStream\1.l doc.toList\1.s
+@toList\1.s %vv toList.s %cc
+@fromStream\1.l toList\1.s
 
 @test.toList.s "hello, world!" dup fromList.s toList.s assertEQ1
 @id.listToStreamToList   fromList.s toList.s
@@ -70,6 +83,10 @@ process loops lists blocks conditionals
  4 [add\2] .bind fmap.s
  toList.s
  "lipps" assertEQ1
+
+@doc.fmapE.s "a`S [a -- b] -- b`S; map function in basic `apply` environment"
+@fmapE.s applyWrap fmap.s
+
 
 @doc.pmap.s "a`S [a ↣ b] -- b`S; fold a process over a stream"
 @pmap.s [step.pmap.s] .fixfirst .bind .bind
@@ -98,6 +115,7 @@ process loops lists blocks conditionals
 @flatten.s [step.flatten.s] .fixfirst .bind
 @step.flatten.s %wvvrwlcw$wD [onElem.flatten.s] %r?VRW [%% .inR] %r?WLCMc
 @onElem.flatten.s %wvrwrw'wo .addend.s %vr$c
+@.flatten.s [step.flatten.s] %r .firstfixfirst %w'wo
 
 @test.flatten.s
   empty.l 
@@ -112,23 +130,39 @@ process loops lists blocks conditionals
   fromList.s flatten.s toList.s
   "hello, world!" assertTextEQ1
 
-@doc.wordStreamToBitStream.s
-@doc.bitStreamToWordStream.s
-@doc.octetStreamToBitStream.s 
-@doc.bitStreamToOctetStream.s
-@doc.bitStreamToText.s
-
-
 @doc.lefts.s 
 "Filter a stream, keeping only the left elements.
  
      (a+b)`S -- a`S     (requires droppable b)
  
- In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which is an error. So developers must be careful with filtering of streams.
+ In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which is an error. Developers must be careful with filtering of simple streams.
 ~
-@lefts.s [step.lefts.s] .fixfirst .bind
-@step.lefts.s "TODO: step.lefts.s" assert
+@lefts.s [toS.lefts.s] fmapE.s flatten.s
+@toS.lefts.s [singleton.s] [drop empty.s] if
 
 @doc.rights.s "(a+b)`S -- b`S; see `doc.lefts.s`"
+@rights.s [toS.rights.s] fmapE.s flatten.s
+@toS.rights.s [drop empty.s] [singleton.s] if
+
+@test.rights.s
+  "Hello, World!" fromList.s
+  [108 .lt1] fmapE.s rights.s
+  toList.s "He, Wd!" assertTextEQ1
+
+@test.lefts.s 
+  "Hello, World!" fromList.s
+  [108 .lt1] fmapE.s lefts.s
+  toList.s "lloorl" assertTextEQ1
+  
+
+
+@doc.WordStream
+
+
+@doc.wordStreamToBitStream.s
+@doc.bitStreamToWordStream.s
+@doc.octetStreamToBitStream.s 
+@doc.bitStreamToOctetStream.s
+@doc.bitStreamToText.s
 
 
