@@ -27,6 +27,20 @@ boolean
  pushBit.wordToBitList pushBit.wordToBitList
  drop
 
+@doc.bitListToWord "(1+1)`L -- N(word); word size implicit from list"
+@bitListToWord 0 swap [pushBit.bitListToWord] each.l
+@pushBit.bitListToWord %rw 2 .mul %wl [] [inc] if_
+
+@test.wordToBitList
+    0xa5 9
+    wordToBitList
+    bitListToText
+    "010100101" assertEQ
+
+@test.octetToBitList
+    "Pack my box with five dozen liquor jugs." copy
+    [[8 wordToBitList] map.l] [[octetToBitList] map.l] bi
+    assertEQ1 [bitListToWord] map.l put assertEQ1
 
 @doc.bitListToText
 "(1+1)`L -- text; e.g. of form "01100001"
@@ -42,9 +56,14 @@ boolean
     dup 0x30 neq 
     [drop false.b] [0x31 assertEQ.n drop2 true.b] if_
 
-@doc.wordStreamToBitStream.s
+@doc.wordStreamToBitStream "word`S width -- bool`S (bigendian bit orientation)"
+@wordStreamToBitStream [wordToBitList fromList.s] bind map.s flatten.s
+
+@doc.octetStreamToBitStream "octet`S -- bool`S (bigendian bit orientation)"
+@octetStreamToBitStream [octetToBitList fromList.s] map.s flatten.s
+
+
 @doc.bitStreamToWordStream.s
-@doc.octetStreamToBitStream.s 
 @doc.bitStreamToOctetStream.s
 @doc.bitStreamToText.s
 
