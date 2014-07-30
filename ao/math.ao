@@ -105,11 +105,10 @@
 @test.abs\1 -3 [abs\1] .apply 3 assertEQ1
 
 
-@inc 1 .add
+@inc %r 1 %r+l
 @incd swap inc swap
-@dec 1 .sub
+@dec %r -1 %r+l
 @decd swap dec swap
-
 
 @id.mul1 1 .mul
 @id.div1 1 .div
