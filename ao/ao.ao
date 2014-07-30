@@ -51,19 +51,31 @@ std compiledWords
 @rand8.io 1 randomBytes.io assert wx drop
 
 @doc.Filesystem
-"As command line utilities, `ao` and `aoi` offer some operations for working with the local filesystem through the power block. This is rather ad-hoc and minimal. Filesystem operations are asynchronous, meaning the powerblock is returned immediately even if the effect takes longer. Reads and writes to the same filename are serialized. A filename is given as text. 
+"As command line utilities, aoi and ao offer some operations for working with the local filesystem through the power block. This is rather ad-hoc and minimal. Filesystem operations are asynchronous, meaning the powerblock is returned immediately even if the effect takes longer. Reads and writes to the same filename are serialized. A filename is given as text. 
+ 
+ Several variations of read and write are provided for:
+ 
+ * text files - read UTF-8 to text, or write text to UTF-8
+ * binary files - read or write octet lists
+ * ABC files - read or write an arbitrary [a→b] block
+ 
+ At the moment, the whole file is read or written at once. I may eventually provide variations for incremental processing (i.e. streams), though I hope to deprecate the ao and aoi command line utilities before I get that far.
  
  The filesystem is a legacy resource with a lot of weaknesses, such as poor support for atomic updates, history, reactivity, data types, encapsulation, abstraction, composition, computation, procedural generation... and so on. Developers are encouraged to instead favor persistent state resource and environment models. Those will be much more portable to Awelon runtime environments in a distributed system.
 ~
-@doc.readFile.io "filename -- (1(err) + text); (io,asynch)"
-@doc.writeFile.io "text filename -- (1(err) + 1(ok)); (io,asynch)"
+@doc.readTextFile.io "filename -- (1(err) + text); (io,asynch)"
+@doc.writeTextFile.io "text filename -- (1(err) + 1(ok)); (io,asynch)"
 @doc.readBinaryFile.io "filename -- (1(err) + octets); (io,asynch)"
 @doc.writeBinaryFile.io "octets filename -- (1(err) + 1(ok)); (io,asynch)"
+@doc.readABCFile.io "filename -- (1(err) + block); (io,asynch)"
+@doc.writeABCFile.io "block filename -- (1(err) + 1(ok)); (io,asynch)"
 @doc.listDirectory.io "dirname -- list-of-names; (io,asynch)"
-@readFile.io "readFile" p command.io
-@writeFile.io p "writeFile" p command.io
+@readTextFile.io "readTextFile" p command.io
+@writeTextFile.io p "writeTextFile" p command.io
 @readBinaryFile.io "readBinaryFile" p command.io
 @writeBinaryFile.io p "writeBinaryFile" p command.io
+@readABCFile.io "readABCFile" p command.io
+@writeABCFile.io p "writeABCFile" p command.io
 @listDirectory.io "listDirectory" p command.io
 
 @doc.destroy.io "a -- ; (io) destroy will drop any input, including relevant blocks (unsafe)"

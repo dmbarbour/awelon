@@ -135,7 +135,7 @@ decodeABC bcBytes =
             let s = T.unpack txt in
             case R.reads s of
                 [(ops,"")] -> Just ops
-                _rl -> error ("read " ++ show _rl)
+                _rl -> Nothing
 
 -- | generate secure hash for the bytecode from bytestring
 -- eqv. to `drop 24 . secureHash`

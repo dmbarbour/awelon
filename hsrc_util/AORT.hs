@@ -270,10 +270,12 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("destroy", aoDestroy)
     ,("duplicate", aoDuplicate)
     ,("getOSEnv", getOSEnv)
-    ,("readFile", aoReadFile)
+    ,("readTextFile", aoReadTextFile)
     ,("readBinaryFile", aoReadBinaryFile)
-    ,("writeFile", aoWriteFile)
+    ,("readABCFile", aoReadABCFile)
+    ,("writeTextFile", aoWriteTextFile)
     ,("writeBinaryFile", aoWriteBinaryFile)
+    ,("writeABCFile", aoWriteABCFile)
     ,("listDirectory", aoListDirectory)
     ,("newTryCap", newTryCap)
     ]
@@ -284,8 +286,8 @@ aoDuplicate v = return (P v v)
 
 getRandomBytes :: Prog AORT
 getOSEnv :: Prog AORT
-aoReadFile, aoReadBinaryFile :: Prog AORT
-aoWriteFile, aoWriteBinaryFile :: Prog AORT
+aoReadTextFile, aoReadBinaryFile, aoReadABCFile :: Prog AORT
+aoWriteTextFile, aoWriteBinaryFile, aoWriteABCFile :: Prog AORT
 aoListDirectory :: Prog AORT
 newTryCap :: Prog AORT
 
@@ -299,12 +301,12 @@ getOSEnv (valToText -> Just var) = textToVal <$> liftIO gv where
     gv = maybe "" id <$> tryJustIO (Env.getEnv var)
 getOSEnv v = fail $ "getOSEnv @ " ++ show v
 
-aoReadFile (valToText -> Just fname) =
+aoReadTextFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
     let rf = T.unpack <$> FS.readTextFile fp in
     let toVal = maybe (L U) (R . textToVal) in
     fsynch fp $ liftIO $ toVal <$> tryJustIO rf
-aoReadFile v = fail $ "readFile @ " ++ show v
+aoReadTextFile v = fail $ "readTextFile @ " ++ show v
 
 aoReadBinaryFile (valToText -> Just fname) =
     let fp = FS.fromText (T.pack fname) in
@@ -313,14 +315,27 @@ aoReadBinaryFile (valToText -> Just fname) =
     fsynch fp $ liftIO $ toVal <$> tryJustIO rf
 aoReadBinaryFile v = fail $ "readBinaryFile @ " ++ show v
 
-aoWriteFile (P (valToText -> Just fname) (valToText -> Just content)) =
+aoReadABCFile (valToText -> Just fname) = 
+    let fp = FS.fromText (T.pack fname) in
+    let rf = FS.readFile fp in
+    let toVal = maybe (L U) (R . B . opsToBlock) . (>>= decodeABC) in
+    fsynch fp $ liftIO $ toVal <$> tryJustIO rf
+aoReadABCFile v = fail $ "readABCFile @ " ++ show v
+
+opsToBlock :: (Runtime m) => [Op] -> Block m
+opsToBlock ops = b where
+    b = Block { b_aff = False, b_rel = False, b_code = code, b_prog = prog }
+    code = S.fromList ops
+    prog = interpret ops
+
+aoWriteTextFile (P (valToText -> Just fname) (valToText -> Just content)) =
     let fp = FS.fromText (T.pack fname) in
     let wOp = FS.createTree (FS.directory fp) >>
               FS.writeTextFile fp (T.pack content) 
     in
     let asBoolean = maybe (L U) (const (R U)) in
     fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
-aoWriteFile v = fail $ "writeFile @ " ++ show v
+aoWriteTextFile v = fail $ "writeTextFile @ " ++ show v
 
 aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
     let fp = FS.fromText (T.pack fname) in
@@ -330,6 +345,16 @@ aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
     let asBoolean = maybe (L U) (const (R U)) in
     fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteBinaryFile v = fail $ "writeBinaryFile @ " ++ show v
+
+aoWriteABCFile (P (valToText -> Just fname) (B block)) =
+    let fp = FS.fromText (T.pack fname) in
+    let content = encodeABC $ S.toList $ b_code block in
+    let wOp = FS.createTree (FS.directory fp) >>
+              FS.writeFile fp content
+    in
+    let asBoolean = maybe (L U) (const (R U)) in
+    fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
+aoWriteABCFile v = fail $ "writeABCFile @ " ++ show v
 
 aoListDirectory (valToText -> Just dirname) =
     let fp = FS.fromText (T.pack dirname) in
