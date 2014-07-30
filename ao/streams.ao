@@ -172,13 +172,3 @@ process loops lists blocks conditionals
   [108 .ltb] filterBy.s
   toList.s "He, Wd!" assertTextEQ1
 
-
-
-@doc.WordStream
-@doc.wordStreamToBitStream.s
-@doc.bitStreamToWordStream.s
-@doc.octetStreamToBitStream.s 
-@doc.bitStreamToOctetStream.s
-@doc.bitStreamToText.s
-
-
