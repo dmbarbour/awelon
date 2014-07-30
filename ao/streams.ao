@@ -140,29 +140,39 @@ process loops lists blocks conditionals
  
  In the general case, this is unsafe... e.g. if we filter an infinite stream where all the elements might be in the right, we'll diverge, which is an error. Developers must be careful with filtering of simple streams.
 ~
-@lefts.s [toS.lefts.s] fmapE.s flatten.s
+@lefts.s [toS.lefts.s] map.s flatten.s
 @toS.lefts.s [singleton.s] [drop empty.s] if
 
 @doc.rights.s "(a+b)`S -- b`S; see `doc.lefts.s`"
-@rights.s [toS.rights.s] fmapE.s flatten.s
+@rights.s [toS.rights.s] map.s flatten.s
 @toS.rights.s [drop empty.s] [singleton.s] if
 
 @test.rights.s
   "Hello, World!" fromList.s
-  [108 .lt1] fmapE.s rights.s
+  [108 .lt1] map.s rights.s
   toList.s "He, Wd!" assertTextEQ1
 
 @test.lefts.s 
   "Hello, World!" fromList.s
-  [108 .lt1] fmapE.s lefts.s
+  [108 .lt1] map.s lefts.s
   toList.s "lloorl" assertTextEQ1
   
 @doc.filterWith.s "a`S [a -- (b+c)] -- c`S; Droppable b"
-@filterWith.s [toS.rights.s] compose fmapE.s flatten.s
+@filterWith.s [toS.rights.s] compose map.s flatten.s
 @test.filterWith.s
   "Hello, World!" fromList.s
   [108 .gte1] filterWith.s
   toList.s "lloorl" assertTextEQ1
+
+@doc.filterBy.s  "a`S [a -- Bool] -- c`S; Copyable & Droppable a"
+@filterBy.s [dup] [toS.filterBy.s] wrapfn map.s flatten.s
+@toS.filterBy.s [drop empty.s] [singleton.s] if_
+@test.filterBy.s
+  "Hello, World!" fromList.s
+  [108 .ltb] filterBy.s
+  toList.s "He, Wd!" assertTextEQ1
+
+
 
 @doc.WordStream
 @doc.wordStreamToBitStream.s
