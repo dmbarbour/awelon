@@ -11,14 +11,9 @@
 
 @doc.repeat "a [a -- a] n -- a; repeat block `n` times"
 
-@repeat
- assertNatural swap
- [dip] bind [p] composel
- [step.repeat] compose fixpoint
- p step.repeat
-@step.repeat
- wx dup dec unrot
- 0 gt [drop] rot if_
+@repeat assertNatural %rw [step.repeat] bind fixpoint %wl swap inline
+@step.repeat rot dup 0 gt  [drop3] [action.repeat] if_
+@action.repeat dec unrot dip2 inline 
 
 @test.repeat 4 [inc] 3 repeatP 7 assertEQ.n
 @repeatP [repeat] apply3to1
