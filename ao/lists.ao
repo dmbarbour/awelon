@@ -29,6 +29,7 @@
 @assertNonEmpty.l mirror assert inL
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
+@doc.foreach.l doc.each.l
 @doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
 @doc.eachWhile.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on false)" 
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
@@ -45,6 +46,7 @@
 @fini.each.l elim1 %wl drop %wl drop
 @action.each.l wx %wlwl dpw dip wx inline
 @fold.l [each.l] apply3to1
+@foreach.l each.l
 
 @map.l mapReverse.l reverse.l
 @mapReverse.l empty.l unrot mapReverseAppend.l
