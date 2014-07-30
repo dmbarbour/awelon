@@ -68,7 +68,7 @@
 @.applyd swap .apply
 @applyd swap apply
 
-@dip2 dpw dip  wx
+@dip2 %rwrwrzlzvrwr$wlcrzlwl
 @dip3 dpw dip2 wx
 @dip4 dpw dip3 wx
 @dip5 dpw dip4 wx
