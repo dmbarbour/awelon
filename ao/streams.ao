@@ -87,6 +87,9 @@ process loops lists blocks conditionals
 @doc.fmapE.s "a`S [a -- b] -- b`S; map function in basic `apply` environment"
 @fmapE.s applyWrap fmap.s
 
+@doc.map.s doc.fmapE.s
+@map.s fmapE.s
+
 
 @doc.pmap.s "a`S [a ↣ b] -- b`S; fold a process over a stream"
 @pmap.s [step.pmap.s] .fixfirst .bind .bind
@@ -154,11 +157,14 @@ process loops lists blocks conditionals
   [108 .lt1] fmapE.s lefts.s
   toList.s "lloorl" assertTextEQ1
   
-
+@doc.filterWith.s "a`S [a -- (b+c)] -- c`S; Droppable b"
+@filterWith.s [toS.rights.s] compose fmapE.s flatten.s
+@test.filterWith.s
+  "Hello, World!" fromList.s
+  [108 .gte1] filterWith.s
+  toList.s "lloorl" assertTextEQ1
 
 @doc.WordStream
-
-
 @doc.wordStreamToBitStream.s
 @doc.bitStreamToWordStream.s
 @doc.octetStreamToBitStream.s 
