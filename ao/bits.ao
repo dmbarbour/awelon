@@ -48,13 +48,11 @@ boolean
 @bitListToText [bitToChar] map.l
 @bitToChar [0x30] [0x31] if_
 
-@doc.textToBitList
-"text -- (1+1)`L; text of form "01100001" (no spaces or other data)
+@doc.textBitsToList
+"textBits -- (1+1)`L; textBits is of form "01100001" (no other characters)
 ~
-@textToBitList [zeroOrOneCharToBit] map.l
-@zeroOrOneCharToBit 
-    dup 0x30 neq 
-    [drop false.b] [0x31 assertEQ.n drop2 true.b] if_
+@textBitsToList [0x30 gtb] map.l
+@textBitsToWord 0 swap [0x30 gt pushBit.bitListToWord] each.l
 
 @doc.wordStreamToBitStream "word`S width -- bool`S (bigendian bit orientation)"
 @wordStreamToBitStream [wordToBitList fromList.s] bind map.s flatten.s
