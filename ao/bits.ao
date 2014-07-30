@@ -1,0 +1,52 @@
+boolean
+
+@doc.import.bits "functions for working with bits and bytes and fixed-width words"
+
+@doc.wordToBitList 
+"Translate a word to a list of bits. 
+ 
+     N(word) N(width) -- (1+1)`L
+ 
+ A word of width N should be a value in the range 0 to 2^N - 1. For example, an octet is a word of width 8, encoding numbers in range 0..255. This function takes a single word and a given width, and produces a list of bits with big-endian orientation. Each bit is encoded as a (1+1) sum, in the left for a zero bit. 
+~
+@wordToBitList 
+    %rw assertNatural empty.l swap
+    [pushBit.wordToBitList] %wl repeat 
+    assertEQz drop
+@pushBit.wordToBitList 
+    %r 2 %rQ 0 %r>l
+    toBoolean
+    %rzwrzwlVlwl
+@x.pushBit.wordToBitList 2 .divMod take 0 .gtb cons.l put
+
+@octetToBitList
+ assertOctet empty.l swap
+ pushBit.wordToBitList pushBit.wordToBitList
+ pushBit.wordToBitList pushBit.wordToBitList
+ pushBit.wordToBitList pushBit.wordToBitList
+ pushBit.wordToBitList pushBit.wordToBitList
+ drop
+
+
+@doc.bitListToText
+"(1+1)`L -- text; e.g. of form "01100001"
+~
+@bitListToText [bitToChar] map.l
+@bitToChar [0x30] [0x31] if_
+
+@doc.textToBitList
+"text -- (1+1)`L; text of form "01100001" (no spaces or other data)
+~
+@textToBitList [zeroOrOneCharToBit] map.l
+@zeroOrOneCharToBit 
+    dup 0x30 neq 
+    [drop false.b] [0x31 assertEQ.n drop2 true.b] if_
+
+@doc.wordStreamToBitStream.s
+@doc.bitStreamToWordStream.s
+@doc.octetStreamToBitStream.s 
+@doc.bitStreamToOctetStream.s
+@doc.bitStreamToText.s
+
+
+

@@ -2,6 +2,7 @@
  hands stdenv 
  lists assocLists sequences
  loops streams process
+ bits
  math stats
 
 @doc.import.std "viable starting point for AO dictionaries"
