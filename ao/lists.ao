@@ -30,13 +30,14 @@
 
 @doc.each.l "a`L [a --] --; apply block to each element in list"
 @doc.foreach.l doc.each.l
+@doc.forCount.l "a`L [a --] count -- a`L count(rem); take and operate on list up to count times" 
 @doc.eachUntil.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on true)"
 @doc.eachWhile.l "a`L [a --] [-- Bool] -- a(rem)`L; each with short circuit (on false)" 
 @doc.map.l "a`L [a -- b] -- b`L; apply block modifying each element in list"
 @doc.mapP.l "a`L [a -- b] -- b`L; map elements in limited `apply` environment"
 @doc.fold.l "x a`L [x a -- x] -- x; process each element in constrained environment"
 @doc.scan.l "s a`L [s a -- s b] -- s b`L; simultaneous map & fold in limited env"
-@doc.length.l "a`L -- a`L integer; return length of list"
+@doc.length.l "a`L -- a`L length; return length of list"
 @doc.append.l "a1`L a2`L -- (a1 before a2)`L; append two lists"
 @doc.reverse.l "a`L -- a`L; reverse order of elements in list"
 @doc.reverseAppend.l "a1`L a2`L -- (reverse a2 ++ a1)`L; auxillary"
@@ -271,6 +272,9 @@
 @test.sortBy.l 
     "hello, World!" [ltb] sortBy.l " !,Wdehllloor" assertTextEQ1
     dup reverse.l swap [gtb] sortBy.l assertTextEQ1
+@test.nubAndSort.l#pangram
+    "pack my box with five dozen liquor jugs" nub.l [ltb] sortBy.l 
+    " abcdefghijklmnopqrstuvwxyz" assertTextEQ1
 
 @doc.sortByKey.l "(k*v)`L [lt(k k -- Bool)]; sort a list by keys"
 @sortByKey.l [step.sortByKey.l] bind fixpoint apply
@@ -319,5 +323,26 @@
  assert elim1
  [wx assertEQ1.n drop] each.l
 @assertTextEQ1d swapd assertTextEQ1 swap
+
+@forCount.l assertNatural unrot [step.forCount.l] bind fixpoint inline swap
+@step.forCount.l take2 [onElem.forCount.l] [stopOnEmpty.forCount.l] if
+@stopOnEmpty.forCount.l inR discard2
+@onElem.forCount.l take dup 0 .gt [stopOnCount.forCount.l] [action.forCount.l] if_
+@stopOnCount.forCount.l put inL discard2
+@action.forCount.l dec put x unrot put2 dip3 inline
+  
+@test.forCount.l#stopOnCount
+  empty.l "hello world" 
+  [cons.l] 5 forCount.l
+  0 assertEQ1.n drop
+  " world" assertEQ1
+  "olleh"  assertEQ1d
+@test.forCount.l#stopOnEmpty
+  empty.l "hello world"
+  [cons.l] 15 forCount.l
+  4 assertEQ1.n drop
+  assertInR elim1
+  "dlrow olleh" assertEQ1
+  
 
 
