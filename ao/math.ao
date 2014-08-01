@@ -109,6 +109,7 @@
 @incd swap inc swap
 @dec %r -1 %r+l
 @decd swap dec swap
+@mul2 %r 2 %r*l
 
 @id.mul1 1 .mul
 @id.div1 1 .div

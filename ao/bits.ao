@@ -29,7 +29,7 @@ boolean
 
 @doc.bitListToWord "(1+1)`L -- N(word); word size implicit from list"
 @bitListToWord 0 swap [pushBit.bitListToWord] each.l
-@pushBit.bitListToWord %rw 2 .mul %wl [] [inc] if_
+@pushBit.bitListToWord [mul2] [mul2 inc] if_
 
 @test.wordToBitList
     0xa5 9
