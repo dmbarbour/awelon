@@ -197,8 +197,8 @@ process loops lists blocks conditionals
     "dlrow olleh" assertEQ1dd
 
 @doc.take.s "a`S count -- a`S a`L; take count items from stream"
-@take.s empty.l unrot [cons.l] swap forCount.s drop swap reverse.l
+@take.s inner.take.s drop swap reverse.l
+@inner.take.s empty.l unrot [cons.l] swap forCount.s
 
 @doc.rn.take.s "a`S count -- a`S a(reversed)`L count(remaining)"
-@rn.take.s empty.l unrot [cons.l] swap forCount.s swapd
-
+@rn.take.s inner.take.s swapd
