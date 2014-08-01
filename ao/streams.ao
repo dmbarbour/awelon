@@ -5,7 +5,7 @@ process loops lists blocks conditionals
  
      µS.[1→((elem*S)+1)]            shorthand: elem`S
  
- This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. These streams are also allowed to terminate, by returning unit in the right. In most cases we'll want to work with terminating streams. This also admits the possibility of effectful streams.
+ This model of streams uses the block to capture the incremental computation of the next element, and exhibits the structure of a list. These streams are also allowed to terminate, by returning unit in the right. Most uses of simple streams are for data structure processing; termination is expected. 
  
  The simple streams model isn't ideally efficient, especially with deep composition. A more sophisticated streams model or stream builder might support some rich, symbolic optimizations. There are also useful variations on the model, e.g. augmenting queries and results with time information to limit query depth or support more interesting interleave. But the simple stream model has useful applications (e.g. incremental data processing, or compilation target for integration) and remains worth developing.
  
@@ -171,4 +171,34 @@ process loops lists blocks conditionals
   "Hello, World!" fromList.s
   [108 .ltb] filterBy.s
   toList.s "He, Wd!" assertTextEQ1
+
+@doc.forCount.s "a`S [a--] count -- a`S count(rem)"
+@forCount.s assertNatural swap [step.forCount.s] bind fixpoint inline
+
+@step.forCount.s take2 dup 0 gt [stopOnCount.forCount.s] [tryElem.forCount.s] if_
+@stopOnCount.forCount.s discard2
+@tryElem.forCount.s take intro1 .applyd [onElem.forCount.s] [stopOnElem.forCount.s] if
+@onElem.forCount.s wx put dec put2 dip3 inline
+@stopOnElem.forCount.s elim1 empty.s put discard2
+
+@test.forCount.s#stopOnCount
+    empty.l
+    "hello world" fromList.s
+    [cons.l] 4 forCount.s
+    0         assertEQ1.n
+    "o world" fromList.s assertEQ1d
+    "lleh"    assertEQ1dd
+@test.forCount.s#stopOnElem
+    empty.l
+    "hello world" fromList.s
+    [cons.l] 15 forCount.s
+    4         assertEQ1.n
+    empty.s   assertEQ1d
+    "dlrow olleh" assertEQ1dd
+
+@doc.take.s "a`S count -- a`S a`L; take count items from stream"
+@take.s empty.l unrot [cons.l] swap forCount.s drop swap reverse.l
+
+@doc.rn.take.s "a`S count -- a`S a(reversed)`L count(remaining)"
+@rn.take.s empty.l unrot [cons.l] swap forCount.s swapd
 
