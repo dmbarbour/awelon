@@ -7,3 +7,5 @@ This is an interesting possibility. I'm not at all convinced that the added soph
 The idea, unfortunately, isn't an ideal fit for ABC; lambda abstractions already have a semantics that 'teleport' information into the right location, replacing a named variable, so it makes sense that we could have a O(1) special implementation of this. ABC, on the other hand, models precisely how we walk a structure to inject information... so adding information 'deep' in a structure doesn't happen in O(1) time; in ABC we must instead surgically open it.
 
 At this point, it is likely more profitable to focus on finger-trees and huet zippers as ways of efficiently manipulating structure.
+
+*Aside:* Lazy or asynchronous evaluation may serve the same role pretty well in most cases, and are relatively easy to achieve through annotation.
