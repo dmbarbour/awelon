@@ -111,6 +111,10 @@
 @decd swap dec swap
 @mul2 %r 2 %r*l
 
+@inc\1  %v 1  %r+c
+@dec\1  %v -1 %r+c
+@mul2\1 %v 2  %r*c
+
 @id.mul1 1 .mul
 @id.div1 1 .div
 @id.add0 0 .add
