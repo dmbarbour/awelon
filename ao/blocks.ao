@@ -238,7 +238,7 @@
 @doc.applyWrap "[a -- b] -- [a→b]; apply 1:1 stack function in `apply` environment"
 @preApply %vvvr
 @postApply %lccc
-@applyWrap [preApply] [postApply] wrapfn
+@applyWrap %r [preApply] %rwo [postApply] %rol
 @apply.alt applyWrap .apply
 @eqv.apply [apply] [apply.alt]
 
