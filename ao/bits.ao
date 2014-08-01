@@ -1,4 +1,4 @@
-boolean
+boolean streams lists
 
 @doc.import.bits "functions for working with bits and bytes and fixed-width words"
 

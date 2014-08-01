@@ -50,7 +50,7 @@ process loops lists blocks conditionals
 @doc.toStream.l doc.fromList.s
 @toStream.l fromList.s
 @fromList.s [step.fromList.s] .fixfirst .bind
-@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%cv%] %r?WLCc
+@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%%] %r?WLCc
 
 @doc.fromList\1.s "a`L → a`S; stream to list (without environment)"
 @doc.toStream\1.l doc.fromList\1.s
@@ -70,6 +70,26 @@ process loops lists blocks conditionals
 @test.toList.s "hello, world!" dup fromList.s toList.s assertEQ1
 @id.listToStreamToList   fromList.s toList.s
 @id.streamToListToStream toList.s fromList.s
+
+@doc.fromState.s "s [s → ((a*s)+1)] -- a`S; stream from state/stepper function"
+@fromState.s [step.fromState.s] .bind .fixfirst .bind 
+@step.fromState.s %z$wD [%vrwrwz'wowlc] %r?VRW [%%] %r?WLCc
+
+@doc.fromStateE.s "s [s -- ((a*s)+1)] -- a`S; stream from state/stepper in apply environment"
+@fromStateE.s applyWrap fromState.s
+
+@doc.enum.s "-- num`S; enumerate from 1..infinity"
+@doc.enumFrom.s "start -- num`S; enumerate from start..infinity"
+@enum.s 1 enumFrom.s
+@enumFrom.s [%v^ 1 %r+wlVc] fromState.s
+
+@test.enumFrom.s
+    97 enumFrom.s 26 take.s
+    "abcdefghijklmnopqrstuvwxyz"
+    assertTextEQ1
+@test.enum.s
+    0 enum.s [.add] 20 forCount.s
+    drop2 210 assertEQ1.n  
 
 @doc.fmap.s "a`S [a → b] -- b`S; map a pure function over a stream"
 @fmap.s [step.fmap.s] .bind .fixfirst .bind
@@ -202,3 +222,9 @@ process loops lists blocks conditionals
 
 @doc.rn.take.s "a`S count -- a`S a(reversed)`L count(remaining)"
 @rn.take.s inner.take.s swapd
+
+@doc.taking.s "a`S count -- (a`L)`S; form a stream of lists of size count (last list might be smaller)" 
+@taking.s assertNatural+ [step.taking.s] bind fromStateE.s
+@step.taking.s take.s [inL p inL] [inR dropd] if
+
+
