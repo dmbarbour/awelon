@@ -386,7 +386,7 @@ and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-a
 
 NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, i.e. to prevent accidental misuse of a value. These can serve a role similar to newtype (without truly securing the value).
 
-### Separate Compilation and Dynamic Linking
+### ABC Resources for Separate Compilation and Dynamic Linking
 
 The most direct way to reuse code in ABC is simply to repeat it. But reuse by repetition can be very inefficient for bandwidth and storage, and can hinder caching and compilation. 
 
@@ -421,9 +421,9 @@ Algorithmic details are not fully settled. Thoughts:
 * base64url encoding of hashes in token text (32 bytes for 192 bits)
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
-* compression candidates: LZSS or an LZW variant (plus Huffman?)
+* compression candidates: LZSS or an LZW variant, maybe plus Huffman
 
-I'll need to experiment empirically before making a decision on compression algorithms. LZSS has the advantage of a very short warmup time, and should work much better for small resources. The streaming LZW variants (LZW-GC, LZAP-GC, etc.) have longer warmup times, but can better reuse old patterns that have proven useful. I expect Huffman encoding would augment LZW variants more than LZSS.
+See [doc/Compression.md](doc/Compression.md) for thoughts on compression for ABC. This resource layer compression would operate independently of ABCD (see below). 
 
 *ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
@@ -437,16 +437,11 @@ A paragraph is expressed by simply including a full, blank line within ABC code.
 
 I plan to develop a larger bytecode above ABC: ABC Deflated, or ABCD.
 
-ABCD extends ABC with a dictionary that maps unused UTF-8 characters (U+00C0 and above, reserving lower codes) to common, correct, widely used sequences of ABC. An ABC runtime will be expected to have a database of these definitions, and perhaps even have specialized optimizations for them. ABC streams may then be compressed against this dictionary, or alternatively generated using these operators directly. 
+ABCD extends ABC with a dictionary - one standard dictionary for everyone - that maps higher UTF-8 characters (U+00C0 and above, reserving lower codes) to common, provably correct, widely used ABC subprograms. An ABC runtime will be expected to have a database of these definitions, and perhaps even have specialized optimizations for them. 
 
-But compression isn't the only desired characteristic. A carefully developed ABCD dictionary should capture many known-safe, obviously correct patterns with high level equational laws to simplify static analysis and useful optimizations. For example, we may introduce operators to map or fold over lists, and operators for linear algebras and matrix manipulation.
+ABC streams may then be compressed against this dictionary, or alternatively generated using these operators directly. Further, ABCD interpreters can include specialized implementations for many of these functions. For many functions, a specialized implementation could be much more efficient than interpreting the implementation or even using a generic compiler. Further still, the selected functions could have well understood equational laws to simplify rewrite optimizations. For example, if a function reverses a list, then we know applying it twice results in the input. And if a function maps over a list, then mapping two functions is equivalent to composing the function and mapping once.
 
-Development of ABCD shall be incremental and empirical, driven by actual data, with attention to newly popular data structures and patterns. Valid concerns include that we should not grow the dictionary too large, and we should not assign operators that might later be deprecated or proven incorrect. UTF-8 can support more than a million elements, but I don't expect ABCD will grow much beyond the two-octet UTF-8 space. 
+Development of ABCD shall be incremental and empirical, driven by actual data from real applications, with attention to popular data structures and patterns. Unicode is big (over a million elements) and realistically the standard dictionary will be much smaller so we can still have small implementations. I would be surprised if we even use 0.5% of the available space (~5000 functions). We should gain considerable benefits from much less than that.
 
-ABCD is intended to be used together with linking of ABC sources.
+ABCD complements ABC's resource model for separate compilation and dynamic linking. ABCD is suitable for relatively short, widely used functions. ABC resources are suitable for project specific software components and large data objects (to leverage content distribution networks and caching). These two techniques fill very different niches, and between them ABC may be minimal with little concern for performance or parsimony.
 
-ABCD is suitable for relatively short, frequent, widely used functions. Linking is suitable for large, project-specific components, templates, configurations, big but slow-changing data, and web apps. ABCD functions should be formally 'correct' because we're freezing them into the language. Linking isn't so constrained; sources are easily deprecated and replaced by typical caching models.
-
-Between these two features, ABC can be minimal without concern for performance or parsimony.
-
-*NOTE:* Byte-stream compression below ABC is also feasible at the transport and storage layers, and can mitigate slow development and adoption of the other techniques. I am contemplating [LZHAM](https://code.google.com/p/lzham/) for this purpose.
