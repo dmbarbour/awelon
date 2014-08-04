@@ -212,8 +212,8 @@ process loops lists blocks conditionals
     empty.l
     "hello world" fromList.s
     [cons.l] 15 forCount.s
-    4         assertEQ1.n
-    empty.s   assertEQ1d
+    4             assertEQ1.n
+    empty.s       assertEQ1d
     "dlrow olleh" assertEQ1dd
 
 @doc.take.s "a`S count -- a`S a`L; take count items from stream"
