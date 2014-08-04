@@ -42,11 +42,24 @@ boolean streams lists
     [[8 wordToBitList] map.l] [[octetToBitList] map.l] bi
     assertEQ1 [bitListToWord] map.l put assertEQ1
 
+@doc.bitListToWordK "(1+1)`L K(width) -- N(word); take or fill K bits from list"
+@bitListToWordK 0 unrot [step.bitListToWordK] swap repeat drop
+@step.bitListToWordK [pushBit.bitListToWordK] [inR mul2d] if
+@pushBit.bitListToWordK wx %rw pushBit.bitListToWord %wl
+
+@bitListToOctet 8 bitListToWordK
+
 @doc.bitListToText
 "(1+1)`L -- text; e.g. of form "01100001"
 ~
 @bitListToText [bitToChar] map.l
 @bitToChar [0x30] [0x31] if_
+
+@doc.bitStreamToText "(1+1)`S -- char`S; characters '0' and '1'"
+@bitStreamToText [bitToChar] map.s
+
+@id.bitStreamText [bitStreamToText fromStream.l] [fromStream.l bitListToText]
+@id.mapStreamOrList [map.s fromStream.l] [swap fromStream.l swap map.l]
 
 @doc.textBitsToList
 "textBits -- (1+1)`L; textBits is of form "01100001" (no other characters)
@@ -60,10 +73,19 @@ boolean streams lists
 @doc.octetStreamToBitStream "octet`S -- bool`S (bigendian bit orientation)"
 @octetStreamToBitStream [octetToBitList fromList.s] map.s flatten.s
 
+@test.octetStreamToBitStream
+    "woman" dup fromList.s octetStreamToBitStream
+    bitStreamToText fromStream.l
+    "0111011101101111011011010110000101101110" assertTextEQ1
 
-@doc.bitStreamToWordStream.s
-@doc.bitStreamToOctetStream.s
-@doc.bitStreamToText.s
+@doc.bitStreamToWordKStream   "(1+1)`S K(width) -- wordK`S"
+@doc.bitStreamToOctetStream   "(1+1)`S -- octet`S"
+@bitStreamToWordKStream       copy taking.s put [bitListToWordK] bind map.s 
+@bitStreamToOctetStream       8 taking.s [bitListToOctet] map.s
 
-
+@test.bitStreamToOctetStream
+    "pack my box with five dozen liquor jugs" dup
+    fromList.s octetStreamToBitStream
+    bitStreamToOctetStream fromStream.l
+    assertTextEQ1
 
