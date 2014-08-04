@@ -65,10 +65,23 @@ boolean
 @doc.ifk "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R); see @doc.if"
 @doc.ifd "..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b (L+R); see @doc.if"
 
-@if  p distrib [%rwl] .left merge x wx drop inline
-@if_ p distrib [%rwl] .left fullFactor wx drop dropd inline
-@ifk p dupd distrib [%rwl] .left merge x wx drop swapd dip
-@ifd p distrib [%rwl] .left fullFactor wx drop dip
+@if  p distrib      %r [%rwl] %r?l merge x wx drop inline
+@if_ p distrib      %r [%rwl] %r?l fullFactor wx drop dropd inline
+@ifk p dupd distrib %r [%rwl] %r?l merge x wx drop swapd dip
+@ifd p distrib      %r [%rwl] %r?l fullFactor wx drop dip
+
+@test.if 
+  3 inL [inc] [mul2] if         4 assertEQ1.n
+  3 inR [inc] [mul2] if         6 assertEQ1.n
+@test.if_
+  3 false.b [inc] [mul2] if_    4 assertEQ1.n
+  3 true.b  [inc] [mul2] if_    6 assertEQ1.n
+@test.ifk
+  3 inL [inc] [mul2] ifk        3 inL assertEQ1     4 assertEQ1d.n  
+  3 inR [inc] [mul2] ifk        3 inR assertEQ1     6 assertEQ1d.n  
+@test.ifd
+  3 false.b [inc] [mul2] ifd    false.b assertEQ1   4 assertEQ1d.n
+  3 true.b  [inc] [mul2] ifd    true.b assertEQ1    6 assertEQ1d.n
 
 @doc.when  "..a (L+R) [..a R -- ..a] -- ..a"
 @doc.when_ "..a (L+R) [..a -- ..a] -- ..a"
