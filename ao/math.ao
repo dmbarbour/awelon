@@ -106,10 +106,12 @@
 
 
 @inc %r 1 %r+l
-@incd swap inc swap
 @dec %r -1 %r+l
-@decd swap dec swap
 @mul2 %r 2 %r*l
+
+@incd  %rw inc  %wl
+@decd  %rw dec  %wl
+@mul2d %rw mul2 %wl
 
 @inc\1  %v 1  %r+c
 @dec\1  %v -1 %r+c
