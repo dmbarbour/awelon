@@ -12,7 +12,6 @@ std compiledWords
      read and write files
      read environment variables 
      unsafely duplicate or destroy any value
-     any annotation is also available as a command
  
  For specifics, see words with suffix `.io`.
  
@@ -36,9 +35,6 @@ std compiledWords
 @doc.debugPrintText "annotation to print top text on stack to stderr (as text)"
 @debugPrintRaw [{&debug print raw}] .apply
 @debugPrintText [{&debug print text}] .apply
-
-@debugPrintRaw.io "&debug print raw" p command.io
-@debugPrintText.io "&debug print text" p command.io
 
 @doc.command.io "invoke linear powerblock with (command*arg) message on stack"
 @command.io %zwl .apply x %rwz
@@ -100,20 +96,5 @@ std compiledWords
  Developers can access the 'try' capability separately from applying it, by use of 'tryCap.io'.
 ~
 @tryAp.io p tryCap.io .apply
-
-@doc.asynch
-"Awelon's design includes a 'causal commutativity' property, which is enforced by all Awelon effects models. Causal commutativity allows an arbitrary amount of parallelism, constrained only by dependencies between values. An AO or ABC implementation is free to infer or assume useful places for parallelism (e.g. loading or saving files, or compiling a block), but developers may also suggest parallelism through annotations. 
- 
- `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
- 
-     {&asynch} :: (block * e)→ (block * e) (block on ABC stack)
-     asynch    :: block -- block (on AO stack)
- 
- Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is instead modeled with RDP. Details elsewhere.)
-~ 
-@asynch %r {&asynch} %l
-@asynch.io "&asynch" p command.io
- 
-@compile.io "&compile" p command.io
 
 

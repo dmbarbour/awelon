@@ -68,6 +68,18 @@
 @assertEQ1dd  rotd  assertEQ1 unrot
 @assertEQ1ddd rolld assertEQ1 unroll
 
+@doc.asynch
+"Awelon's design includes a 'causal commutativity' property, which is enforced by all Awelon effects models. Causal commutativity allows an arbitrary amount of parallelism, constrained only by dependencies between values. An AO or ABC implementation is free to infer or assume useful places for parallelism (e.g. loading or saving files, or compiling a block), but developers may also suggest parallelism through annotations. 
+ 
+ `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
+ 
+     {&asynch} :: (block * e)→ (block * e) (block on ABC stack)
+     asynch    :: block -- block (on AO stack)
+ 
+ Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for pending asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is modeled by other means, such as RDP or unbounded command streams.)
+~ 
+@asynch %r {&asynch} %l
+
 @doc.compile
 "The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
  
@@ -106,7 +118,7 @@
      "fXDvOPfmH8hhEhLrD0F034XEQuKfp9xg
      ~%
  
- The prefix `secret!` acts as a directive word; `secret!foo` indicates that word `foo` should, when compiled to AO, be mixed with a convergence secret. The convergence secret should be deterministic, stable, and cryptographically secure. A simple HMAC of a higher layer secret together with the protected code would work well enough. The secrecy indicator may further support policies such as filtering or encrypting secret words when exporting a 'public' dictionary.
+ The prefix `secret!` acts as a directive word; `secret!foo` indicates that word `foo` should, when compiled to AO, be mixed with a convergence secret. The convergence secret should be deterministic, stable, and cryptographically secure. A simple HMAC of a secret together with the protected code would work well enough. The secrecy indicator may further support policies such as filtering or encrypting secret words when exporting a 'public' dictionary.
  
  Developers should mark as secret any words directly containing privacy sensitive or intellectual property sensitive information. There is no need to mark words transitively. 
 ~
