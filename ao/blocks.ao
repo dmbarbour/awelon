@@ -53,7 +53,7 @@
 @doc.composel "[y→z] [x→y] -- [x→z]; compose on left"
 @doc.wrapfn "[x→y] [w→x] [y→z] -- [w→z]; wrap a function"
 
-@compose p %rrol
+@compose pw %rrol
 @composel swap compose
 @prepose composel
 @wrapfn swapd compose compose
@@ -238,7 +238,7 @@
 @doc.applyWrap "[a -- b] -- [a→b]; apply 1:1 stack function in `apply` environment"
 @preApply %vvvr
 @postApply %lccc
-@applyWrap %r [preApply] %rwo [postApply] %rol
+@applyWrap %r [preApply] %ro [postApply] %rwol
 @apply.alt applyWrap .apply
 @eqv.apply [apply] [apply.alt]
 
@@ -261,7 +261,7 @@
 @doc..bsecond "[y→y'] -- [(x*y)→(x*y')]"
 @doc..bright "[y→y'] -- [(x+y)→(x+y')]" 
 @doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
-@.bind pw %rr'wol
+@.bind pw %rr'ol
 @.bind2nd [.swap] composel .bind
 @bind swap quote composel
 @bind.old [%l] composel swap %r'l composel
@@ -285,10 +285,10 @@
 @curry3 [bind curry2] bind
 @curry4 [bind curry3] bind
 
-@.bfirst %r' [%$] %rol
-@.bsecond %r' [%vrw] %rwo [%$wlc] %rol
-@.bleft %r' [%v] %rwo [%?c] %rol
-@.bright %r' [%vVRW] %rwo [%?WLCc] %rol
+@.bfirst %r' [%$] %rwol
+@.bsecond %r' [%vrw] %ro [%$wlc] %rwol
+@.bleft %r' [%v] %ro [%?c] %rwol
+@.bright %r' [%vVRW] %ro [%?WLCc] %rwol
 @.bapply [.apply] bind
 
 @test..bfirst 
@@ -430,7 +430,7 @@
 ~
 @doc.quote "(Quotable x) ⇒ x -- [--x]"
 @doc.unquote "[--x] -- x"
-@quote %r' [%l] %rol
+@quote %r' [%l] %rwol
 @unquote apply0to1
 
 @test.quote  7 dup quote unquote assertEQ1

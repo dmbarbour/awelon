@@ -18,7 +18,7 @@ process loops lists blocks conditionals
 
 @doc.cons.s "a`L a -- a`L; add element at head of stream"
 @doc.putback.s "synonym for `cons.s`; adds element to front of stream"
-@cons.s p inL %r' [%c] %rol
+@cons.s p inL %r' [%c] %rwol
 @putback.s cons.s
 
 @doc.singleton.s "a -- a`S; construct a single element stream"
@@ -50,7 +50,7 @@ process loops lists blocks conditionals
 @doc.toStream.l doc.fromList.s
 @toStream.l fromList.s
 @fromList.s [step.fromList.s] .fixfirst .bind
-@step.fromList.s %D [%vrwrwz'wowlc] %r?VRW [%%] %r?WLCc
+@step.fromList.s %D [%vrwrwz'owlc] %r?VRW [%%] %r?WLCc
 
 @doc.fromList\1.s "a`L → a`S; stream to list (without environment)"
 @doc.toStream\1.l doc.fromList\1.s
@@ -73,7 +73,7 @@ process loops lists blocks conditionals
 
 @doc.fromState.s "s [s → ((a*s)+1)] -- a`S; stream from state/stepper function"
 @fromState.s [step.fromState.s] .bind .fixfirst .bind 
-@step.fromState.s %z$wD [%vrwrwz'wowlc] %r?VRW [%%] %r?WLCc
+@step.fromState.s %z$wD [%vrwrwz'owlc] %r?VRW [%%] %r?WLCc
 
 @doc.fromStateE.s "s [s -- ((a*s)+1)] -- a`S; stream from state/stepper in apply environment"
 @fromStateE.s applyWrap fromState.s
@@ -94,9 +94,9 @@ process loops lists blocks conditionals
 @doc.fmap.s "a`S [a → b] -- b`S; map a pure function over a stream"
 @fmap.s [step.fmap.s] .bind .fixfirst .bind
 @step.fmap.s %lw %vvrwlcw$ %wD [onElem.fmap.s] %r?VRW [%%] %r?WLCc
-@onElem.fmap.s %rz$vrwrw'wowlc
+@onElem.fmap.s %rz$vrwrw'owlc
 @doc..fmap.s "([a → b] * (a`S * e))→(b`S * e); map stream primitive"
-@.fmap.s [step.fmap.s] %r %w'wo .firstfixfirst %w'wo
+@.fmap.s [step.fmap.s] %r %w'o .firstfixfirst %w'o
 
 @test.fmap.s
  "hello" fromList.s
@@ -114,17 +114,17 @@ process loops lists blocks conditionals
 @doc.pmap.s "a`S [a ↣ b] -- b`S; fold a process over a stream"
 @pmap.s [step.pmap.s] .fixfirst .bind .bind
 @step.pmap.s %wlwvvrwlcw$wD [onElem.pmap.s] %r?VRW [%%] %r?WLCc
-@onElem.pmap.s %rz$rz'wovrwrwz'wowlc
+@onElem.pmap.s %rz$rz'ovrwrwz'owlc
 @doc..pmap.s  "([a↣b]*(a`S*e))→(b`S*e); fold process over stream in primitive environment"
-@.pmap.s [step.pmap.s] %r .firstfixfirst %w'wo %w'wo
+@.pmap.s [step.pmap.s] %r .firstfixfirst %w'o %w'o
 
 @doc.addend.s "a`S a`S -- a`S; compose streams end-to-end (stream at top of stack runs last)"
 @addend.s [step.addend.s] .fixfirst .bind .bind
 @step.addend.s %lwvvrwlcw$wD [onElem.addend.s] %r?VRW [onFini.addend.s] %r?WLCMc
-@onElem.addend.s %rw'wovrwrwz'wowlVc
+@onElem.addend.s %rw'ovrwrwz'owlVc
 @onFini.addend.s %r%vr$c
 @doc..addend.s "(a`S*(a`S*e))→(a`S*e); addend streams (ABC layer stack)"
-@.addend.s [step.addend.s] %r .firstfixfirst %w'wo %w'wo
+@.addend.s [step.addend.s] %r .firstfixfirst %w'o %w'o
 
 @test.addend.s#empty 
  empty.s empty.s addend.s 
@@ -137,8 +137,8 @@ process loops lists blocks conditionals
 @doc.flatten.s "(a`S)`S -- a`S; flatten a stream of streams"
 @flatten.s [step.flatten.s] .fixfirst .bind
 @step.flatten.s %wvvrwlcw$wD [onElem.flatten.s] %r?VRW [%% .inR] %r?WLCMc
-@onElem.flatten.s %wvrwrw'wo .addend.s %vr$c
-@.flatten.s [step.flatten.s] %r .firstfixfirst %w'wo
+@onElem.flatten.s %wvrwrw'o .addend.s %vr$c
+@.flatten.s [step.flatten.s] %r .firstfixfirst %w'o
 
 @test.flatten.s
   empty.l 

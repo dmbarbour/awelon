@@ -202,7 +202,7 @@ qu (P a e) = return (P (B block) e) where
     prog = return . (P a)
 qu v = opFail "'" v
 
-o (P (B byz) (P (B bxy) e)) = return (P (B bxz) e) where
+o (P (B bxy) (P (B byz) e)) = return (P (B bxz) e) where
     bxz = bxy `mappend` byz
 o v = opFail "o" v
 

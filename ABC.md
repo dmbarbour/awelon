@@ -19,7 +19,7 @@ See AboutABC for full explanations and design. This file just records each code,
         ^ :: (Copyable x) ⇒ (x * e) → (x * (x * e))
 
         $ :: [x→x'] * (x * e) → (x' * e)
-        o :: [y→z] * ([x→y] * e) → [x→z] * e
+        o :: [x→y] * ([y→z] * e) → [x→z] * e
         ' :: (Quotable x) ⇒ (x * e) → ([s→(x*s)] * e)
         k :: ([x→y] * e) → ([x→y]k * e) -- keep, relevant, no drop
         f :: ([x→y] * e) → ([x→y]f * e) -- affine, no copy
@@ -109,12 +109,13 @@ April 2014:
 * made `>` monomorphic, so it operates only on a pair of numbers
 * modify list type from `µL.(1+(elem*L))` to `µL.((elem*L)+1)`
 
+August 2014
+* swap order of arguments to operator `o`, to better match common use
+
 ## ABCD
 
 None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits.
 
 ## Under Consideration
 
-1. Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.
-
-2. Possibly swap order of arguments to `o`. Because `wo` comes up very often in the ABC, but naked `o` does not (mostly due to binding: `'wo`, and partly because composition off the ABC stack flips the arguments naturally). It's a relatively minor change in semantics, and admittedly a minor change to the size of the ABC. But I expect I'll feel better about it.
+Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.

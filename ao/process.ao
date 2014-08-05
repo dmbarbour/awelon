@@ -27,7 +27,7 @@ loops blocks streams lists
 
 @doc.compose.p "[a ↣ b] [b ↣ c] -- [a ↣ c]; compose two processes"
 @compose.p [step.compose.p] .fixfirst .bind .bind
-@step.compose.p %vrwrwr$rwzw$zrz'wozw'wolc
+@step.compose.p %vrwrwr$rwzw$zrz'ozw'olc
 @composel.p swap compose.p
 
 @test.compose.p
@@ -48,11 +48,11 @@ loops blocks streams lists
  Most stateful behaviors can be expressed this way.
 ~
 @state.p [step.state.p] .bind .fixfirst .bind
-@step.state.p %wvrwr$rz'wolc
+@step.state.p %wvrwr$rz'olc
 
 @doc.first.p   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
 @first.p [step.first.p] .fixfirst .bind 
-@step.first.p %wz$rz'wo
+@step.first.p %wz$rz'o
 @test.first.p
  0 0 p inc.p first.p
  step.p step.p step.p step.p
@@ -60,7 +60,7 @@ loops blocks streams lists
 
 @doc.second.p   "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
 @second.p [step.second.p] .fixfirst .bind 
-@step.second.p %vrwrwrwzw$rwzwlwz'wolc
+@step.second.p %vrwrwrwzw$rwzwlwz'olc
 @test.second.p
  0 0 p inc.p second.p
  step.p step.p step.p step.p
@@ -68,7 +68,7 @@ loops blocks streams lists
 
 @doc.left.p     "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
 @left.p [step.left.p] .fixfirst .bind
-@step.left.p %vrwrD [%vr$c] %r?FMz'wolc
+@step.left.p %vrwrD [%vr$c] %r?FMz'olc
 @test.left.p#inL
  0 inL
  inc.p left.p
@@ -82,7 +82,7 @@ loops blocks streams lists
 
 @doc.right.p    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
 @right.p [step.right.p] .fixfirst .bind
-@step.right.p %vrwrDVRW [%vr$c] %r?WLCFMz'wolc
+@step.right.p %vrwrDVRW [%vr$c] %r?WLCFMz'olc
 @test.right.p#inL
  0 inL
  inc.p right.p
@@ -96,7 +96,7 @@ loops blocks streams lists
 
 @doc.delay.p "a -- [a ↣ a]; delays input one step; initial output provided"
 @delay.p [step.delay.p] .fixfirst .bind
-@step.delay.p %vrwrwz'wolc
+@step.delay.p %vrwrwz'olc
 
 @doc.counter.p "-- [a ↣ (N*a)]; add index to output (starting from 1)"
 @doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"

@@ -36,7 +36,7 @@
 @C.abc %C
 
 @doc.ap.abc "([a→a']*(a*e))→(a'*e); apply"
-@doc.comp.abc "([y→z]*([x→y]*e))→([x→z]*e); compose"
+@doc.comp.abc "([x→y]*([y→z]*e))→([x→z]*e); compose blocks/functions"
 @doc.quote.abc "(a*e)→([s→(a*s)]*e); quote non-distributed value"
 @doc.rel.abc "([x→y]*e)→([x→y]k*e); adds relevance (no drop) attribute to block"
 @doc.aff.abc "([x→y]*e)→([x→y]f*e); adds affine (no copy) attribute to block"

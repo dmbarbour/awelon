@@ -97,21 +97,14 @@
  
  NOTE: Loops are also discouraged in Awelon. Instead, developers are encouraged to compose incremental computations. For example, instead of a sequence of operations that each loop over a full list, consider translating a list to a stream and applying a sequence of transforms, filters, etc. to that stream. Loops can be expressed where needed, but can often be avoided or pushed to the 'edges' of a program. Avoiding loops in subprograms is advantageous for composition and extension.
 ~
-@fixpoint %r [%^'wol] %rwo %^'wol
+@fixpoint %r [%^'ol] %ro %^'ol
 @fixpoint.old [dup bind] composel dup bind
 
 @doc..fixfirst "[(f*a)→b] -- [a→b]; fixpoint first argument in pair"
 @.fixfirst %r .firstfixfirst %l
 
 @doc..firstfixfirst "([(f*a)→b]*e)→([a→b]*e); a minimal fixpoint"
-@.firstfixfirst [%^'wo] %rwo %^'wo
-
-@doc.fixpointLinear   "fixpoint adding linearity attribute"
-@doc.fixpointAffine   "fixpoint adding affine attribute"
-@doc.fixpointRelevant "fixpoint adding relevant attribute"
-@fixpointLinear   %r [%^'wokfl] %rwo %^'wokfl
-@fixpointAffine   %r [%^'wofl]  %rwo %^'wofl
-@fixpointRelevant %r [%^'wokl]  %rwo %^'wokl
+@.firstfixfirst [%^'o] %ro %^'o
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply

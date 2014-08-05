@@ -121,8 +121,8 @@ In ABC, blocks can be tagged with substructural attributes that make them uncopy
 A block in ABC contains a finite sequence of ABC. Blocks may be constructed as literals, by composition `o`, or by quotation `'`. 
 
         [vrwlc] :: e → ([(x * y) → (y * x)] * e)
-        o :: [y→z] * ([x→y] * e) → ([x→z] * e)
-            [abc][def]o = [abcdef]
+        o :: [x→y] * ([y→z] * e) → ([x→z] * e)
+            [def][abc]o = [abcdef]
         ' :: x * e → [s→(x*s)] * e
             #42' = [#42]
             [vrwlc]' = [[vrwlc]]
@@ -131,9 +131,11 @@ After construction, a block is applied with the `$` operator:
 
         $ :: [x→x'] * (x * e) → (x' * e)
 
-Loops are modeled via fixpoint combinators, in particular the strict fixpoint combinator called the Z combinator. A simple Z combinator is `[^'o]o^'o`. A variation suitable for AO's multi-stack environment is `r[^'wol]wo^'wol`. But note that loops should always terminate in Awelon project; we'll use higher layers (streaming, RDP) for long running services.
+Loops are modeled via fixpoint combinators, in particular the strict fixpoint combinator called the Z combinator. A simple Z combinator is `[^'o]o^'o`. A variation suitable for AO's multi-stack environment is `r[^'ol]o^'ol`. But note that loops should always terminate in Awelon project; we'll use higher layers (streaming, RDP) for long running services.
 
 Higher order programming can be modeled as a block that expects a block as an argument. Currying (partial application) can be modeled by combining quotation with composition.
+
+*Aside:* Arguments for `o` were recently swapped to match the normal use case (otherwise almost every instance of `o` is preceded by `w`), so there may be some errors in the documentation.
 
 ### Numbers
 
@@ -206,10 +208,10 @@ These operations are naturally idempotent and commutative.
 
 An affine block may not be copied. A relevant block may not be dropped. A linear block may not be copied or dropped. However, a relevant or linear block may still be applied with `$`.
 
-When blocks are quoted or composed, or a structure containing blocks is quoted, the result inherits substructural attributes of all the components: 
+When blocks are quoted or composed, or a structure containing blocks is quoted, the composite inherits substructural attributes of all the components: 
 
-        [code]f [more]k o = [codemore]kf
-        [code]f [more]  o = [codemore]f
+        [code]f [more]k o = [morecode]kf
+        [code]f [more]  o = [morecode]f
         [code]k [more]fl' = [[code]k[more]fl]kf
         [code]f' = [[code]f]f
 
