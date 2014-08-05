@@ -442,7 +442,6 @@ execAnno s arg =
 
 -- command and arg, returning result
 execCmd :: String -> V AORT -> AORT (V AORT)
-execCmd ('&':s) arg = execAnno s arg -- every annotation is a command
 execCmd cmd arg = 
     readRT aort_power >>= \ hasCmd ->
     case hasCmd cmd of
