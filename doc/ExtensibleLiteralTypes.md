@@ -116,11 +116,7 @@ This proposal has a few challenges remaining:
 * conventions for extensible command set and upgrade
 * conventions for mashup and composition of literals
 
-We could have a standard command to 'evaluate' a literal, e.g. empty text (unit in right; true). Perhaps we define the word `⊷` (U+22B7) to perform this evaluation, such that the AO with embedded literals has textual form:
-
-        〚raw awelon bytecode here〛 ⊷
-
-But note that the evaluation is not the default behavior. I believe that keeping the embedded block-literal concept separate from the processing is a good idea. It keeps convention separate from the formal AO extension. We can combine raw literals, or perform context-dependent extractions if we really desire it.
+We could have a standard command to 'evaluate' a literal, to extract some other value from it. But it doesn't seem essential, and keeping the embedded block-literal concept separate from the processing is a valuable idea. It keeps convention separate from the formal AO extension. We can combine raw literals, or perform context-dependent extractions if we really desire it.
 
 ## Meta
 
