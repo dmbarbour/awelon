@@ -115,5 +115,6 @@ None yet! ABCD will begin after U+00C0, and will develop according to empirical 
 
 ## Under Consideration
 
-Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.
+1. Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.
 
+2. Possibly swap order of arguments to `o`. Because `wo` comes up very often in the ABC, but naked `o` does not (mostly due to binding: `'wo`, and partly because composition off the ABC stack flips the arguments naturally). It's a relatively minor change in semantics, and admittedly a minor change to the size of the ABC. But I expect I'll feel better about it.
