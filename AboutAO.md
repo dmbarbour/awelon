@@ -124,16 +124,18 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * capability text `{` to following `}`
 * blocks `[` ... `]`
 
-In addition, there are some experimental extensions to AO under evaluation. An [ambiguity](doc/AboutAmbiguity.md) extension uses `(`, `|`, and `)`. A concept for [embedded literal objects](doc/ExtensibleLiteralTypes.md) concept uses `〚` and `〛` (U+301A-B). I'm further reserving the other unicode white variants `⦃⦄⦅⦆` (U+2983-6) for future extensions and experiments.
+In addition, there are some experimental extensions to AO under evaluation. An [ambiguity](doc/AboutAmbiguity.md) extension uses `(`, `|`, and `)`. A concept for [embedded literal objects](doc/ExtensibleLiteralTypes.md) concept uses `〚` and `〛` (U+301A-B). I'm further reserving the other unicode white variants `⦃⦄⦅⦆` (U+2983-6) for potential future extensions and experiments.
 
-Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, quoting, streaming, and extending. So the following limits apply:
+Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, documenting, quoting, streaming, and extending. So the following limits apply, albeit roughly:
 
 * words may not start with `@`, `%`, or a digit
-* words may not contain `"[]{}` or extension chars `(|)⦃⦄⦅⦆〚〛`
+* words may not contain `"[]{}`, \`, or extension chars `(|)⦃⦄⦅⦆〚〛`
 * words may not contain C0 or C1 control characters, SP, or DEL
 * words starting with `+`, `-`, or `.` may not follow with a digit
 
-In addition to white space (SP, LF), characters `[`, `]`, `(`, `|`, `)` act as word separators. The structure of a word is not interpreted within AO, though it may suggest a contextual meaning (e.g. `test.foo` becomes an automatic test) - see Processing, below. 
+If developers insist on whitespace within their words (e.g. as opposed to underscores or hyphens), they should use NBSP (U+00A0). 
+
+In addition to white space (SP, LF), block characters `[` and `]` act as word separators. The structure of a word is not interpreted within AO, though it may suggest a contextual meaning (e.g. `test.foo` becomes an automatic test) - see Processing, below.
 
 ### AO Dictionary File
 

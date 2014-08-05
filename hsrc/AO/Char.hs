@@ -20,7 +20,7 @@ isWordSep = flip L.elem " \n[](|)"
 -- characters restricted from use in words
 -- (minus control characters, including LF and DEL)
 wcBlacklist :: [Char]
-wcBlacklist = " []{}\"(|)⦃⦄⦅⦆〚〛"
+wcBlacklist = " []{}\"`(|)⦃⦄⦅⦆〚〛"
 
 isWordStart, isWordCont :: Char -> Bool
 isWordCont c = not (bl || ctl) where
