@@ -71,11 +71,12 @@
 @doc.compile
 "The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
  
-         {&compile} :: (a→b) → (a→b); compiles the function
+         {&compile} :: ([a→b] * e) → ([a→b] * e); compile block on ABC stack
+         compile    :: [a→b] -- [a→b]; compile block on AO stack
  
  Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.compile!` for more.
 ~
-@compile [{&compile}] .apply
+@compile %r {&compile} %l
 
 @doc.prefix.compile!
 "Awelon Bytecode (ABC) supports separate compilation and linking via its invocation model. An ABC resource is given a deterministic, cryptographically unique name based on the underlying bytecode. The resource is encrypted for easy integration with content distribution networks and cloud servers. This is easiest to explain this with a little pseudocode:

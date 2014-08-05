@@ -106,12 +106,12 @@ std compiledWords
  
  `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
  
-     {&asynch} :: block→block    (single input)
-     asynch    :: block -- block (on stack)
+     {&asynch} :: (block * e)→ (block * e) (block on ABC stack)
+     asynch    :: block -- block (on AO stack)
  
  Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is instead modeled with RDP. Details elsewhere.)
 ~ 
-@asynch [{&asynch}] .apply
+@asynch %r {&asynch} %l
 @asynch.io "&asynch" p command.io
  
 @compile.io "&compile" p command.io
