@@ -1,20 +1,30 @@
 # Awelon Bytecode
 
-Awelon Bytecode (ABC) is a primary component of the Awelon project. ABC is a streamable, securable, type-safe, tacit concatenative, non-strict, causally commutative, spatially idempotent, weakly legible, functional bytecode. Breaking this down:
+Awelon Bytecode (ABC) is a bedrock component of the Awelon project. ABC consists of about forty operators, embedded text, blocks of ABC (to model first class functions), and a [capability secure](http://en.wikipedia.org/wiki/Capability-based_security) model to access external effects. The effects model is further leveraged to support dynamic linking, separate compilation, and performance annotations. 
 
-* **streamable** supports incremental processing; no sections or addressing
-* **securable** effects via invocation of unforgeable capability text
-* **typesafe** types can enforce many safety properties, and can be inferred
-* **tacit** no local variable or parameter names; ops apply to environment
-* **concatenative** juxtaposition is composition; also trivial to decompose
-* **non-strict** no commitment to common evaluation orders; temporal control
-* **causally commutative** effect ordering is expressed by argument threading
-* **spatially idempotent** duplicate expression doesn't duplicate effect
-* **weakly legible** visible, formattable code; readable text and numbers
-* **functional** higher order expressions, immutable values, pure by default
-* **bytecode** UTF-8 for text, but ABC codes within Latin-1 character set
+ABC has many interesting properties:
 
-ABC is suitable for functional, procedural, and reactive programming. ABC is primarily designed for reactive demand programming (RDP). ABC can be interpreted, but is intended for compilation or JIT. ABC supports linking and invoking external code via invoking `{#abcResourceName}`, as an effective basis for structure sharing and cachable compilation.
+* ABC is *streamable*. This means the bytecode can be incrementally executed as it arrives then quickly forgotten. We might stream bytecode to modify a web page, subscribe to a publishing service, or command a robot in real time. The bytecode can manipulate values and/or capability-based APIs. Streamability is essential to the Awelon project vision, to support new forms of tooling. For comparison, conventional bytecodes are designed for the [stored-program computer](http://en.wikipedia.org/wiki/Von_Neumann_architecture#History), and might 'jump back' to model a loop. ABC is streamed, not stored, and ABC does not jump. Loops are modeled using [fixpoint combinators](http://en.wikipedia.org/wiki/Fixed-point_combinator#Strict_fixed_point_combinator). 
+
+* Unlike most bytecodes, ABC is *weakly legible*. Natural numbers have an obvious encoding, e.g. `#42` encodes the number forty-two. Text literals can be embedded directly. Basic operators use printable characters, visible in a text editor. Effects are accessed through visually obvious and often human-meaningful tokens between curly braces, e.g. `{foo}` (perhaps protected by HMAC). Eventually, even richly structured data - meshes, images, matrices, graphs, etc. - might be [embedded as renderable literal objects](doc/ExtensibleLiteralTypes.md) in ABC. The intention is to simplify learning ABC, debugging, disassembly, and extraction of useful subprograms.
+
+* ABC is almost purely *functional*. ABC's basic operators have purely functional semantics. ABC does not have a concept for references or aliasing. And ABC's value types are immutable. Further, side-effects are uniformly constrained to respect *spatial idempotence* and *causal commutativity*: invoking the same effect twice with the same argument must be the same as invoking it once, and ordering of effects is controlled only by the computation of arguments. Thus even effectful code allows a lot of nice equational reasoning (and optimizations) similar to pure code. 
+
+* ABC is multi-paradigm, but in a rather non-conventional sense. ABC can support *functional, imperative, or reactive* programming based on the compiler used and the set of effectful capabilities made available as arguments to the program. Valid optimizations for ABC are the same regardless of paradigm. A single ABC subprogram can often be reused for many different paradigms. 
+
+* ABC is a [*tacit, concatenative* language](http://concatenative.org/wiki/view/Concatenative%20language), similar in nature to Forth, Joy, Factor, and Cat. Concatenating two valid ABC subprogram strings is the same as composing their functions. Though, unlike the aforementioned languages, ABC doesn't allow user-defined names (that's left to [higher level languages](AboutAO.md)) and is not stack-based (instead operating on products, sums, and numbers). The concatenative nature of ABC is related to ABC's streamability.
+
+* ABC is *strongly typesafe*, and amenable to static analysis. To the extent safety isn't validated statically, the runtime may enforce it dynamically. It is feasible to typecheck and infer safety for most ABC code, with minimal runtime checks at certain boundaries, e.g. when working with remote systems or side effects. 
+
+* ABC supports [*substructural* typing](http://en.wikipedia.org/wiki/Substructural_type_system), in the form of adding affine (no copy) and relevant (no drop) attributes to blocks. This allows ABC to enforce structured programming behaviors without relying on a structured syntax.
+
+* ABC is highly suitable for *open, distributed programming*. Arbitrary values can be serialized, communicated, and incrementally updated via streaming bytecode. Blocks are easily serialized and can model first class functions, mobile agents, or interactive applications. Capability secure effects can enable ad-hoc mashups of mutually distrustful services. ABC's separate compilation and linking model makes it easy to download and cache resources, and reuse them across many independently developed applications.
+
+* ABC deeply supports a *code-is-material* metaphor and a corresponding tool set. Software components are easily rendered with physical metaphors, and easily manipulated physically in a VR/AR environment - e.g. gluing them end-to-end for sequential composition (concatenation is composition) or side-by-side for parallel composition (via causal commutativity). Bytecode might [embed](doc/ExtensibleLiteralTypes.md) interactive widgets with tunable parameters. Valid code is easily be generated algorithmically, e.g. using genetic programming or user-guided searches. Visualization of bytecode can be augmented by recognizing well-understood patterns and substituting names, icons, shapes, or colors. Mechanical execution of code can be visualized step-by-step. Code in motion might flow like a river (streaming bytecode) or be thrown like a javelin (single use block) or take other ad-hoc forms.
+
+At the moment, the primary way of generating useful ABC is the Forth-like [AO language](AboutAO.md). Long term, and related to Awelon project's overall goals, the *code-is-material* metaphor in a good VR/AR environment has potential to marginalize more conventional programming languages like AO, though there will always be some use for embedded DSLs.
+
+The main weaknesses of ABC is performance. Fortunately, this should be a temporary weakness. There are many viable strategies to achieve competitive performance: accelerators for common sequences, separate compilation and linking, dynamic or just-in-time compilation. Direct interpretation could also be implemented more efficiently.
 
 ## The ABC Stream
 
@@ -121,7 +131,7 @@ After construction, a block is applied with the `$` operator:
 
         $ :: [x→x'] * (x * e) → (x' * e)
 
-Loops can be modeled with fixpoint combinators. A simple fixpoint combinator is `[^'wo]wo^'wo`, and a variation suitable for AO's standard environment is `r[^'wol]wo^'wol`. These apply to a block and cause it to construct itself (in fixpoint form) as an argument. *Note:* long running services or applications are not modeled by loops. Instead, incremental automata or reactive behaviors are defined assuming an *implicit* top-level loop, which is ultimately provided by the compiler.
+Loops are modeled via fixpoint combinators, in particular the strict fixpoint combinator called the Z combinator. A simple Z combinator is `[^'o]o^'o`. A variation suitable for AO's multi-stack environment is `r[^'wol]wo^'wol`. But note that loops should always terminate in Awelon project; we'll use higher layers (streaming, RDP) for long running services.
 
 Higher order programming can be modeled as a block that expects a block as an argument. Currying (partial application) can be modeled by combining quotation with composition.
 
