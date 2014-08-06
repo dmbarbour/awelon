@@ -209,9 +209,9 @@ debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 -- which may then implicitly be compiled and loaded separately. 
 -- 
 compileBlock :: Prog AORT
-compileBlock (P (B b) e) =
+compileBlock v@(P (B b) e) =
     let abc = (simplify . S.toList . b_code) b in
-    if not (shouldCompile abc) then return (B b) else
+    if not (shouldCompile abc) then return v else
     ksynch "rsc" (makeResource saveRscFile abc) >>= \ rscTok ->
     let b' = b { b_code = S.singleton (Tok rscTok)
                , b_prog = invoke rscTok
