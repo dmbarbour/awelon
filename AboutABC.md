@@ -135,7 +135,7 @@ Loops are modeled via fixpoint combinators, in particular the strict fixpoint co
 
 Higher order programming can be modeled as a block that expects a block as an argument. Currying (partial application) can be modeled by combining quotation with composition.
 
-*Aside:* Arguments for `o` were recently swapped to match the normal use case (otherwise almost every instance of `o` is preceded by `w`), so there may be some errors in the documentation.
+*Aside:* Arguments for `o` were recently swapped to match the most frequent use case (otherwise almost every instance of `o` is preceded by `w`), so there may be some errors in the documentation.
 
 ### Numbers
 
