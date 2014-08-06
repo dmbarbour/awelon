@@ -263,10 +263,7 @@
 @doc..bapply "[x→x'] -- [((x*s)*e)→((x'*s)*e)]"
 @.bind pw %rr'ol
 @.bind2nd [.swap] composel .bind
-@bind swap quote composel
-@bind.old [%l] composel swap %r'l composel
-
-@eqv.bind [bind] [bind.old]
+@bind pw %rr' [%l] %rwool
 
 @bind2 bind bind
 @bind3 bind bind bind
