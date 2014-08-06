@@ -23,6 +23,7 @@ import Data.Monoid
 import Data.Ratio
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
+import qualified Data.Decimal  as Dec
 
 import ABC.Operators
 import ABC.Simplify
@@ -130,9 +131,15 @@ instance Show (V cx) where
     showsPrec _ (S seal v) = shows v . shows tok where
         tok = Tok (seal)
 
+-- show number as exact decimal or as fractional
 showNumber :: Rational -> ShowS
-showNumber r | (1 == denominator r) = shows (numerator r)
+-- showNumber r | (1 == denominator r) = shows (numerator r)
+showNumber (toDecimal -> Just dec) = shows dec
 showNumber r = shows (numerator r) . showChar '/' . shows (denominator r)
+
+toDecimal :: Rational -> Maybe Dec.Decimal
+toDecimal = e2mb . Dec.eitherFromRational where
+    e2mb = either (const Nothing) Just
 
 instance Quotable (V cx) where
     quotes (valToText -> Just txt) = quotes (TL txt)

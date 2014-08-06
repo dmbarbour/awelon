@@ -93,6 +93,7 @@ Library
     , cryptohash (>= 0.11)
     , base64-bytestring (>= 1.0)
     , bytestring, byteable
+    , Decimal (>= 0.4)
 
   Exposed-Modules:
 
