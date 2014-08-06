@@ -19,7 +19,7 @@
 @doc.elim1 "Unit -- "
 
 @id 
-@dup %r^wzlwl
+@dup %r^zlwl
 @dupd swap dup rot
 @over swap dup swapd
 @tuck swap over

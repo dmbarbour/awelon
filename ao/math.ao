@@ -31,8 +31,8 @@
 @.neg %r-l
 @.inv %r/l
 @.divMod p %rrQll wx
-@.quot .divMod nip
-@.rem  .divMod drop
+@.quot   p %rrQ%l
+@.rem    p %rrQw%l
 @.sub .neg .add
 @.div .inv .mul
 @.square dup .mul
@@ -108,14 +108,17 @@
 @inc %r 1 %r+l
 @dec %r -1 %r+l
 @mul2 %r 2 %r*l
+@div2 %r 1/2 %r*l
 
 @incd  %rw inc  %wl
 @decd  %rw dec  %wl
 @mul2d %rw mul2 %wl
+@div2d %rw div2 %wl
 
 @inc\1  %v 1  %r+c
 @dec\1  %v -1 %r+c
 @mul2\1 %v 2  %r*c
+@div2\1 %v 1/2 %r*c
 
 @id.mul1 1 .mul
 @id.div1 1 .div
@@ -125,6 +128,46 @@
 @doc.fibonacci "N -- fib(N); the 'hello world' of functional programming ;)"
 @fibonacci 1 0 [dup swapd .add] roll repeat dropd
 @test.fibonacci 11 fibonacci 89 assertEQ1.n
+
+@doc.alignToFrac 
+"Align a number near an arbitrary fraction. For example:
+ 
+     1/3 1/100 roundToFrac =  33/100
+     2/3 1/100 alignToFrac =  66/100
+     227 10    alignToFrac =  220
+ 
+     number frac -- number(aligned) remainder
+ 
+ Note: no special handling for negative numbers
+~
+@alignToFrac dup %rw .quot %wl .mul
+
+@test.alignToFrac 
+    1/3 1/100 alignToFrac 33/100 assertEQ1.n
+    2/3 1/100 alignToFrac 66/100 assertEQ1.n
+    227 10    alignToFrac 220    assertEQ1.n
+
+@doc.roundToFrac
+"Align a number near an arbitrary fraction with rounding. For example:
+ 
+     1/3 1/100 roundToFrac = 33/100
+     2/3 1/100 roundToFrac = 67/100
+     227 10    roundToFrac = 230
+ 
+ Note: no special handling for negative numbers.
+~
+@roundToFrac dup %rw div2 .add %wl alignToFrac
+
+@test.roundToFrac
+     1/3 1/100 roundToFrac      33/100 assertEQ1.n
+     2/3 1/100 roundToFrac      67/100 assertEQ1.n
+     227 10    roundToFrac      230    assertEQ1.n
+
+@doc.decimal6 "round number to decimal with six places past decimal point"
+@decimal6 1e-6 roundToFrac
+
+@doc.decimal12 "round number to decimal with twelve places past decimal point"
+@decimal12 1e-12 roundToFrac
 
 @doc.deprecated.assert
 "(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
