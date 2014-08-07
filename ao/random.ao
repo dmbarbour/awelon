@@ -1,0 +1,53 @@
+bits math
+
+@doc.import.random "pseudo random number generators"
+
+@doc.RandomNumberGeneration
+"A pseudo-random number generator (PRNG) provides a deterministic stream of seemingly random numbers derived from an initial seed. The basic 'uniform' PRNG is like rolling a fair die, producing discrete values in a fixed range without bias. Nice qualities for a PRNG are bounded space requirements, a very large cycle (such that applications never cycle in practice), and performance. There are also applications for 'secure' PRNGs, whose state or future outputs cannot be guessed from past outputs.
+ 
+ Non-uniform distributions are also valuable, but can usually be computed from a uniform distribution. The bulk of a useful random number library will focus on translating uniform distributions into other interesting values or distributions.
+ 
+ The proposed PRNG is based on a simple object oriented interface:
+ 
+     interface PRNG:
+        next  :: PRNG → (PRNG * Bool)
+        split :: PRNG → (PRNG * PRNG)
+ 
+ In AO, we'll represent this interface as a dependently typed fixpoint closure:
+ 
+     'next' is encoded as false (unit in left)
+     'split' is encoded as true (unit in right)
+     type PRNG = µR.[ next  → (R*Bool) | split → (R*R) ]
+ 
+ This is really a uniform boolean (1+1) generator, i.e. flipping a fair coin. Booleans are simple to specify and understand, and will work well for generating other random values. The ability to split the generator is useful for lazy or parallel processing. The PRNG's state is hidden. Code that uses a PRNG should never provide its own PRNG, instead leaving it to a client, i.e. such that the client may systematically explore and test different outcomes by controlling the PRNG.
+ 
+ AO doesn't have any 'global' random number generator, though something like that could be modeled easily using AO's extended multi-stack environment. There may also be access to a secure true-entropy generator via capabilities, though use of true random numbers isn't recommended for most problems.
+~
+
+@doc.suffix.r doc.RandomNumberGeneration
+
+@doc.stdgen.r 
+"Generate a standard PRNG, seeded by a (usually small) natural number. 
+ 
+     seed -- PRNG
+ 
+ This PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
+~
+@stdgen.r fromSeed.stdgen.r
+@fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
+@fromState.stdgen.r [step.stdgen.r] .fixfirst .bind
+@m1.stdgen.r 2147483563
+@m2.stdgen.r 2147483399
+
+@doc.stateFromSeed.stdgen.r "a pair (s1*s2) modulo distinct large primes"
+@stateFromSeed.stdgen.r
+ assertNatural
+ m1.stdgen.r dec .divMod
+ m2.stdgen.r dec .rem
+ incd inc pw
+
+@step.stdgen.r
+ "step*((s1*s2)*(1+1))" drop
+ %vrwrw
+ 
+ 

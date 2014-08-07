@@ -3,7 +3,7 @@
  lists assocLists sequences
  loops streams process
  bits
- math stats
+ math stats random
 
 @doc.import.std "viable starting point for AO dictionaries"
 
