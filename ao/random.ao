@@ -1,4 +1,4 @@
-bits math
+bits math streams boolean
 
 @doc.import.random "pseudo random number generators"
 
@@ -17,7 +17,7 @@ bits math
  
      'next' is encoded as false (unit in left)
      'split' is encoded as true (unit in right)
-     type PRNG = µR.[ next  → (R*Bool) | split → (R*R) ]
+     type PRNG = µR.[next→(R*Bool) | split→(R*R)]
  
  This is really a uniform boolean (1+1) generator, i.e. flipping a fair coin. Booleans are simple to specify and understand, and will work well for generating other random values. The ability to split the generator is useful for lazy or parallel processing. The PRNG's state is hidden. Code that uses a PRNG should never provide its own PRNG, instead leaving it to a client, i.e. such that the client may systematically explore and test different outcomes by controlling the PRNG.
  
@@ -26,6 +26,18 @@ bits math
 
 @doc.suffix.r doc.RandomNumberGeneration
 
+@doc.next.r "PRNG -- Bool PRNG"
+@next.r false .applyd x
+
+@doc.split.r "PRNG -- PRNG PRNG"
+@split.r true .applyd x
+
+@doc.prngToStream "PRNG -- (1+1)`S"
+@prngToStream false.b constant.s swap pmap.s
+
+@doc.prngToStreamOfPrng "PRNG -- PRNG`S"
+@prngToStreamOfPrng true.b constant.s swap pmap.s
+
 @doc.stdgen.r 
 "Generate a standard PRNG, seeded by a (usually small) natural number. 
  
@@ -33,21 +45,68 @@ bits math
  
  This PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
-@stdgen.r fromSeed.stdgen.r
+@stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
 @fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
 @fromState.stdgen.r [step.stdgen.r] .fixfirst .bind
-@m1.stdgen.r 2147483563
-@m2.stdgen.r 2147483399
 
 @doc.stateFromSeed.stdgen.r "a pair (s1*s2) modulo distinct large primes"
 @stateFromSeed.stdgen.r
  assertNatural
- m1.stdgen.r dec .divMod
- m2.stdgen.r dec .rem
+ 2147483562 .divMod
+ 2147483398 .rem
  incd inc pw
 
-@step.stdgen.r
- "step*((s1*s2)*(1+1))" drop
- %vrwrw
+@step.stdgen.r %lvrD [next.stdgen.r] %r?VRW [split.stdgen.r] %r?WLCMc
+
+@next.stdgen.r preApply.stdgen.r inner.next.stdgen.r postApply
+@inner.next.stdgen.r
+  next_s1.stdgen.r take
+  next_s2.stdgen.r put
+  dup2 next_val.stdgen.r take
+  p swap .bind put pw
+@next_s1.stdgen.r 
+  dup 53668 .quot copy
+  53668 .mul .sub 40014 .mul 
+  put 12211 .mul .sub 
+  dup 0 lt [2147483563 .add] when_
+@next_s2.stdgen.r
+  dup 52774 .quot copy
+  52774 .mul .sub 40692 .mul
+  put 3791 .mul .sub
+  dup 0 lt [2147483399 .add] when_
+@next_val.stdgen.r
+  swap .sub 
+  dup 1 lt [2147483562 .add] when_
+
+@doc.preApply.stdgen.r "(step*(s1*s2))*1 → ((s1*(s2*(step*1)))*(1*1); apply env"
+@preApply.stdgen.r %rwrvvr 
+
+@split.stdgen.r preApply.stdgen.r inner.split.stdgen.r postApply
+@inner.split.stdgen.r
+  rot take 
+  [next_s1.stdgen.r] [new_s1.stdgen.r] bi take2
+  [next_s2.stdgen.r] [new_s2.stdgen.r] bi 
+  put p swap put p 
+  paste .bind swap put .bind p
+@new_s1.stdgen.r inc dup 2147483563 lt [drop 1] unless_
+@new_s2.stdgen.r dec dup 1 lt [drop 2147483398] when_
+
+@doc.wordGenToBoolGen.r
+"Given a random number generator (which provides natural numbers), return a random boolean generator (per AO standard), by simply taking the K lowest bits of each number generated. 
+        
+     NatGen K -- PRNG
  
+ In case of 'split', the current number is simply dropped. It isn't essential to preserve bits.
+~
+@wordGenToBoolGen.r assertNatural+ drop
+@x.wordGenToBoolGen.r assertNatural+ [step.wordGenToBoolGen.r] .bind .fixfirst .bind
+@step.wordGenToBoolGen.r
+ "(K*(step*(NatGen*(next+split))))" drop
+ %llvrD [next.wordGenToBoolGen.r] %r?VRW [split.wordGenToBoolGen.r] %r?WLCMc
+@preApply.wordGenToBoolGen.r %rrvvr
+@next.wordGenToBoolGen.r
+ "((K*step)*NatGen)*1" drop
+ %rrvvr
+@split.wordGenToBoolGen.r
+ "((K*step)*NatGen)*1" drop
  

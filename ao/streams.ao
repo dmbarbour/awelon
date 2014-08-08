@@ -24,6 +24,14 @@ process loops lists blocks conditionals
 @doc.singleton.s "a -- a`S; construct a single element stream"
 @singleton.s empty.s swap cons.s
 
+@doc.constant.s "a -- a`S; (copyable a); infinite stream with a single value"
+@constant.s [%v^lVc] fromState.s
+
+@test.constant.s
+  111 constant.s copy 4 take.s 
+  "oooo" assertTextEQ1
+  put assertEQ1d
+
 @doc.foreach.s
 "Sequentially process every element from a finite stream. The type is roughly:
  
