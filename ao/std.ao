@@ -91,29 +91,29 @@
 @compile %r {&compile} %l
 
 @doc.prefix.compile!
-"Awelon Bytecode (ABC) supports separate compilation and linking via its invocation model. An ABC resource is given a deterministic, cryptographically unique name based on the underlying bytecode. The resource is encrypted for easy integration with content distribution networks and cloud servers. This is easiest to explain this with a little pseudocode:
+"If you define word `compile!foo` this can act as a directive that the AO system should separately compile the word `foo`. The definition of `compile!foo` should be left empty, at least for now. The `compile!` word may later provide opportunity for optimization directives.
+ 
+ This directive leverages ABC's separate compilation and linking model. An ABC subprogram may be saved and given a unique identifier. ABC uses its effects system to load and logically inline the subprogram - e.g. `{#resourceId}`. The `compile!foo` directive tells an AO compiler to replace the word with the equivalent resource identifier and save the bytecode at an appropriate location for linking. This doesn't require compilation, but provides an excellent opportunity for it. 
+ 
+ The actual encoding of ABC resources is more sophisticated than plain bytecode, including compression and encryption steps. Relevant pseudocode:
  
          makeResource(bytecode):
              hashBC = secureHashBC(bytecode)
              cipherText = encrypt(hashBC,compress(bytecode))
              hashCT = secureHashCT(cipherText)
              store(hashCT,cipherText)
-             resourceToken = #hashCT:hashBC (base64url encoded)
-             return resourceToken
+             resourceId = hashCT:hashBC (hashes base64url encoded)
+             return {#resourceId}
  
- The resource is then loaded and invoked using: `{#hashCT:hashBC}`. Modulo difficulty downloading the named bytecode (which can usually be handled up front) this invocation is logically equivalent to inlining the identified bytecode. The loading process essentially reverses the above process.
- 
- In addition to potential memory and bandwidth savings, use of named ABC resources is an implicit opportunity for separate compilation. We're likely to use a name more than once. A resource can be downloaded, compiled once, and cached for multiple uses. Infrequently used resources may gradually be removed from cache.
- 
- Prefix `compile!` serves as a directive. When we define `compile!foo`, we direct the AO system to implement word `foo` as an ABC resource. The definition of `compile!foo` is not relevant. In addition to performance tweaking, this is useful for early development of the compilation and code distribution systems.
+ The idea is that we should be able to distribute application resources through distrusted servers (cloud servers, content distribution networks, etc.), and also that we should be able to eliminate duplicates and maximize reuse via caching. There is a remaining vulnerability to 'confirmation' attacks, but developers can address this by indicating sensitive words with a `secret!foo` directive.
  
  See also: `doc.prefix.secret!`
 ~
 
 @doc.prefix.secret!
-"ABC's linking model uses [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption), which is vulnerable to a class of 'confirmation' attacks, i.e. whereby an attacker might determine a ten digit bank account number by systematically encrypting all ten billion combinations and determining which one is stored on the content-distribution server. Confirmation attacks work against low-entropy data.
+"ABC's separate compilation and linking model uses [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption), which is vulnerable to a class of 'confirmation' attacks, i.e. whereby an attacker might determine a ten digit bank account number by systematically encrypting all ten billion combinations and finding which is stored on the server. Confirmation attacks only work against low-entropy data, but a great deal of privacy-sensitive information is low entropy.
  
- To resist confirmation attacks, we can mix in some high-entropy text - a 'convergence secret' - with the ABC resource when we're compiling it. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of about 2^192. In ABC, a convergence secret might look like:
+ To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. In ABC, a convergence secret might look like:
  
      "fXDvOPfmH8hhEhLrD0F034XEQuKfp9xg
      ~%
