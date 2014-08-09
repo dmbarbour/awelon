@@ -64,19 +64,33 @@ bits math streams boolean
   next_s2.stdgen.r put
   dup2 next_val.stdgen.r take
   p swap .bind put pw
-@next_s1.stdgen.r 
-  dup 53668 .quot copy
-  53668 .mul .sub 40014 .mul 
-  put 12211 .mul .sub 
+
+@doc.next_s1.stdgen.r 
+"From Haskell code:
+     k1   = s1 `quot` 53668
+     s1'  = 40014 * (s1 - k1 * 53668) - 12211 * k1
+     s1'' = if s1' < 0 then s1' + 2147483563 else s1'
+~
+@next_s1.stdgen.r
+  53668 .divMod 12211 .mul %rw 40014 .mul %wl .sub
   dup 0 lt [2147483563 .add] when_
+
+@doc.next_s2.stdgen.r
+"From Haskell code:
+     k2   = s1 `quot` 52774
+     s2'  = 40692 * (s2 - k2 * 52774) - 3791 * k2
+     s2'' = if s2' < 0 then s2' + 2147483399 else s2'
+~
 @next_s2.stdgen.r
-  dup 52774 .quot copy
-  52774 .mul .sub 40692 .mul
-  put 3791 .mul .sub
+  52774 .divMod 3791 .mul %rw 40692 .mul %wl .sub
   dup 0 lt [2147483399 .add] when_
-@next_val.stdgen.r
-  swap .sub 
-  dup 1 lt [2147483562 .add] when_
+
+@doc.next_val.stdgen.r
+"From Haskell code:
+     z = s1'' - s2''
+     z' = if z < 1 then z + 2147483562 else z
+~
+@next_val.stdgen.r swap .sub dup 1 lt [2147483562 .add] when_
 
 @doc.preApply.stdgen.r "(step*(s1*s2))*1 → ((s1*(s2*(step*1)))*(1*1); apply env"
 @preApply.stdgen.r %rwrvvr 
@@ -99,10 +113,8 @@ bits math streams boolean
  In case of 'split', the current number is simply dropped. It isn't essential to preserve bits.
 ~
 @wordGenToBoolGen.r assertNatural+ drop
-@x.wordGenToBoolGen.r assertNatural+ [step.wordGenToBoolGen.r] .bind .fixfirst .bind
-@step.wordGenToBoolGen.r
- "(K*(step*(NatGen*(next+split))))" drop
- %llvrD [next.wordGenToBoolGen.r] %r?VRW [split.wordGenToBoolGen.r] %r?WLCMc
+@~wordGenToBoolGen.r assertNatural+ [step.wordGenToBoolGen.r] .bind .fixfirst .bind
+@step.wordGenToBoolGen.r %llvrD [next.wordGenToBoolGen.r] %r?VRW [split.wordGenToBoolGen.r] %r?WLCMc
 @preApply.wordGenToBoolGen.r %rrvvr
 @next.wordGenToBoolGen.r
  "((K*step)*NatGen)*1" drop
