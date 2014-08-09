@@ -70,6 +70,7 @@ bits math streams boolean
      k1   = s1 `quot` 53668
      s1'  = 40014 * (s1 - k1 * 53668) - 12211 * k1
      s1'' = if s1' < 0 then s1' + 2147483563 else s1'
+ We want `s1 -- s1''`. The (s1 - k1*53668) is the same as remainder.
 ~
 @next_s1.stdgen.r
   53668 .divMod 12211 .mul %rw 40014 .mul %wl .sub
@@ -80,6 +81,7 @@ bits math streams boolean
      k2   = s1 `quot` 52774
      s2'  = 40692 * (s2 - k2 * 52774) - 3791 * k2
      s2'' = if s2' < 0 then s2' + 2147483399 else s2'
+ We want `s2 -- s2''`.
 ~
 @next_s2.stdgen.r
   52774 .divMod 3791 .mul %rw 40692 .mul %wl .sub
@@ -89,6 +91,7 @@ bits math streams boolean
 "From Haskell code:
      z = s1'' - s2''
      z' = if z < 1 then z + 2147483562 else z
+ We want `s2 s1 -- z'`.
 ~
 @next_val.stdgen.r swap .sub dup 1 lt [2147483562 .add] when_
 
