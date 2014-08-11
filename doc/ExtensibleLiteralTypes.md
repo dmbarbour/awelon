@@ -87,9 +87,15 @@ Of course, we need common types and conventions to:
 
 * render the literal to a canvas (self-render?)
 * obtain a menu of commands and documentation
-* compute the final literal value
+* systematically distinguish updates from queries
 
-Assuming we handled all that, what are the implications of a block model?
+        queries in left     (query+0)
+        updates in right    (0+update)
+        dependent type: µP.[query → result | update → P]
+
+But it may be worth leaving these decisions to convention. 
+
+Assuming we handle all that, what are the implications of a block model?
 
 1. Such a block must exist at the ABC layer. It will not contain AO words. This is useful for various desiderata and requirements:
   * interaction and updates will diverge from any dictionary
@@ -105,9 +111,9 @@ Between the second and third forces, I believe I can make a strong case for dedi
         〚raw awelon bytecode here〛                  in AO
         [raw awelon bytecode here]{&literal}l       in ABC
 
-Higher unicode codepoints are painful to type on most keyboards. But, in this case, the IDE would be doing the grunt work, so it shouldn't become a problem. No ABC extensions are necessary. I'll likely seek something shorter than `{&literal}` for this role, perhaps `{&O}` or `{&?}`.
+Higher unicode codepoints are painful to type on most keyboards. But, in this case, the IDE would be doing the grunt work, so it shouldn't become a problem. No ABC extensions are necessary. I'll likely seek something shorter than `{&literal}` for this role, perhaps `{&o}` or `{&!}`.
 
-I envision that an AO IDE might provide a menu of initial literal objects based on words in the dictionary like `literal.newMusicStaff` and `literal.newCanvas`. Selecting an item would compile that word down to ABC, and embed it between white square brackets. The literal would then be rendered on the IDE's canvas, perhaps staking out its own area, and would henceforth evolve independently of the original literal constructor.
+I envision that an AO IDE might provide a menu of initial literal objects based on words in the dictionary like `literal.newMusicStaff` and `literal.newCanvas` (or perhaps a specific type for menu options, allowing extra description, documentation, and initial parameters). Selecting an item would compile that word down to ABC, and embed it between white square brackets. The literal would then be rendered on the IDE's canvas, perhaps staking out its own area, and would henceforth evolve independently of the original literal constructor.
 
 This proposal has a few challenges remaining:
 
