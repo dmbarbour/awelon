@@ -22,6 +22,9 @@ loops blocks streams lists
 @doc.lift.p "[a → b] -- [a ↣ b]; function to process"
 @lift.p .bsecond .fixfirst
 
+@doc.map.p  "[a -- b] -- [a ↣ b]; function (apply env) to process"
+@map.p applyWrap lift.p
+
 @doc.step.p "a [a↣b] -- b [a↣b]; run process one step"
 @step.p .apply x
 
@@ -32,8 +35,8 @@ loops blocks streams lists
 
 @test.compose.p
  0
- 1 addC.p 
- 2 mulC.p
+ [inc] map.p
+ [mul2] map.p
  compose.p
  step.p step.p step.p step.p
  30 assertEQ1d.n
@@ -129,12 +132,8 @@ loops blocks streams lists
 @doc.mulC.p "N(a) -- [N(b) ↣ N(a*b)]"
 @doc.addC.p "N(a) -- [N(b) ↣ N(a+b)]"
 
-@mul.p [mul\2] lift.p
-@add.p [add\2] lift.p
-@mulC.p [mul\2] .bind lift.p
-@addC.p [add\2] .bind lift.p
 
-@inc.p 1 addC.p
+@inc.p [inc\1] lift.p
 @test.inc.p 
   11 inc.p 
   [step.p] 16 repeat
