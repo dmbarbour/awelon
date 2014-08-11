@@ -40,14 +40,25 @@ loops blocks streams lists
  step.p step.p step.p step.p
  510 assertEQ1d.n
 
-@doc.state.p 
+@doc.state.p
+"Generate a stateful process using a stack function.
+ 
+     st [st a -- st b] -- [a ↣ b]
+ 
+ This uses the 'apply' environment. 
+ 
+ (Aside: Another interesting possibility is to keep state more implicitly using a whole environment (via introE). Develop this when it comes up.)
+~
+@state.p %r [preApply wx] %ro [pw postApply] %rwo %l .state.p
+
+@doc..state.p 
 "A stateful process can be modeled as a pure function that, in addition to its normal input and output, receives a state value and outputs an updated state value. This must be coupled with an initial state.
  
      st [(st*a) → (st*b)] -- [a ↣ b]
  
  Most stateful behaviors can be expressed this way.
 ~
-@state.p [step.state.p] .bind .fixfirst .bind
+@.state.p [step.state.p] .bind .fixfirst .bind
 @step.state.p %wvrwr$rz'olc
 
 @doc.first.p   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
@@ -101,12 +112,17 @@ loops blocks streams lists
 @doc.counter.p "-- [a ↣ (N*a)]; add index to output (starting from 1)"
 @doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"
 @counter.p 1 counterFrom.p
-@counterFrom.p [%^ 1 %r+] state.p
+@counterFrom.p [%rw dup incd %wl pw] state.p
 
 @doc.count.p "-- [a ↣ N]; (droppable a); as counter, but drop input"
 @doc.countFrom.p "N -- [a ↣ N]; (droppable a); as counterFrom, but drop input"
 @count.p 1 countFrom.p
-@countFrom.p [%vrw%^ 1 %r+lc] state.p
+@countFrom.p [drop dup incd] state.p
+
+@test.count.p
+  0 11 countFrom.p 
+  [step.p] 7 repeat
+  17 assertEQ1d.n
 
 @doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
 @doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"
