@@ -127,12 +127,6 @@ loops blocks streams lists
   [step.p] 7 repeat
   17 assertEQ1d.n
 
-@doc.mul.p "-- [(N(a)*N(b)) ↣ N(a*b)]"
-@doc.add.p "-- [(N(a)*N(b)) ↣ N(a+b)]"
-@doc.mulC.p "N(a) -- [N(b) ↣ N(a*b)]"
-@doc.addC.p "N(a) -- [N(b) ↣ N(a+b)]"
-
-
 @inc.p [inc\1] lift.p
 @test.inc.p 
   11 inc.p 
