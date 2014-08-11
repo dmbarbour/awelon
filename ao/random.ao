@@ -3,40 +3,87 @@ bits math streams boolean
 @doc.import.random "pseudo random number generators"
 
 @doc.RandomNumberGeneration
-"A pseudo-random number generator (PRNG) provides a deterministic stream of seemingly random numbers derived from an initial seed. The basic 'uniform' PRNG is like rolling a fair die, producing discrete values in a fixed range without bias. Nice qualities for a PRNG are bounded space requirements, a very large cycle (such that applications never cycle in practice), and performance. There are also applications for 'secure' PRNGs, whose state or future outputs cannot be guessed from past outputs.
+"A pseudo-random number generator (PRNG) provides a deterministic stream of seemingly random numbers derived from an initial seed. The basic 'uniform' PRNG is like rolling a fair die, producing discrete values in a fixed range without bias. Nice qualities for a PRNG are bounded space requirements, a very large cycle (such that applications never cycle in practice), and efficient performance. There are also applications for 'secure' PRNGs, whose state or future outputs cannot be guessed from past outputs.
  
- Non-uniform distributions are also valuable, but can usually be computed from a uniform distribution. The bulk of a useful random number library will focus on translating uniform distributions into other interesting values or distributions.
+ Non-uniform distributions are also valuable, but can usually be computed from a uniform distribution. The bulk of a useful random number library will focus on translating uniform distributions into other interesting values or distributions. 
  
  The proposed PRNG is based on a simple object oriented interface:
  
-     interface PRNG:
-        next  :: PRNG → (PRNG * Bool)
-        split :: PRNG → (PRNG * PRNG)
+     interface n`PRG:
+        next  :: n`PRG → (n`PRG * n)
+        split :: n`PRG → (n`PRG * n`PRG)
  
- In AO, we'll represent this interface as a dependently typed fixpoint closure:
+ Here, we generalize on number type `n`, and we aren't necessarily assuming a uniform distribution. However, we might say that the simplest PRNG interface should generate a sequence of uniformly distributed simple numbers. And there are no numbers simpler than 'zero or one' - booleans. The ability to 'split' the generator can be valuable for non-sequential computations, e.g. involving parallelism or laziness or tree-like data structures.
+ 
+     type PRNG = (1+1)`PRG
+ 
+ AO is not object oriented, but we can encode object interfaces as dependently typed functional closures:
  
      'next' is encoded as false (unit in left)
      'split' is encoded as true (unit in right)
-     type PRNG = µR.[next→(R*Bool) | split→(R*R)]
+     type n`PRG = µR.[next→(R*n) | split→(R*R)]
  
- This is really a uniform boolean (1+1) generator, i.e. flipping a fair coin. Booleans are simple to specify and understand, and will work well for generating other random values. The ability to split the generator is useful for lazy or parallel processing. The PRNG's state is hidden. Code that uses a PRNG should never provide its own PRNG, instead leaving it to a client, i.e. such that the client may systematically explore and test different outcomes by controlling the PRNG.
+ In practice, we'll mostly construct PRNGs in terms of simple state+methods:
  
- AO doesn't have any 'global' random number generator, though something like that could be modeled easily using AO's extended multi-stack environment. There may also be access to a secure true-entropy generator via capabilities, though use of true random numbers isn't recommended for most problems.
+     fromStateSplitNext.r :: st [st -- st st] [st -- st n] -- n`PRG
+                                (on split)    (on next)
+  
+ And we'll access it using simple next and split functions:
+ 
+     split.r :: n`PRG -- n`PRG n`PRG
+     next.r  :: n`PRG -- n     n`PRG
+ 
+ AO doesn't have a 'global' random number generator. It is feasible to tuck a PRNG into the multi-stack environment or power block. However, as a general rule, a subprogram that uses randomness (even pseudo-randomness) should be explicit about it, and require the client to explicitly provide the random source. The idea is that a client of a random component should be able to systematically explore and test different outcomes by controlling the random number generator.
 ~
 
 @doc.suffix.r doc.RandomNumberGeneration
 
-@doc.next.r "PRNG -- Bool PRNG"
-@next.r false .applyd x
+@doc.next.r  "n`PRG -- n     n`PRG"
+@doc.split.r "n`PRG -- n`PRG n`PRG"
+@next.r  false.b .applyd x
+@split.r true.b  .applyd x
 
-@doc.split.r "PRNG -- PRNG PRNG"
-@split.r true .applyd x
+@doc.toStream.r       "n`PRG -- n`S"
+@doc.toStreamOfPrng.r "n`PRG -- (n`PRG)`S"
+@toStream.r       false.b constant.s swap pmap.s
+@toStreamOfPrng.r true.b  constant.s swap pmap.s
 
-@doc.prngToStream "PRNG -- (1+1)`S"
-@prngToStream false.b constant.s swap pmap.s
+@doc.fromStateSplitNext.r 
+"The simplest way to think about a PRNG is as a state with a pair of functional methods, split and next, which output an updated state.
+ 
+     st [st -- st st] [st -- st n] -- n`PRG
+         split         next
+ 
+ The fixpoint trappings are then abstracted away. 
+ The split and next methods will operate in the 'apply' environment.
+~
+@fromStateSplitNext.r 
+    wrapNext.fromStateSplitNext.r %rw
+    wrapSplit.fromStateSplitNext.r %wl
+    .fromStateSplitNext.r
+@wrapNext.fromStateSplitNext.r  pwWrap.fromStateSplitNext.r
+@wrapSplit.fromStateSplitNext.r pwWrap.fromStateSplitNext.r
+@pwWrap.fromStateSplitNext.r %r [preApply] %ro [pw postApply] %rwo %l
+@doc..fromStateSplitNext.r
+"A slightly more primitive variation of `fromStateSplitNext.r`.
+ 
+     st [st→(st*st)] [st→(st*n)] -- n`PRG
+ 
+ This operates on raw inputs, rather than using the 'apply' environment.
+~
+@.fromStateSplitNext.r pw [step.fromStateSplitNext.r] .bind .fixfirst .bind 
+@step.fromStateSplitNext.r 
+    %llvrD
+    [next.fromStateSplitNext.r]  %r?VRW 
+    [split.fromStateSplitNext.r] %r?WLC
+    %Mc
+@next.fromStateSplitNext.r %rrr%z$rz'olc
+@split.fromStateSplitNext.r %rrrw%z$rzw^zw'owzw'olc
 
-@doc.prngToStreamOfPrng "PRNG -- PRNG`S"
-@prngToStreamOfPrng true.b constant.s swap pmap.s
+@test.fromStateSplitNext.r#next
+  0 [dup] [inc dup] fromStateSplitNext.r
+  next.r next.r next.r next.r
+  4 assertEQ1d.n 
 
 @doc.stdgen.r 
 "Generate a standard PRNG, seeded by a (usually small) natural number. 
@@ -45,25 +92,25 @@ bits math streams boolean
  
  This PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
-@stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
+@stdgen.r fromSeed.stdgen.r {&TODO: BooleanRange}
 @fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
-@fromState.stdgen.r [step.stdgen.r] .fixfirst .bind
-
-@doc.stateFromSeed.stdgen.r "a pair (s1*s2) modulo distinct large primes"
+@fromState.stdgen.r [split.stdgen.r] [next.stdgen.r] fromStateSplitNext.r
 @stateFromSeed.stdgen.r
  assertNatural
  2147483562 .divMod
  2147483398 .rem
  incd inc pw
-
-@step.stdgen.r %lvrD [next.stdgen.r] %r?VRW [split.stdgen.r] %r?WLCMc
-
-@next.stdgen.r preApply.stdgen.r inner.next.stdgen.r postApply
-@inner.next.stdgen.r
-  next_s1.stdgen.r take
-  next_s2.stdgen.r put
-  dup2 next_val.stdgen.r take
-  p swap .bind put pw
+@split.stdgen.r 
+  wx
+  [next_s2.stdgen.r] [new_s2.stdgen.r] bi take2
+  [next_s1.stdgen.r] [new_s1.stdgen.r] bi 
+  put pw swap put pw
+@next.stdgen.r
+  wx
+  next_s2.stdgen.r take
+  next_s1.stdgen.r dup
+  paste pw swap put 
+  .sub dup 1 lt [2147483562 .add] when_
 
 @doc.next_s1.stdgen.r 
 "From Haskell code:
@@ -86,42 +133,26 @@ bits math streams boolean
 @next_s2.stdgen.r
   52774 .divMod 3791 .mul %rw 40692 .mul %wl .sub
   dup 0 lt [2147483399 .add] when_
-
-@doc.next_val.stdgen.r
-"From Haskell code:
-     z = s1'' - s2''
-     z' = if z < 1 then z + 2147483562 else z
- We want `s2 s1 -- z'`.
-~
-@next_val.stdgen.r swap .sub dup 1 lt [2147483562 .add] when_
-
-@doc.preApply.stdgen.r "(step*(s1*s2))*1 → ((s1*(s2*(step*1)))*(1*1); apply env"
-@preApply.stdgen.r %rwrvvr 
-
-@split.stdgen.r preApply.stdgen.r inner.split.stdgen.r postApply
-@inner.split.stdgen.r
-  rot take 
-  [next_s1.stdgen.r] [new_s1.stdgen.r] bi take2
-  [next_s2.stdgen.r] [new_s2.stdgen.r] bi 
-  put p swap put p 
-  paste .bind swap put .bind p
 @new_s1.stdgen.r inc dup 2147483563 lt [drop 1] unless_
 @new_s2.stdgen.r dec dup 1 lt [drop 2147483398] when_
 
 @doc.wordGenToBoolGen.r
-"Given a random number generator (which provides natural numbers), return a random boolean generator (per AO standard), by simply taking the K lowest bits of each number generated. 
+"Given a random number generator, which provides natural numbers greater than some predictable width, return a random boolean generator (per AO standard), by taking the K lowest bits of each number generated (as represented in base2).
         
-     NatGen K -- PRNG
+     word`PRG K -- PRNG
  
- In case of 'split', the current number is simply dropped. It isn't essential to preserve bits.
+ The inner state is a pair (BitsEmitted,Word) together with the natural generator. We increment BitsEmitted until we reach K, then we obtain a the next number and start BitsEmitted again at zero. In case of 'split', remaining bits will be passed to the first PRNG. Bits are obtained by simple divMod 2 operations.
+ 
+ Todo: consider generalizing, some sort of 'fmap' for generators? Well, fmap.p will work, except that it doesn't split properly; I need to specialize for processes with split. And I'll also need to handle the case where I translate many inputs to one output, or vice versa. Might be better to just specialize for random number generation.
 ~
-@wordGenToBoolGen.r assertNatural+ drop
-@~wordGenToBoolGen.r assertNatural+ [step.wordGenToBoolGen.r] .bind .fixfirst .bind
-@step.wordGenToBoolGen.r %llvrD [next.wordGenToBoolGen.r] %r?VRW [split.wordGenToBoolGen.r] %r?WLCMc
-@preApply.wordGenToBoolGen.r %rrvvr
-@next.wordGenToBoolGen.r
- "((K*step)*NatGen)*1" drop
- %rrvvr
+@wordGenToBoolGen.r
+  assertNatural+ copy
+  [step.wordGenToBoolGen.r] bind fixpoint bind
+  put 0 pw swap bind applyWrap
+@step.wordGenToBoolGen.r [next.wordGenToBoolGen.r] [split.wordGenToBoolGen.r] if_
+@next.wordGenToBoolGen.r 
+    "(count*word) natgen step K  (on stack)" drop
+    
 @split.wordGenToBoolGen.r
- "((K*step)*NatGen)*1" drop
- 
+    "(count*word) natgen step K  (on stack)" drop
+    0 pw
