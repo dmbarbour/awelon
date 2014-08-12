@@ -19,9 +19,9 @@
 @doc.elim1 "Unit -- "
 
 @id 
-@dup %r^zlwl
-@dupd swap dup rot
-@over swap dup swapd
+@dup  %r^zlwl
+@dupd %rw dup %wl
+@over dupd swap
 @tuck swap over
 @pick %rw over %wl swap
 @drop %r%
