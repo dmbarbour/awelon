@@ -92,7 +92,7 @@ bits math streams boolean
  
  This PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
-@stdgen.r fromSeed.stdgen.r {&TODO: BooleanRange}
+@stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
 @fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
 @fromState.stdgen.r [split.stdgen.r] [next.stdgen.r] fromStateSplitNext.r
 @stateFromSeed.stdgen.r
@@ -117,7 +117,17 @@ bits math streams boolean
      k1   = s1 `quot` 53668
      s1'  = 40014 * (s1 - k1 * 53668) - 12211 * k1
      s1'' = if s1' < 0 then s1' + 2147483563 else s1'
- We want `s1 -- s1''`. The (s1 - k1*53668) is the same as remainder.
+ 
+ These are all magic numbers to me. I haven't studied the underlying generators. 
+ 
+ But I do observe that:
+ 
+     2147483563 = (40014 * 53668) + 12211
+     2147483563 is prime
+     12211 is prime
+     (s1 - k1*53668) is the same as the modulus/remainder
+ 
+ We want `s1 -- s1''`.
 ~
 @next_s1.stdgen.r
   53668 .divMod 12211 .mul %rw 40014 .mul %wl .sub
@@ -128,7 +138,6 @@ bits math streams boolean
      k2   = s1 `quot` 52774
      s2'  = 40692 * (s2 - k2 * 52774) - 3791 * k2
      s2'' = if s2' < 0 then s2' + 2147483399 else s2'
- We want `s2 -- s2''`.
 ~
 @next_s2.stdgen.r
   52774 .divMod 3791 .mul %rw 40692 .mul %wl .sub
@@ -137,22 +146,24 @@ bits math streams boolean
 @new_s2.stdgen.r dec dup 1 lt [drop 2147483398] when_
 
 @doc.wordGenToBoolGen.r
-"Given a random number generator, which provides natural numbers greater than some predictable width, return a random boolean generator (per AO standard), by taking the K lowest bits of each number generated (as represented in base2).
+"Given a random number generator, which provides natural numbers greater than some predictable width, return a random boolean generator (per AO standard), by taking the K lowest bits of each number generated (i.e. as represented in base2).
         
-     word`PRG K -- PRNG
+     nat`PRG K -- PRNG
  
- The inner state is a pair (BitsEmitted,Word) together with the natural generator. We increment BitsEmitted until we reach K, then we obtain a the next number and start BitsEmitted again at zero. In case of 'split', remaining bits will be passed to the first PRNG. Bits are obtained by simple divMod 2 operations.
- 
- Todo: consider generalizing, some sort of 'fmap' for generators? Well, fmap.p will work, except that it doesn't split properly; I need to specialize for processes with split. And I'll also need to handle the case where I translate many inputs to one output, or vice versa. Might be better to just specialize for random number generation.
+ In this case, the inner state is a triple (nat`PRG * (bitsEmitted * word)). We'll emit bits until we reach K output bits, then obtain the next word from the nat`PRG. In case of split, remaining bits will go to one of the two generators and the other will start on the next word.
 ~
-@wordGenToBoolGen.r
+@wordGenToBoolGen.r 
   assertNatural+ copy
-  [step.wordGenToBoolGen.r] bind fixpoint bind
-  put 0 pw swap bind applyWrap
-@step.wordGenToBoolGen.r [next.wordGenToBoolGen.r] [split.wordGenToBoolGen.r] if_
-@next.wordGenToBoolGen.r 
-    "(count*word) natgen step K  (on stack)" drop
-    
-@split.wordGenToBoolGen.r
-    "(count*word) natgen step K  (on stack)" drop
-    0 pw
+  0 pw pw 
+  paste [split.wordGenToBoolGen.r] bind 
+  put   [next.wordGenToBoolGen.r]  bind
+  fromStateSplitNext.r
+@split.wordGenToBoolGen.r take x split.r take p put put 0 pw pw
+@next.wordGenToBoolGen.r
+  take wx x dup put 
+  lt [nextWord.wordGenToBoolGen.r] unless_
+  inc swap 
+  2 .divMod swap 0 gtb
+  take pw pw put
+@nextWord.wordGenToBoolGen.r drop2 next.r swap 0
+ 
