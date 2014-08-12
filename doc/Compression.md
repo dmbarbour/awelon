@@ -8,7 +8,7 @@ Sliding window compression algorithms (LZSS, LZ4, LZ77) are promising candidates
 
 ## Simplifying LZ4?
 
-LZ4 is a nice algorithm - very simple, octet aligned. But it has problems:
+LZ4 is a nice data structure - very simple, octet aligned. But it has problems:
 
 1. maximum offset (64k) is too large for embedded systems decompression
 2. unlimited literal length per segment is a problem for security reasons
@@ -23,6 +23,7 @@ I think the first two points could be addressed. Proposed simplifications:
 But the 'optimal encoding' issue is more challenging. I have difficulty even thinking about it. When is it worthwhile to 'change' the current match for an LZ4 segment vs. switching to a new segment? How do we prove this? Encodings like LZ4 end up using 'compression levels' which are somewhat heuristic and ambiguous in nature to address these issues.
 
 We could perhaps separate LZ4 so our initial token is either-or, i.e. such that we either encode a run of literals OR encode a match. In this case, it's almost always better for us to encode a match of size 4 or more than to encode an extra token... unless encoding the extra token allows us to encode a much longer match. Hmm.
+
 
 ## Octet-Aligned, Variable Width LZSS
 
@@ -83,5 +84,7 @@ A single large match, in this artificial profile, makes a difference of 4.9% fin
 
 I think I'll make this 'extra match byte' part of the definition. Of course, it would be the only match-length byte for a 64k window.
 
-It seems possible that we could easily apply a Huffman encoding directly to the octet stream resulting from this LZSS encoding.
 
+## Special Case Compression for Base16
+
+An simple but powerful idea for working with binaries: encode in base16, then have a specialized compression pass that handles base16. I think I'll pursue this independently of the normal ABC compression layer.

@@ -6,8 +6,7 @@ To support provider-independent security (i.e. such that we can upload sensitive
             cipherText = AES_encrypt(compress(bytes),hashBC)
             hashCT = take(24,SHA3-384(cipherText))
             store(hashCT,cipherText)
-            resourceId = encode_base64url(hashCT) + ":" + 
-                         encode_base64url(hashBC)
+            resourceId = hashCT:hashBC
             return resourceId
 
 The resulting ciphertext may securely be stored anywhere, e.g. in a peer to peer network, a data distribution system, or an untrusted cloud server. However, this is subject to a class of confirmation attacks, i.e. where servers can discover information by encrypting billions of different bytecode sequences and testing whether it matches one on the server. ABC leaves this problem to higher level languages, which may distinguish some resources as sensitive and mix in some secret text to render them unguessable. 
@@ -15,8 +14,7 @@ The resulting ciphertext may securely be stored anywhere, e.g. in a peer to peer
 ABC may then load and link the resource via invocation: `{#resourceId}`. This process is essentially the reverse of the above, plus a few validations:
 
         loadResource(resourceId) 
-            hashBC = decode_base64url(drop(33,resourceId))
-            hashCT = decode_base64url(take(32,resourceId))
+            (hashCT,hashBC) = split(resourceId)
             cipherText = fetch(hashCT)
             bytecode = decompress(AES_decrypt(cipherText,hashBC))
             validateHash(bytecode,hashBC)

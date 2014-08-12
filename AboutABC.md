@@ -65,9 +65,7 @@ A block contains a finite sequence of ABC code, and may be understood as a first
 
 Numbers use operator `# :: e → (N(0)*e)` to introduce a new zero, then each digit `0-9` has meaning of the form `3 :: N(x)*e → N(10x+3)*e`. Thus, numbers aren't literals, but natural numbers such as `#123` are close enough for legibility. Rational numbers are produced through operations on natural numbers, e.g. `#2#3/*` is two thirds.
 
-Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. A text list has fixpoint type `µL.((c*L)+1)`, where `c` is a codepoint value. ABC does not have support for binaries, but will typically represent raw binary data using base64url text. 
-
-*NOTE:* ABC has no support for binary literals, but text can encode LZHAM compressed base-64 with reasonable efficiency.
+Text is shorthand for producing a list of small numbers between 0 and 1114111 (0x10ffff), the Unicode codepoints. A text list has fixpoint type `µL.((c*L)+1)`, where `c` is a codepoint value. Binaries are encoded using a non-conventional base16 text. 
 
 ### Capability Invocations
 
@@ -166,7 +164,7 @@ Rational numbers must be computed through such manipulation. For example:
 
 ABC is not rich in math, nor especially efficient at it. High performance graphical or scientific computing should often be handled indirectly, modeled symbolically and compiled for OpenCL or GPU. I imagine that, eventually, widely used math operations will be well supported by ABCD.
 
-*NOTE:* Awelon project systems shall generally track dimensionality properties for numbers. Doing so offers pretty good semantic content and safety, and nicely fit structural types. There are no primitives for this; just convention. See AboutAO for more.
+*NOTE:* Awelon project systems should eventually track dimensionality properties for most numbers (e.g. 5 kilograms vs. 5 meters). Doing so offers pretty good semantic context and safety, and nicely fit structural types. There are no primitives for this; just convention. See AboutAO for more.
 
 ### Text
 
@@ -187,7 +185,10 @@ If anything other than space or `~` follows LF, the ABC stream is in error. Ther
 
 Text is not a distinct type for ABC. Rather, text is understood as a compact representation for introducing a static list of small integers (range 0..1114111, from UTF-8). The standard model for a list is: `µL.((element*L)+1)`.
 
+ABC does not have a 'binary' literal type, but developers may use a specialized base16 encoding that is recognized by the compression pass. See the section on Binaries, far below.
+
 *NOTE:* ABC's representation of text is simplistic. Real text manipulation demands precise knowledge of the characters (ligatures, combining marks, etc.), and benefits from a more sophisticated representation than a flat list of numbers. However, ABC's representation of text is sufficient for identifiers, embedded DSLs, and so on.
+
 
 ### Identity
 
@@ -421,8 +422,8 @@ Fortunately, this weakness is easily addressed. We simply encrypt the bytecode a
         lookupKey = secureHashCT(cipherText)
         store(lookupKey,cipherText)
 
-        using {#lookupKey:encryptionKey} 
-         i.e. {#hashOfCiphertext:hashOfBytecode}
+        invoking {#lookupKey:encryptionKey}
+            i.e. {#hashOfCiphertext:hashOfBytecode}
 
 I would expect most resources range about three orders of magnitude, i.e. from hundreds of bytes to hundreds of kilobytes. They might go bigger for large data objects, e.g. 3D models, texture and material models, sound models. The repetitive data plumbing patterns of ABC should compress very effectively. 
 
@@ -430,20 +431,43 @@ Algorithmic details are not fully settled. Thoughts:
 
 * want a simple, unambiguous, deterministic specificiation
 * secure hash CT, BC: independent halves of SHA3-384
-* base64url encoding of hashes in token text (32 bytes for 192 bits)
+* base16 (all caps) encoding of resource id
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
-* compression candidates: LZSS or an LZW variant, maybe plus Huffman
+* compression must include special Binaries support (see below)
 
-See [doc/Compression.md](doc/Compression.md) for thoughts on compression for ABC. This resource layer compression would operate independently of ABCD (see below). 
+For ABC resources, we require *deterministic* compression - i.e. the same input always results in the same compressed output, without heuristic 'compression levels' or similar. An appropriate compression algorithm is still under consideration.
 
-*ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively hashing candidates and confirming whether the resource is available. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
+*ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively compressing and hashing candidates and confirming whether the name exists in the system. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
 ### ABC Paragraphs
 
 ABC encourages an informal notion of "paragraphs" at least in a streaming context. A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
 
 A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're advantageous to everyone involved, i.e. for performance and reasoning.
+
+### Encoding Binaries
+
+Developers often work with opaque binaries, e.g. compressed visual or audio data, or encrypted information, or even the secure hashes used for ABC resources. In context of ABC, it would be convenient to encode these efficiently. I would love to treat MP3 files as ABC resources, for example.
+
+This is achieved in ABC with two passes:
+
+1. use a specialized base16 encoding to represent binary data
+2. use a specialized compression pass that recognizes base16 sequences
+
+In practice, we can expect to compress most ABC streams and resources. So, it is no trouble at all to apply a simple compression algorithm that recognizes long sequences of base16 characters and replaces them with a run-length encoding of binary data. Further, we can take advantage of the fact that ABC is UTF-8 encoded and thus never uses several bytes (0xC0, 0xC1, 0xF5..0xFF).
+
+The proposed encoding is thus:
+
+* single header byte: 0xF8
+* length byte L indicating `2*(L+3)` base16 characters
+* minimal compression is six base16 characters; 
+* maximum is 512 (i.e. still not using 0xFE or 0xFF)
+* specialized base16 alphabet: `bdfghjkmnpqstxyz`
+
+The specialized alphabet aims to avoid interference with other ABC features, and also to avoid spelling offensive words. This is simply the lower case English alphabet, minus vowels (`aeiou`) and ABC data plumbing operators (`vrwlc`). 
+
+For larger binaries, we would encode 256 byte blocks at a time (from 512 base16 characters), in which case the overhead is ~0.78%. That is entirely acceptable, and requires a static lookahead buffer of 512 characters on encode or 256 bytes on decode.
 
 ## Awelon Bytecode Deflated (ABCD)
 
