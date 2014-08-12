@@ -90,7 +90,7 @@ bits math streams boolean
  
      seed -- PRNG
  
- The standard PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
+ The standard PRNG is insecure, and lacks a strong theoretical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated directly from Haskell's standard random number generator (System.Random), and produces the same numbers under the hood (albeit, taking the lower 24 bits from each number). This in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
 @stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
 @fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
