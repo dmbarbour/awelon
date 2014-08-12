@@ -86,11 +86,11 @@ bits math streams boolean
   4 assertEQ1d.n 
 
 @doc.stdgen.r 
-"Generate a standard PRNG, seeded by a (usually small) natural number. 
+"Generate a standard PRNG, seeded by a (usually small) natural number. In many cases, you might seed the number with the hash value of a string or value. In general, code that uses a random number generator should be separated from the code that provides the generator.
  
      seed -- PRNG
  
- This PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
+ The standard PRNG is insecure, and lacks a strong statistical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated from Haskell's standard random number generator (System.Random), which in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
 @stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
 @fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
