@@ -242,9 +242,9 @@ process loops lists blocks conditionals
 ~
 @takeExact.s
  empty.l unrot [cons.l] swap forCount.s
- 0 gt [undo.take_.s] when_
+ 0 gt [undo.takeExact.s] when_
  swap reverse.l
-@undo.take_.s swap [cons.s] each.l empty.l swap
+@undo.takeExact.s swap [cons.s] each.l empty.l swap
  
 
 
