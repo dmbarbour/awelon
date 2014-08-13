@@ -235,4 +235,18 @@ process loops lists blocks conditionals
 @taking.s assertNatural+ [step.taking.s] bind fromStateE.s
 @step.taking.s take.s [inL p inL] [inR dropd] if
 
+@doc.takeExact.s 
+"a`S count -- a`S a`L
+ take exactly count items from stream, 
+ or take none and return the empty list.
+~
+@takeExact.s
+ empty.l unrot [cons.l] swap forCount.s
+ 0 gt [undo.take_.s] when_
+ swap reverse.l
+@undo.take_.s swap [cons.s] each.l empty.l swap
+ 
+
+
+
 
