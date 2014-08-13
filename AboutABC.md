@@ -2,9 +2,15 @@
 
 Awelon Bytecode (ABC) is a bedrock component of the Awelon project. ABC consists of about forty operators, embedded text, blocks of ABC (to model first class functions), and a [capability secure](http://en.wikipedia.org/wiki/Capability-based_security) model to access external effects. The effects model is further leveraged to support dynamic linking, separate compilation, and performance annotations. 
 
-ABC has many interesting properties:
+**Why a new Bytecode?**
 
-* ABC is *streamable*. This means the bytecode can be incrementally executed as it arrives then quickly forgotten. We might stream bytecode to modify a web page, subscribe to a publishing service, or command a robot in real time. The bytecode can manipulate values and/or capability-based APIs. Streamability is essential to the Awelon project vision, to support new forms of tooling. For comparison, conventional bytecodes are designed for the [stored-program computer](http://en.wikipedia.org/wiki/Von_Neumann_architecture#History), and might 'jump back' to model a loop. ABC is streamed, not stored, and ABC does not jump. Loops are modeled using [fixpoint combinators](http://en.wikipedia.org/wiki/Fixed-point_combinator#Strict_fixed_point_combinator). 
+Awelon project has several concepts that are not well supported by common languages or bytecodes. Chief among these is Reactive Demand Programming (see [AboutRDP](AboutRDP.md)), which requires causal commutativity, spatial idempotence, implicit concurrency, and persistent data structures (RDP maintains multiple recent and anticipated future versions of a data structure at any given instant). Awelon project is also aimed at open distributed systems, where secure composition and easy serialization are major concerns. Finally, Awelon project's vision for user experience requires general purpose streamable code to model user actions across multiple objects. The history of this stream may be mined for reusable macros.
+
+**Distinguishing Properties**
+
+ABC has many interesting or unusual properties that distinguish it from other bytecodes and programming languages.
+
+* ABC is *streamable*. This means the bytecode can be incrementally executed as it arrives then quickly forgotten. We might stream bytecode to modify a web page, subscribe to a publishing service, or command a robot in real time. The bytecode can manipulate values and/or capability-based APIs. Streamability is essential to the Awelon project vision, to support new forms of tooling. For comparison, conventional bytecodes are designed for the [stored-program computer](http://en.wikipedia.org/wiki/Von_Neumann_architecture#History), and might 'jump back' to model a loop. ABC is streamed, not stored, and ABC does not jump. Loops are modeled instead using [fixpoint combinators](http://en.wikipedia.org/wiki/Fixed-point_combinator#Strict_fixed_point_combinator). 
 
 * Unlike most bytecodes, ABC is *weakly legible*. Natural numbers have an obvious encoding, e.g. `#42` encodes the number forty-two. Text literals can be embedded directly. Basic operators use printable characters, visible in a text editor. Effects are accessed through visually obvious and often human-meaningful tokens between curly braces, e.g. `{foo}` (perhaps protected by HMAC). Eventually, even richly structured data - meshes, images, matrices, graphs, etc. - might be [embedded as renderable literal objects](doc/ExtensibleLiteralTypes.md) in ABC. The intention is to simplify learning ABC, debugging, disassembly, and extraction of useful subprograms.
 
