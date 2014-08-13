@@ -102,12 +102,12 @@
              cipherText = encrypt(hashBC,compress(bytecode))
              hashCT = secureHashCT(cipherText)
              store(hashCT,cipherText)
-             resourceId = hashCT:hashBC (hashes base64url encoded)
+             resourceId = hashCT:hashBC
              return {#resourceId}
  
  The idea is that we should be able to distribute application resources through distrusted servers (cloud servers, content distribution networks, etc.), and also that we should be able to eliminate duplicates and maximize reuse via caching. There is a remaining vulnerability to 'confirmation' attacks, but developers can address this by indicating sensitive words with a `secret!foo` directive.
  
- See also: `doc.prefix.secret!`
+ See also: `doc.prefix.secret!` `doc.BinariesInABC`
 ~
 
 @doc.prefix.secret!
@@ -131,11 +131,8 @@
  Use of prefix words to declare properties such as identity, idempotence, associativity, and commutativity is useful for documentation, automatic validation, and development of optimizers. Developers are encouraged to do so.
 ~ 
 
-@doc.TODO
+@TODO.AO
 "Much to do about AO
-  * functions for streams and processes
-  *   which concept for streams?
-  *   would it be better to model streams using processes?
   * functions for association lists, maps, records, or similar
   *   maybe support for tables, too; relational algebra
   *     ideally a DSL supporting composition, optimization, compilation 

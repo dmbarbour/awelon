@@ -17,6 +17,8 @@ bits math streams boolean
  
      type PRNG = (1+1)`PRG
  
+ The other sensible option would be a uniform number in the range [0,1). However, we cannot actually implement such a generator, at least without modeling numbers as a lazy stream of digits or similar. For ABC numbers, we'll always have some finite precision, e.g. the 53-bit precision of IEEE-754.
+ 
  AO is not object oriented, but we can encode object interfaces as dependently typed functional closures:
  
      'next' is encoded as false (unit in left)
@@ -37,6 +39,24 @@ bits math streams boolean
 ~
 
 @doc.suffix.r doc.RandomNumberGeneration
+
+@TODO.RandomNumbers
+"To really support random numbers, I require a lot more work.
+ 
+ I should be able to:
+ 
+ * generate arbitrary K-bit words and fractionals (trivial!)
+ * generate arbitrary uniforms (e.g. 6 sided dice)
+ * model 'weighted' dice 
+ 
+ A lot work exists in this area. Relevant keywords and articles:
+ 
+ * sampling from a discrete distribution
+ * Darts, Dice, and Coins: http://www.keithschwarz.com/darts-dice-coins/
+ * Alias method
+ * Vose's algorithm
+~
+
 
 @doc.next.r  "n`PRG -- n     n`PRG"
 @doc.split.r "n`PRG -- n`PRG n`PRG"
@@ -90,12 +110,13 @@ bits math streams boolean
  
      seed -- PRNG
  
- The standard PRNG is insecure, and lacks a strong theoretical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated directly from Haskell's standard random number generator (System.Random), and produces the same numbers under the hood (albeit, taking the lower 24 bits from each number). This in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
+ The standard PRNG is insecure, and lacks a strong theoretical argument for robustness of its 'split' behavior. But it should be suitable for most use cases. It is translated directly from Haskell's standard random number generator (System.Random), and produces the same numbers under the hood. This in turn was transliterated by Lennart Augustsson from Pierre L'Ecuyer's Portable Combined Generator (1988).
 ~
-@stdgen.r fromSeed.stdgen.r 24 wordGenToBoolGen.r
-@fromSeed.stdgen.r stateFromSeed.stdgen.r fromState.stdgen.r
-@fromState.stdgen.r [split.stdgen.r] [next.stdgen.r] fromStateSplitNext.r
-@stateFromSeed.stdgen.r
+@stdgen.r n.stdgen.r 23 wordGenToBoolGen.r
+
+@doc.n.stdgen.r "seed -- n`PRG; the number generator underlying stdgen.r"
+@n.stdgen.r mkSt.stdgen.r [split.stdgen.r] [next.stdgen.r] fromStateSplitNext.r
+@mkSt.stdgen.r
  assertNatural
  2147483562 .divMod
  2147483398 .rem
