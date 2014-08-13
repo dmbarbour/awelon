@@ -440,7 +440,7 @@ Algorithmic details are not fully settled. Thoughts:
 * base16 (all caps) encoding of resource id
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
-* compression must include special Binaries support (see below)
+* compression should support embedding large binary data (see below)
 
 For ABC resources, we require *deterministic* compression - i.e. the same input always results in the same compressed output, without heuristic 'compression levels' or similar. An appropriate compression algorithm is still under consideration.
 
@@ -452,28 +452,18 @@ ABC encourages an informal notion of "paragraphs" at least in a streaming contex
 
 A paragraph is expressed by simply including a full, blank line within ABC code. I.e. LF LF in the toplevel stream outside of any block. This corresponds nicely to a paragraph in a text file. Formally, the space between paragraphs just means identity. Paragraphs are discretionary. The reason to respect them is that they're advantageous to everyone involved, i.e. for performance and reasoning.
 
-### Encoding Binaries
+### Encoding Binaries in ABC
 
-Developers often work with opaque binaries, e.g. compressed visual or audio data, or encrypted information, or even the secure hashes used for ABC resources. In context of ABC, it would be convenient to encode these efficiently. I would love to treat MP3 files as ABC resources, for example.
+Programmers often work with binary encoded data, e.g. compressed visual or audio data, secure hashes, ciphertext. I would like to encode MP3 files, texture data, or short video clips as ABC resources. This would allow me to leverage ABC's secure content distribution, caching, partial evaluation, and nearly transparent link model. However, unless embedded binaries can be stored and transmitted efficiently, this simply won't happen.
 
-This is achieved in ABC with two passes:
+ABC does not have an embedded literal type for binaries. However, ABC resources and network streams will be compressed, and perhaps we leverage that. The idea for encoding binaries in ABC is simple:
 
-1. use a specialized base16 encoding to represent binary data
-2. use a specialized compression pass that recognizes base16 sequences
+1. naively encode binary data in a base16 alphabet
+2. specialize a compression pass to recognize base16
 
-In practice, we can expect to compress most ABC streams and resources. So, it is no trouble at all to apply a simple compression algorithm that recognizes long sequences of base16 characters and replaces them with a run-length encoding of binary data. Further, we can take advantage of the fact that ABC is UTF-8 encoded and thus never uses several bytes (0xC0, 0xC1, 0xF5..0xFF).
+The compression algorithms under consideration[*](doc/Compression.md) would encode large binaries with about 0.8% overhead. This would be acceptable for almost any application. And even smaller binaries, like resource IDs (48 bytes), are encoded with a reasonable 4% overhead.
 
-The proposed encoding is thus:
-
-* single header byte: 0xF8
-* length byte L indicating `2*(L+3)` base16 characters
-* minimal compression is six base16 characters; 
-* maximum is 512 (i.e. still not using 0xFE or 0xFF)
-* specialized base16 alphabet: `bdfghjkmnpqstxyz`
-
-The specialized alphabet aims to avoid interference with other ABC features, and also to avoid spelling offensive words. This is simply the lower case English alphabet, minus vowels (`aeiou`) and ABC data plumbing operators (`vrwlc`). 
-
-For larger binaries, we would encode 256 byte blocks at a time (from 512 base16 characters), in which case the overhead is ~0.78%. That is entirely acceptable, and requires a static lookahead buffer of 512 characters on encode or 256 bytes on decode.
+I plan to use a non-conventional base16 alphabet: `bdfghjkmnpqstxyz`. This is the lower case English alphabet minus vowels `aeiou` and most ABC data plumbing operators `vrwlc`. This alphabet ensures this specialized compression primarily impacts intentionally binary encoded data. It also avoids risk of spelling offensive words by accident. 
 
 ## Awelon Bytecode Deflated (ABCD)
 
@@ -483,7 +473,7 @@ ABCD extends ABC with a dictionary - one standard dictionary for everyone - that
 
 ABC streams may then be compressed against this dictionary, or alternatively generated using these operators directly. Further, ABCD interpreters can include specialized implementations for many of these functions. For many functions, a specialized implementation could be much more efficient than interpreting the implementation or even using a generic compiler. Further still, the selected functions could have well understood equational laws to simplify rewrite optimizations. For example, if a function reverses a list, then we know applying it twice results in the input. And if a function maps over a list, then mapping two functions is equivalent to composing the function and mapping once.
 
-Development of ABCD shall be incremental and empirical, driven by actual data from real applications, with attention to popular data structures and patterns. Unicode is big (over a million elements) and realistically the standard dictionary will be much smaller so we can still have small implementations. I would be surprised if we even use 0.5% of the available space (~5000 functions). We should gain considerable benefits from much less than that.
+Development of ABCD shall be incremental and empirical, driven by actual data from real applications, with attention to popular data structures and usage patterns. Unicode is big (over a million elements) and realistically the standard dictionary will be much smaller so we can still have small runtime implementations. I would be surprised if we ever use 0.5% of the available space (~5000 functions). We should gain considerable benefits from much less than that.
 
 ABCD complements ABC's resource model for separate compilation and dynamic linking. ABCD is suitable for relatively short, widely used functions. ABC resources are suitable for project specific software components and large data objects (to leverage content distribution networks and caching). These two techniques fill very different niches, and between them ABC may be minimal with little concern for performance or parsimony.
 

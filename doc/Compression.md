@@ -6,6 +6,29 @@ Experiments with LZW variants were disappointing. The dictionary's warmup time i
 
 Sliding window compression algorithms (LZSS, LZ4, LZ77) are promising candidates. I believe we can resolve ambiguity by greedily favoring a longest match with a shortest distance. But I'll still need to study these algorithms for ambiguity and security. LZ4 has the advantages of doing at worst -0.4% compression asymptotically (whereas LZSS does -12.5% at worst, yikes!), and of being octet-oriented in its encoding and decoding. Thus, LZSS is a better fit for most OS and filesystem integration. 
 
+## Special Case Compression for Base16
+
+An simple but powerful idea for working with embedded binaries: 
+
+* encode binaries in a base16 alphabet (this is what ABC sees)
+* have a specialized compression pass that handles base16
+
+The current plan is to pursue this as a separate pass from the more general purpose compression algorithm. We can take a large sequence of base16 symbols and encode them using a header followed by raw binary data. We'll decode them back to the original base16 alphabet.
+
+We'll leverage the fact that ABC is encoded in UTF-8, and UTF-8 does not use several symbols in the octet range (0xC0, 0xC1, 0xF5..0xFF). We can use one or more of these to indicate an upcoming volume of binary data. We have a few options: 
+
+1. use a header and follow with a length byte (always two bytes overhead)
+2. use a range of headers, encoding common lengths directly in the header
+
+After having experimented a little, I favor the first option. So the current proposal is:
+
+* header byte 0xF8
+* length byte: 0..253 (+3)
+* only encodes a whole number of bytes
+* encodes 6..512 base16 symbols
+
+Thus, the final storage and transmission overhead is about 0.8% for large binaries, or 4% for ABC resource identifiers (48 bytes). This is quite acceptable. The maximum lookahead requirement is also only 512 characters when encoding, and no overhead when decoding.
+
 ## Simplifying LZ4?
 
 LZ4 is a nice data structure - very simple, octet aligned. But it has problems:
@@ -27,7 +50,7 @@ We could perhaps separate LZ4 so our initial token is either-or, i.e. such that 
 
 ## Octet-Aligned, Variable Width LZSS
 
-It might be better to stick with LZSS and accept the -12.5% worst case in order to guarantee a simple, deterministic compression result. In practice, the worst-case should not happen for ABC. I think we can still do this octet-aligned, which will be nicer if we decide to run a subsequent Huffman encoding or similar. Consider:
+Would it be better to stick with LZSS and accept the -12.5% worst case in order to guarantee a simple, deterministic compression result? For most of ABC, the worst case won't happen. Consider:
 
 1. repeatedly encode an octet of flag bits followed by eight body-elements
 2. upon reaching end of the data, just stop, even if flag-bits remain
@@ -82,9 +105,9 @@ A single large match, in this artificial profile, makes a difference of 4.9% fin
         DDDDDDDD DDDDDDLL           D: 1..16383, L: 2..4 (0..2 + 2)
         DDDDDDDD DDDDDD11 LLLLLLL   D: 1..16383, L: 5..261 (0..255 + 6)
 
-I think I'll make this 'extra match byte' part of the definition. Of course, it would be the only match-length byte for a 64k window.
+I think I'll make this 'extra match byte' part of the definition. 
+
+Anyhow, there is a major issue here: while the worst case won't happen for *most* of ABC, it can quite potentially occur for embedded binaries.
 
 
-## Special Case Compression for Base16
 
-An simple but powerful idea for working with binaries: encode in base16, then have a specialized compression pass that handles base16. I think I'll pursue this independently of the normal ABC compression layer.
