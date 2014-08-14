@@ -21,6 +21,7 @@ import Control.Monad ((>=>))
 import Data.Ord
 import Data.Monoid
 import Data.Ratio
+import qualified Data.List as L
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.Decimal  as Dec
@@ -123,13 +124,23 @@ instance Show (V cx) where
     showsPrec _ (L U) = showString "false"
     showsPrec _ (R U) = showString "true"
     showsPrec _ U = showString "unit"
-    showsPrec _ (valToText -> Just txt) = shows (TL txt)
+    showsPrec _ (valToText -> Just txt) | isShortText txt = shows txt
+                                        | otherwise = shows (TL txt)
+    showsPrec _ (valToList pure -> Just vs) = showString "List " . shows vs
     showsPrec _ (P a b) = showChar '(' . shows a . showChar '*' . shows b . showChar ')'
     showsPrec _ (L a) = showChar '(' . shows a . showString "+_)"
     showsPrec _ (R b) = showString "(_+" . shows b . showChar ')'
     showsPrec _ b@(B _) = (shows . quote) b -- show as block literal + kf
     showsPrec _ (S seal v) = shows v . shows tok where
         tok = Tok (seal)
+
+-- true for relatively short, single line texts
+isShortText :: String -> Bool
+isShortText txt = short && oneLine where
+    maxLen = 24
+    (hd,tl) = L.splitAt maxLen txt
+    short = null tl
+    oneLine = L.notElem '\n' hd
 
 -- show number as exact decimal or as fractional
 showNumber :: Rational -> ShowS
