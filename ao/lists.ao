@@ -289,23 +289,12 @@
    "abcdef" assertTextEQ1d
    "ghijkl" assertTextEQ1
 
-@doc.ListQueue 
-"Model a simple, queue object with a pair of lists.
-~
-@doc.suffix.lq doc.ListQueue
-@sealer.lq [{:lq}]
-@unsealer.lq [{.lq}]
-@seal.lq sealer.lq .apply
-@unseal.lq unsealer.lq .apply
-@empty.lq 0 0 pw [] pw seal.lq
-
 @bench.docmanip1
  doc.CompositionIsFirstPrinciple
  nub.l [ltb] sortBy.l
 @bench.docmanip2
  doc.CompositionIsFirstPrinciple
  [ltb] sortBy.l nub.l 
-
 
 @test.textIsList 
  "42" 
@@ -343,6 +332,7 @@
   4 assertEQ1.n drop
   assertInR elim1
   "dlrow olleh" assertEQ1
-  
 
+@doc.indexOf.l "a`L [a -- Bool] -- a`L (1+n); copyable a"
+@doc.elemAt.l  "a`L N -- (1+a); copyable a"
 
