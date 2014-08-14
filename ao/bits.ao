@@ -3,7 +3,12 @@ boolean streams lists
 @doc.import.bits "functions for working with bits and bytes and fixed-width words"
 
 @doc.BinaryData
-"Awelon Bytecode does not provide a binary literal type. However, Awelon project does have a strategy for efficient storage and transmission of binary data. The idea is simple: developers encode binary data in a base16 alphabet, then the compression layer is specialized to recognize large sequences of base16. The result is that large binary data, e.g. textures or audio files, may be embedded in Awelon bytecode with an overhead of about 1%.
+"Awelon Bytecode does not provide a binary literal type. However, Awelon project does have a strategy for efficient storage and transmission of binary data. The idea is simple: 
+ 
+ 1. developers encode binary data in a base16 alphabet
+ 2. a specialized compression pass will recognize large sequences of base16 
+ 
+ The result is that large binary data, e.g. textures or audio files, may be embedded in Awelon bytecode with an overhead of about 1%.
  
  The base16 alphabet, however, is not the conventional `0-9a-f`. Instead, we'll use:
  
@@ -11,6 +16,7 @@ boolean streams lists
  
  This minimizes risk of interfering with non-binary data or spelling offensive words. We can be relatively confident that a large string of this base16 alphabet really is intended to represent binary data.
 ~
+@doc.BinariesInABC doc.BinaryData
 @doc.abcBase16Alphabet "alphabet used to encode binary data in ABC in base16, representing digits 0..15"
 @abcBase16Alphabet "bdfghjkmnpqstxyz"
 
