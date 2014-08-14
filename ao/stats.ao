@@ -11,8 +11,8 @@
 
 @sealer.stats [{:stats}]
 @unsealer.stats [{.stats}]
-@seal.stats sealer.stats .apply
-@unseal.stats unsealer.stats .apply
+@seal.stats   %r sealer.stats   %r$l
+@unseal.stats %r unsealer.stats %r$l
 
 @doc.add.stats "stats number -- stats"
 @add.stats 

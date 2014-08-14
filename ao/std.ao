@@ -136,7 +136,10 @@
   * functions for association lists, maps, records, or similar
   *   maybe support for tables, too; relational algebra
   *     ideally a DSL supporting composition, optimization, compilation 
+  * access to bytecodes
+  * transpile ABC to JavaScript
   * functions for matrices and vector
+  * look into FGL graph library (manipulating graphs with a zipper)
   * functions for sequences (finger-trees/ropes)
   * functions for parser combinators; grammar DSL
   *   should support derivative grammars & deep optimizations
@@ -238,8 +241,8 @@
 ~
 @sealer [{:}]
 @unsealer [{.}]
-@seal sealer .apply
-@unseal unsealer .apply
+@seal %r sealer %r$l
+@unseal %r unsealer %r$l
 
 @doc.ConcurrencyInAO
 "AO has a natural capacity for parallelism (see @doc.CausalCommutativity). Concurrency is related, but is a different concept from parallelism. With concurrency, we have independently specified subprograms interacting in a shared environment. 
