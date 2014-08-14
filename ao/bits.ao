@@ -8,9 +8,9 @@ boolean streams lists
  1. developers encode binary data in a base16 alphabet
  2. a specialized compression pass will recognize large sequences of base16 
  
- The result is that large binary data, e.g. textures or audio files, may be embedded in Awelon bytecode with an overhead of about 1%.
+ The compressed encoding consists of header byte 0xF8, a length byte L (0..253 + 3), followed by L bytes, i.e. two bytes overhead to encode up to 256 raw bytes. (0xF8 is never used by UTF-8 or ABC. However, it may be escaped by following with 0xFE.) The result is that large binary data, e.g. textures or audio files, may be embedded in Awelon bytecode with an overhead of 0.8%. The break-even with base64 is encoding six bytes.
  
- The base16 alphabet, however, is not the conventional `0-9a-f`. Instead, we'll use:
+ The base16 alphabet, however, is not the conventional `0-9a-f`. We instead use:
  
      bdfghjkmnpqstxyz       i.e. `a-z` minus `aeiou` and `vrwlc`
  

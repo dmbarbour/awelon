@@ -101,6 +101,7 @@ Library
     ABC.Quote
     ABC.Simplify
     ABC.Resource
+    ABC.Base16
 
     ABC.Imperative.Value
     ABC.Imperative.Operations

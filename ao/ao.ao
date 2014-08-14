@@ -52,12 +52,14 @@ std compiledWords
  Several variations of read and write are provided for:
  
  * text files - read UTF-8 to text, or write text to UTF-8
- * binary files - read or write octet lists
- * ABC files - read or write an arbitrary [a→b] block
+ * binary files - read or write ABC's base16 binary format
+ * ABC files - read or write an arbitrary [a→b] block (via introspection)
  
  At the moment, the whole file is read or written at once. I may eventually provide variations for incremental processing (i.e. streams), though I hope to deprecate the ao and aoi command line utilities before I get that far.
  
  The filesystem is a legacy resource with a lot of weaknesses, such as poor support for atomic updates, history, reactivity, data types, encapsulation, abstraction, composition, computation, procedural generation... and so on. Developers are encouraged to instead favor persistent state resource and environment models. Those will be much more portable to Awelon runtime environments in a distributed system.
+ 
+ See also: `doc.BinariesInABC`.
 ~
 @doc.readTextFile.io "filename -- (1(err) + text); (io,asynch)"
 @doc.writeTextFile.io "text filename -- (1(err) + 1(ok)); (io,asynch)"
@@ -70,9 +72,16 @@ std compiledWords
 @writeTextFile.io p "writeTextFile" p command.io
 @readBinaryFile.io "readBinaryFile" p command.io
 @writeBinaryFile.io p "writeBinaryFile" p command.io
-@readABCFile.io "readABCFile" p command.io
-@writeABCFile.io p "writeABCFile" p command.io
+@readABCFile.io  readTextFile.io [inL] [textToBlock.io] if
+@writeABCFile.io take blockToText.io put writeTextFile.io
 @listDirectory.io "listDirectory" p command.io
+
+
+@doc.blockToText.io "block -- text; (io, asynch); serialize ABC block to text"
+@doc.textToBlock.io "text -- (1+block); (io, asynch); parse text as ABC block"
+@blockToText.io drop "TODO! blockToText.io" 
+@textToBlock.io drop false.b
+
 
 @doc.destroy.io "a -- ; (io) destroy will drop any input, including relevant blocks (unsafe)"
 @destroy.io "destroy" p command.io elim1

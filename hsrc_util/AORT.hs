@@ -32,7 +32,6 @@ module AORT
 
 import Control.Applicative
 import Control.Category ((>>>))
-import Control.Monad
 import Control.Monad.IO.Class 
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class
@@ -56,7 +55,6 @@ import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import qualified Data.List as L
-import qualified Data.ByteString.Base64.URL as B64
 
 import ABC.Simplify
 import ABC.Operators
@@ -64,6 +62,7 @@ import ABC.Imperative.Value
 import ABC.Imperative.Runtime
 import ABC.Imperative.Interpreter
 import ABC.Resource
+import qualified ABC.Base16 as B16
 import AO.AOFile
 
 import PureM -- speeds up 'pure' blocks or subprograms (but might remove after JIT)
@@ -165,7 +164,8 @@ newDefaultRuntime =
 mac :: B.ByteString -> String -> String
 mac sec = 
     T.pack >>> T.encodeUtf8 >>> B.append sec >>> 
-    secureHash >>> B.take 24 >>> B64.encode >>>
+    secureHash >>> B.take 16 >>> 
+    B.unpack >>> B16.encode >>> B.pack >>>
     T.decodeUtf8 >>> T.unpack
 
 -- default annotations support for AORT
@@ -272,10 +272,8 @@ defaultPower = flip M.lookup $ M.fromList $
     ,("getOSEnv", getOSEnv)
     ,("readTextFile", aoReadTextFile)
     ,("readBinaryFile", aoReadBinaryFile)
-    ,("readABCFile", aoReadABCFile)
     ,("writeTextFile", aoWriteTextFile)
     ,("writeBinaryFile", aoWriteBinaryFile)
-    ,("writeABCFile", aoWriteABCFile)
     ,("listDirectory", aoListDirectory)
     ,("newTryCap", newTryCap)
     ]
@@ -286,8 +284,8 @@ aoDuplicate v = return (P v v)
 
 getRandomBytes :: Prog AORT
 getOSEnv :: Prog AORT
-aoReadTextFile, aoReadBinaryFile, aoReadABCFile :: Prog AORT
-aoWriteTextFile, aoWriteBinaryFile, aoWriteABCFile :: Prog AORT
+aoReadTextFile, aoReadBinaryFile :: Prog AORT
+aoWriteTextFile, aoWriteBinaryFile :: Prog AORT
 aoListDirectory :: Prog AORT
 newTryCap :: Prog AORT
 
@@ -315,6 +313,7 @@ aoReadBinaryFile (valToText -> Just fname) =
     fsynch fp $ liftIO $ toVal <$> tryJustIO rf
 aoReadBinaryFile v = fail $ "readBinaryFile @ " ++ show v
 
+{-
 aoReadABCFile (valToText -> Just fname) = 
     let fp = FS.fromText (T.pack fname) in
     let rf = FS.readFile fp in
@@ -327,6 +326,7 @@ opsToBlock ops = b where
     b = Block { b_aff = False, b_rel = False, b_code = code, b_prog = prog }
     code = S.fromList ops
     prog = interpret ops
+-}
 
 aoWriteTextFile (P (valToText -> Just fname) (valToText -> Just content)) =
     let fp = FS.fromText (T.pack fname) in
@@ -346,6 +346,7 @@ aoWriteBinaryFile (P (valToText -> Just fname) (valToBinary -> Just content)) =
     fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteBinaryFile v = fail $ "writeBinaryFile @ " ++ show v
 
+{-
 aoWriteABCFile (P (valToText -> Just fname) (B block)) =
     let fp = FS.fromText (T.pack fname) in
     let content = encodeABC $ S.toList $ b_code block in
@@ -355,6 +356,7 @@ aoWriteABCFile (P (valToText -> Just fname) (B block)) =
     let asBoolean = maybe (L U) (const (R U)) in
     fsynch fp $ liftIO $ asBoolean <$> tryJustIO wOp
 aoWriteABCFile v = fail $ "writeABCFile @ " ++ show v
+-}
 
 aoListDirectory (valToText -> Just dirname) =
     let fp = FS.fromText (T.pack dirname) in
@@ -369,23 +371,6 @@ aoListDirectory v = fail $ "listDirectory @ " ++ show v
 -- if some files use the same name in different directories.
 fsynch :: FS.FilePath -> AORT a -> AORT a
 fsynch = ksynch . FS.encodeString . FS.filename
-
-
--- convert between values and bytestrings
-binaryToVal :: B.ByteString -> V cx
-binaryToVal b = case B.uncons b of
-    Nothing -> (R U)
-    Just (o,b') -> (L (P (N (fromIntegral o)) (binaryToVal b')))
-
-valToBinary :: V cx -> Maybe B.ByteString
-valToBinary = valToL >=> return . B.pack where
-    valToL (L (P (N n) l')) | isByte n =
-        let w8val = fromInteger (numerator n) in
-        (w8val :) <$> valToL l' 
-    valToL (R U) = pure []
-    valToL _ = Nothing
-    isByte n = (1 == denominator n) && (byteRange (numerator n))
-    byteRange n = (0 <= n) && (n < 256)
 
 -- try a subprogram, but allow returning with failure
 --   1 → [(Block * Arg) → ((ErrorMsg*Arg) + Result)]

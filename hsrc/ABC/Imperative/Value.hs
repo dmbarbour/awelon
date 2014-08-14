@@ -11,6 +11,7 @@ module ABC.Imperative.Value
     ( V(..), Prog, Block(..)
     , copyable, droppable
     , valToText, textToVal
+    , valToBinary, binaryToVal
     , listToVal, valToList
     , simplEQ, assertEQ
     , isSum, isInL, isInR
@@ -18,6 +19,7 @@ module ABC.Imperative.Value
 
 import Control.Applicative
 import Control.Monad ((>=>))
+import Data.Word
 import Data.Ord
 import Data.Monoid
 import Data.Ratio
@@ -25,10 +27,12 @@ import qualified Data.List as L
 import qualified Data.Sequence as S
 import qualified Data.Foldable as S
 import qualified Data.Decimal  as Dec
+import qualified Data.ByteString as B
 
 import ABC.Operators
 import ABC.Simplify
 import ABC.Quote
+import qualified ABC.Base16 as B16
 
 -- | a value in imperative context cx
 data V cx
@@ -118,6 +122,26 @@ validChar r =
     let n = numerator r in
     let d = denominator r in
     (1 == d) && (0 <= n) && (n <= 0x10ffff)
+
+-- | Convert a bytestring to an ABC.Base16 text.
+binaryToVal :: B.ByteString -> V cx
+binaryToVal = listToVal (N . fromIntegral) . B16.encode . B.unpack 
+
+-- | Convert an ABC.Base16 text into a binary.
+valToBinary :: V cx -> Maybe B.ByteString
+valToBinary (valToList vByte -> Just allBytes) = 
+    let (goodBytes,badBytes) = B16.decode allBytes in
+    if null badBytes then Just (B.pack goodBytes)
+                     else Nothing
+valToBinary _ = Nothing
+
+vByte :: V cx -> Maybe Word8
+vByte (N r) | ok = Just (fromIntegral n) where
+    d = denominator r
+    n = numerator r
+    ok = (1 == d) && (0x00 <= n) && (n <= 0xFF)
+vByte _ = Nothing
+
 
 instance Show (V cx) where
     showsPrec _ (N r) = showNumber r
