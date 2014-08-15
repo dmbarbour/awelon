@@ -12,7 +12,12 @@
 -- 
 -- The full ABC invocation looks like:
 -- 
---      {#secureHashOfCiphertext:secureHashOfBytecode}
+--      {#SecureHashOfCiphertextSecureHashOfBytecode}
+--
+-- There is no separator. Each secure hash is 192 bits, independent
+-- halves of the SHA3-384 secure hash, for a total 48 octets. The
+-- concatenated hashes are encoded in ABC's base16 (cf. ABC.Base16),
+-- so will compress down to 50 octets for storage or transport.
 -- 
 -- Pseudocode for resource construction:
 -- 
@@ -21,7 +26,7 @@
 --      cipherText = encrypt(compress(bytecode),encryptionKey)
 --      lookupKey = secureHashCT(cipherText)
 --      store(lookupKey,cipherText)
---      resourceId = lookupKey:encryptionKey
+--      resourceId = base16encode(append(lookupKey,encryptionKey))
 --      return resourceId
 -- 
 -- Pseudocode for resource acquisition:
@@ -42,8 +47,8 @@
 -- Not all details are settled. Some relatively stable decisions:
 -- 
 --      secureHash CT,BC: are independent halves of SHA3-384
---      base64url encoding of secure hashes in resource ID
 --      AES encryption, CTR mode, nonce simple function of key
+--      two pass compression: base16 binaries, then everything 
 --      simple, deterministic, unambiguous compression algorithm
 -- 
 -- This module implements the standard resource model as far as it
@@ -62,6 +67,8 @@ module ABC.Resource
     , encodeABC, decodeABC
     ) where
 
+import Control.Arrow ((>>>))
+import Control.Applicative
 import Data.Functor.Identity
 import qualified Data.List as L
 import Data.ByteString (ByteString)
@@ -72,14 +79,14 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Text.Read as R
 import qualified Crypto.Hash as CH
-import qualified Data.ByteString.Base64.URL as B64
 import ABC.Operators
+import qualified ABC.Base16 as B16
 
 -- | HashCT and HashBC are 192 bit (24 octet) strings
 --
 -- Concretely:
 --   HashCT is first  192 bits of SHA3-384 of the ciphertext.
---   HashBC is second 192 bits of SHA3-384 of the bytecode (as UTF-8)
+--   HashBC is second 192 bits of SHA3-384 of the bytecode (UTF-8 encoded)
 --
 -- Independent halves of SHA3-384 ensures independence of hash values
 -- without relying on quality of encryption or compression. The total
@@ -162,7 +169,7 @@ makeResource fnSave bytecode = saveCode >> return rscTok where
     fullHashCT = secureHash cipherText
     saveCode = fnSave fullHashCT cipherText
     hashCT = B.take 24 fullHashCT
-    rscTok = "#" ++ toBase64 hashCT ++ ":" ++ toBase64 hashBC
+    rscTok = "#" ++ toBase16 (hashCT `B.append` hashBC)
 
 -- | purely compute the resource token without storing the resource
 abcResourceToken :: [Op] -> ResourceToken
@@ -186,19 +193,16 @@ loadResource fnLoad tok@(splitToken -> Just (hashCT,hashBC)) =
         _ -> fail ("ABC resource " ++ tok ++ " is ambiguous") -- secure hash collision!
 loadResource _ tok = fail $ "invalid resource token: " ++ tok
 
--- extract information from a resource token 
+-- extract two secure hashes from given resource token
 splitToken :: ResourceToken -> Maybe (HashCT, HashBC)
 splitToken ('#':rscid) =
-    let (rct,crbc) = L.splitAt 32 rscid in
-    case crbc of
-        (':':rbc) ->
-            case (fromBase64 rct, fromBase64 rbc) of
-                (Just hct, Just hbc) ->
-                    -- ensure 192 bits for each hash
-                    let okSize = (24 == B.length hct) && (24 == B.length hbc) in
-                    if okSize then Just (hct,hbc) else Nothing
-                _ -> Nothing
-        _ -> Nothing -- not a valid token
+    let (rct,rbc) = L.splitAt 48 rscid in
+    case (fromBase16 rct, fromBase16 rbc) of
+        (Just hct, Just hbc) ->
+            -- ensure 192 bits for each hash
+            let okSize = (24 == B.length hct) && (24 == B.length hbc) in
+            if okSize then Just (hct,hbc) else Nothing
+        _ -> Nothing
 splitToken _ = Nothing
     
 -- the type declaration selects the hash function (yuck)
@@ -208,13 +212,16 @@ sha3_384 = B.toBytes . sha3_384'
 sha3_384' :: ByteString -> CH.Digest CH.SHA3_384
 sha3_384' = CH.hash
 
-toBase64 :: ByteString -> String
-toBase64 = fmap toChar . B.unpack . B64.encode where
+toBase16 :: ByteString -> String
+toBase16 = B.unpack >>> B16.encode >>> fmap toChar where
     toChar = toEnum . fromIntegral
 
-fromBase64 :: String -> Maybe ByteString
-fromBase64 = e2mb . B64.decode . T.encodeUtf8 . T.pack where
-    e2mb = either (const Nothing) Just
+fromBase16 :: String -> Maybe ByteString
+fromBase16 s = 
+    let bs = (B.unpack . T.encodeUtf8 . T.pack) s in
+    let (goodBytes,badBytes) = B16.decode bs in
+    if null badBytes then Just (B.pack goodBytes)
+                     else Nothing
 
 
 -- todo: implement encryption
@@ -222,13 +229,20 @@ encrypt :: HashBC -> ByteString -> CipherText
 encrypt _key = id
 
 -- todo: implement decryption
+-- (note: might need to trim a little off the end of the final block)
 decrypt :: HashBC -> CipherText -> ByteString
 decrypt _key = id
 
 -- todo: implement compression
 compress :: ByteString -> ByteString
-compress = id
+compress = compressBase16 >>> compressCode where
+    compressBase16 = B.unpack >>> B16.compress >>> B.pack
+    compressCode = id -- TODO!
 
 -- todo: implement decompression
 decompress :: ByteString -> Maybe ByteString
-decompress = Just
+decompress = decompressCode >>> decompressBase16 where
+    decompressBase16 = fmap (B.unpack >>> B16.decompress >>> B.pack)
+    decompressCode = pure -- TODO!
+
+

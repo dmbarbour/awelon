@@ -59,14 +59,12 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.ByteString as B
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Pos as P
 import Text.Parsec.Text() 
 import qualified Filesystem as FS
 import qualified Filesystem.Path.CurrentOS as FS
 import qualified System.IO.Error as Err
-import qualified Data.ByteString.Base64.URL as B64
 
 -- import qualified System.IO as Sys
 
@@ -76,6 +74,7 @@ import AO.Code
 import AO.Precompile
 import AO.Env
 import ABC.Resource
+import qualified ABC.Base16 as B16 
 
 type Import   = Text
 type Line     = Int
@@ -347,20 +346,22 @@ saveRscFile h ct =
 -- directories.
 hctDir :: HashCT -> FS.FilePath
 hctDir hct = a FS.</> b FS.</> c where
-    b64 = (T.decodeUtf8 . B64.encode . B.take 24) hct
-    a = (FS.fromText . T.cons 'A' . T.take 2) b64 -- 4096 dirs
-    b = (FS.fromText . T.cons 'B' . T.take 2  . T.drop 2) b64 -- another 4096
-    c = (FS.fromText . T.cons 'C' . T.drop 4) b64
+    b16 = (hashToText . B.take 24) hct
+    a = (FS.fromText . T.take 3) b16 -- ~4096 dirs
+    b = (FS.fromText . T.take 3  . T.drop 3) b16 -- another ~4096
+    c = (FS.fromText . T.drop 6) b16
 
--- Generate a cryptographically unique filename given the full secure 
--- hash of the conent. This is 384 bits, or over 320 bits in a case
--- insensitive filesystem. This degree of uniqueness almost certainly 
--- is overkill for any application, but is not too expensive.
+hashToText :: ByteString -> Text
+hashToText = T.pack . fmap toChar . B16.encode . B.unpack where
+    toChar = toEnum . fromIntegral
+
+-- Generate a cryptographically unique filename given the full
+-- secure hash of the ciphertext. 
 hctFile :: SecureHash -> FS.FilePath
 hctFile h = dir FS.</> rsc where
     dir = (hctDir . B.take 24) h
-    hf  = (T.decodeUtf8 . B64.encode . B.drop 24) h
-    rsc = ((FS.<.> ct) . FS.fromText . T.cons 'R') hf
+    hf  = (hashToText . B.drop 24) h
+    rsc = ((FS.<.> ct) . FS.fromText) hf
     ct  = T.pack "ct"
 
 showDictIssue :: AODictIssue AOFMeta -> String
