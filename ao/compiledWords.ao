@@ -1,5 +1,2 @@
 @doc.import.compiledWords "contains compilation directives; see `doc.prefix.compile!`"
 
-@~compile!fibonacci
-@compile!step.stdgen.r
-
