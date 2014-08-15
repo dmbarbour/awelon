@@ -73,22 +73,22 @@
  
  `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
  
-     {&asynch} :: (block * e)→ (block * e) (block on ABC stack)
+     {&asynch} :: block→block
      asynch    :: block -- block (on AO stack)
  
  Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for pending asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is modeled by other means, such as RDP or unbounded command streams.)
 ~ 
-@asynch %r {&asynch} %l
+@asynch %r [{&asynch}] %r$l
 
 @doc.compile
 "The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
  
-         {&compile} :: ([a→b] * e) → ([a→b] * e); compile block on ABC stack
-         compile    :: [a→b] -- [a→b]; compile block on AO stack
+         {&compile} :: block→block 
+         compile    :: [a→b] -- [a→b] (on AO stack)
  
  Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.compile!` for more.
 ~
-@compile %r {&compile} %l
+@compile %r [{&compile}] %r$l
 
 @doc.prefix.compile!
 "If you define word `compile!foo` this can act as a directive that the AO system should separately compile the word `foo`. The definition of `compile!foo` should be left empty, at least for now. The `compile!` word may later provide opportunity for optimization directives.

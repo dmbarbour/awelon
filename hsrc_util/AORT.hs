@@ -209,7 +209,7 @@ debugPrintText v = fail $ "{&debug print text} @ " ++ show v
 -- which may then implicitly be compiled and loaded separately. 
 -- 
 compileBlock :: Prog AORT
-compileBlock v@(P (B b) e) =
+compileBlock v@(B b) =
     let abc = (simplify . S.toList . b_code) b in
     if not (shouldCompile abc) then return v else
     ksynch "rsc" (makeResource saveRscFile abc) >>= \ rscTok ->
@@ -217,7 +217,7 @@ compileBlock v@(P (B b) e) =
                , b_prog = invoke rscTok
                }
     in 
-    return (P (B b') e)
+    return (B b')
 compileBlock v = fail $ "{&compile} @ " ++ show v -- type error
 
 shouldCompile :: [Op] -> Bool
@@ -227,7 +227,7 @@ shouldCompile _ = True -- otherwise, don't be picky
 
 -- prepare a block to compute asynchronously
 asynchBlock :: Prog AORT
-asynchBlock (P (B b) e) = pure (P (B b') e) where
+asynchBlock (B b) = pure (B b') where
     prog' = asynch . b_prog b
     b' = b { b_prog = prog' }
 asynchBlock v = fail $ "{&asynch} @ " ++ show v
