@@ -442,7 +442,7 @@ Algorithmic details are not fully settled. Thoughts:
 * authenticate and filter ciphertexts using both secure hashes
 * compression should support embedding large binary data (see below)
 
-For ABC resources, we require *deterministic* compression - i.e. the same input always results in the same compressed output, without heuristic 'compression levels' or similar. An appropriate compression algorithm is still under consideration.
+For ABC resources, we require *deterministic* compression - i.e. the same input always results in the same compressed output, without heuristic 'compression levels' or similar. An appropriate [compression algorithm](doc/Compression.md) is still under consideration.
 
 *ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively compressing and hashing candidates and confirming whether the name exists in the system. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
@@ -461,7 +461,7 @@ ABC does not have an embedded literal type for binaries. However, ABC resources 
 1. naively encode binary data in a base16 alphabet
 2. specialize a compression pass to recognize base16
 
-The compression algorithms under consideration[*](doc/Compression.md) would encode large binaries with about 0.8% overhead. This would be acceptable for almost any application. And even smaller binaries, like resource IDs (48 bytes), are encoded with a reasonable 4% overhead.
+The compression algorithms under consideration[*](doc/Compression.md) would encode large binaries with about 0.8% overhead prior to the main compression, and with another 1:64 overhead if the binary itself cannot be compressed. This would be acceptable for almost any application. And even smaller binaries, like resource IDs (48 bytes), are encoded with a reasonable 4% overhead.
 
 I plan to use a non-conventional base16 alphabet: `bdfghjkmnpqstxyz`. This is the lower case English alphabet minus vowels `aeiou` and most ABC data plumbing operators `vrwlc`. This alphabet ensures this specialized compression primarily impacts intentionally binary encoded data. It also avoids risk of spelling offensive words by accident. 
 

@@ -28,19 +28,18 @@ For determinism, we shall always compress the largest sequence possible.
 
 ## Primary Compression of Bytecode
 
-As noted earlier, ABC is highly repetitive - not only in-the-small, but also in-the-large. Even ABC resource IDs may see considerable reuse. We can expect ABC resources to vary in size about five orders of magnitude (100B-10MB), but most of the very large resources will be embedded binaries that are compressed anyway.
+As noted earlier, ABC is highly repetitive - not only in-the-small, but also in-the-large. Even ABC resource IDs may see considerable reuse. We can expect ABC resources to vary in size about five orders of magnitude (100B-10MB). I imagine the larger resources likely contain binaries, though large embedded literal objects (blocks of ABC) or are also likely.
 
-Desiderata:
+I don't have any strong requirements here, but many desiderata:
 
-* simple to describe and implement
-* deterministic compression (for convergence)
-* greedy compression is optimal for data structure
-* small expansion for non-compressible data (2% at most)
-* effective; 75%+ compression for most pure ABC programs; okay for text
+* simple, deterministic, greedy algorithm
+* small expansion for non-compressible data (target 1:64 or lower)
+* effective; 75%+ compression for most pure ABC, 50%+ for text
 * fast, streaming decompression in bounded space
 * stream compression also in bounded space
-* byte aligned manipulations (avoid bit manipulation)
 * able to easily compress repeating resource IDs
+
+If expansion is 1:64, then the total expansion for large embedded binaries 3:128 or 2.34%. I think that will be acceptable for most applications.
 
 Observations:
 
@@ -49,18 +48,24 @@ Observations:
 * sliding window: represent end-of-input by encoding zero offset?
 * LZSS has too much overhead (12.5% expansion, worst case)
 * must encode literals blocks at a time to reduce worst-case
-* dynamic literal run-length: very difficult to determine optimality
+* literal run-lengths: very difficult to determine optimality
   * decision to make: larger literal run for *better* match later? 
   * decision to make: shorter literal run for *more* matches?
   * too many strategies, results in 'optimization levels' (LZ4/LZO/etc.)
 * flag-based techniques: byte align by combining 8 flags into one byte
 
-Ideas with potential:
+The dynamic match length may cause similar issues.
 
-* As an LZSS variation, I could potentially apply an LZSS variant that emits 8 bytes per literal flag, and at least three bytes per match. This would mitigate the worst case - no matches - down to a fixed 1:64 overhead. The cost is that I may lose many opportunities for shorter matches. (Maybe call this LZSS8).
+## LZSS8
 
-This is my best idea for a plain old sliding window compression. I've filtered a few others, e.g. involving flag bits representing increasing subsequent sizes, for being too complicated and again too difficult to reason about.
+One idea is to tweak LZSS such that each literal flag is followed by eight bytes, instead of by a single byte. This gives us our target 1:64 worst case expansion, at the cost of some compression opportunities (for short compression). To mitigate lost compression opportunities, we should perhaps seek to compress even two-byte sequences, e.g. keeping flag+offset+length under two bytes. 
+
+It isn't clear to me this actually meets the 'greedy algorithm' goals. Might it be better to sometimes shift a byte to a subsequent match, to avoid using a literal? The compression ratio of that particular byte may be diminished in the transfer, but it could allow better compression within the 8-byte sequence. OTOH, perhaps the 'greedy algorithm' is too strong a condition, so long as there is one and only one obvious 'greedy' encoding? In this case, we can simply find the largest match possible in each step, and emit a literal otherwise.
+
+I'd be interested in a sliding window of about 2k-8k elements, and match lengths of over 60. Encoding larger match lengths using a variable encoding is not a problem. 
+
+Alternatively, we could seek a byte-aligned LZSS8, combining flags into a flag-byte indicating up to eight matches and literals groups. In this case, we'd match at least three bytes, and lose a little on the pairs.
 
 ## Other Possibilities?
 
-I should also look into PPM compression or Burrows Wheeler transformation. I don't understand these well enough yet to make a judgement.
+PPM compression should work well enough, but may have a larger overhead. I wonder if it's feasible to build PPM above a bloom filter? Hmm, might not be very useful for decoding, though.
