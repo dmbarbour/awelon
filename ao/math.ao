@@ -169,6 +169,10 @@
 @doc.decimal12 "round number to decimal with twelve places past decimal point"
 @decimal12 1e-12 roundToFrac
 
+@id.decimal6#6    [decimal6] [decimal6 decimal6]
+@id.decimal6#12.6 [decimal6] [decimal12 decimal6]
+@id.decimal6#6.12 [decimal6] [decimal6 decimal12]
+
 @doc.deprecated.assert
 "(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
   

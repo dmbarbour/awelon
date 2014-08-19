@@ -1,7 +1,7 @@
  abc plumbing conditionals blocks
  hands stdenv 
- lists assocLists sequences
- loops streams process
+ lists loops streams process
+ data_map
  bits
  math stats random
 
@@ -189,7 +189,7 @@
 
 @OLD_AO_ZIPPERS
 
-"
+"text below encoded in an earlier version of AO... which had comments, even
  % 
  % In Awelon, zipper operations apply to top object on current stack. 
  %

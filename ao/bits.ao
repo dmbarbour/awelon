@@ -12,13 +12,16 @@ boolean streams lists
  
  The base16 alphabet, however, is not the conventional `0-9a-f`. We instead use:
  
-     bdfghjkmnpqstxyz       i.e. `a-z` minus `aeiou` and `vrwlc`
+     bdfg hjkm npqs txyz       i.e. `a-z` minus `aeiou` and `vrwlc`
  
  This minimizes risk of interfering with non-binary data or spelling offensive words. We can be relatively confident that a large string of this base16 alphabet really is intended to represent binary data.
 ~
 @doc.BinariesInABC doc.BinaryData
 @doc.abcBase16Alphabet "alphabet used to encode binary data in ABC in base16, representing digits 0..15"
 @abcBase16Alphabet "bdfghjkmnpqstxyz"
+
+@doc.ABC16toN16 "convert an ABC base16 character to an integer in 0..15"
+@doc.N16toABC16 "convert an integer in 0..15 to the associated ABC character"
 
 @doc.wordToBitList 
 "Translate a word to a list of bits. 
