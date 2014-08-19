@@ -42,12 +42,12 @@
 @swapStackName %lzrzrzwrwzwlwzlzlzr
 @setStackName swapStackName drop
 @getStackName intro1 swapStackName copy swapStackName elim1 put
-@id.swapStackName swapStackName swapStackName
-@id.getSetStackName getStackName setStackName
+@eqv.id.swapStackName   [swapStackName swapStackName] []
+@eqv.id.getSetStackName [getStackName setStackName] []
 
 @doc.swapPowerBlock "power -- power; replace powerblock in standard env"
 @swapPowerBlock %zrwzwlz
-@id.swapPowerBlock swapPowerBlock swapPowerBlock
+@eqv.id.swapPowerBlock [swapPowerBlock swapPowerBlock] []
 
 @doc.EnvironmentManipulation
 "AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
@@ -68,7 +68,7 @@
 @elimE  %r %vrwlc %llcwlclc %l %rCl elim1
 @swapE %zrzwlz %vrwlc %zrwzl
 
-@id.introElimE introE elimE
-@id.swapE swapE swapE
+@eqv.id.introElimE [introE elimE] []
+@eqv.id.swapE [swapE swapE] []
 
 

@@ -79,8 +79,8 @@ boolean streams lists
 @doc.bitStreamToText "(1+1)`S -- char`S; characters '0' and '1'"
 @bitStreamToText [bitToChar] map.s
 
-@id.bitStreamText [bitStreamToText fromStream.l] [fromStream.l bitListToText]
-@id.mapStreamOrList [map.s fromStream.l] [swap fromStream.l swap map.l]
+@eqv.bitStreamText [bitStreamToText fromStream.l] [fromStream.l bitListToText]
+@eqv.mapStreamOrList [map.s fromStream.l] [swap fromStream.l swap map.l]
 
 @doc.textBitsToList
 "textBits -- (1+1)`L; textBits is of form "01100001" (no other characters)

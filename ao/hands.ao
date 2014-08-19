@@ -81,15 +81,15 @@
 @doc.swapHands "swap reified hand on stack with current hand"
 @swapHands %rwzwl
 
-@id.takePut take put
-@id.putTake put take
-@id.juggle3 juggle3 juggle3 juggle3
-@id.takeJugglePutSwap take2 juggle2 put2 swap
-@id.takeSwapPutSwapd take swap put swapd
-@id.copyDiscard copy discard
-@id.pasteDiscardTake paste discard take
-@id.reifyRestoreHand reifyHand restoreHand
-@id.take3put3 take3 put3
+@eqv.id.takePut [take put] []
+@eqv.id.putTake [put take] []
+@eqv.id.juggle3 [juggle3 juggle3 juggle3]
+@eqv.id.takeJugglePutSwap [take2 juggle2 put2 swap] []
+@eqv.id.takeSwapPutSwapd [take swap put swapd] []
+@eqv.id.copyDiscard [copy discard] []
+@eqv.id.pasteDiscardTake [paste discard take] []
+@eqv.id.reifyRestoreHand [reifyHand restoreHand] []
+@eqv.id.take3put3 [take3 put3] []
 
 @eqv.takeSwapPut.swapd [take swap put] [swapd]
 

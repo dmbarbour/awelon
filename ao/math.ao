@@ -120,10 +120,10 @@
 @mul2\1 %v 2  %r*c
 @div2\1 %v 1/2 %r*c
 
-@id.mul1 1 .mul
-@id.div1 1 .div
-@id.add0 0 .add
-@id.sub0 0 .sub
+@eqv.id.mul1 [1 .mul] []
+@eqv.id.div1 [1 .div] []
+@eqv.id.add0 [0 .add] []
+@eqv.id.sub0 [0 .sub] []
 
 @doc.fibonacci "N -- fib(N); the 'hello world' of functional programming ;)"
 @fibonacci 1 0 [dup swapd .add] roll repeat dropd
@@ -169,9 +169,9 @@
 @doc.decimal12 "round number to decimal with twelve places past decimal point"
 @decimal12 1e-12 roundToFrac
 
-@id.decimal6#6    [decimal6] [decimal6 decimal6]
-@id.decimal6#12.6 [decimal6] [decimal12 decimal6]
-@id.decimal6#6.12 [decimal6] [decimal6 decimal12]
+@eqv.decimal6#6    [decimal6] [decimal6 decimal6]
+@eqv.decimal6#12.6 [decimal6] [decimal12 decimal6]
+@eqv.decimal6#6.12 [decimal6] [decimal6 decimal12]
 
 @doc.deprecated.assert
 "(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
@@ -304,22 +304,22 @@
 @assertProb     assertGTEz 1 assertLTE drop
 @assertUniform  assertGTEz 1 assertLT drop
 
-@id.assertInR inR assert
-@id..assertUnit .assertUnit
-@id.assertLT assertLT
-@id.assertLTE assertLTE
-@id.assertGT assertGT
-@id.assertGTE assertGTE
-@id.assertEQ.n assertEQ.n
-@id.assertNEQ.n assertNEQ.n
-@id.assertLTz assertLTz
-@id.assertGTz assertGTz
-@id.assertGTEz assertGTEz
-@id.assertLTEz assertLTEz
-@id.assertEQz assertEQz
-@id.assertInteger assertInteger
-@id.assertNatural assertNatural
-@id.assertNatural+ assertNatural+
-@id.assertChar assertChar
-@id.assertProb assertProb
-@id.assertUniform assertUniform
+@eqv.id.assertInR   [inR assert]
+@eqv.id..assertUnit [.assertUnit]
+@eqv.id.assertLT    [assertLT]
+@eqv.id.assertLTE   [assertLTE]
+@eqv.id.assertGT    [assertGT]
+@eqv.id.assertGTE   [assertGTE]
+@eqv.id.assertEQ.n  [assertEQ.n]
+@eqv.id.assertNEQ.n [assertNEQ.n]
+@eqv.id.assertLTz   [assertLTz]
+@eqv.id.assertGTz   [assertGTz]
+@eqv.id.assertGTEz  [assertGTEz]
+@eqv.id.assertLTEz  [assertLTEz]
+@eqv.id.assertEQz   [assertEQz]
+@eqv.id.assertInteger  [assertInteger]
+@eqv.id.assertNatural  [assertNatural]
+@eqv.id.assertNatural+ [assertNatural+]
+@eqv.id.assertChar     [assertChar]
+@eqv.id.assertProb     [assertProb]
+@eqv.id.assertUniform  [assertUniform]

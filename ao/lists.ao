@@ -66,7 +66,7 @@
 @reverseAppend.l [cons.l] fold.l
 
 @length.l 0 empty.l rot [cons.l incd] [each.l] apply4to2 reverse.l swap
-@id.length.l length.l drop
+@eqv.id.length.l [length.l drop] []
 
 @test.each.l 0 "World" [.add] fold.l 520 assertEQ1
 @test.reverse.l 
@@ -89,10 +89,10 @@
  "hello" length.l 
  5 assertEQ1 swap
  "hello" assertTextEQ1 swap
-@id.reverse.l reverse.l reverse.l
+@eqv.id.reverse.l [reverse.l reverse.l] []
 @eqv.dropReverse.l [drop] [reverse.l drop]
-@id.append.l.empty empty.l append.l
-@id.appendl.l.empty empty.l appendl.l
+@eqv.id.append.l.empty [empty.l append.l] []
+@eqv.id.appendl.l.empty [empty.l appendl.l] []
 
 @eachWhile.l [not.b] compose eachUntil.l
 @eachUntil.l [step.eachUntil.l] bind2 fixpoint inline
@@ -186,8 +186,8 @@
   unzip.l
   "ghijkl" assertTextEQ1 swap
   "abcdef" assertTextEQ1 swap
-@id.unzip.zip.l unzip.l zip.l
-@id.zipRem.unzip.l zipRem.l rot unzip.l swapd appendl.l unrot appendl.l swap
+@eqv.id.unzip.zip.l    [unzip.l zip.l] []
+@eqv.id.zipRem.unzip.l [zipRem.l rot unzip.l swapd appendl.l unrot appendl.l swap] []
 
 @doc.spanP "a`L [a--(a+b)] -- a`L b`L; split longest sequence of `b` results (on right)"
 @doc.breakP.l "a`L [a--(b+a)] -- a`L b`L; split longest sequence of `b` results (on left)"
@@ -304,7 +304,7 @@
  "42" 
  empty.l 0x32 cons.l 0x34 cons.l
  assertTextEQ1
-@id.textDrop "presumably any text" drop
+@eqv.id.textDrop ["text" drop] []
 
 @doc.LF "text containing only a newline"
 @LF empty.l 10 cons.l

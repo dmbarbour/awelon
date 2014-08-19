@@ -228,10 +228,10 @@
   42 assertEQ1.n
   29 assertEQ1d.n
 
-@id.apply.id [id] apply
-@id.compose [id] compose
-@id.swap.compose [id] swap compose
-@id.inline.id [id] inline
+@eqv.id.apply.id  [[id] apply]    []
+@eqv.id.compose   [[id] compose]  []
+@eqv.id.composel  [[id] composel] []
+@eqv.id.inline.id [[id] inline]   []
 
 @doc.preApply "a→((a*1)*(1*1)); wrap argument in `apply` environment"
 @doc.postApply "((a*1)*(1*1))→a; unwrap result from `apply` environment"
@@ -431,7 +431,7 @@
 @unquote apply0to1
 
 @test.quote  7 dup quote unquote assertEQ1
-@id.quoteUnquote quote unquote
+@eqv.id.quoteUnquote [quote unquote] []
 
 @doc.relevant "mark block on stack as relevant (not Droppable)"
 @doc.affine "mark block on stack as affine (not Copyable)"

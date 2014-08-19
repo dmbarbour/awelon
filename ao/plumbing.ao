@@ -208,36 +208,36 @@
 @eqv.fst.wxdrop [fst] [wx drop]
 @eqv.snd.xdrop [snd] [x drop]
 
-@id.wl³ w l w l w l
-@id..wl³ .swap %l .swap %l .swap %l
-@id.wr³ w r w r w r
-@id..wr³ .swap %r .swap %r .swap %r
-@id.lw³ l w l w l w
-@id..lw³ %l .swap %l .swap %l .swap
-@id.rw³ r w r w r w
-@id..rw³ %r .swap %r .swap %r .swap
-@id.lr l r
-@id.rl r l
+@eqv.id.wl³ [w l w l w l] []
+@eqv.id..wl³ [.swap %l .swap %l .swap %l] []
+@eqv.id.wr³ [w r w r w r] []
+@eqv.id..wr³ [.swap %r .swap %r .swap %r] []
+@eqv.id.lw³ [l w l w l w] []
+@eqv.id..lw³ [%l .swap %l .swap %l .swap] []
+@eqv.id.rw³ [r w r w r w] []
+@eqv.id..rw³ [%r .swap %r .swap %r .swap] []
+@eqv.id.lr [l r] []
+@eqv.id.rl [r l] []
 
-@id.zip2 zip2 zip2
-@id.swap swap swap
-@id.swapd swapd swapd
-@id.rot rot rot rot
-@id.unrot unrot unrot unrot
-@id.roll roll roll roll roll
-@id.unroll unroll unroll unroll unroll
-@id.spin spin spin
-@id.introElim intro1 elim1
-@id.elimIntro elim1 intro1
-@id.px p x
-@id.xp x p
-@id.ww w w
-@id.pwxswap p w x swap
-@id.swappwx swap p w x
-@id.dupdrop dup drop
-@id.dupSwapDrop dup swap drop
-@id.dupSwapdDropSwap dup swapd drop swap
-@id.dup2drop2 dup2 drop2
+@eqv.id.zip2 [zip2 zip2] []
+@eqv.id.swap [swap swap] []
+@eqv.id.swapd [swapd swapd] []
+@eqv.id.rot [rot rot rot] []
+@eqv.id.unrot [unrot unrot unrot] []
+@eqv.id.roll [roll roll roll roll] []
+@eqv.id.unroll [unroll unroll unroll unroll] []
+@eqv.id.spin [spin spin] []
+@eqv.id.introElim [intro1 elim1] []
+@eqv.id.elimIntro [elim1 intro1] []
+@eqv.id.px [p x] []
+@eqv.id.xp [x p] []
+@eqv.id.ww [w w] []
+@eqv.id.pwxswap [p w x swap] []
+@eqv.id.swappwx [swap p w x] []
+@eqv.id.dupdrop [dup drop] []
+@eqv.id.dupSwapDrop [dup swap drop] []
+@eqv.id.dupSwapdDropSwap [dup swapd drop swap] []
+@eqv.id.dup2drop2 [dup2 drop2] []
 
 
 @eqv.swap.pwx [p w x] [swap]
