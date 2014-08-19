@@ -102,7 +102,7 @@ This approach can easily be byte-aligned:
 
 With a fixed-size offset-length pairs, we can be relatively certain that 'minimal number of phrases' corresponds to minimal number of bits in the final output (we'll always save slightly with a compressed segment, which uses at least two fewer phrases). With variable sized phrases, a similar guarantee is more difficult, unless we ensure a monotonic compression factor.
 
-A simple 11-bit offset, 5-bit match (3..34) should probably work well. 
+A simple 11+5 offset+length bits should probably work well. As would 12+4. In the latter case, it would take 3 matches to encode a repeated resource identifier, for a compression ratio of ~88%, and most of our matches would be data plumbing and such.
 
 ### Other Possibilities?
 
