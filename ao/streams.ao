@@ -76,8 +76,8 @@ process loops lists blocks conditionals
 @fromStream\1.l toList\1.s
 
 @test.toList.s "hello, world!" dup fromList.s toList.s assertEQ1
-@id.listToStreamToList   fromList.s toList.s
-@id.streamToListToStream toList.s fromList.s
+@eqv.id.listToStreamToList   [fromList.s toList.s] []
+@eqv.id.streamToListToStream [toList.s fromList.s] []
 
 @doc.fromState.s "s [s → ((a*s)+1)] -- a`S; stream from state/stepper function"
 @fromState.s [step.fromState.s] .bind .fixfirst .bind 

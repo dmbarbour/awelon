@@ -15,6 +15,14 @@
 @v.abc %v
 @c.abc %c
 
+@eqv.lr [%lr] []
+@eqv.rl [%rl] []
+@eqv.ww [%ww] []
+@eqv.zz [%zz] []
+@eqv.vc [%vc] []
+@eqv.cv [%cv] []
+@eqv.zwz [%zwz] [%wzw]
+
 @doc.copy.abc "(a*e)→(a*(a*e)); copy; requires copyable a"
 @doc.drop.abc "(a*e)→e; drop; requires droppable a"
 
@@ -34,6 +42,14 @@
 @Z.abc %Z
 @V.abc %V
 @C.abc %C
+
+@eqv.LR [%LR] []
+@eqv.RL [%RL] []
+@eqv.WW [%WW] []
+@eqv.ZZ [%ZZ] []
+@eqv.VC [%VC] []
+@eqv.CV [%CV] []
+@eqv.ZWZ [%ZWZ] [%WZW]
 
 @doc.ap.abc "([a→a']*(a*e))→(a'*e); apply"
 @doc.comp.abc "([x→y]*([y→z]*e))→([x→z]*e); compose blocks/functions"

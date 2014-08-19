@@ -130,19 +130,19 @@
 @doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
 @doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
 @doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
-@dup2 pw dup %rw wx %wl wx
-@dup3 pw pw dup %rw wx wx %wl wx wx
-@dup4 pw pw pw dup %rw wx wx wx %wl wx wx wx
-@dup5 pw pw pw pw dup %rw wx wx wx wx %wl wx wx wx wx
-@dup6 pw pw pw pw pw dup %rw wx wx wx wx wx %wl wx wx wx wx wx
-@dup7 pw pw pw pw pw pw dup %rw wx wx wx wx wx wx %wl wx wx wx wx wx wx
+@dup2 pw dup   dwx   wx
+@dup3 pw pw dup   dwx dwx   wx wx
+@dup4 pw pw pw dup   dwx dwx dwx   wx wx wx
+@dup5 pw pw pw pw dup   dwx dwx dwx dwx   wx wx wx wx
+@dup6 pw pw pw pw pw dup   dwx dwx dwx dwx dwx   wx wx wx wx wx
+@dup7 pw pw pw pw pw pw dup   dwx dwx dwx dwx dwx dwx   wx wx wx wx wx wx
 
-@dup2.alt %rw dup  %wl dup unroll2d
-@dup3.alt %rw dup2 %wl dup unroll3d
-@dup4.alt %rw dup3 %wl dup unroll4d
-@dup5.alt %rw dup4 %wl dup unroll5d
-@dup6.alt %rw dup5 %wl dup unroll6d
-@dup7.alt %rw dup6 %wl dup unroll7d
+@dup2.alt %rw dup      %wl dup unroll2d
+@dup3.alt %rw dup2.alt %wl dup unroll3d
+@dup4.alt %rw dup3.alt %wl dup unroll4d
+@dup5.alt %rw dup4.alt %wl dup unroll5d
+@dup6.alt %rw dup5.alt %wl dup unroll6d
+@dup7.alt %rw dup6.alt %wl dup unroll7d
 
 @eqv.dup2 [dup2] [dup2.alt]
 @eqv.dup3 [dup3] [dup3.alt]
@@ -175,13 +175,13 @@
 @r %rrrwzlwll
 @pw p w
 @wx w x
-@dp unrot p swap
-@dx swap x rot
-@dw swap w swap
-@dpw unrot pw swap
-@dwx swap wx rot
-@dl swap l swap
-@dr swap r swap
+@dp  %rw p  %wl
+@dx  %rw x  %wl
+@dw  %rw w  %wl
+@dpw %rw pw %wl
+@dwx %rw wx %wl
+@dl  %rw l  %wl
+@dr  %rw r  %wl
 
 @doc.zip2 "(c*d) (a*b) -- (b*d) (a*c)"
 @zip2 dx x swapd p dp

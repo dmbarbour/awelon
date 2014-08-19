@@ -1,0 +1,15 @@
+
+@doc.DataMaps
+"A 'map' in computer science typically refers to a abstract collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
+ 
+     add or remove (key, value) pairs
+     lookup value given the key
+     split a map relative to a given key
+     stream processing of (key*value) pairs
+ 
+ Commonly, maps  implementations for maps include hash tables and binary search trees. In this particular case, we'll be favoring a balanced binary search tree, and maps are defined together with a comparison function (the equivalent of 'less-than') on keys. Keys, in this case, are homogeneously typed.
+ 
+ It is common for a map to be 'homogeneous'
+ 
+~ 
+@doc.suffix.m doc.DataMaps

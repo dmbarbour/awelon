@@ -43,9 +43,7 @@
  
  The type of any 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
  
- That is, developers should simply add two blocks to the current stack (in no particular order) which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. 
- 
- A more specialized equivalency is also available with prefix 'id'. Eventually, there may be specialized prefixes for for idempotence (`f f = f`) and commutativity (`f g = g f`), and similar properties (plus associativity) for binary functions. However, for now, these may be expressed by eqv.
+ That is, developers should simply add two blocks to the current stack (in no particular order) which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. Further, they may later prove useful to optimizers and code rewriting.
 ~
 
 @doc.assertEQ 
@@ -124,14 +122,6 @@
  
  See also: `doc.BinariesInABC`
 ~
-
-@doc.prefix.id.
-"There are many cases where a sequence of operations should have operations should have no total, observable effect. For example, `swap swap` is the same as taking no action. These sequences are essentially instances of the 'identity' behavior, modulo slight differences on the required input type - i.e. they are 'typeful' identities. 
- 
- The 'id' prefix is a specialized equivalence that also implies idempotence and commutativity. Look into the 'idempotent', 'commutative', and 'eqv' prefixes.
- 
- Use of prefix words to declare properties such as identity, idempotence, associativity, and commutativity is useful for documentation, automatic validation, and development of optimizers. Developers are encouraged to do so.
-~ 
 
 @TODO.AO
 "Much to do about AO

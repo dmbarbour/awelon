@@ -1,8 +1,10 @@
 
 @doc.Boolean 
-"A boolean, in AO, is simply a sum of unit values: 1 + 1. This sum is achieved by making an observation, which results in a sum, then dropping the information about what was observed. Words for operating on booleans use the `.b` suffix.
+"A boolean, in AO, is simply a sum of unit values: 1 + 1. By AO's conventions, a value in the left indicates 'false' or 'needs work', while a value in the right indicates 'true' or 'done'. It is this sense of true meaning done that many collection types (lists, streams, maybe, etc.) tend to use the right value for empty.
  
- Aside: Booleans exhibit a problem described as 'boolean blindness' by Bob Harper: they lose too much information about context, about which condition was observed and what the boolean means. AO can model booleans with sum types, but often it is wiser to stick with sum types. It may eventually prove useful to model logical propositions more explicitly and symbolically.
+ For documentation purposes, we might consider type `PseudoBool` to represent any (a+b) pair where a and b are droppable, while `Bool` represents (1+1) specifically.
+ 
+ Sums typically exist either by construction (e.g. representing different data constructors) or as a result of testing whether one number is greater than another. Booleans are more often the result of observation, since they're very lossy (aptly described as 'boolean blindness'). Words for manipulating booleans will use suffix `.b`.
 ~
 
 @doc.suffix.b doc.Boolean
@@ -13,13 +15,13 @@
 @true true.b
 @false false.b
 
-@doc.toBoolean "(Droppable a, Droppable b) ⇒ (a + b) -- Bool"
+@doc.toBoolean "PseudoBool -- Bool"
 @toBoolean %r [%v%] %r?VRW [%v%] %r?WLC %l
 
 @doc.trimBoolean "(x*1 + y*1) -- (x+y); may be useful after distrib"
 @trimBoolean %rVR [%c] %r?W [%c] %r?WLCl
 
-@doc.assertBoolean "Bool -- Bool; enforces boolean argument"
+@doc.assertBoolean "Bool -- Bool; enforces true boolean (1+1)"
 @assertBoolean %rVR [.assertUnit] %r?W [.assertUnit] %r?WLCl
 
 @doc.and.b "Bool Bool -- Bool; are both arguments true?"
@@ -59,8 +61,8 @@
  true.b  true.b  xor.b false.b assertEQ1
  true.b  false.b xor.b true.b  assertEQ1
 
-@id.not.b not.b not.b
-@id.assertBoolean assertBoolean
+@eqv.id.not.b [not.b not.b] []
+@eqv.id.assertBoolean [assertBoolean] []
 @eqv.idempotent.toBoolean [toBoolean] [toBoolean toBoolean]
 @eqv.commutative.and.b [and.b] [swap and.b]
 @eqv.commutative.or.b  [or.b]  [swap or.b]

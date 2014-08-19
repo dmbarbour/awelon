@@ -25,6 +25,10 @@
 @cons.l p inL
 @consd.l swapd cons.l swap
 
+@doc.cphead.l "a`L -- a`L (a+1); copyable a; copies first element in list (if any)"
+@cphead.l [x dup dp inL %rw inL %wl] [inR dup] if
+
+
 @assertEmpty.l assert inR
 @assertNonEmpty.l mirror assert inL
 
@@ -187,8 +191,8 @@
 
 @doc.spanP "a`L [a--(a+b)] -- a`L b`L; split longest sequence of `b` results (on right)"
 @doc.breakP.l "a`L [a--(b+a)] -- a`L b`L; split longest sequence of `b` results (on left)"
-@doc.span.l "a`L [pred(a--Bool)] -- a(rem)`L a`L; split largest prefix for which predicate holds"
-@doc.break.l "a`L [pred(a--Bool)] -- a(rem)`L a`L; split largest prefix for which predicate does not hold"
+@doc.span.l "a`L [pred(a--PseudoBool)] -- a(rem)`L a`L; split prefix for which predicate holds"
+@doc.break.l "a`L [pred(a--PseudoBool)] -- a(rem)`L a`L; split prefix for which predicate does not hold"
 @break.l [not.b] compose span.l
 @spanP.l spanRevP.l reverse.l
 @breakP.l [mirror] compose spanP.l
@@ -334,5 +338,14 @@
   "dlrow olleh" assertEQ1
 
 @doc.indexOf.l "a`L [a -- Bool] -- a`L (1+n); copyable a"
-@doc.elemAt.l  "a`L N -- (1+a); copyable a"
+@indexOf.l wrapObserver.b spanRevP.l swap 
+
+@doc.elemAt.l  "a`L N -- (1+a); copyable a; N in 1..length"
+@elemAt.l 
+ assertNatural+ dec 
+ splitReverse.l swap
+ [x dup inL take p inL] [intro1 inR take inR] if
+ swap reverseAppend.l
+ 
+
 

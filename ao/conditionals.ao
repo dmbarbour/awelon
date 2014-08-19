@@ -10,7 +10,7 @@ boolean
 
 @not      %rVRWLCl
 @notd     swap not swap
-@id.notnot  not not
+@eqv.id.notnot  [not not] []
 
 @doc..mirror "(a+b)*e→(b+a)*e"
 @.mirror %VRWLC
