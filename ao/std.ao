@@ -111,9 +111,9 @@
 @doc.prefix.secret!
 "ABC's separate compilation and linking model uses [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption), which is vulnerable to a class of 'confirmation' attacks, i.e. whereby an attacker might determine a ten digit bank account number by systematically encrypting all ten billion combinations and finding which is stored on the server. Confirmation attacks only work against low-entropy data, but a great deal of privacy-sensitive information is low entropy.
  
- To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. In ABC, a convergence secret might appear as:
+ To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. In ABC, a 192-bit convergence secret might be encoded as:
  
-     "bpgzmjkydmfyfdhdhpzzmnbpdjkndjnsgdjyzppbsypshqfk
+     "bpgzmjkydmfyfdhdhptzmnbpdjkndjnsgdjyzpxbsypshqfk
      ~%
  
  The prefix `secret!` acts as a directive word; `secret!foo` indicates that word `foo` should, when compiled to AO, be mixed with a convergence secret. The convergence secret should be deterministic, stable, and cryptographically secure. A simple HMAC of a secret together with the protected code would work well enough. The secrecy indicator may further support policies such as filtering or encrypting secret words when exporting a 'public' dictionary.

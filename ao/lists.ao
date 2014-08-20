@@ -20,6 +20,9 @@
 @doc.empty.l "empty list (has same structure as 'true')"
 @empty.l intro1 inR
 
+@doc.null.l "a`L -- a`L Bool; test whether a list is empty without modifying it"
+@null.l false.b true.b condSwap drop
+
 @doc.cons.l "a`L a -- a`L; add element to list"
 @doc.consd.l "a`L b a -- a`L b; add element to list"
 @cons.l p inL
@@ -351,6 +354,4 @@
  splitReverse.l swap
  elemAtHead.l take swap
  reverseAppend.l put
- 
-
 

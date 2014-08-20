@@ -16,10 +16,13 @@ process loops lists blocks conditionals
 @doc.empty.s "-- a`S; add empty stream to stack"
 @empty.s [%vvrwlcVVRWLCc]
 
-@doc.cons.s "a`L a -- a`L; add element at head of stream"
+@doc.cons.s "a`S a -- a`S; add element at head of stream"
 @doc.putback.s "synonym for `cons.s`; adds element to front of stream"
 @cons.s p inL %r' [%c] %rwol
 @putback.s cons.s
+
+@doc.take1.s "a`S -- a`S (a+1); take a single element (left) or indicate empty (right)"
+@take1.s intro1 .applyd [x inL] [.rw empty.s .wl inR] if
 
 @doc.singleton.s "a -- a`S; construct a single element stream"
 @singleton.s empty.s swap cons.s
@@ -247,6 +250,12 @@ process loops lists blocks conditionals
 @undo.takeExact.s swap [cons.s] each.l empty.l swap
  
 
-
+@doc.zipRemWith.s
+"Zip two streams of unknown relative size. If they are of equal size, all elements will be returned in the left. If streams are of unequal size, we'll return the longer, remaining stream in the right. 
+ 
+   a`S b`S -- ((a*b)+(a`S+b`S))`S 
+ 
+ 
+~
 
 

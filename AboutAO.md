@@ -124,7 +124,7 @@ Parsing AO code is simple. AO code is a whitespace (SP or LF) separated sequence
 * capability text `{` to following `}`
 * blocks `[` ... `]`
 
-In addition, there are some experimental extensions to AO under evaluation. An [ambiguity](doc/AboutAmbiguity.md) extension uses `(`, `|`, and `)`. A concept for [embedded literal objects](doc/ExtensibleLiteralTypes.md) concept uses `〚` and `〛` (U+301A-B). I'm further reserving the other unicode white variants `⦃⦄⦅⦆` (U+2983-6) for potential future extensions and experiments.
+In addition, there are some experimental extensions to AO under evaluation. An [ambiguity](doc/AboutAmbiguity.md) extension uses `(`, `|`, and `)`. A concept for [embedded literal objects](doc/ExtensibleLiteralTypes.md) uses `〚` and `〛` (U+301A-B). I'm further reserving the other unicode white variants `⦃⦄⦅⦆` (U+2983-6) for potential future extensions and experiments.
 
 Most of UTF-8 is available to define words. However, words are constrained to simplify reading, parsing, printing, documenting, quoting, streaming, and extending. So the following limits apply, albeit roughly:
 
@@ -139,7 +139,7 @@ In addition to white space (SP, LF), block characters `[` and `]` act as word se
 
 ### AO Dictionary File
 
-To support early development using filesystem and text editor, AO has a simple **.ao** dictionary file format - primarily for use with command-line tools. Each **.ao** dictionary file supports multiple definitions plus imports of other dictionary files. This format looks like:
+To support *early* development using filesystem and text editor, AO has a simple **.ao** dictionary file format - primarily for use with command-line tools. Each **.ao** dictionary file supports multiple definitions plus imports of other dictionary files. This format looks like:
 
         import1 import2 import3
         @word1 definition1 using word2 word3
@@ -153,7 +153,7 @@ Regular entries start with `@word` at the beginning of a new line, followed by t
 
 The *import* section, before the first entry separator, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). Each import file is processed once, regardless of duplication or cycles, favoring an order such that those listed last are loaded last. A dictionary as a whole is specified from a root file or text.
 
-These AO dictionary files are unlikely to scale well beyond 10k words. Eventually, they will be deprecated in favor of a database or similar.
+This format will be deprecated in the near future. It doesn't scale well, and doesn't readily support rich tooling (refactoring, real-time type information, etc.). AO dictionaries will eventually move to programmatically rich, persistent storage media like databases.
 
 ### Processing of AO Dictionary
 

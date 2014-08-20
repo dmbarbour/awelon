@@ -2,13 +2,34 @@
 @doc.DataMaps
 "A 'map' in computer science typically refers to a abstract collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
  
-     add or remove (key, value) pairs
-     lookup value given the key
+     add, remove, or update (key, value) pairs
+     lookup value given the key, or test if key exists
      split a map relative to a given key
+     compose two maps in various ways (join, union, etc.)
      stream processing of (key*value) pairs
  
- Commonly, maps  implementations for maps include hash tables and binary search trees. In this particular case, we'll be favoring a balanced binary search tree, and maps are defined together with a comparison function (the equivalent of 'less-than') on keys. Keys, in this case, are homogeneously typed.
+ The shorthand type descriptor I'll be using for these maps is (K,V)`Map. 
  
- It is common for a map to be 'homogeneous' in type, meaning that all values are of the same type. But we may also have heterogeneously typed maps, where the type of the value depends on the key. The keys, OTOH, must be homogeneously typed.
+ The underlying implementation, in this case (for `.m` suffix) will be a balanced binary search tree, though not directly exposed to the developer. The search tree is sealed behind {:m} sealers and is coupled with a key comparison function. 
+ 
+     K`compare :: K K -- Bool; corresponding to 'less than' in meaning
+ 
+ The keys must be homogeneously typed (such that any two keys may be compared). But the values may be heterogeneous (i.e. dependent on key). Keys must also be copyable and droppable.
+ 
+ A map is a general purpose structure and has a fair amount of performance overhead. (Some of that overhead may be mitigated by ABCD or if a runtime is designed to recognize map values.) If developers have a huge collection of maps all using the same keys, a table-based data structure may be more appropriate. If keys share a lot of structure that can be compared incrementally, a trie (stream or list based) may be more appropriate.
 ~
 @doc.suffix.m doc.DataMaps
+
+@doc.stackCompareToKeyCompare.m "[K K -- Bool] -- [(K*K)→Bool]"
+@stackCompareToKeyCompare.m [wx] composel applyWrap
+
+@doc.empty.m "K`compare -- (K,V)`M"
+
+
+@doc.RedBlackTree
+"A red black tree is a proposed implementation for a balanced trees used in maps. 
+~
+ 
+ 
+
+
