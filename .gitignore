@@ -9,3 +9,4 @@ cabal-dev/
 __pycache__/
 *.pyc
 aotmp/
+ao/compiledWords.ao
