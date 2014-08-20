@@ -250,12 +250,31 @@ process loops lists blocks conditionals
 @undo.takeExact.s swap [cons.s] each.l empty.l swap
  
 
-@doc.zipRemWith.s
-"Zip two streams of unknown relative size. If they are of equal size, all elements will be returned in the left. If streams are of unequal size, we'll return the longer, remaining stream in the right. 
+@doc.zipRem.s
+"Zip two streams of unknown relative size. If they are of equal size, all elements will be returned in the left. If streams are of unequal size, we'll return the longer, remaining stream in the right (as the final element in the stream).
  
    a`S b`S -- ((a*b)+(a`S+b`S))`S 
  
- 
+ I have contemplated a variation on streams that always return a value on termination. However, it is not clear how one would go about composing those streams in other ways (e.g. `addend` is a little unclear). This results in an awkward construction to handle streams of different sizes.
 ~
+@zipRem.s pw [next.zipRem.s] fromStateE.s
+@next.zipRem.s 
+ wx 
+ intro1 .applyd .rw
+ intro1 .applyd .wl
+ [onB.zipRem.s] [noB.zipRem.s] if
+@onB.zipRem.s .rw [.wl onAB.zipRem.s] [.wl onB-A.zipRem.s] if
+@noB.zipRem.s .rw [.wl onA-B.zipRem.s] [.wl noAB.zipRem.s] if
+@onAB.zipRem.s dx x swapd pw inL dpw p inL
+@onB-A.zipRem.s .rw elim1 .wl x cons.s inR inR lastElem.zipRem.s
+@onA-B.zipRem.s elim1 x cons.s inL inR lastElem.zipRem.s
+@lastElem.zipRem.s empty.s dup pw pw inL
+@noAB.zipRem.s drop2 intro1 inR
+
+@doc.zip.s "a`S b`S -- (a+b)`S; truncate larger stream (which must be droppable)"
+@zip.s pw [next.zip.s] fromStateE.s
+@next.zip.s wx intro1 .applyd [onB.zip.s] [dropd inR] if
+@onB.zip.s .rw intro1 .applyd [.wl onAB.zip.s] [.wl drop inR] if
+@onAB.zip.s dx x swapd pw dpw p inL
 
 
