@@ -9,7 +9,6 @@
  
  Commonly, maps  implementations for maps include hash tables and binary search trees. In this particular case, we'll be favoring a balanced binary search tree, and maps are defined together with a comparison function (the equivalent of 'less-than') on keys. Keys, in this case, are homogeneously typed.
  
- It is common for a map to be 'homogeneous'
- 
-~ 
+ It is common for a map to be 'homogeneous' in type, meaning that all values are of the same type. But we may also have heterogeneously typed maps, where the type of the value depends on the key. The keys, OTOH, must be homogeneously typed.
+~
 @doc.suffix.m doc.DataMaps

@@ -15,13 +15,25 @@
 @v.abc %v
 @c.abc %c
 
-@eqv.lr [%lr] []
-@eqv.rl [%rl] []
-@eqv.ww [%ww] []
-@eqv.zz [%zz] []
-@eqv.vc [%vc] []
-@eqv.cv [%cv] []
-@eqv.zwz [%zwz] [%wzw]
+@eqv.id.%lr [%lr] []
+@eqv.id.%rl [%rl] []
+@eqv.id.%ww [%ww] []
+@eqv.id.%zz [%zz] []
+@eqv.id.%vc [%vc] []
+@eqv.id.%cv [%cv] []
+@eqv.wzw.zwz [%zwz] [%wzw]
+
+@eqv.id.rwlzrwlz [%rwlzrwlz] []
+@eqv.id.zrwlzrwl [%zrwlzrwl] []
+@eqv.id.lvrrwllcrw [%lvrrwllcrw] []
+@eqv.id.lvrrwzlwlc [%lvrrwzlwlc] []
+@eqv.id.lvrrzlwlcw [%lvrrzlwlcw] []
+@eqv.id.rwlvrrwllc [%rwlvrrwllc] []
+@eqv.id.rwvrwrzllc [%rwvrwrzllc] []
+@eqv.id.rrwllzrrwllz [%rrwllzrrwllz] []
+@eqv.id.rrzllzrrzllz [%rrzllzrrzllz] []
+@eqv.id.rzlzrzlzrzlz [%rzlzrzlzrzlz] []
+@eqv.id.zrzlzrzlzrzl [%zrzlzrzlzrzl] []
 
 @doc.copy.abc "(a*e)→(a*(a*e)); copy; requires copyable a"
 @doc.drop.abc "(a*e)→e; drop; requires droppable a"
@@ -43,13 +55,13 @@
 @V.abc %V
 @C.abc %C
 
-@eqv.LR [%LR] []
-@eqv.RL [%RL] []
-@eqv.WW [%WW] []
-@eqv.ZZ [%ZZ] []
-@eqv.VC [%VC] []
-@eqv.CV [%CV] []
-@eqv.ZWZ [%ZWZ] [%WZW]
+@eqv.id.LR [%LR] []
+@eqv.id.RL [%RL] []
+@eqv.id.WW [%WW] []
+@eqv.id.ZZ [%ZZ] []
+@eqv.id.VC [%VC] []
+@eqv.id.CV [%CV] []
+@eqv.WZW.ZWZ [%ZWZ] [%WZW]
 
 @doc.ap.abc "([a→a']*(a*e))→(a'*e); apply"
 @doc.comp.abc "([x→y]*([y→z]*e))→([x→z]*e); compose blocks/functions"
@@ -202,28 +214,36 @@
 @doc.invocations.abc
 "ABC can call out to the environment by using special curly brace operators of the form `{foo}`. This will invoke the environment with token 'foo' and the tacit value. ABC cannot forge the token, i.e. no primitive ABC operators permit moving from "foo" as text to {foo} as an operator. 
  
- It is recommended that implementations for open systems favor cryptographically secure text - i.e. encrypted or signed text, or secure random GUIDs. Consequently, the text between the curly braces is often called "capability text". When wrapped in a block like [{foo}], these invocations become first-class, securable capabilities.
+ It is recommended that implementations for open systems favor cryptographically secure text - i.e. encrypted or signed text (via HMAC or PKI). Consequently, the text between the curly braces is often called "capability text". When wrapped in a block like [{foo}], these invocations become first-class, transferrable and cryptographically securable capabilities.
  
  AO permits hard-wiring a few classes of invocations. Specifically:
  
- * {&foo} - annotations. These have identity behavior but may tweak non-observable behaviors like memoization, parallel computation, debug output, typechecking.
- * {:foo} - value sealing; AO allows ad-hoc discretionary sealers
+ * {&foo} - annotations; to tweak performance or support debugging or typing
+ * {:foo} - value sealing; ad-hoc discretionary sealers act as type wrappers
  * {.foo} - unseal a value previously sealed with {:foo}
+ 
+ AO can also indirectly utilize `{#resourceId}` separate compilation and linking, via `compile!foo` directives. Resource identifiers are derived from the secure hash of the bytecode and of its compressed, encrypted distribution form.
+ 
+ ABC may additionally establish other standard capability types, e.g. to support true sealers, uniqueness sources, or homomorphic encryption. But most capabilities are specific - i.e. indicating authority to observe or influence a specific resource on a specific machine.
 ~
 
 @doc.linking.abc
-"ABC has a non-conventional model for separate compilation and linking, designed for compatibility with streaming code and security concerns.
+"ABC's separate compilation and linking model is designed for secure distributed programming and streaming code. An ABC resource is a finite ABC subprogram (much like a block) that can be inlined through ABC's invocation model, i.e. `{#resourceId}`. Such an invocation will typically cause the identified resource to be downloaded, decrypted, decompressed, cached, and compiled.
  
- An external source is referenced by `{#secureHash}` where 'secureHash' is a representation of a secure hash of external ABC source code. (I'm imagining a base64url representation and SHA3-384 secure hash.) A large secure hash can effectively act as a unique identifier for the ABC code, which is loaded (or downloaded) then executed.
+ The resource identifier is constructed as follows:
  
- This mechanism is somewhat bulky for low-level functions, but quite useful for large data structures or software components, documents or web pages in a hypothetical ABC-based web, application libraries or plugins, and so on. Separate compilation is achievable by pre-compiling and caching code associated with the secure hash. So there is some play where a small but expensive-to-compile structure is a good choice for a named component.
+ * secure hash of the bytecode is used as encryption key
+ * bytecode is deterministically compressed before encryption
+ * secure hash of ciphertext is used as lookup and storage key
+ * resourceId is concatenation of two secure hashes
+ * resourceId is encoded in ABC's base16 ('a-z' minus 'aeiou' and 'vrwlc')
  
- Because ABC uses a secure hash for naming:
+ A resource may include more such resource ids. Through caching and compiling and reusing these resources, Awelon project systems can save a great deal of bandwidth and avoid a lot of rework. Secure hashes effectively enforce that dependencies form a directed acyclic graph. The update and maintenance problems are clearly separate concerns, handled in other program layers. Older resources may eventually be deprecated and fall out of use. 
  
- * negligible risk of cyclic references or name collisions
- * location independent names; download code from anywhere
- * no concerns for update, versioning, or cache invalidation
+ ABC resources are not restricted to program logic. Arbitrary data or content, including binary data, may be embedded in ABC then distributed as a resource. Non-compressible binaries will see an expansion of less than 2.4%, which is tolerable for most use-cases. There are many advantages to embedding data: transparent procedural generation; support for richer data structures (e.g. streams); easy mashups, reuse, and caching of content; and potential to compile resources directly into an application. 
  
- By default, we might expect the sender of ABC containing a secure hash to also provide the named code upon request. However, the same ABC code may include `{&annotations}` that suggest searching elsewhere. So it is not difficult to separate the concerns of hosting bulky code from referencing it.
+ Resources may be downloaded from anywhere, validated using secure hashes, and cached indefinitely. ABC resources are highly compatible with content delivery networks, peer-to-peer distribution, and cloud storage. A runtime or resource may suggest a few locations to search for resources via annotations. For the most part, we can treat resource ids as a global dictionary.
+ 
+ See also: `prefix.compile!`, `prefix.secret!`, `doc.BinariesInABC`
 ~
 

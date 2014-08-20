@@ -25,10 +25,6 @@
 @cons.l p inL
 @consd.l swapd cons.l swap
 
-@doc.cphead.l "a`L -- a`L (a+1); copyable a; copies first element in list (if any)"
-@cphead.l [x dup dp inL %rw inL %wl] [inR dup] if
-
-
 @assertEmpty.l assert inR
 @assertNonEmpty.l mirror assert inL
 
@@ -198,8 +194,10 @@
 @breakP.l [mirror] compose spanP.l
 @span.l wrapObserver.b spanP.l
 
-@doc.spanRevP "a`L [a--(a+b)] -- a`L b(rev)`L"
-@doc.spanRevAppP "b0`L a`L [a--(a+b)] -- (b(rev)++b0)`L a`L"
+@doc.spanRevP.l "a`L [a--(a+b)] -- a`L b(rev)`L"
+@doc.spanRevAppP.l "b0`L a`L [a--(a+b)] -- (b(rev)++b0)`L a`L"
+@doc.breakRevP.l "a`L [a--(b+a)] -- a`L b(rev)`L"
+@breakRevP.l [not.b] compose spanRevP.l
 @spanRevP.l empty.l unrot spanRevAppP.l swap
 @spanRevAppP.l applyWrap [open.spanRAP.l] bind fixpoint apply2to2
 @open.spanRAP.l swap take2 [part.spanRAP.l] [inR discard2]  if
@@ -337,15 +335,22 @@
   assertInR elim1
   "dlrow olleh" assertEQ1
 
-@doc.indexOf.l "a`L [a -- Bool] -- a`L (1+n); copyable a"
-@indexOf.l wrapObserver.b spanRevP.l swap 
+@doc.indexOf.l "a`L [a -- Bool] -- a`L (n+1); copyable a"
+@indexOf.l 
+ wrapObserver.b breakRevP.l swap
+ [inL found.indexOf.l] [inR notFound.indexOf.l] if
+@found.indexOf.l 1 unrot swap [cons.l incd] foreach.l swap inL
+@notFound.indexOf.l swap reverseAppend.l intro1 inR
 
-@doc.elemAt.l  "a`L N -- (1+a); copyable a; N in 1..length"
+@doc.elemAtHead.l "a`L -- a`L (a+1); copyable a; copies first element in list (if any)"
+@elemAtHead.l [x dup dp inL %rw inL %wl] [inR dup] if
+
+@doc.elemAt.l  "a`L N -- (a+1); copyable a; N in 1..length; returns in right if list is too short"
 @elemAt.l 
  assertNatural+ dec 
  splitReverse.l swap
- [x dup inL take p inL] [intro1 inR take inR] if
- swap reverseAppend.l
+ elemAtHead.l take swap
+ reverseAppend.l put
  
 
 

@@ -1,3 +1,5 @@
 @doc.import.compiledWords "contains compilation directives; see `doc.prefix.compile!`"
 
 @compile!spanRevP.l
+@compile!each.l
+@compile!eachUntil.l
