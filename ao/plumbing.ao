@@ -20,66 +20,66 @@
 
 @id 
 @dup  %r^zlwl
-@dupd %rw dup %wl
+@dupd .rw dup .wl 
 @over dupd swap
 @tuck swap over
-@pick %rw over %wl swap
+@pick .rw over .wl swap
 @drop %r%
-@nip  %rw drop  %wl
-@nip2 %rw drop2 %wl
-@nip3 %rw drop3 %wl
-@nip4 %rw drop4 %wl
+@nip  .rw drop  .wl 
+@nip2 .rw drop2 .wl 
+@nip3 .rw drop3 .wl 
+@nip4 .rw drop4 .wl 
 @dropd nip
 @swap  %rwrwzwlwl
-@swapd %rw swap %wl
+@swapd .rw swap .wl 
 @rot swapd swap
 @unrot swap swapd
 @spin swap swapd swap
-@roll %rw rot %wl swap
-@unroll swap %rw unrot %wl
+@roll .rw rot .wl swap
+@unroll swap .rw unrot .wl 
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
 
-@rotd %rw rot %wl
-@rolld %rw roll %wl
-@unrotd %rw unrot %wl
-@unrolld %rw unroll %wl
+@rotd .rw rot .wl 
+@rolld .rw roll .wl 
+@unrotd .rw unrot .wl 
+@unrolld .rw unroll .wl 
 
 @roll2 swap
 @roll3 rot
 @roll4 roll
-@roll5 %rw roll4 %wl swap 
-@roll6 %rw roll5 %wl swap
-@roll7 %rw roll6 %wl swap
-@roll8 %rw roll7 %wl swap
-@roll9 %rw roll8 %wl swap
+@roll5 .rw roll4 .wl swap 
+@roll6 .rw roll5 .wl swap
+@roll7 .rw roll6 .wl swap
+@roll8 .rw roll7 .wl swap
+@roll9 .rw roll8 .wl swap
 
 @roll2d swapd
 @roll3d rotd
 @roll4d rolld
-@roll5d %rw roll5 %wl
-@roll6d %rw roll6 %wl
-@roll7d %rw roll7 %wl
-@roll8d %rw roll8 %wl
-@roll9d %rw roll9 %wl
+@roll5d .rw roll5 .wl 
+@roll6d .rw roll6 .wl 
+@roll7d .rw roll7 .wl 
+@roll8d .rw roll8 .wl 
+@roll9d .rw roll9 .wl 
 
 @unroll2 swap
 @unroll3 unrot
 @unroll4 unroll
-@unroll5 swap %rw unroll4 %wl
-@unroll6 swap %rw unroll5 %wl
-@unroll7 swap %rw unroll6 %wl
-@unroll8 swap %rw unroll7 %wl
-@unroll9 swap %rw unroll8 %wl
+@unroll5 swap .rw unroll4 .wl 
+@unroll6 swap .rw unroll5 .wl 
+@unroll7 swap .rw unroll6 .wl 
+@unroll8 swap .rw unroll7 .wl 
+@unroll9 swap .rw unroll8 .wl 
 
 @unroll2d swapd
 @unroll3d unrotd
 @unroll4d unrolld
-@unroll5d %rw unroll5 %wl
-@unroll6d %rw unroll6 %wl
-@unroll7d %rw unroll7 %wl
-@unroll8d %rw unroll8 %wl
-@unroll9d %rw unroll9 %wl
+@unroll5d .rw unroll5 .wl 
+@unroll6d .rw unroll6 .wl 
+@unroll7d .rw unroll7 .wl 
+@unroll8d .rw unroll8 .wl 
+@unroll9d .rw unroll9 .wl 
 
 @test.unroll7
   1 2 3 4 5 6 7 unroll7
@@ -137,12 +137,12 @@
 @dup6 pw pw pw pw pw dup   dwx dwx dwx dwx dwx   wx wx wx wx wx
 @dup7 pw pw pw pw pw pw dup   dwx dwx dwx dwx dwx dwx   wx wx wx wx wx wx
 
-@dup2.alt %rw dup      %wl dup unroll2d
-@dup3.alt %rw dup2.alt %wl dup unroll3d
-@dup4.alt %rw dup3.alt %wl dup unroll4d
-@dup5.alt %rw dup4.alt %wl dup unroll5d
-@dup6.alt %rw dup5.alt %wl dup unroll6d
-@dup7.alt %rw dup6.alt %wl dup unroll7d
+@dup2.alt .rw dup      .wl dup unroll2d
+@dup3.alt .rw dup2.alt .wl dup unroll3d
+@dup4.alt .rw dup3.alt .wl dup unroll4d
+@dup5.alt .rw dup4.alt .wl dup unroll5d
+@dup6.alt .rw dup5.alt .wl dup unroll6d
+@dup7.alt .rw dup6.alt .wl dup unroll7d
 
 @eqv.dup2 [dup2] [dup2.alt]
 @eqv.dup3 [dup3] [dup3.alt]
@@ -175,13 +175,18 @@
 @r %rrrwzlwll
 @pw p w
 @wx w x
-@dp  %rw p  %wl
-@dx  %rw x  %wl
-@dw  %rw w  %wl
-@dpw %rw pw %wl
-@dwx %rw wx %wl
-@dl  %rw l  %wl
-@dr  %rw r  %wl
+@dp  .rw p  .wl 
+@dx  .rw x  .wl 
+@dw  .rw w  .wl 
+@dpw .rw pw .wl 
+@dwx .rw wx .wl 
+@dl  .rw l  .wl 
+@dr  .rw r  .wl 
+
+@doc..rw "((a*s)*e)→(s*(a*e)); simpler version of 'take' if we don't need environment other than stack"
+@doc..wl "(s*(a*e))→((a*s)*e); simpler version of 'put' if we don't need environment other than stack"
+@.rw %rw
+@.wl %wl
 
 @doc.zip2 "(c*d) (a*b) -- (b*d) (a*c)"
 @zip2 dx x swapd p dp
@@ -259,7 +264,7 @@
 @l_ %rwrzwll
 @r_ %rrwzlwl
 @w_ %rwrwzwlwl
-@z_ %rw w_ %wl
+@z_ .rw w_ .wl 
 
 @v__ v_ r_ w_ v_ r_ w_ l_ c_
 @c__ v_ r_ w_ l_ c_ w_ l_ c_

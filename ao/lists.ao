@@ -343,7 +343,7 @@
 @notFound.indexOf.l swap reverseAppend.l intro1 inR
 
 @doc.elemAtHead.l "a`L -- a`L (a+1); copyable a; copies first element in list (if any)"
-@elemAtHead.l [x dup dp inL %rw inL %wl] [inR dup] if
+@elemAtHead.l [x dup dp inL .rw inL .wl] [inR dup] if
 
 @doc.elemAt.l  "a`L N -- (a+1); copyable a; N in 1..length; returns in right if list is too short"
 @elemAt.l 
