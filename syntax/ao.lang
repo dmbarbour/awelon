@@ -3,7 +3,7 @@
 
  This file is for use with GtkSourceView, which is used by gedit etc.
  
- You may use this under any OSI-approved license you wish, including GPL or BSD.
+ You may use this under your choice of the GPLv2, GPLv3, BSD, or MIT licenses.
 
 -->
 <language id="ao" _name="Awelon Object" version="2.0" _section="Sources">
