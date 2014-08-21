@@ -1,8 +1,6 @@
 
 @doc.Loops
-"Loops in AO are ultimately expressed using fixpoint combinators. A loop will repeatedly copy and apply a block (which represents the body of the loop) until a terminating condition is observed.
- 
- To the potential user of AO: please avoid explicit loops!
+"Loops in AO are ultimately expressed using fixpoint combinators. A loop will repeatedly copy and apply a block (which represents the body of the loop) until a terminating condition is observed. In practice, explicit loops should be avoided whenever possible, except when modeling collections types (streams, lists, etc.). Ultimately, AO should have the flavor of collection-oriented programming languages - i.e. very few loops exposed to programmers - despite the lack of built-in collection types.
  
  Compared to the recursive functions or built-in loops of more conventional programming languages, using fixpoint combinators is very awkward. Convenient loops are simply a low priority for AO's design. Instead, AO favors developing a few common collection types with collection-oriented words (which covers many use-cases for loops), plus incremental application models such that the outer loop is implicit.
  
@@ -11,7 +9,7 @@
 
 @doc.repeat "a [a -- a] n -- a; repeat block `n` times"
 
-@repeat assertNatural %rw [step.repeat] bind fixpoint %wl swap inline
+@repeat assertNatural .rw [step.repeat] bind fixpoint .wl swap inline
 @step.repeat rot dup 0 gt  [drop3] [action.repeat] if_
 @action.repeat dec unrot dip2 inline 
 
@@ -83,15 +81,15 @@
 @doc.fixpoint
 "This fixpoint combinator binds a function to receive itself (in fixpoint form) as an argument on the stack. Fixpoint enables expression of recursive behavior.
  
-     [foo] fixpoint
-         is equivalent to
-     [[foo] fixpoint foo]
-         is equivalent to
-     [[[foo] fixpoint foo] foo]
+        [foo] fixpoint
+            is equivalent to
+        [[foo] fixpoint foo]
+            is equivalent to
+        [[[foo] fixpoint foo] foo]
  
  When invoked, the function `foo` has access to itself (in fixpoint form) as a block on the stack. 
  
- Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming and simple 'inline everything' semantics. Fortunately, it is not difficult for a compiler to identify fixpoint loops and optimize them for more conventional architectures.
+ Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming programs and AO's simple 'inline everything' semantics. Unfortunately, expressing loops in this manner is relatively awkward, and a direct interpretation will be less efficient than a stored program's jump based loops. The performance issue can be mitigated by a compiler, i.e. recognizing that the same function will be constructed in every step. The awkwardness can be mitigated by good collections libraries and support for collection-oriented programming.
  
  NOTE: Loops in Awelon are required to terminate. Optimizers are allowed to assume termination, and linters or typecheckers are allowed to reject a non-terminating subprogram (if they recognize one). But proof of termination is ultimately left to the developer. Conventional process models - e.g. infinite loops - are not valid in Awelon. Instead, long-running services or applications in Awelon project are generally modeled as bounded RDP behaviors or unbounded streaming code (discussed in detail elsewhere).
  
