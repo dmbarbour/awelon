@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+ This file is for use with GtkSourceView, which is used by gedit etc.
+ 
+ You may use this under any OSI-approved license you wish, including GPL or BSD.
+
+-->
+<language id="ao" _name="Awelon Object" version="2.0" _section="Sources">
+  <metadata>
+    <property name="mimetypes">text/x-awelon-object</property>
+    <property name="globs">*.ao</property>
+  </metadata>
+
+  <styles>
+    <style id="ilstring"      _name="Inline String"      map-to="def:string"/>
+    <style id="mlstring"      _name="Multi-Line String"  />
+    <style id="binary"        _name="Embedded Binary"    map-to="def:special-constant"/>
+    <style id="annotation"    _name="Annotation"         map-to="def:preprocessor"/>
+    <style id="sealer"        _name="Seal or Unseal"     map-to="def:preprocessor"/>
+    <style id="unkinv"        _name="Unknown Invocation" map-to="def:warning"/>
+    <style id="abc"           _name="Embedded ABC"       map-to="def:keyword"/>
+    <style id="number"        _name="Number literal"     map-to="def:decimal"/>
+    <style id="define"        _name="Defined Word"       map-to="def:type"/>
+  </styles>
+
+  <default-regex-options case-sensitive="false"/>
+
+  <definitions>
+
+    <define-regex id="abc16char">[bdfghjkmnpqstxyz]</define-regex>
+    <define-regex id="abc16byte">\%{abc16char}\%{abc16char}</define-regex>
+    <define-regex id="abc16">\%{abc16byte}\%{abc16byte}\%{abc16byte}+</define-regex>
+    <context id="embeddedBinary" class="no-spell-check" style-ref="binary">
+        <match>\%{abc16}</match>
+    </context>
+
+    <define-regex id="abcOp">[lrwzvc%^$o'kf#0123456789+\-*/QLRWZVC?DFMK\x3E]</define-regex>
+    <context id="inlineABC" style-ref="abc" class="no-spell-check">
+        <match>%\%{abcOp}+</match>
+    </context>
+
+    <context id="withinString">
+        <include>
+            <context ref="embeddedBinary"/>
+            <context ref="def:in-comment"/>
+        </include>
+    </context>
+
+    <context id="inlineString" style-ref="ilstring" class-disabled="no-spell-check" end-at-line-end="true">
+        <start>"</start>
+        <end>"</end>
+        <include>
+            <context ref="withinString"/>
+        </include>
+    </context>
+
+    <context id="multiLineString" style-ref="mlstring" class-disabled="no-spell-check">
+        <start>^"</start>
+        <end>^~</end>
+        <include>
+            <context id="badEscapeLF" style-ref="def:error">
+                <match>^[^~\x20]</match>
+            </context>
+            <context ref="withinString"/>
+            <context ref="markdown:markdown-syntax"/>
+        </include>
+    </context>
+
+    <define-regex id="posInt">[1-9][0-9]*</define-regex>
+    <define-regex id="anyInt" extended="true">0 | (-)?\%{posInt}</define-regex>
+    <define-regex id="fractional">\%{anyInt}/\%{posInt}</define-regex>
+    <define-regex id="hexadecimal">0x[0-9a-fA-F]+</define-regex>
+    <define-regex id="float">\%{anyInt}(\.[0-9]+)?(e\%{anyInt})?</define-regex>
+
+    <define-regex id="wordSep">[\[\]\x20]</define-regex>
+    <define-regex id="xws" extended="true">^ | (?&lt;=\%{wordSep})</define-regex>
+    <define-regex id="fbws" extended="true">(?=\%{wordSep}) | $</define-regex>
+    
+    <context id="fractional" style-ref="number">
+        <match>\%{xws}\%{fractional}\%{fbws}</match>
+    </context>
+    <context id="float" style-ref="number">
+        <match>\%{xws}\%{float}\%{fbws}</match>
+    </context>
+    <context id="hexadecimal" style-ref="number">
+        <match>\%{xws}\%{hexadecimal}\%{fbws}</match>
+    </context>
+
+    <context id="aoNumber">
+        <include>
+            <context ref="hexadecimal"/>
+            <context ref="fractional"/>
+            <context ref="float"/>
+        </include>
+    </context>
+
+    <context id="insideInvocation">
+        <include>
+            <context id="badInvocationChar" style-ref="def:error">
+                <match>[\x0A\x7B]</match>
+            </context>
+            <context ref="embeddedBinary"/>
+        </include>
+    </context>
+
+    <context id="annotation" style-ref="annotation" class="no-spell-check" end-at-line-end="true">
+        <start>\%{xws}\{\x26</start>
+        <end>\}\%{fbws}</end>
+        <include>
+            <context ref="insideInvocation"/>
+        </include>
+    </context>
+
+    <context id="sealOrUnseal" style-ref="sealer" class="no-spell-check" end-at-line-end="true">
+        <start>\%{xws}\{[:.]</start>
+        <end>\}\%{fbws}</end>
+        <include>
+            <context ref="insideInvocation"/>
+        </include>
+    </context>
+
+    <context id="anyInvocation" style-ref="unkinv" class="no-spell-check" end-at-line-end="true">
+        <start>\%{xws}\{</start>
+        <end>\}\%{fbws}</end>
+        <include>
+            <context ref="insideInvocation"/>
+        </include>
+    </context> 
+
+
+    <define-regex id="wc">[^\x00-\x20\[\]"%{}(|)\x7F-\x9F\x{301A}\x{301B}\x{2983}-\x{2986}]</define-regex>
+    <define-regex id="wsc">(?![@0-9+\-\.])\%{wc}</define-regex>
+    
+    <define-regex id="normalWord">\%{wsc}\%{wc}*</define-regex>
+    <define-regex id="specialWord">[+\-\.](?![0-9])\%{wc}*</define-regex>
+    <define-regex id="anyWord" extended="true">\%{normalWord} | \%{specialWord}</define-regex>
+
+    <context id="word" class="no-spell-check" >
+        <match>\%{xws}\%{anyWord}\%{fbws}</match>
+    </context>
+
+    <context id="aoBody" class="no-spell-check">
+        <include>
+            <context ref="annotation"/>
+            <context ref="sealOrUnseal"/>
+            <context ref="anyInvocation"/>
+            <context ref="inlineABC"/>
+            <context ref="multiLineString"/>
+            <context ref="inlineString"/>
+            <context ref="aoNumber"/>
+            <context ref="word"/>
+        </include>
+    </context>
+
+    <context id="defineWord" style-ref="define">
+        <match>^@\%{anyWord}\%{fbws}</match>
+    </context> 
+
+    <context id="ao" class="no-spell-check">
+      <include>
+        <context ref="defineWord" />
+        <context ref="aoBody" />
+      </include>
+    </context>
+
+  </definitions>
+</language>
