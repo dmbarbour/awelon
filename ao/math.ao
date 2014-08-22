@@ -7,9 +7,9 @@
  
  Sadly, concatenative languages are not very nice for expressing sophisticated algebraic formula. The stack shuffling, duplication, and data plumbing can interfere greatly with comprehension compared to a more declarative approach. To address this we can feasibly leverage embedded DSLs and partial evaluation. Compare:
  
-     drop dup dup .mul swap .abs rot3 dup .mul swap .sub .add
-     drop [.square] [.abs] bi .neg [.square] dip .add
-     "x y z → y^2 + x^2 - |y|" doTheMath
+         drop dup dup .mul swap .abs rot3 dup .mul swap .sub .add
+         drop [.square] [.abs] bi .neg [.square] dip .add
+         "x y z → y^2 + x^2 - |y|" doTheMath
  
  These three lines essentially express the same behavior (assuming suitable implementations of each word), but the latter is decidedly more declarative and comprehensible. Unfortunately, it's still stuck in a nasty string. Long term, embedded DSLs should be able to leverage [embedded literal objects](http://awelonblue.wordpress.com/2014/07/22/embedded-literal-objects/) to achieve rich, compositional structure with various maths.
 ~
@@ -173,28 +173,6 @@
 @eqv.decimal6#12.6 [decimal6] [decimal12 decimal6]
 @eqv.decimal6#6.12 [decimal6] [decimal6 decimal12]
 
-@doc.deprecated.assert
-"(A lot of assertions need to be repaired after the monomorphic change to the `>` operator in April 2014).
-  
-     assertLT, assertLTE -- assert upper bounds for a comparable value
-     assertGT, assertGTE -- assert lower bounds for a comparable value
- 
- And common number assertions...
- 
-     assertInteger, assertNatural, assertNatural+  -- assertions on number types
-     assertGTz, assertGTEz -- assert greater than or equal to zero
-     assertEQz, assertNEQz -- assert equal or not equal to zero
-     assertLTz, assertLTEz -- assert less than or equal to zero
-     assertNatural -- integer greater than or equal to zero
-     assertChar -- integer between 0 and 1114111 inclusive
-     assertOctet -- integer between 0 and 255 inclusive
-     assertProb -- rational number between 0 inclusive and 1 inclusive
-     assertUniform -- rational number between 0 inclusive and 1 exclusive
- 
- In an effectful program, some assertions may have dynamic nature. In that case, modulo use of capabilities designed to isolate failure, a dynamic assertion failure causes the whole program to be halted as quickly and cleanly as feasible.
-~
-
-
 @doc..gt  "a b -- ((a*b) + (b*a)); a > b?; for numbers a,b"
 @doc..lt  "a b -- ((b*a) + (a*b)); a < b?; for numbers a,b"
 @doc..gte "a b -- ((a*b) + (b*a)); a ≥ b?; for numbers a,b"
@@ -250,7 +228,8 @@
 @doc.eq  "a b -- ((LT(a*b) + GT(b*a)) + EQ(b*a)); for numbers a,b"
 @doc.neq "a b -- (EQ(b*a) + (LT(a*b) + GT(b*a))); for numbers a,b"
 @eq neq not
-@neq gt [%vr>c] .left %rRl
+@neq %rwrzw> [%vr>c] %r?Rl
+@neq.old gt [%vr>c] .left %rRl
 
 @doc.eq1 "a x -- ((a(<x) + a(>x)) + a(=x)); for numbers a,x"
 @doc.neq1 "a x -- (a(=x) + (a(<x) + a(>x))); a ≠ x?; for numbers a,x"
@@ -264,10 +243,10 @@
 
 @doc.eqb "a b -- Bool; a = b?; for numbers a,b"
 @doc.neqb "a b -- Bool; a ≠ b?; for numbers a,b"
-@eqb eq toBoolean
-@neqb neq toBoolean
+@eqb neqb not
+@neqb neq toBoolean 
 
-
+@doc.assertLT "N N -- N N; e.g. `3 4 assertLT` will pass; identity behavior"
 @assertLT     lt assert wx
 @assertLTE    lte assert wx
 @assertGT     gt assert x
@@ -291,7 +270,10 @@
 @doc..assertUnit "1→1; assert singular value is unit"
 @.assertUnit %vvrwlcc
 
-@assertUnit   elim1 intro1
+@doc..assertFirstUnit "(1*e)→(1*e); assert first value is unit"
+@.assertFirstUnit %vrvrwlcrwlc
+
+@assertUnit   %r .assertFirstUnit %l
 @assertProd   w w
 @assertSum    mirror mirror
 @assertNumber 0 .add
@@ -304,22 +286,22 @@
 @assertProb     assertGTEz 1 assertLTE drop
 @assertUniform  assertGTEz 1 assertLT drop
 
-@eqv.id.assertInR   [inR assert]
-@eqv.id..assertUnit [.assertUnit]
-@eqv.id.assertLT    [assertLT]
-@eqv.id.assertLTE   [assertLTE]
-@eqv.id.assertGT    [assertGT]
-@eqv.id.assertGTE   [assertGTE]
-@eqv.id.assertEQ.n  [assertEQ.n]
-@eqv.id.assertNEQ.n [assertNEQ.n]
-@eqv.id.assertLTz   [assertLTz]
-@eqv.id.assertGTz   [assertGTz]
-@eqv.id.assertGTEz  [assertGTEz]
-@eqv.id.assertLTEz  [assertLTEz]
-@eqv.id.assertEQz   [assertEQz]
-@eqv.id.assertInteger  [assertInteger]
-@eqv.id.assertNatural  [assertNatural]
-@eqv.id.assertNatural+ [assertNatural+]
-@eqv.id.assertChar     [assertChar]
-@eqv.id.assertProb     [assertProb]
-@eqv.id.assertUniform  [assertUniform]
+@eqv.id.assertInR   [inR assert] []
+@eqv.id..assertUnit [.assertUnit] []
+@eqv.id.assertLT    [assertLT] []
+@eqv.id.assertLTE   [assertLTE] []
+@eqv.id.assertGT    [assertGT] []
+@eqv.id.assertGTE   [assertGTE] []
+@eqv.id.assertEQ.n  [assertEQ.n] [] 
+@eqv.id.assertNEQ.n [assertNEQ.n] []
+@eqv.id.assertLTz   [assertLTz] []
+@eqv.id.assertGTz   [assertGTz] []
+@eqv.id.assertGTEz  [assertGTEz] []
+@eqv.id.assertLTEz  [assertLTEz] []
+@eqv.id.assertEQz   [assertEQz] []
+@eqv.id.assertInteger  [assertInteger] []
+@eqv.id.assertNatural  [assertNatural] []
+@eqv.id.assertNatural+ [assertNatural+] []
+@eqv.id.assertChar     [assertChar] []
+@eqv.id.assertProb     [assertProb] []
+@eqv.id.assertUniform  [assertUniform] []

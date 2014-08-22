@@ -11,17 +11,20 @@
  * discard a value from the hand
  * copy an item from the stack into hand
  * paste an item in the hand onto the stack
+ * swap the current stack with the hand
  
  In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments. Also, hands are hidden by some operations, such as `apply`.
  
  AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. Some common words, such as `apply`, will hide the hand - making
 ~
 
-@take %rzlw
 @put %wrzl
+@take hsw put hsw
 @discard put drop
 @copy dup take
 @paste put copy
+@hsw handStackSwap
+@handStackSwap %w
 
 @take2 take  take
 @take3 take2 take
@@ -37,17 +40,17 @@
 @put6  put5  put
 @put7  put6  put
 
-@juggle2 %w roll2 %w
-@juggle3 %w roll3 %w
-@juggle4 %w roll4 %w
-@juggle5 %w roll5 %w
-@juggle6 %w roll6 %w
+@juggle2 hsw roll2 hsw
+@juggle3 hsw roll3 hsw
+@juggle4 hsw roll4 hsw
+@juggle5 hsw roll5 hsw
+@juggle6 hsw roll6 hsw
 
-@discard2 discard  discard
-@discard3 discard2 discard
-@discard4 discard3 discard
-@discard5 discard4 discard
-@discard6 discard5 discard
+@discard2 hsw drop2 hsw 
+@discard3 hsw drop3 hsw 
+@discard4 hsw drop4 hsw
+@discard5 hsw drop5 hsw
+@discard6 hsw drop6 hsw
 
 @copy2 dup2 take2
 @copy3 dup3 take3
@@ -74,8 +77,8 @@
 @doc.taked "take second item from stack"
 @doc.putd "put below first item on stack"
 
-@reifyHand %w reifyStack %w
-@restoreHand %w restoreStack %w
+@reifyHand hsw reifyStack hsw
+@restoreHand hsw restoreStack hsw
 @doc.reifyHand "hand becomes single object in fresh hand"
 @doc.restoreHand "single object in hand becomes hand"
 @doc.swapHands "swap reified hand on stack with current hand"
@@ -94,36 +97,36 @@
 @eqv.takeSwapPut.swapd [take swap put] [swapd]
 
 
-@hx   %w x   %w
-@hw   %w w   %w
-@hp   %w p   %w
-@hwx  %w w x %w
-@hpw  %w p w %w
-@hl   %w l   %w
-@hr   %w r   %w
-@hdp  %w dp  %w
-@hdx  %w dx  %w
-@hdw  %w dw  %w
-@hdpw %w dpw %w
-@hdwx %w dwx %w
-@hdl  %w dl  %w
-@hdr  %w dr  %w
+@hx   hsw x   hsw
+@hw   hsw w   hsw
+@hp   hsw p   hsw
+@hwx  hsw wx  hsw
+@hpw  hsw pw  hsw
+@hl   hsw l   hsw
+@hr   hsw r   hsw
+@hdp  hsw dp  hsw
+@hdx  hsw dx  hsw
+@hdw  hsw dw  hsw
+@hdpw hsw dpw hsw
+@hdwx hsw dwx hsw
+@hdl  hsw dl  hsw
+@hdr  hsw dr  hsw
 
-@hdup  %w dup %w
-@hdupd %w dupd %w
-@hover %w over %w
-@htuck %w tuck %w
-@hpick %w pick %w
-@hdrop %w drop %w
+@hdup  hsw dup hsw
+@hdupd hsw dupd hsw
+@hover hsw over hsw
+@htuck hsw tuck hsw
+@hpick hsw pick hsw
+@hdrop hsw drop hsw
 @eqv.hdrop.discard [hdrop] [put drop]
-@hnip %w nip %w
-@hnip2 %w nip2 %w
-@hdropd %w dropd %w
-@hswap %w swap %w
-@hswapd %w swapd %w
-@hrot %w rot %w
-@hunrot %w unrot %w
-@hspin %w spin %w
-@hroll %w roll %w
-@hunroll %w unroll %w
+@hnip hsw nip hsw
+@hnip2 hsw nip2 hsw
+@hdropd hsw dropd hsw
+@hswap hsw swap hsw
+@hswapd hsw swapd hsw
+@hrot hsw rot hsw
+@hunrot hsw unrot hsw
+@hspin hsw spin hsw
+@hroll hsw roll hsw
+@hunroll hsw unroll hsw
 

@@ -1,35 +1,24 @@
+ord
 
 @doc.DataMaps
-"A 'map' in computer science typically refers to a abstract collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
+"A 'map' in computer science typically refers to an abstract, finite collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
  
      add, remove, or update (key, value) pairs
      lookup value given the key, or test if key exists
-     split a map relative to a given key
      compose two maps in various ways (join, union, etc.)
-     stream processing of (key*value) pairs
+     stream or list processing of (key*value) pairs
  
- The shorthand type descriptor I'll be using for these maps is (K,V)`Map. 
+ A map is typically implemented using hashtables or balanced search trees or hashtables. In this case, that is for AO words of the `.m` suffix, we'll be favoring the simple 2-3 tree, which has predictable performance even in a persistent setting. The map as a whole will additionally track a key comparison function and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations). 
  
- The underlying implementation, in this case (for `.m` suffix) will be a balanced binary search tree, though not directly exposed to the developer. The search tree is sealed behind {:m} sealers and is coupled with a key comparison function. 
+ Shorthand type: (K,V)`Map
+   finite relation 
+   unique keys of homogeneous type K
+   potentially heterogeneous type V (i.e. depending on K)
+   
+ Key comparison function: (K*K)→Ord
+   'Ord' type indicates whether two keys are EQ+(LT+GT)
+   typically via stack function: K K -- Ord
  
-     K`compare :: K K -- Bool; corresponding to 'less than' in meaning
- 
- The keys must be homogeneously typed (such that any two keys may be compared). But the values may be heterogeneous (i.e. dependent on key). Keys must also be copyable and droppable.
- 
- A map is a general purpose structure and has a fair amount of performance overhead. (Some of that overhead may be mitigated by ABCD or if a runtime is designed to recognize map values.) If developers have a huge collection of maps all using the same keys, a table-based data structure may be more appropriate. If keys share a lot of structure that can be compared incrementally, a trie (stream or list based) may be more appropriate.
+ Many related types can be trivially modeled above maps, including multi-maps (via collection type for values), sets (unit values), and multi-sets (counter values). But maps are not always ideal, e.g. if developers have a large collection of maps all using the same keys then some sort of table-based data structure would be more appropriate. If keys share a lot of structure, then a trie may be more appropriate. If keys represent spatial coordinates, a kd-tree may be more appropriate. I would love to have a wide array of moderately specialized data structures for common use-cases.
 ~
 @doc.suffix.m doc.DataMaps
-
-@doc.stackCompareToKeyCompare.m "[K K -- Bool] -- [(K*K)→Bool]"
-@stackCompareToKeyCompare.m [wx] composel applyWrap
-
-@doc.empty.m "K`compare -- (K,V)`M"
-
-
-@doc.RedBlackTree
-"A red black tree is a proposed implementation for a balanced trees used in maps. 
-~
- 
- 
-
-

@@ -51,11 +51,11 @@ boolean
 @doc.if 
 "The 'if' function enables developers to conveniently model conditional behavior. It operates by selecting a block then invoking it. A few variations of 'if' are provided based on whether you need access to the conditional, and whether you wish to keep it.
  
-     if  :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b
-     if_ :: ..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b
-     ifk :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R)
-     ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
-                      on left/false  on right/true  
+         if  :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b
+         if_ :: ..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b
+         ifk :: ..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R)
+         ifd :: ..a (L+R) [..a -- ..b]   [..b -- ..b]   -- ..b (L+R)
+                          on left/false  on right/true  
  
  Only `if` and `if_` can be used where tail-call optimization is needed.
  

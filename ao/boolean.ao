@@ -2,8 +2,6 @@
 @doc.Boolean 
 "A boolean, in AO, is simply a sum of unit values: 1 + 1. By AO's conventions, a value in the left indicates 'false' or 'needs work', while a value in the right indicates 'true' or 'done'. It is this sense of true meaning done that many collection types (lists, streams, maybe, etc.) tend to use the right value for empty.
  
- For documentation purposes, we might consider type `PseudoBool` to represent any (a+b) pair where a and b are droppable, while `Bool` represents (1+1) specifically.
- 
  Sums typically exist either by construction (e.g. representing different data constructors) or as a result of testing whether one number is greater than another. Booleans are more often the result of observation, since they're very lossy (aptly described as 'boolean blindness'). Words for manipulating booleans will use suffix `.b`.
 ~
 
@@ -15,7 +13,7 @@
 @true true.b
 @false false.b
 
-@doc.toBoolean "PseudoBool -- Bool"
+@doc.toBoolean "(a+b) -- Bool; (droppable a, droppable b)"
 @toBoolean %r [%v%] %r?VRW [%v%] %r?WLC %l
 
 @doc.trimBoolean "(x*1 + y*1) -- (x+y); may be useful after distrib"

@@ -8,13 +8,13 @@ boolean streams lists
  1. developers encode binary data in a base16 alphabet
  2. a specialized compression pass will recognize large sequences of base16 
  
- The compressed encoding consists of header byte 0xF8, a length byte L (0..253 + 3), followed by L bytes, i.e. two bytes overhead to encode up to 256 raw bytes. (0xF8 is never used by UTF-8 or ABC. However, it may be escaped by following with 0xFE.) The result is that large binary data, e.g. textures or audio files, may be embedded in Awelon bytecode with an overhead of 0.8%. The break-even with base64 is encoding six bytes.
+ The processing cost is still equivalent to working with a long string of base16 characters. However, for bandwidth and storage purposes, compression of streams and resources will achieve near optimal performance. The proposed compression pass will encode binaries with header byte 0xF8 (which is not used by UTF-8), then length byte L (0..253 + 3), followed by L bytes, i.e. two bytes overhead to encode up to 256 raw bytes, for a total 1:128 overhead (0.8%). The break-even with base64 is encoding six bytes.
  
  The base16 alphabet, however, is not the conventional `0-9a-f`. We instead use:
  
      bdfg hjkm npqs txyz       i.e. `a-z` minus `aeiou` and `vrwlc`
- 
- This minimizes risk of interfering with non-binary data or spelling offensive words. We can be relatively confident that a large string of this base16 alphabet really is intended to represent binary data.
+  
+ This minimizes risk of interfering with non-binary data or spelling offensive words. We can be confident that a large string of this base16 alphabet really is intended to be compressed as binary data.
 ~
 @doc.BinariesInABC doc.BinaryData
 @doc.abcBase16Alphabet "alphabet used to encode binary data in ABC in base16, representing digits 0..15"
@@ -31,8 +31,8 @@ boolean streams lists
  A word of width N should be a value in the range 0 to 2^N - 1. For example, an octet is a word of width 8, encoding numbers in range 0..255. This function takes a single word and a given width, and produces a list of bits with big-endian orientation. Each bit is encoded as a (1+1) sum, in the left for a zero bit. 
 ~
 @wordToBitList 
-    %rw assertNatural empty.l swap
-    [pushBit.wordToBitList] %wl repeat 
+    .rw assertNatural empty.l swap
+    [pushBit.wordToBitList] .wl repeat 
     assertEQz drop
 @pushBit.wordToBitList 
     %r 2 %rQ 0 %r>l
@@ -66,7 +66,7 @@ boolean streams lists
 @doc.bitListToWordK "(1+1)`L K(width) -- N(word); take or fill K bits from list"
 @bitListToWordK 0 unrot [step.bitListToWordK] swap repeat drop
 @step.bitListToWordK [pushBit.bitListToWordK] [inR mul2d] if
-@pushBit.bitListToWordK wx %rw pushBit.bitListToWord %wl
+@pushBit.bitListToWordK wx .rw pushBit.bitListToWord .wl
 
 @bitListToOctet 8 bitListToWordK
 

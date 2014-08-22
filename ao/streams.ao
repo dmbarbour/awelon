@@ -271,10 +271,11 @@ process loops lists blocks conditionals
 @lastElem.zipRem.s empty.s dup pw pw inL
 @noAB.zipRem.s drop2 intro1 inR
 
-@doc.zip.s "a`S b`S -- (a+b)`S; truncate larger stream (which must be droppable)"
+@doc.zip.s "a`S b`S -- (a*b)`S; truncate larger stream (which must be droppable)"
 @zip.s pw [next.zip.s] fromStateE.s
-@next.zip.s wx intro1 .applyd [onB.zip.s] [dropd inR] if
-@onB.zip.s .rw intro1 .applyd [.wl onAB.zip.s] [.wl drop inR] if
+@next.zip.s wx intro1 .applyd [onB.zip.s] [done.zip.s] if
+@onB.zip.s .rw intro1 .applyd [.wl onAB.zip.s] [.wl done.zip.s] if
 @onAB.zip.s dx x swapd pw dpw p inL
+@done.zip.s drop2 intro1 inR
 
 
