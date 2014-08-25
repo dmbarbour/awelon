@@ -88,6 +88,16 @@
 ~
 @compile %r [{&compile}] %r$l
 
+@doc.static
+"The `{&static}` annotation is intended to guide partial evaluation. It indicates that a value should be computable and computed at compile-time. It may help when working with embedded DSLs. 
+ 
+         {&static} :: (v*e) → (v*e)
+         static    :: v -- v
+ 
+ A conforming compiler will take `{&static}` as a strong suggestion, computing the argument if possible and warning the developer (but succeeding) otherwise. Even if an argument cannot be wholly evaluated, it might be partially evaluated or lifted out of a loop. More precise annotations may be necessary in some use cases. 
+~
+@static %r {&static} %l
+
 @doc.prefix.compile!
 "If you define word `compile!foo` this can act as a directive that the AO system should separately compile the word `foo`. The definition of `compile!foo` should be left empty, at least for now. The `compile!` word may later provide opportunity for optimization directives.
  

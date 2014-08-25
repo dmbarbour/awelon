@@ -61,19 +61,20 @@ AO literals have a slightly different type than ABC literals.
         In ABC: e -> L * e
         In AO: (s * e) -> ((L * s) * e)
 
-By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after every literal in AO. AO developers may express ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice. The codes `%l`, `%v`, and `%c` are examples of inline ABC. 
+By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after every literal in AO. AO developers may express ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice; instead, just assume the AO stack while working within AO. The codes `%l`, `%v`, and `%c` are examples of inline ABC. 
 
 ## Inline ABC
 
 ABC code (see AboutABC) is inlined using pseudo-words, having prefix `%`. In addition, capabilities may be syntactically represented using `{` to following `}`.
 
-        %vrwlc      (a primitive swap)
-        %lwcwrwc    (a primitive rot4)
-        {&par}      (an annotation)
+        %vrwlc      ((a*b)→(b*a); a primitive swap)
+        %rwrzw$l    (x [x→y] -- y; apply function to value)
+        {&asynch}   (an annotation for parallelism)
+        {&static}   (annotation for compile-time evaluation)
 
 The canonical expansion of inlined ABC is simply each ABC operator alone. For example, the expansion of `%vrwlc` is equivalent to `%v %r %w %l %c`. ABC's drop operator would be represented as `%%`.
 
-AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and hard-coded sealers sealers... preferably at parse-time. This restriction is valuable for proper capability security.
+AO's inlined ABC in AO may contain most of ABC, excepting text, numbers (`#0123456789`), blocks, and whitespace. AO has its own support for text, numbers, blocks, and whitespace. In addition, while AO is syntactically able to represent any ABC capability, most AO compilers should forbid all except annotations and discretionary sealers. This restriction is valuable for proper capability security.
 
 *Note:* AO developers cannot directly utilize ABCD or ABC's separately compiled resources. However, words may be configured indirectly for compilation, and thus may implicitly be reduced to ABCD or separately compiled resources.
 

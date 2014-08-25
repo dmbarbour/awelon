@@ -91,8 +91,9 @@ The encoding of sealed remains tentative. We must recognize affine vs. relevant 
 While annotations are not strongly standardized, it's nice to avoid conflicts and reuse annotations where feasible. I expect some de-facto standards to emerge. Here are some annotations currently in use:
 
         {&≡}  (that's U+2261) - (a*(a*e))→(a*(a*e)); assert structural equality
-        {&async}              - ([a→b]*e)→([a→b]*e); compute block in parallel
-        {&compile}            - ([a→b]*e)→([a→b]*e); optimize performance for block
+        {&static}             - (a*e)→(a*e); try to compute `a` at compile time
+        {&asynch}             - [a→b]→[a→b]; compute block in parallel
+        {&compile}            - [a→b]→[a→b]; optimize performance for block
 
         {&debug print raw}    - print ad-hoc input to error console (for human) 
         {&debug print text}   - print textual input to error console (for human)
