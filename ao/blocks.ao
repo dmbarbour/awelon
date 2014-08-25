@@ -416,6 +416,21 @@
  12 assertEQ1 unrot
  2  assertEQ1 unrot
 
+@doc..bi& "a a [a→b] -- b b; raw 'bi&'"
+@doc..tri& "a a a [a→b] -- b b b; raw 'tri&'"
+@.bi& dup .rw .apply swap .wl .apply swap
+@.tri& dup .rw .apply rot .wl dup .rw .apply rot .wl .apply rot
+
+@test..bi&
+ 3 4 [inc\1] .bi& 
+ 4 assertEQ1d.n
+ 5 assertEQ1.n
+@test..tri&
+ 2 3 4 [mul2\1] .tri&
+ 4 assertEQ1dd.n
+ 6 assertEQ1d.n
+ 8 assertEQ1.n
+
 @doc.Quotable
 "Most values in AO are quotable. 
  
