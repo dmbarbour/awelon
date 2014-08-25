@@ -2,43 +2,49 @@
 @doc.Ordinal
 "An ordinal comparison takes two values and returns a simple ordering:
  
-         (K*K)→Ord
+         k`Compare is (k*k)→Ord
          Ord is (EQ+(LT+GT))
-             as (1+(1+1))
+             represented as (1+(1+1))
  
- Here, `EQ` represents that two values are equivalent or unordered. `LT` and `GT` indicate a less-than or greater-than ordering, assuming the normal irreflexive and transitive properties one should expect from these relationships. The `Ord` type is useful because, at least for composite types, it can avoid a lot of rework compared to making two less-than comparisons with the arguments flipped.
+ Here, `EQ` represents that two values are equivalent (or unordered). `LT` and `GT` indicate a less-than or greater-than ordering, assuming the normal irreflexive and transitive properties one should expect from those relationships. Ordinals can avoid a lot of rework when comparing complex objects, such as lists or streams. In many cases, e.g. when working with keys in a map, we'll assume that elements are totally ordered.
 ~
 
-@doc.compareOnStackToRawCompare "[K K -- Bool] -- [(K*K)→Bool]"
+@doc.compareOnStackToRawCompare "[k k -- Ord] -- [(k*k)→Ord]"
 @compareOnStackToRawCompare [wx] composel applyWrap
 
+@doc.rawCompareToCompareOnStack "[(k*k)→Ord] -- [k k -- Ord]"
+@rawCompareToCompareOnStack [dpw .apply] bind
 
+@doc.compareNumbers "(Num*Num)→Ord"
+@compareNumbers compareNumbers' toOrd\1
 
-@doc.listLessThan.l 
-"Given two lists of similar type and a less-than (transitive, irreflexive, totally ordered) comparison function, return whether the first list is less-than the second. If the first list is shorter than the second, but all elements up to that point are equivalent, it will also return 'true' for less-than.
- 
-        a`L a`L [(a*a)→Ord] -- Ord  
-        for copyable & droppable types a,b
- 
- This is mostly intended to be used for comparing text, and is rather specialized for this particular use case. It may be a more generalized approach would serve better, e.g. based on stream processing or a generalized multi-zip. But this will do for now.
-~
-@listLessThan.l [step.listLessThan.l] bind fixpoint inline
-@step.listLessThan.l swap take2 [onB.listLessThan.l] [discard2 drop2 false.b] if
-@onB.listLessThan.l take [put onAB.listLessThan.l] [discard3 drop true.b] if
-@onAB.listLessThan.l 
-  dx x swapd pw dup paste .applyd
-  [notLT.listLessThan.l] [drop2 discard2 true.b] if_
-@notLT.listLessThan.l
-  w put .applyd [put inline] [drop2 discard false.b] if_
-@onB-A.listLessThan.l drop2 discard2 true.b
-@onA-B.listLessThan.l drop2 discard2 false.b
-  
-  
-  
-  
-  
-  
+@doc.compareNumbers' "(Num(a)*Num(b))→((EQ(a*a))+(LT(a*b)+GT(b*a)))"
+@compareNumbers' %vrw> [%vr>c] %r?Rc
 
+@doc.toOrd "(eq+(lt+gt)) -- (1+(1+1)); droppable eq,lt,gt"
+@doc.toOrd\1 "(eq+(lt+gt))→(1+(1+1))"
+@toOrd\1  %v e.toOrd %c
+@e.toOrd  %VRWRW [%v%] %r?W [%v%] %r?LW [%v%] %r?LC
+@toOrd    %r e.toOrd %l
 
+@doc.compareLists "k`L k`L [(k*k)→Ord] -- Ord; compare lists item by item"
+@compareLists take fromList.s take fromList.s put2 compareStreams
+
+@doc.compareStreams "k`S k`S [(k*k)→Ord] -- Ord; compare streams item by item"
+@compareStreams [step.compareStreams] bind fixpoint inline
+@step.compareStreams 
+ swap take2 intro1 .applyd take intro1 .applyd 
+ [a.compareStreams] [-a.compareStreams] if
+@a.compareStreams  put [ab.compareStreams]  [a-b.compareStreams] if
+@-a.compareStreams put [b-a.compareStreams] [-ab.compareStreams] if
+@ab.compareStreams 
+ dx x swapd pw put .apply
+ [drop put inline] [inR discard nip2] if
+@a-b.compareStreams drop2 discard2 intro1 inR inR
+@b-a.compareStreams drop2 discard2 intro1 inL inR
+@-ab.compareStreams drop2 discard2 intro1 inL
+
+@doc.compareTexts "text text -- Ord; compare texts lexicographycally by codepoint order"
+@compareTexts [compareNumbers'] compareLists toOrd
 
 

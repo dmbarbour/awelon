@@ -253,7 +253,7 @@ process loops lists blocks conditionals
 @doc.zipRem.s
 "Zip two streams of unknown relative size. If they are of equal size, all elements will be returned in the left. If streams are of unequal size, we'll return the longer, remaining stream in the right (as the final element in the stream).
  
-   a`S b`S -- ((a*b)+(a`S+b`S))`S 
+         a`S b`S -- ((a*b)+(a`S+b`S))`S 
  
  I have contemplated a variation on streams that always return a value on termination. However, it is not clear how one would go about composing those streams in other ways (e.g. `addend` is a little unclear). This results in an awkward construction to handle streams of different sizes.
 ~
