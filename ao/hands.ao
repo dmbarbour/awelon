@@ -95,7 +95,7 @@
 @eqv.id.take3put3 [take3 put3] []
 
 @eqv.takeSwapPut.swapd [take swap put] [swapd]
-
+@eqv.takeHswapPut.putSwapTake [take hswap put] [put swap take]
 
 @hx   hsw x   hsw
 @hw   hsw w   hsw
