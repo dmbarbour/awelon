@@ -89,12 +89,12 @@
 @compile %r [{&compile}] %r$l
 
 @doc.static
-"The `{&static}` annotation is intended to guide partial evaluation. It indicates that a value should be computable and computed at compile-time. It may help when working with embedded DSLs. 
+"The `{&static}` annotation is intended to guide partial evaluation. It indicates that a value should be computable and computed at compile-time. It should help when working with embedded DSLs and staged programs.
  
-         {&static} :: (v*e) → (v*e)
+         {&static} :: (v*e) → (v*e); compute v statically
          static    :: v -- v
  
- A conforming compiler will take `{&static}` as a strong suggestion, computing the argument if possible and warning the developer (but succeeding) otherwise. Even if an argument cannot be wholly evaluated, it might be partially evaluated or lifted out of a loop. More precise annotations may be necessary in some use cases. 
+ A conforming compiler will take `{&static}` as a strong suggestion, computing the argument if possible and warning the developer otherwise. Even if an argument cannot be wholly evaluated, it might be partially evaluated or lifted out of a loop. More precise annotations may be necessary in some use cases. (Ideas on how to more precisely annotate partial evaluation within the constraints of ABC are welcome.)
 ~
 @static %r {&static} %l
 
@@ -121,7 +121,7 @@
 @doc.prefix.secret!
 "ABC's separate compilation and linking model uses [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption), which is vulnerable to a class of 'confirmation' attacks, i.e. whereby an attacker might determine a ten digit bank account number by systematically encrypting all ten billion combinations and finding which is stored on the server. Confirmation attacks only work against low-entropy data, but a great deal of privacy-sensitive information is low entropy.
  
- To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. In ABC, a 192-bit convergence secret might be encoded as:
+ To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. For compression, a 192-bit convergence secret might be encoded in ABC's base 16 as:
  
      "bpgzmjkydmfyfdhdhptzmnbpdjkndjnsgdjyzpxbsypshqfk
      ~%

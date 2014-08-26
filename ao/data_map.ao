@@ -8,16 +8,11 @@ ord
      compose two maps in various ways (join, union, etc.)
      stream or list processing of (key*value) pairs
  
- A map is typically implemented using hashtables or balanced search trees or hashtables. In this case, that is for AO words of the `.m` suffix, we'll be favoring the simple 2-3 tree, which has predictable performance even in a persistent setting. The map as a whole will additionally track a key comparison function and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations). 
- 
  Shorthand type: (K,V)`Map
-   finite relation 
-   unique keys of homogeneous type K
-   potentially heterogeneous type V (i.e. depending on K)
-   
- Key comparison function: (K*K)→Ord
-   'Ord' type indicates whether two keys are EQ+(LT+GT)
-   typically via stack function: K K -- Ord
+ 
+ A map is typically implemented using hashtables or balanced search trees or hashtables. In this case, that is for AO words of the `.m` suffix, we'll be favoring the simple 2-3 tree, which has predictable performance even in a persistent setting. The map as a whole will additionally track a key comparison function and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations).
+ 
+ The keys must have a homogeneous type, suitable for ordinal comparison `(K*K)→Ord` (cf `doc.Ordinal`). The values may have heterogeneous type dependent on key, e.g. to model ad-hoc records. 
  
  Many related types can be trivially modeled above maps, including multi-maps (via collection type for values), sets (unit values), and multi-sets (counter values). But maps are not always ideal, e.g. if developers have a large collection of maps all using the same keys then some sort of table-based data structure would be more appropriate. If keys share a lot of structure, then a trie may be more appropriate. If keys represent spatial coordinates, a kd-tree may be more appropriate. I would love to have a wide array of moderately specialized data structures for common use-cases.
 ~

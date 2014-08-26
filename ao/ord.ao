@@ -15,11 +15,33 @@
 @doc.rawCompareToCompareOnStack "[(k*k)→Ord] -- [k k -- Ord]"
 @rawCompareToCompareOnStack [dpw .apply] bind
 
-@doc.compareNumbers "(Num*Num)→Ord"
-@compareNumbers compareNumbers' toOrd\1
+@doc.mkCompareUnits "-- [(1*1)`Compare]; trivial, always equal"
+@doc.mkCompareProds "[a`Compare] [b`Compare] -- [(a*b)`Compare]"
+@doc.mkCompareSums  "[a`Compare] [b`Compare] -- [(a+b)`Compare]"
+@mkCompareUnits [compareUnits]
+@mkCompareProds [compareProds] bind2 compareOnStackToRawCompare
+@mkCompareSums  [compareSums] bind2 compareOnStackToRawCompare
 
-@doc.compareNumbers' "(Num(a)*Num(b))→((EQ(a*a))+(LT(a*b)+GT(b*a)))"
-@compareNumbers' %vrw> [%vr>c] %r?Rc
+@doc.compareUnits "1 1 -- Ord"
+@doc.compareProds "(a1*b1) (a2*b2) [a`Compare] [b`Compare] -- Ord"
+@doc.compareSums  "(a1+b1) (a2+b2) [a`Compare] [b`Compare] -- Ord"
+@compareUnits %c .inL
+@compareProds 
+ .rw .rw dx x swapd pw dpw .wl .apply
+ [drop .wl .apply] [inR .wl drop] if
+@compareSums .rw .rw [?l.compareSums] [?r.compareSums] if
+@?l.compareSums .rw [.wl ll.compareSums] [.wl rl.compareSums] if
+@?r.compareSums .rw [.wl lr.compareSums] [.wl rr.compareSums] if
+@ll.compareSums pw .wl .apply .wl drop
+@rr.compareSums pw .wl drop .wl .apply
+@rl.compareSums drop2 .wl drop .wl drop intro1 inR inR
+@lr.compareSums drop2 .wl drop .wl drop intro1 inL inR
+
+@doc.rawCompareNumbers "(Num*Num)→Ord"
+@rawCompareNumbers rawCompareNumbers' toOrd\1
+
+@doc.rawCompareNumbers' "(Num(a)*Num(b))→((EQ(a*a))+(LT(a*b)+GT(b*a)))"
+@rawCompareNumbers' %vrw> [%vr>c] %r?Rc
 
 @doc.toOrd "(eq+(lt+gt)) -- (1+(1+1)); droppable eq,lt,gt"
 @doc.toOrd\1 "(eq+(lt+gt))→(1+(1+1))"
@@ -27,10 +49,10 @@
 @e.toOrd  %VRWRW [%v%] %r?W [%v%] %r?LW [%v%] %r?LC
 @toOrd    %r e.toOrd %l
 
-@doc.compareLists "k`L k`L [(k*k)→Ord] -- Ord; compare lists item by item"
+@doc.compareLists "k`L k`L [k`Compare] -- Ord; compare lists item by item"
 @compareLists take fromList.s take fromList.s put2 compareStreams
 
-@doc.compareStreams "k`S k`S [(k*k)→Ord] -- Ord; compare streams item by item"
+@doc.compareStreams "k`S k`S [k`Compare] -- Ord; compare streams item by item"
 @compareStreams [step.compareStreams] bind fixpoint inline
 @step.compareStreams 
  swap take2 intro1 .applyd take intro1 .applyd 
@@ -45,6 +67,13 @@
 @-ab.compareStreams drop2 discard2 intro1 inL
 
 @doc.compareTexts "text text -- Ord; compare texts lexicographycally by codepoint order"
-@compareTexts [compareNumbers'] compareLists toOrd
+@compareTexts [rawCompareNumbers'] compareLists toOrd
+
+@doc.mkCompareLists "[(a*a)→Ord] -- [(a`L * a`L)→Ord]"
+@doc.mkCompareStreams "[(a*a)→Ord] -- [(a`S * a`S)→Ord]"
+@doc.mkCompareTexts "-- [(text*text)→Ord]"
+@mkCompareLists [compareLists] bind compareOnStackToRawCompare
+@mkCompareStreams [compareStreams] bind compareOnStackToRawCompare
+@mkCompareTexts [compareTexts] compareOnStackToRawCompare
 
 
