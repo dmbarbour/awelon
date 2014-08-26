@@ -3,18 +3,18 @@ boolean streams lists
 @doc.import.bits "functions for working with bits and bytes and fixed-width words"
 
 @doc.BinaryData
-"Raw binary data can represent raw sensor inputs, controller outputs, compressed audio or visual information, cipher texts, cryptographic signatures, and more. Embedding binaries in Awelon Bytecode (ABC) is convenient, e.g. allowing partial evaluation and secure distribution through ABC's resource model. Awelon project uses a simple strategy for efficient storage and transmission of embedded binary data:
+"Raw binary data can represent sensor inputs, controller outputs, compressed audio or visual information, cipher texts, cryptographic signatures, and more. Embedding binaries in Awelon Bytecode (ABC) is convenient, e.g. allowing partial evaluation and secure distribution through ABC's resource model. Awelon project uses a simple strategy for efficient storage and transmission of embedded binary data:
  
  1. encode binary data in a base16 alphabet
  2. special compression pass for base16 data
  
- The compression format is very simple: header byte 0xF8, length byte L (0..253), followed by L+3 bytes of data. This will be decompressed into (L+3)*2 base16 characters. If the symbol 0xF8 appeared normally, we could escape that as 0xF8 0xFE. However, 0xF8 won't ever be encountered if compressing UTF-8 or ABC. This results in 0.8% overhead for compressing large embedded binaries, and breaks even with base64 encodings at just 6 bytes. The base16 compression is followed by a more conventional compression, but the total worst-case expansion will be under 2.5% for large binaries.
+ The compression format is very simple: header byte 0xF8, length byte L (0..253), followed by L+3 bytes of data. This will be decompressed into (L+3)*2 base16 characters. If the symbol 0xF8 appeared normally, we could escape that as 0xF8 0xFE. However, 0xF8 won't ever be encountered if compressing UTF-8 or ABC. This results in 0.8% overhead for compressing large embedded binaries, and breaks even with base64 encodings at just 6 bytes. The base16 compression is followed by a more conventional compression, but the total worst-case expansion will be under 2.4% for large binaries.
  
  The base16 alphabet for ABC is not the standard `0-9a-f`. Instead we use:
  
      bdfghjkmnpqstxyz            i.e. `a-z` minus `aeiou` and `vrwlc`
  
- This alphabet avoids interference with other Awelon bytecodes or natural language text. There is also very little risk of spelling offensive words. Any large string of ABC's base16 characters is very likely to be intended for binary processing. 
+ This alphabet avoids interference with other Awelon bytecodes or natural language text. Any large string of ABC's base16 characters is most likely intended for binary processing. There is also very little risk of spelling offensive words. The compression pass is case sensitive; lower case only.
  
  Note: This encoding only affects storage and bandwidth costs. For processing purposes, ABC must still work with strings or streams of base16 characters. Processing of base16 strings may eventually (in the very long term) be accelerated by a few ABCD functions.
 ~
