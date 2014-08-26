@@ -100,9 +100,16 @@ This approach can easily be byte-aligned:
   * byte for eight phrase flags
   * 16-bit length-offset matches
 
-With a fixed-size offset-length pairs, we can be relatively certain that 'minimal number of phrases' corresponds to minimal number of bits in the final output (we'll always save slightly with a compressed segment, which uses at least two fewer phrases). With variable sized phrases, a similar guarantee is more difficult, unless we ensure a monotonic compression factor.
+With a fixed-size offset-length pairs, we can be reasonably certain that 'minimal number of phrases' corresponds to minimal number of bits in the final output (we'll always save slightly with a compressed segment, which uses at least two fewer phrases). With variable sized phrases, a similar guarantee is more difficult, unless we ensure a monotonic compression factor.
 
-A simple 11+5 offset+length bits should probably work well. As would 12+4. In the latter case, it would take 3 matches to encode a repeated resource identifier, for a compression ratio of ~88%, and most of our matches would be data plumbing and such.
+...
+
+I'm not sure what offset+length I want. Pros and cons:
+
+* 12+4: window 227x full match size and 77x link size; many match opportunities; 8-9x max compression; need resources larger than 2k to see any benefit; leans towards larger resources
+* 11+5: window 60x full match size and 38x link size; fewer 'small' matches at the tail end; fewer match opportunities; 16-17x max compression; compression mostly within functions, in-the-small; leans towards smaller resources
+
+I wouldn't be surprised to get near maximum compression when working with 12+4, due to larger scale repetitions of whole functions. I would be surprised to max out the 11+5 compression. OTOH, I think the 11+5 compression might encourage better practices for resource size.
 
 ### Other Possibilities?
 
