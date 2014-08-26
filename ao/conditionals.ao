@@ -20,8 +20,8 @@ boolean
 @doc.inL "a -- (a + 0); wrap 'a' in failure, mark false, on the left"
 @inR %rVVRWLCl
 @inL %rVl
-@inRd swap inR swap
-@inLd swap inL swap
+@inRd .rw inR .wl
+@inLd .rw inL .wl
 
 @doc..inR "a→(0+a); primitive inR"
 @doc..inL "a→(a+0); primitive inL"
