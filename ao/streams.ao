@@ -69,9 +69,11 @@ process loops lists blocks conditionals
 @toStream\1.l fromList\1.s
 
 @doc.toList.s "a`S -- a`L; extract a list from a finite stream"
+@doc.toListR.s "a`S -- a`L; reverse ordered list from finite stream"
 @doc.fromStream.l doc.toList.s
 @fromStream.l toList.s
-@toList.s empty.l swap [cons.l] foreach.s reverse.l
+@toListR.s empty.l swap [cons.l] foreach.s 
+@toList.s toListR.s reverse.l
 
 @doc.toList\1.s "a`S → a`L; list to stream (without environment)"
 @doc.fromStream\1.l doc.toList\1.s
