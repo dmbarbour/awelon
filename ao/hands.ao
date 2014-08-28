@@ -86,7 +86,7 @@
 
 @eqv.id.takePut [take put] []
 @eqv.id.putTake [put take] []
-@eqv.id.juggle3 [juggle3 juggle3 juggle3]
+@eqv.id.juggle3 [juggle3 juggle3 juggle3] []
 @eqv.id.takeJugglePutSwap [take2 juggle2 put2 swap] []
 @eqv.id.takeSwapPutSwapd [take swap put swapd] []
 @eqv.id.copyDiscard [copy discard] []
@@ -94,6 +94,7 @@
 @eqv.id.reifyRestoreHand [reifyHand restoreHand] []
 @eqv.id.take3put3 [take3 put3] []
 
+@eqv.putDupTake2.hdup [put dup take2] [hdup]
 @eqv.takeSwapPut.swapd [take swap put] [swapd]
 @eqv.takeHswapPut.putSwapTake [take hswap put] [put swap take]
 

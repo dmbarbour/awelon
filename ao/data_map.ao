@@ -1,7 +1,7 @@
 ord
 
 @doc.DataMaps
-"A 'map' in computer science typically refers to an abstract, finite collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
+"A 'map' in computer science typically refers to an abstract, finite collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for the same or similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
  
      add, remove, or update (key, value) pairs
      lookup value given the key, or test if key exists
@@ -10,78 +10,140 @@ ord
  
  Shorthand type: (K,V)`Map
  
- A map is typically implemented using hashtables or binary search trees. In this case, for AO words of the `.m` suffix, we'll be favoring the AA-tree, which has predictable performance even in a persistent setting. The map as a whole will additionally track a key comparison function `(K*K)→Ord` and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations).
+ A map is typically implemented using hashtables or binary search trees. In this case, for AO words of the `.m` suffix, we'll be favoring a self-balancing tree with worst-case O(lg N) operations. The map as a whole will additionally track a key comparison function `(K*K)→Ord` and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations).
  
- While keys must have homogeneous type for comparisons, the values may have heterogeneous type, e.g. dependent upon the key. Maps may be used to model ad-hoc record types.
+ While keys must have homogeneous value type for comparisons, the values may have heterogeneous and substructural types, e.g. dependent upon the key. Maps may be used to model ad-hoc record types.
  
  Many related types can be trivially modeled above maps, including multi-maps (via collection type for values), sets (unit values), and multi-sets (counter values). But maps are not always ideal, e.g. if developers have a large collection of maps all using the same keys then some sort of table-based data structure would be more appropriate. If keys share a lot of structure, then a trie may be more appropriate. If keys represent spatial coordinates, a kd-tree may be more appropriate. I would love to have a wide array of moderately specialized data structures for common use-cases.
 ~
 @doc.suffix.m doc.DataMaps
 
-
 @doc.AATree
-"The AA tree is a self-balancing binary search tree invented by and named for Arne Anderson. This tree is a refinement on red-black trees, allowing red nodes only as a right hand child, and directly corresponds to 2-3 B-trees. This results in a few more rotations upon balancing the tree... but also a flatter structure, faster search, half as many metadata bits, and simpler balancing functions. Characteristics:
+"The AA tree is a self-balancing binary search tree invented by and named for Arne Anderson. This tree is a refinement on red-black trees, allowing red nodes only as a right hand child of a black node. The resulting tree corresponds to a 2-3 B-tree. Compared to red-black trees, a few extra balancing operations are required... but they are simpler. Compared to 2-3 trees, there are fewer node types.
  
  * the root is black
  * all leaves are black
  * all left-hand children are black
  * every red child has two black children
  
- Shorthand Type: Elem`AATree
+ Shorthand Type: elem`AATree
  
- The representation for an AA tree in Awelon project:
+ We have several options for representing AA trees in Awelon project. For example, we could specialize red nodes based on them having only black children. We could potentially take advantage of all nodes on a level having the same number of children. But, keeping the KISS principle in mind like a mantra, I'll be using a uniform representation in this case:
  
- Root: Black Tree
- Black Tree: (Black Node + Unit)
- Black Node: (Elem * (Black Tree * (Red Node + Black Tree))
- Red   Node: (Elem * (Black Tree * Black Tree))
+ Root: Tree
+ Tree: Node + Unit
+ Node: Elem * (Tree * (Node + Tree))
  
- The AA tree does not use any sealers, and does not contain any information about how to compare elements for insert. We'll hide the AA data structure in a higher type, such as a map. In case of a map, the Elem type will typically be a (Key*Value) pair.
+ The extra left-hand node for the right child is a red node. In a properly balanced tree, we should be able to assert that a red node's right child is black. But there will be intermediate states where an AA tree is temporarily unbalanced.
 ~
 @doc.suffix.AATree doc.AATree
 
 @doc.empty.AATree "-- elem`AATree"
 @empty.AATree intro1 inR
 
-@doc.assertBalanced.AATree 
-"The representation of an AA tree forbids red nodes in the left. So, to validate an AA tree represented in Awelon, we only need to consider whether it is balanced properly. Proper balancing, in this case, means that every path from root to leaf has the same number of black nodes. 
- 
- The implementation in this case uses a fixpoint behavior targeting the Black Tree type (which also works for Root). The fixpoint function is kept in the hand. We return the black depth of the left and right children, asserting them to be equivalent at every level. 
-~
-@assertBalanced.AATree [bt.validateBalance.AATree] fixpoint apply1to2 drop
-@bt.validateBalance.AATree take [bn.validateBalance.AATree inLd] [inR 0] if discard
-@rbt.validateBalance.AATree [rn.validateBalance.AATree inLd] [paste inline inRd] if 
-@bn.validateBalance.AATree 
- wx wx 
- rbt.validateBalance.AATree 
- rot paste inline 
- swapd assertEQ1.n inc take
- p pw put
-@rn.validateBalance.AATree
- wx wx 
- paste inline 
- rot paste inline 
- swapd assertEQ1.n take 
- p pw put
-@eqv.assertBalancedAATree.id [assertBalanced.AATree] []
+@doc.singleton.AATree "elem -- elem`AATree"
+@singleton.AATree empty.AATree empty.AATree inR pw pw inL
 
-@doc.toStream.AATree "elem`AATree -- elem`Stream; access ordered stream of elements"
-@doc.toStreamR.AATree "elem`AATree -- elem`Stream; access reverse-ordered stream of elements"
+@doc.fmap.AATree 
+"Apply a function to all data elements in tree. 
+ 
+         a`AATree [a→b] -- b`AATree
+ 
+ Note: if this affects the key values, it is the developer's responsibility to
+ preserve a sorted ordering.
+~
+@fmap.AATree [r.fmap.AATree] apply2to1
+@r.fmap.AATree [n.fmap.AATree] bind fixpoint t.fmap.AATree
+@t.fmap.AATree take [put inline inL] [discard inR] if
+@rt.fmap.AATree take [put inline inL] [put t.fmap.AATree inR] if
+@n.fmap.AATree
+ take2 wx x
+ paste t.fmap.AATree
+ swap put rt.fmap.AATree
+ pw swap put .apply p
+
+@doc.blackHeight.AATree 
+"Compute height of tree in black nodes (assuming correct balance).
+ 
+         a`AATree -- a`AATree Nat
+ 
+ This takes O(height) = O(lg N) time, and serves as a rough estimate of size.
+~
+@blackHeight.AATree [t.blackHeight.AATree] fixpoint apply1to2
+@t.blackHeight.AATree take [n.blackHeight.AATree inLd inc] [discard inR 0] if
+@n.blackHeight.AATree wx x put inline dp dpw
+
+@doc.size.AATree "a`aaTree -- a`AATree Nat; O(N); count of elements"
+@size.AATree [r.size.AATree] apply1to2
+@r.size.AATree [n.size.AATree] fixpoint t.size.AATree
+@t.size.AATree take [put inline inLd] [discard inR 0] if
+@rt.size.AATree take [put inline inLd] [put t.size.AATree inRd] if
+@n.size.AATree 
+ take wx wx
+ paste rt.size.AATree
+ rot put t.size.AATree
+ swapd .add inc take
+ p pw put 
+
+@doc.assertBalanced.AATree 
+"Assert than an AA tree is properly balanced, meaning that the number of black nodes is equal between root and every leaf.
+ 
+         a`AATree -- a`AATree
+ 
+ This will assert that the height of each subtree is balanced until we reach root.
+~
+@assertBalanced.AATree [r.assertBalanced.AATree] apply1to1
+@r.assertBalanced.AATree [n.assertBalanced.AATree] fixpoint t.assertBalanced.AATree drop
+@t.assertBalanced.AATree take [put inline inLd inc] [discard inR 0] if
+@rt.assertBalanced.AATree take [put inline inLd] [put t.assertBalanced.AATree inRd] if
+@n.assertBalanced.AATree
+ take wx wx 
+ paste rt.assertBalanced.AATree
+ rot put t.assertBalanced.AATree
+ swapd assertEQ1.n take
+ p pw put
+
+@doc.toStream.AATree "e`AATree -- e`Stream; stream data elements left to right"
+@doc.toStreamR.AATree "e`AATree -- e`Stream; stream data elements right to left"
 @doc.toList.AATree "elem`AATree -- elem`List; access ordered list of elements"
 @doc.toListR.AATree "elem`AATree -- elem`List; access reverse-ordered list of elements"
 @toList.AATree toStreamR.AATree toListR.s
 @toListR.AATree toStream.AATree toListR.s
 
-@toStream.AATree [bt.toStream.AATree] fixpoint apply
-@bt.toStream.AATree take [bn.toStream.AATree] [elim1 empty.s] if discard
-@rbt.toStream.AATree [rn.toStream.AATree] [paste inline] if
-@bn.toStream.AATree wx x paste inline unrot rbt.toStream.AATree swap cons.s addend.s
-@rn.toStream.AATree wx x paste inline unrot paste inline swap cons.s addend.s 
+@doc.rt2t.AATree "(Node + Tree) -- Tree"
+@rt2t.AATree %r i.rt2t.AATree %l
+@i.rt2t.AATree %VVRRZLLCM
 
-@toStreamR.AATree [bt.toStreamR.AATree] fixpoint apply
-@bt.toStreamR.AATree take [bn.toStreamR.AATree] [elim1 empty.s] if discard
-@rbt.toStreamR.AATree [rn.toStreamR.AATree] [paste inline] if
-@bn.toStreamR.AATree wx wx rbt.toStream.AATree unrot paste inline swap cons.s addend.s
-@rn.toStreamR.AATree wx wx paste inline unrot paste inline swap cons.s addend.s
+@toStream.AATree [t.toStream.AATree] fixpoint apply
+@t.toStream.AATree take [put n.toStream.AATree] [elim1 discard empty.s] if
+@n.toStream.AATree 
+ take wx x 
+ paste inline unrot 
+ rt2t.AATree put inline swap 
+ cons.s addend.s
+@toStreamR.AATree [t.toStreamR.AATree] fixpoint apply
+@t.toStreamR.AATree take [put n.toStreamR.AATree] [elim1 discard empty.s] if
+@n.toStreamR.AATree 
+ take wx wx
+ rt2t.AATree paste inline unrot
+ put inline swap
+ cons.s addend.s
+
+
+@doc.Zippers.AATree
+"When working with an AA tree, we'll often recurse deeply into the structure, make some small change, then rebuild the structure. This pattern suggests use of a zipper, or a similar data structure.
+~
+
+
+@doc.insertKV.AATree
+"Insert or replace a `(key*value)` data element in an AA tree.
+ 
+        (k*v)`AATree (k*v) [(k*k)→Ord] -- (k*v)`AATree ((k*v)+1)
+ 
+ The key type, in this case, must be copyable, but the value type may be linear. The ordinal comparison function should be consistent with the ordering already used in the tree, i.e. all inserts should use the same totally ordered comparison function. If the element already exists, it will be replaced and the old `(k*v)` pair will be returned.
+ 
+ Ideas: I could potentially implement this as a zipper, first 'opening' the tree to the target node, then processing it... then having a separate operation to repair the tree. 
+~
+
 
 

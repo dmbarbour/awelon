@@ -147,6 +147,9 @@ process loops lists blocks conditionals
  addend.s toList.s
  "hello, world!" assertTextEQ1
 
+@eqv.addendEmpty.s#1 [empty.s addend.s] []
+@eqv.addendEmpty.s#2 [empty.s swap addend.s] []
+
 @doc.flatten.s "(a`S)`S -- a`S; flatten a stream of streams"
 @flatten.s [step.flatten.s] .fixfirst .bind
 @step.flatten.s %wvvrwlcw$wD [onElem.flatten.s] %r?VRW [%% .inR] %r?WLCMc

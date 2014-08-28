@@ -180,60 +180,12 @@
 
 
 @doc.Zippers
-"The zipper data structure was described by Gérard Huet in 1997. It enables navigation and modification of tree-structured data in a purely functional context. At any time, the original tree structure can be recovered with the modifications. For Awelon project, zippers are widely useful for modeling navigation through scene graphs or documents, and document-like structures. They may also be used for raycasting and rendering.
- 
- To support user intuitions, zippers should be specialized for common data structures. However, AO does provide a few standard primitives for zippers on AO's product data type.
+"The zipper data structure was described by Gérard Huet in 1997. It enables navigation and modification of tree-structured data in a purely functional context. At any time, the original tree structure can be recovered with the modifications. For Awelon project, zippers should be widely useful for modeling user navigation through a programming environment, and also for compositional manipulation of tree structures. Zippers must generally be specialized for each data structure.
 ~
 
 @doc.HigherOrderZippers
-"Zippers are a first derivative on a data structure. However, higher derivatives are also very useful. For example, first derivative can focus on a single character in text, but second derivative models an expandable selection of text. In a scene graph, such could model a mobile bounding volume. 
- 
- I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
+"Zippers are a first derivative on a data structure. However, higher derivatives are also very useful. For example, first derivative can focus on a single character in text, but second derivative models an expandable selection of text. In a scene graph, such could model a mobile bounding volume. I don't grasp third derivatives yet, but my intuition is that it can help structurally abstract sweeps or convolutions, e.g. the process of casting a ray through a scene-graph.
 ~ 
-
-@OLD_AO_ZIPPERS
-
-"text below encoded in an earlier version of AO... which had comments, even
- % 
- % In Awelon, zipper operations apply to top object on current stack. 
- %
- %    zwrap - prepare zipper; stack object is initial target
- %    zf - if target was (x*y), x is now target; undo with zuf
- %    zs - if target was (x*y), y is now target; undo with zus
- %    zu - undoes last zipper navigation (selects zuf or zus)
- %    zunwrap - fully exit and unwrap zipper, even if deep
- %    zunwrap_ - just unwrap zipper
- %
- % Knowing the representation of the zipper structure isn't essential,
- % but it might be interesting to some people. 
- %
- %    zwrap :: x <~> x*(1*1) :: zunwrap_ (on stack)
- %    zf    :: (x*y)*(l*r) <~> x*(1*(y*(l*r))) :: zuf
- %    zs    :: (x*y)*(l*r) <~> y*((x*l)*r)     :: zus
- %
- % The 'zu' and 'zunwrap' operations must perform introspection. 
- %
- % To manipulate the zipper target, developers will usually use an
- % operation such as:
- %   
- %    zswap - switch target of zipper (2nd) with object on stack (1st)
- %    zpop  - move target to top of stack (unit placeholder)
- %    zpush - undo zpop
- %
- zwrap = intro1 intro1 assocl rot2 pzip assocl  
- zunwrap_ = assocr pzip rot2 assocr elim1 elim1  
- zf = assocr x intro1 assocl roll2 assocl 
- zuf = assocr roll2 assocr elim1 p assocl
- zs = assocr x roll3 pw roll2 assocl
- zus = assocr roll2 x roll3 pw assocl
- zswap = p assocr roll2 assocl x
- zpop = intro1S zswap
- zpush = zswap elim1S
- % TODO: zu, zu*
- zu = % look at wrapper to decide step back
- zu* = % iterative zu
- zunwrap = zu* zunwrap_
-~
 
 @doc.ValueSealing
 "AO allows seal/unseal actions to be hard-coded using inline ABC. These are represented as:
