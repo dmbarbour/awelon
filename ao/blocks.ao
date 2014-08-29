@@ -69,6 +69,14 @@
 @.applyd swap .apply
 @applyd swap apply
 
+@doc..app1   "[1→y]→y"
+@doc..app1e  "[1→y]*e → y*e"
+@doc..apply1 "[1→y] -- y"
+@.app1 %vvr$c
+@.app1e %vvrrz$lc 
+@.apply1 %r .app1e %l
+@eqv.apply1.intro1Appd [.apply1] [intro1 .applyd]
+
 @dip2 %rwrwrzlzvrwr$wlcrzlwl
 @dip3 dpw dip2 wx
 @dip4 dpw dip3 wx

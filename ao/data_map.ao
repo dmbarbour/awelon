@@ -114,25 +114,28 @@ ord
 @rt2t.AATree %r i.rt2t.AATree %l
 @i.rt2t.AATree %VVRRZLLCM
 
-@toStream.AATree [t.toStream.AATree] fixpoint apply
-@t.toStream.AATree take [put n.toStream.AATree] [elim1 discard empty.s] if
-@n.toStream.AATree 
- take wx x 
- paste inline unrot 
- rt2t.AATree put inline swap 
- cons.s addend.s
-@toStreamR.AATree [t.toStreamR.AATree] fixpoint apply
-@t.toStreamR.AATree take [put n.toStreamR.AATree] [elim1 discard empty.s] if
-@n.toStreamR.AATree 
- take wx wx
- rt2t.AATree paste inline unrot
- put inline swap
- cons.s addend.s
-
-
 @doc.Zippers.AATree
-"When working with an AA tree, we'll often recurse deeply into the structure, make some small change, then rebuild the structure. This pattern suggests use of a zipper, or a similar data structure.
+"When working with an AA tree, we'll often step deeply into the structure, tweak it a little, then rebuild the structure. This pattern suggests use of a zipper. Of course, we could keep context directly within the recursive operations, but doing so can hinder composition.
 ~
+
+
+@toStream.AATree [t.toStream.AATree] .fixfirst .bind
+@t.toStream.AATree %D [n.toStream.AATree .app1] %r?VRW [%% .inR] %r?WLCMc
+@n.toStream.AATree 
+  preApply
+   x take wx wx rt2t.AATree 
+   paste .bind unrot put .bind unrot
+   cons.s addend.s 
+  postApply
+
+@toStreamR.AATree [t.toStreamR.AATree] .fixfirst .bind
+@t.toStreamR.AATree %D [n.toStreamR.AATree .app1] %r?VRW [%% .inR] %r?WLCMc
+@n.toStreamR.AATree
+  preApply 
+   x take wx wx rt2t.AATree
+   paste .bind unrot put .bind unrot
+   swapd cons.s addend.s 
+  postApply
 
 
 @doc.insertKV.AATree
@@ -143,6 +146,25 @@ ord
  The key type, in this case, must be copyable, but the value type may be linear. The ordinal comparison function should be consistent with the ordering already used in the tree, i.e. all inserts should use the same totally ordered comparison function. If the element already exists, it will be replaced and the old `(k*v)` pair will be returned.
  
  Ideas: I could potentially implement this as a zipper, first 'opening' the tree to the target node, then processing it... then having a separate operation to repair the tree. 
+~
+
+
+
+
+@doc.removeKV.AATree
+"Remove an element by key from a `(key*value)` AA tree. 
+ 
+         (k*v)`AATree k [(k*k)→Ord] -- (k*v)`AATree ((k*v)+1)
+ 
+ The removed element will be returned to the user, if it exists. This can be used for linear manipulations of the map. Though, it may be more efficient to use a zipper to navigate the tree to a target node, perform the manipulation locally, then restore the tree.
+~
+
+@doc.lookupKV.AATree
+"Copy an element from the AA tree, after looking it up by key.
+ 
+         (k*v)`AATree k [(k*k)→Ord] -- (k*v)`AATree ((k*v)+1)
+ 
+ The tree is not modified by this operation.
 ~
 
 
