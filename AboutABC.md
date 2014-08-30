@@ -386,24 +386,31 @@ Stability is readily achieved using a filepath/URL metaphor: when 'forking' a un
 
 ### Value Sealing Types and Capabilities
 
-Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. At runtime, these may be allocated as a pair, using a secure uniqueness source (see above). The recommended representation:
+Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. At runtime, these may be allocated as a pair, using a secure uniqueness source (see above). 
 
         {:u} :: a → Sealed u a        `:` for seal
         {.u} :: Sealed u a → a        `.` for unseal
 
-In some cases, when sealed values are sent to untrusted contexts, sealers may guide automatic use of symmetric or asymmetric encryption. However, sealers are usually implemented by trivial wrapping of the value. Value sealing has no observable impact on behavior of a correct program. Often, sealers can be completely eliminated by a compiler. 
+Some sealers will be weak, discretionary tags like `{:foo}`, which serve a useful role as something like a structural type tag to resist accidental coupling to internal data structures or provide hints to a rendering engine. Other sealers may be very strong, using cryptographic keys. We'll reserve symbol `$` for cryptographic sealers:
 
-Developers cannot observe, compare, or operate upon a sealed value without first unsealing it. But a few whole-value operations - e.g. data shuffling, copy and drop, quotation, communication - are permitted, assuming the same operation is also permitted on the underlying value type.
+        {:format$leftKey}             cryptographic sealer
+        {.format$rightKey}            cryptographic unsealer
+        {$format}                     indicate sealed value
 
-Developers can reason about sealed values by reasoning about distribution of sealers and unsealers. This is potentially useful for:
+Here, format might be something like 'ecc.secp256k1', indicating how the argument is encrypted or decrypted. The format may be blank to use the defaut. The proposed default is ecc.secp256k1, i.e. the same asymmetric encryption format used by Bitcoin. (Elliptic curve cryptography offers asymmetric encryption with relatively small keys compared to RSA.)
 
-* representation independence and implementation hiding 
-* enforce parametricity for distrusted data plumbing services
-* integrity, confidentiality, authentication, rights amplification
+Serialization formats for discretionary vs. cryptographic sealed values:
 
-and [more](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp).
+        #42 [{:foo}]$                 discretionary sealed value, clearly 42
+        ["cipherText\n~c]f{$fmt}      cryptographically sealed affine value
 
-NOTE: In addition to unique sealers, a high level language (like AO) might support direct expression of discretionary sealers, i.e. to prevent accidental misuse of a value. These can serve a role similar to newtype (without truly securing the value).
+For discretionary values, we'll serialize values directly into ABC then seal it again at the remote host. Discretionary sealed values are generally accessible to reflective and introspective capabilities even without properly unsealing them.
+
+For cryptographically sealed values, we'll instead serialize into text, then compress and encrypt it similar to an ABC resource. We wrap this in a block to preserve substructural types (affine, relevant, linear, expiration, etc.), and we wrap the value to indicate a cryptographically sealed value and protect the substructural types. The cipherText may contain a proper checksum. In general, cipher texts and keys are encoded in ABC's base16 format to leverage the special compression pass (see encoding of binaries in ABC, below). 
+
+If a value is never serialized, or is serialized only between trusted machines (or machines we already know to possess the unsealer) then we might forego the encryption step. 
+
+Value sealing is an important companion to object capability security. It provides a basis for [rights amplification](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp), whereby you can gain extra authority by possessing both a capability and a sealed value. It provides a basis for identity, via the Horton protocol and others (though proof-of-work systems are starting to take over that role, cf. Namecoin). Sealed values can offer a useful basis for separating delivery of data from access to it. Value sealing should be considered orthogonal to transport-layer encryption. 
 
 ### ABC Resources for Separate Compilation and Dynamic Linking
 
@@ -415,7 +422,7 @@ Unfortunately, conventional approaches to naming introduce their own problems: n
 
 We then use ABC's effects model to invoke the named resource as needed:
 
-        {#secureHashOfBytecode}         (preliminary)
+        {#secureHashOfBytecode}         (preliminary! not used!)
 
 This invocation tells the runtime to obtain the named resource and logically inline the associated Awelon bytecode. Obtaining a resource might involve downloading it. Logically inlining a resource might involve compilation to machine code and a dynamic linking. Either of these steps might fail, in which case the program fails (early and gracefully, if efficiently feasible).
 
@@ -428,16 +435,17 @@ Fortunately, this weakness is easily addressed. We simply encrypt the bytecode a
         lookupKey = secureHashCT(cipherText)
         store(lookupKey,cipherText)
 
-        invoking {#lookupKey:encryptionKey}
-            i.e. {#hashOfCiphertext:hashOfBytecode}
+        invoking {#lookupKeyEncryptionKey}
+            i.e. {#hashOfCiphertextHashOfBytecode}
 
 I would expect most resources range about three orders of magnitude, i.e. from hundreds of bytes to hundreds of kilobytes. They might go bigger for large data objects, e.g. 3D models, texture and material models, sound models. The repetitive data plumbing patterns of ABC should compress very effectively. 
 
 Algorithmic details are not fully settled. Thoughts:
 
 * want a simple, unambiguous, deterministic specificiation
-* secure hash CT, BC: independent halves of SHA3-384
-* base16 (all caps) encoding of resource id
+* secure hash BC: last 256 bits of SHA3-384 
+* secure hash CT: first 128 bits of SHA3-384
+* specialized base16 encoding of resource id (see below)
 * encryption: AES in CTR mode, simply using a zero nonce/IV
 * authenticate and filter ciphertexts using both secure hashes
 * compression should support embedding large binary data (see below)
