@@ -71,20 +71,18 @@ Tokens in ABC are simply expressed using text between curly braces, `{foo}`. The
 
 There are some common conventions based on prefix characters. For example:
 
-        {&foo}  :: a → a                -- annotation capability
+        {&foo}  :: a → a                - annotation capability
 
-        {:foo}  :: a → Sealed foo a     -- sealer capability
-        {.foo}  :: Sealed foo a → a     -- unsealer capability
-        {:$foo} :: a → Sealed $foo a    -- instance specific sealer
-        {.$foo} :: Sealed $foo a → a    -- instance specific unsealer
+        {:foo}  :: a → Sealed foo a     - sealer capability
+        {.foo}  :: Sealed foo a → a     - unsealer capability
 
-        {#323weAHSn085j9uj9u...} :: ∃a b. a→b -- secure hash source
-        {$ 3025uy0u3SKLHn3i3e...} :: ∃foo a. 1→(Sealed foo a) -- encrypted value
-            or possibly of type `∃foo a. s→(Sealed foo a * s)` like a literal
+        {:format$leftKey}               - cryptographic sealer
+        {.format$rightKey}              - cryptographic unsealer
+        {$format}                       - indicates sealed value
 
-Annotations can support debugging and performance. Secure hash sources are an important basis for separate compilation and linking in ABC. Usefully, they also work in a streaming code scenario, and in open systems. Separate compilation is achieved via caching or memoization.
+        {#kjhfmskpzgzdqbqstdh...}       - ABC resource
 
-The encoding of sealed remains tentative. We must recognize affine vs. relevant sealed values, and possible references to stored values. But the basic idea - that value-level encryption should be implicitly guided by value sealing - is excellent for security, simplicity, and optimizability. Value level sealing would typically be independent of link or sockets layer encryption.
+Annotations can support debugging and performance. Discretionary value sealing act as structural type tags. Cryptographic sealers support rights amplification and other security patterns. ABC resources are named by a combination of secure hashes to look up and decrypt the bytecode; they serve a valuable role in separate compilation and dynamic linking, and for saving bandwidth and storage at larger scales.
 
 ## Existing Annotations
 
@@ -104,6 +102,12 @@ While annotations are not strongly standardized, it's nice to avoid conflicts an
 
 In general, annotations may be ignored by an environment that doesn't recognize them, and are discretionary within environments that do recognize them. Annotations always have an identity type, and should have no observable impact on a correct program's behavior (modulo performance, debugger integration, etc.). 
 
+## Binaries in ABC
+
+Binaries are encoded in ABC using the base16 alphabet, `a-z` minus vowels `aeiou` and common data plumbing operators `vrwlc`. This encoding doubles the natural size of the binary, but then we will apply a specialized compression pass just for large sequences of base16, reducing them back to binary with just a little overhead (0.8% for large binaries). Compression is performed for ABC resources, cryptographically sealed values, and most ABC streams over a network.
+
+Binary compression is followed by a more conventional compression pass, but the worst case total overhead is guaranteed to be less than 2.5% for uncompressible large binaries. 
+
 ## ABC CHANGE LOG
 
 March 2014: 
@@ -118,8 +122,4 @@ August 2014
 
 ## ABCD
 
-None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits.
-
-## Under Consideration
-
-Possibly allow affine and relevant properties on the unit token. May still construct with `v`, destroy with `c`, but would limit user's ability to copy with `^` or erase with `%`. Might better represent extensible structure.
+None yet! ABCD will begin after U+00C0, and will develop according to empirical analysis of common subprogram patterns that offer effective compression and optimization benefits. Naturally, ABCD won't make any progress at all until we have a much larger and more mature ABC systems.

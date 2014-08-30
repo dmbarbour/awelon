@@ -397,7 +397,7 @@ Some sealers will be weak, discretionary tags like `{:foo}`, which serve a usefu
         {.format$rightKey}            cryptographic unsealer
         {$format}                     indicate sealed value
 
-Here, format might be something like 'ecc.secp256k1', indicating how the argument is encrypted or decrypted. The format may be blank to use the defaut. The proposed default is ecc.secp256k1, i.e. the same asymmetric encryption format used by Bitcoin. (Elliptic curve cryptography offers asymmetric encryption with relatively small keys compared to RSA.)
+Here, format might be something like 'ecc.secp256k1', indicating how the argument is encrypted or decrypted. The format may be blank to use the defaut. The proposed default is ecc.secp256k1, mostly because it is used by Bitcoin. Elliptic curve cryptography offers asymmetric encryption with relatively small keys compared to RSA.
 
 Serialization formats for discretionary vs. cryptographic sealed values:
 
@@ -410,7 +410,7 @@ For cryptographically sealed values, we'll instead serialize into text, then com
 
 If a value is never serialized, or is serialized only between trusted machines (or machines we already know to possess the unsealer) then we might forego the encryption step. 
 
-Value sealing is an important companion to object capability security. It provides a basis for [rights amplification](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp), whereby you can gain extra authority by possessing both a capability and a sealed value. It provides a basis for identity, via the Horton protocol and others (though proof-of-work systems are starting to take over that role, cf. Namecoin). Sealed values can offer a useful basis for separating delivery of data from access to it. Value sealing should be considered orthogonal to transport-layer encryption. 
+Value sealing is an important companion to object capability security. It provides a basis for [rights amplification](http://erights.org/elib/capability/ode/ode-capabilities.html#rights-amp), whereby you can gain extra authority by possessing both a capability and a sealed value, or by unsealing a value to gain a capability. It can also enforce various modularity patterns even in distributed systems. Value sealing should be considered orthogonal to transport-layer encryption. 
 
 ### ABC Resources for Separate Compilation and Dynamic Linking
 

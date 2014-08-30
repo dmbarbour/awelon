@@ -203,18 +203,20 @@
          {.format$rightKey}             unseal cryptographic sealed value
          {$format}                      indicate cryptographically sealed value
  
- The default format, 'ecc.secp256k1' (the elliptic curve cryptography used by Bitcoin), can be specified by leaving the format descriptor blank or by spelling it out. For now, it's the only proposed format, but VM developers may agree on new de-facto standards. 
+ The candidate default format, 'ecc.secp256k1' (the elliptic curve cryptography used by Bitcoin), can be specified by leaving the format descriptor blank or by spelling it out. For now, it's the only proposed format.
  
- The serializations of sealed values:
+ Serializations of sealed values:
  
          #42 [{:foo}]$                  discretionary sealed value
          ["cipherText\n~c]f{$fmt}       cryptographically sealed affine value
  
- Discretionary sealers are simply serialized as normal then sealed again on the remote VM. The data remains accessible to introspection and reflection. 
+ Discretionary sealers are simply serialized to bytecode as normal, then sealed again on the remote VM. The data remains accessible for introspection, reflection, and debugging. Discretionary sealers serve many useful roles such as resisting accidental data couplings, aiding a typechecker, or providing hints to a rendering or representation system.
  
- The cryptographic case is much more strongly protected. The cipher text is the result of compressing and encrypting the bytecode that will regenerate the data. We'll use the same compression as ABC resources, but we'll obviously use a different, asymmetric encryption format. The cipher text is embedded in the ABC stream as a binary (cf. `doc.BinariesInABC`). The text is further wrapped in a block so we may apply all the substructural properties relevant to the now opaque data (affine, relevant, expirations, etc.). Finally, `{$format} :: a*e→(Sealed $format a)*e` prevents manipulation of the block before it is unsealed.
+ The cryptographic case is much more strongly protected. The cipher text is the result of compressing and encrypting the bytecode that will regenerate the data. We'll use the same compression as ABC resources, but we'll obviously use a different, asymmetric encryption format. The cipher text is embedded in the ABC stream as a binary (cf. `doc.BinariesInABC`). The text is further wrapped in a block so we may apply all the substructural properties relevant to the now opaque data (affine, relevant, expirations, etc.). Finally, the cryptographic text block is sealed with `{$format}` to forbid manipulations until unsealed. 
  
- Sealers and unsealers of both kinds may be hard-coded into the dictionary. Discretionary sealers serve many useful roles such as resisting accidental data couplings, aiding a typechecker, or providing hints to a rendering system. Cryptographically secure sealers can serve similar roles, albeit inefficiently, but are intended mostly to support rights amplification and other security patterns. Hard coding of secure sealers is most interesting when the other end is known by a remote service. 
+ Cryptographic sealers are intended mostly to support rights amplification and other security patterns. Value sealing is complementary to object capability security, and together object capabilities and value sealing can model most security policies.
+ 
+ Sealers and unsealers of either kind may be hard-coded into the dictionary. Hard coding of secure sealers is most interesting when the other end is known by a remote service. Sealed values, however, may not be directly encoded in AO.
 ~
 @sealer [{:}]
 @unsealer [{.}]

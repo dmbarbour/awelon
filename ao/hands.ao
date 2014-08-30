@@ -1,5 +1,5 @@
 @doc.Hands
-"In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as a semantic clipboard for ad-hoc data shuffling.
+"In AO, the hand is modeled as a second stack. It can be used as a temporary storage for deep operations on the current stack, and also serves as an efficient semantic clipboard for ad-hoc data shuffling.
  
      (currentStack * (hand * ... ))
  
@@ -15,7 +15,9 @@
  
  In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments. Also, hands are hidden by some operations, such as `apply`.
  
- AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. Some common words, such as `apply`, will hide the hand - making
+ AO encourages a "clean hands" policy: most words should have a neutral effect on the hand, and not affect or observe the values already held by it. The exception is words like `take` and `put` where the purpose is to manipulate the hand. Some common words, such as `apply`, will hide the hand, which will enforce a clean hands policy for a lot of subprograms.
+ 
+ Developers could use named stacks in place of hands, but doing so is a lot more expensive in most cases. Named stacks are really intended for long term stable storage.
 ~
 
 @put %wrzl

@@ -346,7 +346,7 @@ saveRscFile h ct =
 -- directories.
 hctDir :: HashCT -> FS.FilePath
 hctDir hct = a FS.</> b FS.</> c where
-    b16 = (hashToText . B.take 24) hct
+    b16 = (hashToText . B.take 16) hct
     a = (FS.fromText . T.take 3) b16 -- ~4096 dirs
     b = (FS.fromText . T.take 3  . T.drop 3) b16 -- another ~4096
     c = (FS.fromText . T.drop 6) b16
@@ -356,11 +356,13 @@ hashToText = T.pack . fmap toChar . B16.encode . B.unpack where
     toChar = toEnum . fromIntegral
 
 -- Generate a cryptographically unique filename given the full
--- secure hash of the ciphertext. 
+-- secure hash of the ciphertext. The extra 8 bytes are used for
+-- uniqueness of ciphertexts for the unlikely case where 128 bits
+-- of directory name are not enough.
 hctFile :: SecureHash -> FS.FilePath
 hctFile h = dir FS.</> rsc where
-    dir = (hctDir . B.take 24) h
-    hf  = (hashToText . B.drop 24) h
+    dir = (hctDir . B.take 16) h
+    hf  = (hashToText . B.take 8 . B.drop 16) h
     rsc = ((FS.<.> ct) . FS.fromText) hf
     ct  = T.pack "ct"
 

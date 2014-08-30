@@ -14,10 +14,16 @@
 -- 
 --      {#SecureHashOfCiphertextSecureHashOfBytecode}
 --
--- There is no separator. Each secure hash is 192 bits, independent
--- halves of the SHA3-384 secure hash, for a total 48 octets. The
--- concatenated hashes are encoded in ABC's base16 (cf. ABC.Base16),
--- so will compress down to 50 octets for storage or transport.
+-- The hashes are encoded in ABC's base16 (cf. ABC.Base16), with no
+-- separator in order to get the tightest encoding possible. The
+-- full descriptor (including curly braces) is 99 characters but
+-- will compress to 53.
+--
+-- The hashes use independent parts of an SHA3-384 secure hash. The
+-- first third is 128 bits (16 bytes) for the lookup. The last two
+-- thirds is 256 bits, used to decrypt the resource. Systems should 
+-- accept the possibility of rare lookup collisions, and resolve via
+-- the secure bytecode hash. 
 -- 
 -- Pseudocode for resource construction:
 -- 
@@ -82,11 +88,11 @@ import qualified Crypto.Hash as CH
 import ABC.Operators
 import qualified ABC.Base16 as B16
 
--- | HashCT and HashBC are 192 bit (24 octet) strings
+-- | HashCT and HashBC are byte strings
 --
 -- Concretely:
---   HashCT is first  192 bits of SHA3-384 of the ciphertext.
---   HashBC is second 192 bits of SHA3-384 of the bytecode (UTF-8 encoded)
+--   HashCT is first 128 bits of SHA3-384 of the ciphertext.
+--   HashBC is last  256 bits of SHA3-384 of the bytecode (UTF-8 encoded)
 --
 -- Independent halves of SHA3-384 ensures independence of hash values
 -- without relying on quality of encryption or compression. The total
@@ -145,14 +151,14 @@ decodeABC bcBytes =
                 _rl -> Nothing
 
 -- | generate secure hash for the bytecode from bytestring
--- eqv. to `drop 24 . secureHash`
+-- eqv. to `drop 16 . secureHash`
 secureHashBC' :: ByteString -> HashBC
-secureHashBC' = B.drop 24 . secureHash
+secureHashBC' = B.drop 16 . secureHash
 
 -- | secure hash for the ciphertext (used as lookup key)
--- first half of SHA3-384, eqv. to `take 24 . secureHash`
+-- first half of SHA3-384, eqv. to `take 16 . secureHash`
 secureHashCT :: CipherText -> HashCT
-secureHashCT = B.take 24 . secureHash
+secureHashCT = B.take 16 . secureHash
 
 -- | generate a complete secure hash (SHA3-384, as 48 octets)
 secureHash :: ByteString -> SecureHash
@@ -168,7 +174,7 @@ makeResource fnSave bytecode = saveCode >> return rscTok where
     cipherText = encrypt hashBC (compress bcBytes)
     fullHashCT = secureHash cipherText
     saveCode = fnSave fullHashCT cipherText
-    hashCT = B.take 24 fullHashCT
+    hashCT = B.take 16 fullHashCT
     rscTok = "#" ++ toBase16 (hashCT `B.append` hashBC)
 
 -- | purely compute the resource token without storing the resource
@@ -196,11 +202,11 @@ loadResource _ tok = fail $ "invalid resource token: " ++ tok
 -- extract two secure hashes from given resource token
 splitToken :: ResourceToken -> Maybe (HashCT, HashBC)
 splitToken ('#':rscid) =
-    let (rct,rbc) = L.splitAt 48 rscid in
+    let (rct,rbc) = L.splitAt 32 rscid in
     case (fromBase16 rct, fromBase16 rbc) of
         (Just hct, Just hbc) ->
             -- ensure 192 bits for each hash
-            let okSize = (24 == B.length hct) && (24 == B.length hbc) in
+            let okSize = (16 == B.length hct) && (32 == B.length hbc) in
             if okSize then Just (hct,hbc) else Nothing
         _ -> Nothing
 splitToken _ = Nothing

@@ -30,11 +30,14 @@ ord
  
  We have several options for representing AA trees in Awelon project. For example, we could specialize red nodes based on them having only black children. We could potentially take advantage of all nodes on a level having the same number of children. But, keeping the KISS principle in mind like a mantra, I'll be using a uniform representation in this case:
  
- Root: Tree
- Tree: Node + Unit
- Node: Elem * (Tree * (Node + Tree))
+         Root:  Tree
+         Tree:  Node + Unit
+         RTree: Node + Tree
+         Node:  Elem * (Tree * RTree)
  
- The extra left-hand node for the right child is a red node. In a properly balanced tree, we should be able to assert that a red node's right child is black. But there will be intermediate states where an AA tree is temporarily unbalanced.
+ In a properly balanced tree, we will be able to assert that a red node's right child is always black, or that the black-height from root to every leaf is equivalent.
+ 
+ Other thoughts: even an imperfectly balanced tree is better than nothing. I need to have maps working ASAP, yet it isn't critical that I have the AA tree working perfectly ASAP. So... let's just make this work for now, and get it working optimally later.
 ~
 @doc.suffix.AATree doc.AATree
 
@@ -114,11 +117,6 @@ ord
 @rt2t.AATree %r i.rt2t.AATree %l
 @i.rt2t.AATree %VVRRZLLCM
 
-@doc.Zippers.AATree
-"When working with an AA tree, we'll often step deeply into the structure, tweak it a little, then rebuild the structure. This pattern suggests use of a zipper. Of course, we could keep context directly within the recursive operations, but doing so can hinder composition.
-~
-
-
 @toStream.AATree [t.toStream.AATree] .fixfirst .bind
 @t.toStream.AATree %D [n.toStream.AATree .app1] %r?VRW [%% .inR] %r?WLCMc
 @n.toStream.AATree 
@@ -137,17 +135,25 @@ ord
    swapd cons.s addend.s 
   postApply
 
+@doc.bindKVCmp.AATree "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
+@bindKVCmp.AATree dx dupd .bind dp
+@eqv.bindKVCmp.AATree#1 [bindKVCmp.AATree] [.rw x dup dp .wl .bind]
 
 @doc.insertKV.AATree
 "Insert or replace a `(key*value)` data element in an AA tree.
  
         (k*v)`AATree (k*v) [(k*k)→Ord] -- (k*v)`AATree ((k*v)+1)
  
- The key type, in this case, must be copyable, but the value type may be linear. The ordinal comparison function should be consistent with the ordering already used in the tree, i.e. all inserts should use the same totally ordered comparison function. If the element already exists, it will be replaced and the old `(k*v)` pair will be returned.
+ The key type, in this case, must be copyable, but the value type may be linear. The ordinal comparison function should be consistent with the ordering already used in the tree, i.e. all inserts should use the same totally ordered comparison function. If the element already exists, it will be replaced and the old `(k*v)` pair will be returned. We'll allow that the keys might not be identical; they only need to be equivalent as far as the ordinal comparison function is concerned.
  
- Ideas: I could potentially implement this as a zipper, first 'opening' the tree to the target node, then processing it... then having a separate operation to repair the tree. 
-~
+ Since my representation of the AA tree does not include 'level' information (which is how all the papers seem to describe the tree), I'll need to use a more context-aware approach to restore balance. I'm still trying to get this right in my head, though.
+~ 
 
+@insertKV.AATree bindKVCmp.AATree [withFreshEnv.insertKV.AATree] apply3to2
+@withFreshEnv.insertKV.AATree taked take [t.insertKV.AATree] fixpoint inline put
+
+@doc.t.insertKV.AATree "(k*v)`AATree [t.insert] | [k→Ord] (k*v) -- (k*v)`AATree | ((k*v)+1)"
+@t.insertKV.AATree
 
 
 
