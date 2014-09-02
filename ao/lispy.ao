@@ -1,0 +1,79 @@
+@doc.car 
+"In the Lisp tradition, there are functions `car` and `cdr` that respectively access the first and second elements of a tuple. The names derive from ancient operational semantics - contents of the address register vs. contents of the destination register. There is a series of related functions, such as `caar` and `caddar` that can access deeper structures. These are convenient, so they are replicated in AO albeit assuming the main argument is on the stack. 
+ 
+         car :: (a*b) -- (a*b) a; copyable a
+         cdr :: (a*b) -- (a*b) b; copyable b
+         cadr :: (a*(b*c)) -- (a*(b*c)) b; copyable b
+ 
+ Note that these directly reflect the Lisp versions, i.e. `(cadr x) = (car (cdr x))`. However, AO does not copy the intermediate structures, so only the actual target must be copyable. We carry this out up to a limited depth of four. This has a weakness of not being very composable, but it can be convenient.
+ 
+ In addition to direct copies, more compositional variations such as `apcar` and `swcar` will enable ad-hoc application and swapping (or setting) a deep value, respectively.
+~
+@car    x dup   dp
+@caar   x car   dp
+@cdar   x cdr   dp
+@caaar  x caar  dp
+@cadar  x cadr  dp
+@cdaar  x cdar  dp
+@cddar  x cddr  dp
+@caaaar x caaar dp
+@caadar x caadr dp
+@cadaar x cadar dp
+@caddar x caddr dp
+@cdaaar x cdaar dp
+@cdadar x cdadr dp
+@cddaar x cddar dp
+@cdddar x cdddr dp
+
+@doc.cdr doc.car
+@cdr    wx dup   dpw
+@cadr   wx car   dpw
+@cddr   wx cdr   dpw
+@caadr  wx caar  dpw
+@caddr  wx cadr  dpw
+@cdadr  wx cdar  dpw
+@cdddr  wx cddr  dpw
+@caaadr wx caaar dpw
+@caaddr wx caadr dpw
+@cadadr wx cadar dpw
+@cadddr wx caddr dpw
+@cdaadr wx cdaar dpw
+@cdaddr wx cdadr dpw
+@cddadr wx cddar dpw
+@cddddr wx cdddr dpw
+
+@doc.wcar 
+"A variation on the Lisp-like car and cdr, 'wcar' will swap a value on the stack with a value deep within a data structure. This is much more composable than car and cdr, at least in an ad-hoc sense (we can extract a deep structure, then perform further extractions on it). It is not as composable as true lenses.
+~ 
+@wcar    dx swap   dp
+@wcaar   dx wcar   dp
+@wcdar   dx wcdr   dp
+@wcaaar  dx wcaar  dp
+@wcadar  dx wcadr  dp
+@wcdaar  dx wcdar  dp
+@wcddar  dx wcddr  dp
+@wcaaaar dx wcaaar dp
+@wcaadar dx wcaadr dp
+@wcadaar dx wcadar dp
+@wcaddar dx wcaddr dp
+@wcdaaar dx wcdaar dp
+@wcdadar dx wcdadr dp
+@wcddaar dx wcddar dp
+@wcdddar dx wcdddr dp
+
+@doc.wcdr doc.wcar
+@wcdr    dwx swap   dpw
+@wcadr   dwx wcar   dpw
+@wcddr   dwx wcdr   dpw
+@wcaadr  dwx wcaar  dpw
+@wcaddr  dwx wcadr  dpw
+@wcdadr  dwx wcdar  dpw
+@wcdddr  dwx wcddr  dpw
+@wcaaadr dwx wcaaar dpw
+@wcaaddr dwx wcaadr dpw
+@wcadadr dwx wcadar dpw
+@wcadddr dwx wcaddr dpw
+@wcdaadr dwx wcdaar dpw
+@wcdaddr dwx wcdadr dpw
+@wcddadr dwx wcddar dpw
+@wcddddr dwx wcdddr dpw

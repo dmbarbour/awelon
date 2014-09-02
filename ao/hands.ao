@@ -12,6 +12,7 @@
  * copy an item from the stack into hand
  * paste an item in the hand onto the stack
  * swap the current stack with the hand
+ * apply a tool from the hand 
  
  In addition, hands are stable when developers use navigational metaphors, i.e. to operate in different workspaces or environments. Also, hands are hidden by some operations, such as `apply`.
  
@@ -27,6 +28,19 @@
 @paste put copy
 @hsw handStackSwap
 @handStackSwap %w
+
+@doc.hfix 
+"Fixpoint the function in the hand, such that a function remains recursively available in the hand during evaluation. Intended for use with `hap` or `hapc`, potentially within an 'apply' environment. It is a common data plumbing pattern to 'take' a recursive function, since we often wish to work with some other values before applying a function recursively and the hand is a convenient place to stash the function.
+~
+@hfix put %r [%^'ol take] %ro %^'ol take
+@hfix.old put [take] composel fixpoint take
+@eqv.hfix [hfix] [hfix.old]
+
+@doc.hap "same as 'put inline'; apply a function in the hand to the environment"
+@hap put inline
+
+@doc.hapc "same as 'paste inline'; non-destructively apply function in hand to environment"
+@hapc paste inline
 
 @take2 take  take
 @take3 take2 take
