@@ -230,14 +230,16 @@ fromBase16 s =
                      else Nothing
 
 
--- todo: implement encryption
+-- todo: implement encryption; for now, just appending the key and
+-- the content to simulate use of binary code under the hood.
 encrypt :: HashBC -> ByteString -> CipherText
-encrypt _key = id
+encrypt = B.append
 
 -- todo: implement decryption
 -- (note: might need to trim a little off the end of the final block)
 decrypt :: HashBC -> CipherText -> ByteString
-decrypt _key = id
+decrypt _key ct | B.isPrefixOf _key ct = B.drop (B.length _key) ct
+decrypt _ ct = ct
 
 -- todo: implement compression
 compress :: ByteString -> ByteString
