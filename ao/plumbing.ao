@@ -23,7 +23,7 @@ lispy
 @dup  %r^zlwl
 @dupd .rw dup .wl 
 @over dupd swap
-@tuck swap over
+@tuck dup swapd
 @pick .rw over .wl swap
 @drop %r%
 @nip  .rw drop  .wl 
@@ -45,6 +45,8 @@ lispy
 @rolld .rw roll .wl 
 @unrotd .rw unrot .wl 
 @unrolld .rw unroll .wl 
+@intro1d .rw intro1 .wl
+@elim1d .rw elim1 .wl
 
 @roll2 swap
 @roll3 rot

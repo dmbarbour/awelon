@@ -1,13 +1,13 @@
 @doc.car 
-"In the Lisp tradition, there are functions `car` and `cdr` that respectively access the first and second elements of a tuple. The names derive from ancient operational semantics - contents of the address register vs. contents of the destination register. There is a series of related functions, such as `caar` and `caddar` that can access deeper structures. These are convenient, so they are replicated in AO albeit assuming the main argument is on the stack. 
+"In the Lisp tradition, there are functions `car` and `cdr` that respectively access the first and second elements of a pair. The names derive from ancient operational semantics - contents of the address register vs. contents of the destination register. There is a series of related functions, such as `caar` and `caddar` that can access deeper structures. These are convenient, so they are replicated in AO albeit assuming the main argument is on the stack. 
  
          car :: (a*b) -- (a*b) a; copyable a
          cdr :: (a*b) -- (a*b) b; copyable b
          cadr :: (a*(b*c)) -- (a*(b*c)) b; copyable b
  
- Note that these directly reflect the Lisp versions, i.e. `(cadr x) = (car (cdr x))`. However, AO does not copy the intermediate structures, so only the actual target must be copyable. We carry this out up to a limited depth of four. This has a weakness of not being very composable, but it can be convenient.
+ Note that these directly reflect the Lisp versions, i.e. `(cadr x) = (car (cdr x))`. However, AO does not copy the intermediate structures, so only the actual target must be copyable. We carry this out up to a limited depth of four. This has a weakness of not being very composable, but it can occasionally be convenient. 
  
- In addition to direct copies, more compositional variations such as `apcar` and `swcar` will enable ad-hoc application and swapping (or setting) a deep value, respectively.
+ We also have families of related functions, such as `setcar!` from Scheme, albeit without aliasing, and `wcar` to swap a value, `apcar` to apply a pure function to a deep value, and `dpcar` to apply a function to the environment with just one element from the data structure (hiding the rest).
 ~
 @car    x dup   dp
 @caar   x car   dp
@@ -43,7 +43,12 @@
 @cddddr wx cdddr dpw
 
 @doc.wcar 
-"A variation on the Lisp-like car and cdr, 'wcar' will swap a value on the stack with a value deep within a data structure. This is much more composable than car and cdr, at least in an ad-hoc sense (we can extract a deep structure, then perform further extractions on it). It is not as composable as true lenses.
+"A variation on the Lisp-like car and cdr, 'wcaddar' will swap a value on the stack with a value deep within a data structure. 
+ 
+         wcar :: (a*b) a' -- (a'*b) a
+         wcaddar :: (a*(b*(c*d)))*e c' -- (a*(b*(c'*d)))*e c
+ 
+ This is much more composable than car and cdr, at least in an ad-hoc sense (we can extract a deep structure, then perform further extractions on it). It is not as composable as true lenses. It is also used as the basis for the `setcar!` series of functions.
 ~ 
 @wcar    dx swap   dp
 @wcaar   dx wcar   dp
@@ -77,3 +82,129 @@
 @wcdaddr dwx wcdadr dpw
 @wcddadr dwx wcddar dpw
 @wcddddr dwx wcdddr dpw
+
+@doc.setcar! "(a*b) a' -- (a'*b); droppable a (cf. wcar)"
+@doc.setcdr! "(a*b) b' -- (a*b'); droppable b (cf. wcdr)"
+@setcar!    wcar    drop
+@setcdr!    wcdr    drop
+@setcaar!   wcaar   drop
+@setcadr!   wcadr   drop
+@setcdar!   wcdar   drop
+@setcddr!   wcddr   drop
+@setcaaar!  wcaaar  drop
+@setcaadr!  wcaadr  drop
+@setcadar!  wcadar  drop
+@setcaddr!  wcaddr  drop
+@setcdaar!  wcdaar  drop
+@setcdadr!  wcdadr  drop
+@setcddar!  wcddar  drop
+@setcdddr!  wcdddr  drop
+@setcaaaar! wcaaaar drop
+@setcaaadr! wcaaadr drop
+@setcaadar! wcaadar drop
+@setcaaddr! wcaaddr drop
+@setcadaar! wcadaar drop
+@setcadadr! wcadadr drop
+@setcaddar! wcaddar drop
+@setcadddr! wcadddr drop
+@setcdaaar! wcdaaar drop
+@setcdaadr! wcdaadr drop
+@setcdadar! wcdadar drop
+@setcdaddr! wcdaddr drop
+@setcddaar! wcddaar drop
+@setcddadr! wcddadr drop
+@setcdddar! wcdddar drop
+@setcddddr! wcddddr drop
+
+
+@doc.apcar
+"Apply a function to just a particular element of a structure.
+ 
+         apcar :: (a*b) [a→a'] -- (a'*b)
+         apcdr :: (a*b) [b→b'] -- (a*b')
+         apcadr :: (a*(b*c)) [b→b'] -- (a*(b'*c))
+ 
+ This method can also be used to set 
+~
+@apcar dx .apply p
+@apcaar dx apcar p
+@apcdar dx apcdr p
+@apcaaar dx apcaar p
+@apcadar dx apcadr p
+@apcdaar dx apcdar p
+@apcddar dx apcddr p
+@apcaaaar dx apcaaar p
+@apcaadar dx apcaadr p
+@apcadaar dx apcadar p
+@apcaddar dx apcaddr p
+@apcdaaar dx apcdaar p
+@apcdadar dx apcdadr p
+@apcddaar dx apcddar p
+@apcdddar dx apcdddr p
+
+@doc.apcdr doc.apcar
+@apcdr dwx .apply pw
+@apcadr dwx apcar pw
+@apcddr dwx apcdr pw
+@apcaadr dwx apcaar pw
+@apcaddr dwx apcadr pw
+@apcdadr dwx apcdar pw
+@apcdddr dwx apcddr pw
+@apcaaadr dwx apcaaar pw
+@apcaaddr dwx apcaadr pw
+@apcadadr dwx apcadar pw
+@apcadddr dwx apcaddr pw
+@apcdaadr dwx apcdaar pw
+@apcdaddr dwx apcdadr pw
+@apcddadr dwx apcddar pw
+@apcddddr dwx apcdddr pw
+
+@doc.dpcar
+"Apply a function to an element deep in a data structure, hiding the rest of the data structure. In this case, the 'dp' corresponds to the `dip` function, which usually hides one item on the stack; we're instead hiding the structure surrounding the target. Ad-hoc results may be returned through the environment.
+ 
+         dpcar :: ..s (a*b) [..s a -- ..s' a'] -- ..s' (a'*b)    
+         dpcdr :: ..s (a*b) [..s b -- ..s' b'] -- ..s' (a*b')    
+         dpcadr :: ..s (a*(b*c)) [..s b -- ..s' b'] -- ..s' (a*(b'*c))
+ 
+ I'm curious whether this pattern will actually prove useful or not. 
+~
+@dpcar  dwx dip pw
+@dpcdr  dx dip p
+@dpcaar [wcaar] wcxxr→dpcxxr
+@dpcadr [wcadr] wcxxr→dpcxxr
+@dpcdar [wcdar] wcxxr→dpcxxr
+@dpcddr [wcddr] wcxxr→dpcxxr
+@dpcaaar [wcaaar] wcxxr→dpcxxr
+@dpcaadr [wcaadr] wcxxr→dpcxxr
+@dpcadar [wcadar] wcxxr→dpcxxr
+@dpcaddr [wcaddr] wcxxr→dpcxxr
+@dpcdaar [wcdaar] wcxxr→dpcxxr
+@dpcdadr [wcdadr] wcxxr→dpcxxr
+@dpcddar [wcddar] wcxxr→dpcxxr
+@dpcdddr [wcdddr] wcxxr→dpcxxr
+@dpcaaaar [wcaaaar] wcxxr→dpcxxr
+@dpcaaadr [wcaaadr] wcxxr→dpcxxr
+@dpcaadar [wcaadar] wcxxr→dpcxxr
+@dpcaaddr [wcaaddr] wcxxr→dpcxxr
+@dpcadaar [wcadaar] wcxxr→dpcxxr
+@dpcadadr [wcadadr] wcxxr→dpcxxr
+@dpcaddar [wcaddar] wcxxr→dpcxxr
+@dpcadddr [wcadddr] wcxxr→dpcxxr
+@dpcdaaar [wcdaaar] wcxxr→dpcxxr
+@dpcdaadr [wcdaadr] wcxxr→dpcxxr
+@dpcdadar [wcdadar] wcxxr→dpcxxr
+@dpcdaddr [wcdaddr] wcxxr→dpcxxr
+@dpcddaar [wcddaar] wcxxr→dpcxxr
+@dpcddadr [wcddadr] wcxxr→dpcxxr
+@dpcdddar [wcdddar] wcxxr→dpcxxr
+@dpcddddr [wcddddr] wcxxr→dpcxxr
+
+@wcxxr→dpcxxr 
+ dup .rw swap .rw %z
+ intro1d inline swap
+ .wl pw .wl dip wx
+ swapd inline elim1
+
+
+
+

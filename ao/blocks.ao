@@ -53,6 +53,7 @@
 @doc.composel "[y→z] [x→y] -- [x→z]; compose on left"
 @doc.wrapfn "[x→y] [w→x] [y→z] -- [w→z]; wrap a function"
 @doc.apply "x [x -- y] -- y; apply in limited environment (just 'x' on stack)"
+@doc.dip "..a b [..a -- ..a'] -- ..a' b; inline function, except hiding top element of stack"
 
 @compose pw %rrol
 @composel swap compose
