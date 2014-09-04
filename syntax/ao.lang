@@ -24,9 +24,13 @@
     <style id="define"        _name="Defined Word"       map-to="def:type"/>
   </styles>
 
-  <default-regex-options case-sensitive="false"/>
+  <default-regex-options case-sensitive="true"/>
 
   <definitions>
+
+    <define-regex id="wordSep">[\[\]\x20]</define-regex>
+    <define-regex id="xws" extended="true">^ | (?&lt;=\%{wordSep})</define-regex>
+    <define-regex id="fbws" extended="true">(?=\%{wordSep}) | $</define-regex>
 
     <define-regex id="abc16char">[bdfghjkmnpqstxyz]</define-regex>
     <define-regex id="abc16byte">\%{abc16char}\%{abc16char}</define-regex>
@@ -37,7 +41,7 @@
 
     <define-regex id="abcOp">[lrwzvc%^$o'kf#0123456789+\-*/QLRWZVC?DFMK\x3E]</define-regex>
     <context id="inlineABC" style-ref="abc" class="no-spell-check">
-        <match>%\%{abcOp}+</match>
+        <match>\%{xws}%\%{abcOp}+\%{fbws}</match>
     </context>
 
     <context id="withinString">
@@ -48,7 +52,7 @@
     </context>
 
     <context id="inlineString" style-ref="ilstring" class-disabled="no-spell-check" end-at-line-end="true">
-        <start>"</start>
+        <start>(?&lt;=\%{wordSep})"</start>
         <end>"</end>
         <include>
             <context ref="withinString"/>
@@ -73,9 +77,6 @@
     <define-regex id="hexadecimal">0x[0-9a-fA-F]+</define-regex>
     <define-regex id="float">\%{anyInt}(\.[0-9]+)?(e\%{anyInt})?</define-regex>
 
-    <define-regex id="wordSep">[\[\]\x20]</define-regex>
-    <define-regex id="xws" extended="true">^ | (?&lt;=\%{wordSep})</define-regex>
-    <define-regex id="fbws" extended="true">(?=\%{wordSep}) | $</define-regex>
     
     <context id="fractional" style-ref="number">
         <match>\%{xws}\%{fractional}\%{fbws}</match>
@@ -129,11 +130,11 @@
     </context> 
 
 
-    <define-regex id="wc">[^\x00-\x20\[\]"%{}(|)\x7F-\x9F\x{301A}\x{301B}\x{2983}-\x{2986}]</define-regex>
-    <define-regex id="wsc">(?![@0-9+\-\.])\%{wc}</define-regex>
+    <define-regex id="wc">[^\x00-\x20\[\]"{}(|)\x7F-\x9F\x{301A}\x{301B}\x{2983}-\x{2986}]</define-regex>
+    <define-regex id="wsc">(?![-+.%@0-9])\%{wc}</define-regex>
     
     <define-regex id="normalWord">\%{wsc}\%{wc}*</define-regex>
-    <define-regex id="specialWord">[+\-\.](?![0-9])\%{wc}*</define-regex>
+    <define-regex id="specialWord">[-+.](?![0-9])\%{wc}*</define-regex>
     <define-regex id="anyWord" extended="true">\%{normalWord} | \%{specialWord}</define-regex>
 
     <context id="word" class="no-spell-check" >
