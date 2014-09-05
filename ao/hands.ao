@@ -25,7 +25,7 @@
 @take hsw put hsw
 @discard put drop
 @copy dup take
-@paste put copy
+@paste hsw copy hsw
 @hsw handStackSwap
 @handStackSwap %w
 
@@ -75,12 +75,12 @@
 @copy6 dup6 take6
 @copy7 dup7 take7
 
-@paste2 put2 copy2
-@paste3 put3 copy3
-@paste4 put4 copy4
-@paste5 put5 copy5
-@paste6 put6 copy6
-@paste7 put7 copy7
+@paste2 hsw copy2 hsw
+@paste3 hsw copy3 hsw
+@paste4 hsw copy4 hsw
+@paste5 hsw copy5 hsw
+@paste6 hsw copy6 hsw
+@paste7 hsw copy7 hsw
 
 @taked swap take
 @putd put swap

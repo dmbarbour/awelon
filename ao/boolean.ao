@@ -14,10 +14,14 @@
 @false false.b
 
 @doc.toBoolean "(a+b) -- Bool; (droppable a, droppable b)"
-@toBoolean %r [%v%] %r?VRW [%v%] %r?WLC %l
+@toBoolean %r toBoolean\1e %l
+@toBoolean\1 %v toBoolean\1e %l
+@doc.toBoolean\1e "(a+b)*e → (1+1)*e; droppable a, droppable b"
+@toBoolean\1e %vvrwlcD trimBoolean\1e
 
 @doc.trimBoolean "(x*1 + y*1) -- (x+y); may be useful after distrib"
-@trimBoolean %rVR [%c] %r?W [%c] %r?WLCl
+@trimBoolean %r trimBoolean\1e %l
+@trimBoolean\1e %Fw%
 
 @doc.assertBoolean "Bool -- Bool; enforces true boolean (1+1)"
 @assertBoolean %rVR [.assertUnit] %r?W [.assertUnit] %r?WLCl

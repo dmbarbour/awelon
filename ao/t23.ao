@@ -1,0 +1,41 @@
+
+@doc.TwoThreeTree
+"The 2-3 Tree is a balanced B-tree in which every node has one or two data elements, inner nodes have either two or three children and all children are at the same depth. A 2-3 tree is in some ways conceptually simpler than a red-black tree or AA-tree, by making the balancing case more explicit in the data structure. OTOH, having multiple node types for data results in bulky, repetitive bytecode. 
+ 
+ A proposed representation:
+ 
+         T  :: (E + (N2 + N3))
+         E  :: unit
+         N2 :: (T * (a * T))
+         N3 :: (T * (a * N2)) 
+ 
+         SHORTHAND:  e`T23
+ 
+~
+@doc.suffix.t23 doc.TwoThreeTree
+
+@doc.empty.t23 "-- e`T23"
+@empty.t23 intro1 inL
+
+@doc.singleton.t23 "e -- e`T23"
+@singleton.t23 empty.t23 empty.t23 dpw p inL inR
+
+@doc.fmap.t23 "a`T23 [a→b] -- b`T23; apply function to every element"
+@fmap.t23 [t.fmap.t23] bind fixpoint inline
+@t.fmap.t23 [inL] [nn.fmap.t23 inR] if
+@nn.fmap.t23 [n2.fmap.t23 inL] [n3.fmap.t23 inR] if
+@n2.fmap.t23 {&todo:n2.fmap.t23} 
+@n3.fmap.t23 {&todo:n3.fmap.t23}
+
+
+@doc.height.t23 "a`T23 -- a`T23 Nat; find height of balanced 2-3 tree"
+@doc.size.t23 "a`T23 -- a`T23 Nat; find size (number of elements) of 2-3 tree"
+@doc.assertBalanced.t23 "a`T23 -- a`T23; assert 2-3 tree is balanced"
+@doc.assertSorted.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert 2-3 tree is sorted"
+@doc.validateTree.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert balanced and sorted"
+
+
+
+
+
+

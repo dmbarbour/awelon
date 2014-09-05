@@ -1,0 +1,70 @@
+lispy loops conditionals
+
+@doc.RedBlackTree
+"The red-black tree is a balanced binary search tree developed by Rudolph Bayer in 1972. Balance is guaranteed by ensuring that the number of 'black' nodes on a path from the root to every leaf is equal, while allowing some flexibility of structure is achieved by allowing alternating nodes on a path to be painted red. The guarantee of O(lg N) manipulations is achieved by guaranteeing that red nodes have only black children, i.e. such that the longest path in the tree (mixed red and black) is no longer than twice the shortest path in the tree.
+ 
+ A red-black tree corresponds to a 2-4 B-tree. Compared to other self-balancing binary search trees, red-black trees have the nice property of a highly uniform structure. However, it also has a lot of special cases to rebalance the tree after insert or delete.
+ 
+ Proposed representation:
+ 
+         Node:  (elem * (Color * (Tree * Tree)))   
+         Tree:  1 + Node                            leaf+node
+         Color: 1 + 1                               black+red
+ 
+         shorthand: e`RBT
+ 
+ Alternatively, I could encode the color in the Tree type, e.g. `(1 + (Node + Node))` for black and red nodes. But that results in some awkward code for operations that are mostly independent of color (such as fmap, count, streaming) since I'm always forced to observe color. Ideally, a good compiler could optimize for the common tuple structure. 
+~
+
+@doc.suffix.rbt doc.RedBlackTree
+
+@doc.empty.rbt " -- e`RBT"
+@doc.singleton.rbt "e -- e`RBT" 
+@empty.rbt intro1 inL
+@singleton.rbt black.rbt empty.rbt empty.rbt pw pw pw inR
+
+@black.rbt intro1 inL
+@red.rbt intro1 inR
+
+@doc.color.rbt "e`RBT -- e`RBT color; copy color of red-black tree"
+@t.color.rbt [black.rbt] [n.color.rbt] if
+@n.color.rbt cadr
+
+@doc.paintItBlack.rbt "e`RBT -- e`RBT; red node to black node"
+@doc.paintItRed.rbt "e`RBT -- e`RBT; black node to red node"
+@paintItBlack.rbt [inL] [n.paintItBlack.rbt inR] if
+@n.paintItBlack.rbt black.rbt setcadr!
+@paintItRed.rbt   [inL] [n.paintItRed.rbt inR] if
+@n.paintItRed.rbt   red.rbt setcadr! 
+
+@doc.blackHeight.rbt "e`RBT -- e`RBT Nat; count black nodes from root to leftmost leaf"
+@blackHeight.rbt [t.blackHeight.rbt] take hfix hap 
+@t.blackHeight.rbt [discard inL 0] [n.blackHeight.rbt inRd] if
+@n.blackHeight.rbt 
+ wx wx x hap take p pw pw
+ n.color.rbt [hsw inc hsw] [] if_ put
+
+@doc.assertBalanced.rbt "e`RBT -- e`RBT; assert black height same on every path from root to leaf"
+@assertBalanced.rbt h.assertBalanced.rbt drop
+@h.assertBalanced.rbt [t.assertBalanced.rbt] take hfix hap
+@t.assertBalanced.rbt [discard inL 0] [n.assertBalanced.rbt inRd] if
+@n.assertBalanced.rbt
+ wx wx x hapc rot hap swapd assertEQ1.n take pw pw pw
+ n.color.rbt [hsw inc hsw] [] if_ put
+
+@doc.assertRedNodesHaveBlackChildren.rbt "e`RBT -- e`RBT; assert red
+
+@doc.size.rbt "e`RBT -- e`RBT Nat; compute number of nodes in red-black tree"
+@size.rbt [t.size.rbt] take hfix hap
+@t.size.rbt [inL 0 discard] [nn.size.rbt] if
+@nn.size.rbt [inLd] [inRd] condSelect take hswap n.size.rbt hap
+@n.size.rbt wx x hapc rot hap swapd .add inc dpw dpw
+
+
+
+@doc.insertKV.rbt 
+"Insert a value into a red-black tree. 
+         (k*v)`RBT (k*v) [(k*k)→Ord] -- (k*v)`RBT; insert a value
+~
+
+

@@ -1,6 +1,6 @@
 lispy
 
-@doc.id " -- "
+@doc.id "a→a; same as whitespace"
 @doc.dup "(Copyable x) ⇒ x -- x x"
 @doc.dupd "(Copyable x) ⇒ x y -- x x y"
 @doc.over "(Copyable x) ⇒ x y -- x y x"
@@ -40,6 +40,18 @@ lispy
 @unroll swap .rw unrot .wl 
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
+
+
+@pick1  dup
+@pick2 .rw pick1 .wl swap
+@pick3 .rw pick2 .wl swap
+@pick4 .rw pick3 .wl swap
+@pick5 .rw pick4 .wl swap
+@pick6 .rw pick5 .wl swap
+@pick7 .rw pick6 .wl swap
+
+@eqv.tuck#1 [tuck] [dup unrot]
+@eqv.tuck#2 [tuck] [swap over]
 
 @rotd .rw rot .wl 
 @rolld .rw roll .wl 

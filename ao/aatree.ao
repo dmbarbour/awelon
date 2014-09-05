@@ -1,5 +1,5 @@
 @doc.AATree
-"The AA tree is a self-balancing binary search tree invented by and named for Arne Anderson. This tree is a refinement on red-black trees, allowing red nodes only as a right hand child of a black node. The resulting tree corresponds to a 2-3 B-tree. Compared to red-black trees, a few extra balancing operations are required... but they are simpler. Compared to 2-3 trees, there are fewer node types.
+"The AA tree is a refinement on red-black binary search tree developed by and named for Arne Anderson. The idea is simple: allow red children only on the right hand side. The resulting tree corresponds to a 2-3 B-tree. Compared to red-black trees, a few extra balancing operations are required... but they are simpler. Compared to 2-3 trees, there are fewer node types.
  
  * the root is black
  * all leaves are black
@@ -17,7 +17,9 @@
  
  In a properly balanced tree, we will be able to assert that a red node's right child is always black, or that the black-height from root to every leaf is equivalent.
  
- Other thoughts: even an imperfectly balanced tree is better than nothing. I need to have maps working ASAP, yet it isn't critical that I have the AA tree working perfectly ASAP. So... let's just make this work for now, and get it working optimally later.
+ Thoughts on balancing the AA tree without height information: after insert or delete, the balance will *at most* be off by one. Potentially, we can take advantage of this by tracking balance on the return from insert or delete.
+ 
+ NOTE: The AA tree is not fully implemented at the moment. I'm having some difficulty with implementing it without keeping the full 'level' metadata used in Arne Anderson's paper, and I'd rather not be manipulating or comparing numbers for the tree structure itself. For now, please consider this data structure to be in a half-implemented limbo; I'll instead try two-three trees (under suffix `.t23`) or red-black trees (under suffix `.rbt`). 
 ~
 @doc.suffix.AATree doc.AATree
 
@@ -120,7 +122,7 @@
 @eqv.bindKVCmp.AATree#1 [bindKVCmp.AATree] [.rw x dup dp .wl .bind]
 
 @doc.Zipper.AATree
-"A simple zipper data structure - a `(focus*context)` pair, where the focus is a tree node and the context is a path back to root. Each element in the context includes enough directional information to restore the original tree. Possible representation for context nodes:
+"A simple zipper data structure - a `(focus*context)` pair, where the focus is a tree node and the context is a list representing a path back to root. Each element in the context includes enough directional information to restore the original tree. Possible representation for context nodes:
  
                            right on
                   left     red or black
@@ -128,6 +130,14 @@
  
  Where we're holding onto the tree whose path we did not take. Alternatively, the Elem type could be pre-distributed through the sum types. I'm not sure it makes a real difference one way or the other.
 ~
+@doc.zwrap.AATree "elem`AATree -- (elem`AATree * AATreeCx); create a zipper"
+@zwrap.AATree empty.l pw
+
+@doc.zesc.AATree "(elem`AATree * AATreeCx) -- elem`AATree; exit a zipper (assumes balanced)"
+
+
+
+
 
 @doc.insertKV.AATree
 "Insert or replace a `(key*value)` data element in an AA tree.
@@ -136,18 +146,20 @@
  
  The key type, in this case, must be copyable, but the value type may be linear. The ordinal comparison function should be consistent with the ordering already used in the tree, i.e. all inserts should use the same totally ordered comparison function. If the element already exists, it will be replaced and the old `(k*v)` pair will be returned. We'll allow that the keys might not be identical; they only need to be equivalent as far as the ordinal comparison function is concerned.
  
- Since my representation of the AA tree does not include 'level' information (which is how all the papers seem to describe the tree), I'll need to use a more context-aware approach to restore balance. I'm still trying to get this right in my head and on paper, though.
+ The current representation of AATree does not keep extra data regarding 'level', so this creates a few challenges for the balancing operation. Relevantly, there are multiple cases to handle. If we end up replacing a node, the balance is not affected. If we insert a node, the balance may be impacted, or might not be. It isn't clear to me, at the moment, how to best model this. 
 ~ 
 
 @insertKV.AATree [apEnv.insertKV.AATree] apply3to2
 @apEnv.insertKV.AATree 
- bindKVCmp.AATree [node.insertKV.AATree] bind take hfix 
- taked root.insertKV.AATree put
-@root.insertKV.AATree tree.insertKV.AATree
+ bindKVCmp.AATree [node.insertKV.AATree] bind
+ taked take hfix tree.insertKV.AATree
 @tree.insertKV.AATree [hap] [leaf.insertKV.AATree] if
-@leaf.insertKV.AATree discard put singleton.AATree swap inR take
+@leaf.insertKV.AATree discard put singleton.AATree swap inR
+@doc.node.insertKV.AATree "((k*v)*(t*rt)) [k→Ord] \h [node.insert] (k*v) -- node' ((k*v)+1)"
 @node.insertKV.AATree 
- dx dupd 
+ dx dx dup .apply dp dp
+ 
+ {&TODO: insert node then rebalance.}
 
 
 

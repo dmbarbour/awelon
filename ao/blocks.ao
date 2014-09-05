@@ -337,9 +337,9 @@
 @doc.bi 
 "apply two blocks to one argument.
  
-     [p] [q] bi 
-        is equivalent to
-     [p] keep q
+        [p] [q] bi 
+           is equivalent to
+        [p] keep q
  
 ~
 @bi [keep] dip inline
@@ -377,6 +377,15 @@
  85 assertEQ1 unrot
  42 assertEQ1 unrot
  13 assertEQ1 unrot
+
+@doc..bi "a a (a→b) -- b b"
+@doc..tri "a a a (a→b) -- b b b"
+@.bi tuck .apply .rw .apply .wl
+@.tri tuck .apply .rw .bi .wl
+
+@test..bi 5 7 [mul2\1] .bi 14 assertEQ1.n 10 assertEQ1d.n
+@test..tri 5 6 7 [mul2\1] .tri 14 assertEQ1.n 12 assertEQ1d.n 10 assertEQ1dd.n
+
 
 @doc.bi* "apply 2 blocks each to respective input"
 @doc.bi2* "apply 2 blocks each to 2 respective inputs"

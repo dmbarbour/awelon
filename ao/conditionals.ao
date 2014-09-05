@@ -32,21 +32,27 @@ boolean
 @doc.distribInL "a -- (a + a); in left; as `inL` but preserves x's type info in right"
 @distribInL false.b swap distrib trimBoolean
 @distribInR distribInL mirror
-@distribInLd swap distribInL swap
-@distribInRd swap distribInR swap
+@distribInLd .rw distribInL .wl
+@distribInRd .rw distribInR .wl
 
 @doc.distrib "(a + b) c -- ((c*a) + (c*b))"
 @doc.partialFactor "((a*b)+(c*d)) -- (b + d) (a + c)"
 @doc.merge   "(a + a') -- a; a and a' must be future compatible"
-@doc.fullFactor "((a+b)+(a'+d)) -- (b+c) a"
+@doc.fullFactor "((a+b)+(a'+d)) -- (b+d) a"
 @distrib p %rrDl
 @partialFactor %rFll x
 @merge %rMl
-@merged swap merge swap
-@fullFactor partialFactor merge
+@merged .rw merge .wl
+@fullFactor %rFMll x
 
 @doc.condSwap "conditional swap; swap top two arguments if third in right"
-@condSwap p distrib [%rwl] .left fullFactor wx
+@condSwap p distrib %r [%rwl] %r?l fullFactor wx
+
+@doc.condSelect "(a+b) x y -- a x OR b y; select one value, and merge the other"
+@condSelect p distrib %r [%rwl] %r?l merge x wx drop
+
+@doc.condSelect_ "(a+b) x y -- x (if in a) OR y (if in b); select value and drop condition"
+@condSelect_ p distrib %r [%rwl] %r?FMw%l wx drop
 
 @doc.if 
 "The 'if' function enables developers to conveniently model conditional behavior. It operates by selecting a block then invoking it. A few variations of 'if' are provided based on whether you need access to the conditional, and whether you wish to keep it.
@@ -65,10 +71,10 @@ boolean
 @doc.ifk "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R); see @doc.if"
 @doc.ifd "..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b (L+R); see @doc.if"
 
-@if  p distrib      %r [%rwl] %r?l merge x wx drop inline
-@if_ p distrib      %r [%rwl] %r?l fullFactor wx drop dropd inline
-@ifk p dupd distrib %r [%rwl] %r?l merge x wx drop swapd dip
-@ifd p distrib      %r [%rwl] %r?l fullFactor wx drop dip
+@if  condSelect inline
+@if_ condSelect_ inline
+@ifk condSwap drop dupd merged swapd dip
+@ifd condSwap drop dip
 
 @test.if 
   3 inL [inc] [mul2] if         4 assertEQ1.n
