@@ -1,21 +1,30 @@
 # Awelon Object Language (AO)
 
-Awelon Object language (AO) is a programming language built (very thinly) above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language similar to Forth, Factor, Joy, or Cat, but is distinguished from these Forth-like languages in several ways: 
+Awelon Object language (AO) is a programming language designed as a thin macro layer above [Awelon Bytecode (ABC)](AboutABC.md). AO is a concatenative programming language similar to Forth or Factor. Stack-based programming is common in AO, but is not essential: AO operates on Lisp-like pairs and numbers, and a stack is modeled using these pairs. Like Factor and Lisp, AO supports higher order programming by use of anonymous, first-class functions.
 
-* AO is not stack-based. It can operate on any value structured by pairs.
-* AO leverages pairs to model multiple stacks, Huet zippers, lenses, tools.
-* AO is capability based. There is no ambient authority for side-effects.
-* AO is gradually typed. Supports static analysis and type inference.
-* AO is structurally and substructurally typed; type model is compositional.
-* AO exhibits *causal commutativity*, which enables implicit parallelism.
-* AO exhibits *spatial idempotence*, which simplifies equational reasoning.
-* AO can represent adaptive or declarative search-spaces of programs. 
+The AO **word** serves both as the unit of modularity and a functional software component. An AO **dictionary** is a global collection of words, which I envision to be presented in a wiki-based development environment. Naming conventions enable words to serve for documentation, tests, type descriptions, and even discussions similar to how every 'page' in a wiki may have a corresponding 'Talk:page'. 
 
-In AO, a **word** is both a unit of modularity and a functional software component. A word has a definition. The relationship between words their definitions is maintained by a **dictionary** with a flat namespace. The formal semantics for every word is simply the inline expansion of its definition. Recursive definitions are invalid; loops are instead expressed using fixpoint combinators. Expansion ends at a finite sequence of text, numbers, blocks, and inlined ABC.
+AO is simple, transparent, and acyclic. Recursion is expressed through fixpoint combinators. One can compile an AO subprogram to ABC by simply inlining definitions for words and converting a few literals. AO inherits most of its interesting properties from ABC, such as suitability for distribution, streaming, open systems, reactive programming, and concurrency.
 
-Words in AO additionally have *informal, extrinsic* semantics based on naming conventions. For example, words of form `doc.foo` represent documentation, and words of form `test.foo` can represent a suite of automated tests. Conventions may guide use of word-level separate compilation and linking. The vision for AO is a growing, organic dictionary, with a hundred thousand words for hundreds of projects, tests, documents, services, and software components. Some parts of the dictionary will calcify, while others are subject to large scale refactorings across projects.
+*Why AO?*
 
-The **.ao** file format supports conventional filesystem and text editor environments, but is intended primarily for development prior to richer environments.
+The main purpose of AO is to bootstrap Awelon project. Awelon project seeks a code-as-material metaphor, where developers and users might snap blocks of code together like Lego bricks. But before we can get there, we need  data structures, compilers, development environments, and so on. AO provides a more conventional environment to develop and debug components, and will likely serve a useful role even within Awelon project - i.e. describing recipes for building components from existing named components.
+
+A secondary purpose of AO is to explore the effects of a more social programming environment via the global dictionary. I envision a dictionary with 100k+ words describing hundreds or thousands of projects, widgets, applets, and applications, with varying degrees of reusability. My hypothesis is that this will result in much better cross-project refactoring, reuse, integration testing, and debugging. 
+
+*Weaknesses of AO*
+
+Like Forth, developing AO code can often feel like solving a puzzle. While this can be mentally stimulating, it can also be a little exhausting. This is especially the case for developing new recursive data structures - lists, maps, streams, etc.. Because AO is acyclic, one must awkwardly use explicit fixpoint behaviors. Fortunately, this issue will be mitigated as our dictionary develops a sufficient library of collections and words for collections-oriented programming words.
+
+Stack programming, or more generally keeping spatial information in one's head for explicit data shuffling can be annoying. My hypothesis is that we can eliminate this problem by use of type inference, live tests, and automatic visualization of the programming environment. Automatic visualization might even prove better than programming with names. But it will be a while before a suitable environment is developed.
+
+Use of a global namespace can become verbose, since we may disambiguate words with explicit suffixes. This is mostly an issue if using a plain old text editor to write AO code. If we have good auto-completion options and a little 'smart' rendering that can hide or minify common suffixes (e.g. using icons or colors or shorthand subscript), this issues with global namespaces would mostly be avoided. 
+
+The biggest weakness of AO, at the moment, is performance. 
+
+The current implementations are interpreted. Eventually, ABC will be properly bootstrapped and compile to various targets (perhaps C, OpenCL, JavaScript, or LLVM), but in the mean time it's too slow for a lot of applications. Further, we're currently loading, parsing, and processing the full AO dictionary (in the form of **.ao** files) for every little AO command line operation. A more persistent service (such as a wiki) should scale much more effectively.
+
+# AO Details
 
 ## Literals: Numbers, Text, Blocks
 
@@ -150,11 +159,11 @@ To support *early* development using filesystem and text editor, AO has a simple
         ~ 
         @word3 uses a [block]
 
-Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. If a word is already defined, the earlier definition is replaced and a warning is issued. Cyclic definitions are an error and are removed from the dictionary.
+Regular entries start with `@word` at the beginning of a new line, followed by the definition. The initial `@` is an entry separator capable of isolating parse errors, and is not a valid word-start character. Cyclic definitions are an error. The *import* section, before the first entry separator, is special. Syntactically, it is a whitespace-separated sequence (where 'whitespace' means SP or LF) of files, such that if we import 'foo' we'll search for and load 'foo.ao' in the `AO_PATH`. 
 
-The *import* section, before the first entry separator, is special. Syntactically, it is a space-separated sequence (where 'space' means SP or LF). Imports are located by searching the `AO_PATH` environment variable (with implicit **.ao** suffix). Each import file is processed once, regardless of duplication or cycles, favoring an order such that those listed last are loaded last. A dictionary as a whole is specified from a root file or text.
+If a word is defined more than once, developers will be warned and the 'last' definition will win. Ultimately, there should be no ambiguous words in the AO dictionary. 
 
-This format will be deprecated in the near future. It doesn't scale well, and doesn't readily support rich tooling (refactoring, real-time type information, etc.). AO dictionaries will eventually move to programmatically rich, persistent storage media like databases.
+This format will be deprecated in the near future. It doesn't scale well, and doesn't readily support rich tooling (renaming words, refactoring, real-time type information, etc.). AO dictionaries will eventually move to programmatically rich, persistent storage media like databases.
 
 ### Processing of AO Dictionary
 
