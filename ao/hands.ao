@@ -93,6 +93,24 @@
 @doc.taked "take second item from stack"
 @doc.putd "put below first item on stack"
 
+@doc.put1st "put the first item from the hand; same as put"
+@doc.put2nd "put the second item from the hand; same as 'hswap put'"
+@doc.put3rd "put the third item from the hand; same as 'hrot put'"
+@doc.put4th "put the fourth item from the hand; same as 'hroll put'"
+@put1st put
+@put2nd hswap put
+@put3rd hrot put
+@put4th hroll put
+
+@doc.take1st "take the first item from the stack; same as take"
+@doc.take2nd "take the second item from the stack; same as taked or swap take"
+@doc.take3rd "take the third item from the stack; same as rot take"
+@doc.take4th "take the fourth item from the stack; same as roll take"
+@take1st take
+@take2nd swap take
+@take3rd rot  take
+@take4th roll take
+
 @reifyHand hsw reifyStack hsw
 @restoreHand hsw restoreStack hsw
 @doc.reifyHand "hand becomes single object in fresh hand"

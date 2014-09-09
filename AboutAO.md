@@ -8,21 +8,21 @@ AO is simple, transparent, and acyclic. Recursion is expressed through fixpoint 
 
 *Why AO?*
 
-The main purpose of AO is to bootstrap Awelon project. Awelon project seeks a code-as-material metaphor, where developers and users might snap blocks of code together like Lego bricks. But before we can get there, we need  data structures, compilers, development environments, and so on. AO provides a more conventional environment to develop and debug components, and will likely serve a useful role even within Awelon project - i.e. describing recipes for building components from existing named components.
+The primary purpose of AO is to bootstrap Awelon project. Awelon project has a long term vision of leveraging a code-as-material metaphor, i.e. treating software components as physical objects that can be snapped together like Lego blocks. Such an environment would treat users as surrounded by code, operating within it, similar to how users today operate 'within' their data (via desktop and folder metaphors). But first we'll need a lot of *human meaningful* components for various high level domains like robotic control, computer vision, forms and UI widgets, and internet of things. I imagine AO will continue to serve a useful role even after bootstrap.
 
 A secondary purpose of AO is to explore the effects of a more social programming environment via the global dictionary. I envision a dictionary with 100k+ words describing hundreds or thousands of projects, widgets, applets, and applications, with varying degrees of reusability. My hypothesis is that this will result in much better cross-project refactoring, reuse, integration testing, and debugging. 
 
 *Weaknesses of AO*
 
-Like Forth, developing AO code can often feel like solving a puzzle. While this can be mentally stimulating, it can also be a little exhausting. This is especially the case for developing new recursive data structures - lists, maps, streams, etc.. Because AO is acyclic, one must awkwardly use explicit fixpoint behaviors. Fortunately, this issue will be mitigated as our dictionary develops a sufficient library of collections and words for collections-oriented programming words.
+Like Forth, developing AO code in can often feel like solving a puzzle. While this can be mentally stimulating, it can also be a little exhausting. There is no pattern matching and case selection. There is no name-based recursion; developers must use fixpoint combinators. Compared to variable names, explicit data shuffling hinders visualization of dataflow. There are no collections literals for vectors or matrices. The global namespace can result in verbosity due to disambiguating words by suffix.
 
-Stack programming, or more generally keeping spatial information in one's head for explicit data shuffling can be annoying. My hypothesis is that we can eliminate this problem by use of type inference, live tests, and automatic visualization of the programming environment. Automatic visualization might even prove better than programming with names. But it will be a while before a suitable environment is developed.
+And the biggest weakness of AO is the performance of its current implementations. The explicit data plumbing in ABC requires a lot of allocations, at least when interpreted.
 
-Use of a global namespace can become verbose, since we may disambiguate words with explicit suffixes. This is mostly an issue if using a plain old text editor to write AO code. If we have good auto-completion options and a little 'smart' rendering that can hide or minify common suffixes (e.g. using icons or colors or shorthand subscript), this issues with global namespaces would mostly be avoided. 
+Fortunately, all of AO's weaknesses can be greatly mitigated.
 
-The biggest weakness of AO, at the moment, is performance. 
+AO and ABC were designed with compilation, partial evaluation, and staged programming in mind, and performance can be supported by a flexible mix of offline and just-in-time compilation. A good development environment can minify common suffixes and support auto-completions to address verbosity. Automatic visualizations and animations, e.g. based on live tests and type inference, can improve comprehension of dataflow. Fixpoint recursion can be hidden behind a handful of collections-oriented programming words. 
 
-The current implementations are interpreted. Eventually, ABC will be properly bootstrapped and compile to various targets (perhaps C, OpenCL, JavaScript, or LLVM), but in the mean time it's too slow for a lot of applications. Further, we're currently loading, parsing, and processing the full AO dictionary (in the form of **.ao** files) for every little AO command line operation. A more persistent service (such as a wiki) should scale much more effectively.
+AO is not a very good programming language for a plain text editing environment. But I think, compared to most languages, AO has a better long-term path, especially given the features inherited from ABC.
 
 # AO Details
 

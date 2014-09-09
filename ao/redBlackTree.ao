@@ -14,6 +14,8 @@ lispy loops conditionals
          shorthand: e`RBT
  
  Alternatively, I could encode the color in the Tree type, e.g. `(1 + (Node + Node))` for black and red nodes. But that results in some awkward code for operations that are mostly independent of color (such as fmap, count, streaming) since I'm always forced to observe color. Ideally, a good compiler could optimize for the common tuple structure. 
+ 
+ Note: for the moment, this is implemented as just a binary search tree. 
 ~
 
 @doc.suffix.rbt doc.RedBlackTree
@@ -27,11 +29,12 @@ lispy loops conditionals
 @red.rbt intro1 inR
 
 @doc.color.rbt "e`RBT -- e`RBT color; copy color of red-black tree"
-@t.color.rbt [black.rbt] [n.color.rbt] if
+@t.color.rbt [inL black.rbt] [n.color.rbt inRd] if
 @n.color.rbt cadr
+@assertBlack.rbt t.color.rbt assertInL elim1
 
 @doc.paintItBlack.rbt "e`RBT -- e`RBT; red node to black node"
-@doc.paintItRed.rbt "e`RBT -- e`RBT; black node to red node"
+@doc.paintItRed.rbt "e`RBT -- e`RBT; black node to red node (no effect on leaf)"
 @paintItBlack.rbt [inL] [n.paintItBlack.rbt inR] if
 @n.paintItBlack.rbt black.rbt setcadr!
 @paintItRed.rbt   [inL] [n.paintItRed.rbt inR] if
@@ -44,27 +47,64 @@ lispy loops conditionals
  wx wx x hap take p pw pw
  n.color.rbt [hsw inc hsw] [] if_ put
 
-@doc.assertBalanced.rbt "e`RBT -- e`RBT; assert black height same on every path from root to leaf"
+@doc.assertBalanced.rbt 
+"Assert that a red-black tree has the same black-height on every path, and that red nodes have only black children. These two invariants ensure that a red-black tree is 'balanced' in the sense that the longest path from root to leaf is no longer than twice the shortest path, and thus no more than 2*lg(N) steps. 
+ 
+         e`RBT -- e`RBT   (does not alter input)
+ 
+~
 @assertBalanced.rbt h.assertBalanced.rbt drop
 @h.assertBalanced.rbt [t.assertBalanced.rbt] take hfix hap
 @t.assertBalanced.rbt [discard inL 0] [n.assertBalanced.rbt inRd] if
-@n.assertBalanced.rbt
- wx wx x hapc rot hap swapd assertEQ1.n take pw pw pw
- n.color.rbt [hsw inc hsw] [] if_ put
-
-@doc.assertRedNodesHaveBlackChildren.rbt "e`RBT -- e`RBT; assert red
+@n.assertBalanced.rbt n.color.rbt [black.assertBalanced.rbt] [red.assertBalanced.rbt] if_
+@black.assertBalanced.rbt 
+ wx wx x 
+ hapc rot hap  
+ swapd assertEQ1.n inc 
+ dpw dpw dpw
+@red.assertBalanced.rbt 
+ wx wx x 
+ assertBlack.rbt hapc rot 
+ assertBlack.rbt hap 
+ swapd assertEQ1.n
+ dpw dpw dpw
 
 @doc.size.rbt "e`RBT -- e`RBT Nat; compute number of nodes in red-black tree"
 @size.rbt [t.size.rbt] take hfix hap
-@t.size.rbt [inL 0 discard] [nn.size.rbt] if
-@nn.size.rbt [inLd] [inRd] condSelect take hswap n.size.rbt hap
-@n.size.rbt wx x hapc rot hap swapd .add inc dpw dpw
+@t.size.rbt [inL 0 discard] [n.size.rbt] if
+@n.size.rbt 
+ wx wx x 
+ hapc rot hap 
+ swapd .add inc
+ dpw dpw dpw
 
 
-
-@doc.insertKV.rbt 
-"Insert a value into a red-black tree. 
-         (k*v)`RBT (k*v) [(k*k)→Ord] -- (k*v)`RBT; insert a value
+@doc.Zipper.rbt
+"A zipper to walk a red-black tree. In this case, we have a 'focus' (a particular subtree) and our context is a list of steps back to root. A step has type:
+ 
+         Step :: (dir * (color * (e * Tree)))
+         Context :: List of Step (empty is at root)
+         Zipper :: (Tree * Context)
+ 
+ Here `dir` is a boolean, in the left for a left step and in the right for a right step.
+ 
+ A focus and a list of steps is sufficient to rebuild the tree. More importantly, it should also be sufficient to *rebalance* the tree while rebuilding it, i.e. since we can always see the colors of the next couple nodes.
 ~
 
+@doc.insertKV.rbt 
+"Insert a value into a red-black binary search tree. 
+ 
+         (k*v)`RBT (k*v) [(k*k)→Ord] -- (k*v)`RBT ((k*v)+1)
+ 
+ When we insert a node, we always treat it as 'red' initially, in order to keep the tree balanced. If this violates the red-black tree's balancing condition, we'll then repair the tree. If there is already a matching `(k*v)` pair in the tree, we'll return it.
+~
+
+
+@doc.removeK.rbt
+"Remove a value by key from the red-black binary search tree.
+ 
+         (k*v)`RBT k [(k*k)→Ord] -- (k*v)`RBT ((k*v)+1)
+ 
+ We'll return the removed element, rather than deleting it directly.
+~
 

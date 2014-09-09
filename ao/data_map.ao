@@ -1,4 +1,4 @@
-ord t23 redBlackTree aatree
+ord t23 redBlackTree aatree binarySearchTree
 
 @doc.DataMaps
 "A 'map' in computer science typically refers to an abstract, finite collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for the same or similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
@@ -15,6 +15,8 @@ ord t23 redBlackTree aatree
  While keys must have homogeneous value type for comparisons, the values may have heterogeneous and substructural types, e.g. dependent upon the key. Maps may be used to model ad-hoc record types.
  
  Many related types can be trivially modeled above maps, including multi-maps (via collection type for values), sets (unit values), and multi-sets (counter values). But maps are not always ideal, e.g. if developers have a large collection of maps all using the same keys then some sort of table-based data structure would be more appropriate. If keys share a lot of structure, then a trie may be more appropriate. If keys represent spatial coordinates, a kd-tree may be more appropriate. I would love to have a wide array of moderately specialized data structures for common use-cases.
+ 
+ The current implementation uses a plain old (imbalanced) binary search tree, more to get us started. It's easy to come back later and upgrade the tree data structure.
 ~
 @doc.suffix.m doc.DataMaps
 

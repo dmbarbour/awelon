@@ -5,42 +5,76 @@
          cdr :: (a*b) -- (a*b) b; copyable b
          cadr :: (a*(b*c)) -- (a*(b*c)) b; copyable b
  
- Note that these directly reflect the Lisp versions, i.e. `(cadr x) = (car (cdr x))`. However, AO does not copy the intermediate structures, so only the actual target must be copyable. We carry this out up to a limited depth of four. This has a weakness of not being very composable, but it can occasionally be convenient. 
+ Note that these directly reflect the Lisp versions, i.e. `(cadr x) = (car (cdr x))`. However, AO does not copy the intermediate structures, so only the actual target must be copyable. We carry this out up to a limited depth (which can always be expanded). This has a weakness of not being very composable, but it can occasionally be convenient. 
  
  We also have families of related functions, such as `setcar!` from Scheme, albeit without aliasing, and `wcar` to swap a value, `apcar` to apply a pure function to a deep value, and `dpcar` to apply a function to the environment with just one element from the data structure (hiding the rest).
 ~
-@car    x dup   dp
-@caar   x car   dp
-@cdar   x cdr   dp
-@caaar  x caar  dp
-@cadar  x cadr  dp
-@cdaar  x cdar  dp
-@cddar  x cddr  dp
-@caaaar x caaar dp
-@caadar x caadr dp
-@cadaar x cadar dp
-@caddar x caddr dp
-@cdaaar x cdaar dp
-@cdadar x cdadr dp
-@cddaar x cddar dp
-@cdddar x cdddr dp
+@car     x dup    dp
+@caar    x car    dp
+@cdar    x cdr    dp
+@caaar   x caar   dp
+@cadar   x cadr   dp
+@cdaar   x cdar   dp
+@cddar   x cddr   dp
+@caaaar  x caaar  dp
+@caadar  x caadr  dp
+@cadaar  x cadar  dp
+@caddar  x caddr  dp
+@cdaaar  x cdaar  dp
+@cdadar  x cdadr  dp
+@cddaar  x cddar  dp
+@cdddar  x cdddr  dp
+@caaaaar x caaaar dp
+@caaadar x caaadr dp
+@caadaar x caadar dp
+@caaddar x caaddr dp
+@cadaaar x cadaar dp
+@cadadar x cadadr dp
+@caddaar x caddar dp
+@cadddar x cadddr dp
+@cdaaaar x cdaaar dp
+@cdaadar x cdaadr dp
+@cdadaar x cdadar dp
+@cdaddar x cdaddr dp
+@cddaaar x cddaar dp
+@cddadar x cddadr dp
+@cdddaar x cdddar dp
+@cddddar x cddddr dp
+
 
 @doc.cdr doc.car
-@cdr    wx dup   dpw
-@cadr   wx car   dpw
-@cddr   wx cdr   dpw
-@caadr  wx caar  dpw
-@caddr  wx cadr  dpw
-@cdadr  wx cdar  dpw
-@cdddr  wx cddr  dpw
-@caaadr wx caaar dpw
-@caaddr wx caadr dpw
-@cadadr wx cadar dpw
-@cadddr wx caddr dpw
-@cdaadr wx cdaar dpw
-@cdaddr wx cdadr dpw
-@cddadr wx cddar dpw
-@cddddr wx cdddr dpw
+@cdr     wx dup    dpw
+@cadr    wx car    dpw
+@cddr    wx cdr    dpw
+@caadr   wx caar   dpw
+@caddr   wx cadr   dpw
+@cdadr   wx cdar   dpw
+@cdddr   wx cddr   dpw
+@caaadr  wx caaar  dpw
+@caaddr  wx caadr  dpw
+@cadadr  wx cadar  dpw
+@cadddr  wx caddr  dpw
+@cdaadr  wx cdaar  dpw
+@cdaddr  wx cdadr  dpw
+@cddadr  wx cddar  dpw
+@cddddr  wx cdddr  dpw
+@caaaadr wx caaaar dpw
+@caaaddr wx caaadr dpw
+@caadadr wx caadar dpw
+@caadddr wx caaddr dpw
+@cadaadr wx cadaar dpw
+@cadaddr wx cadadr dpw
+@caddadr wx caddar dpw
+@caddddr wx cadddr dpw
+@cdaaadr wx cdaaar dpw
+@cdaaddr wx cdaadr dpw
+@cdadadr wx cdadar dpw
+@cdadddr wx cdaddr dpw
+@cddaadr wx cddaar dpw
+@cddaddr wx cddadr dpw
+@cdddadr wx cdddar dpw
+@cdddddr wx cddddr dpw
+
 
 @doc.wcar 
 "A variation on the Lisp-like car and cdr, 'wcaddar' will swap a value on the stack with a value deep within a data structure. 
@@ -50,71 +84,138 @@
  
  This is much more composable than car and cdr, at least in an ad-hoc sense (we can extract a deep structure, then perform further extractions on it). It is not as composable as true lenses. It is also used as the basis for the `setcar!` series of functions.
 ~ 
-@wcar    dx swap   dp
-@wcaar   dx wcar   dp
-@wcdar   dx wcdr   dp
-@wcaaar  dx wcaar  dp
-@wcadar  dx wcadr  dp
-@wcdaar  dx wcdar  dp
-@wcddar  dx wcddr  dp
-@wcaaaar dx wcaaar dp
-@wcaadar dx wcaadr dp
-@wcadaar dx wcadar dp
-@wcaddar dx wcaddr dp
-@wcdaaar dx wcdaar dp
-@wcdadar dx wcdadr dp
-@wcddaar dx wcddar dp
-@wcdddar dx wcdddr dp
+@wcar     dx swap    dp
+@wcaar    dx wcar    dp
+@wcdar    dx wcdr    dp
+@wcaaar   dx wcaar   dp
+@wcadar   dx wcadr   dp
+@wcdaar   dx wcdar   dp
+@wcddar   dx wcddr   dp
+@wcaaaar  dx wcaaar  dp
+@wcaadar  dx wcaadr  dp
+@wcadaar  dx wcadar  dp
+@wcaddar  dx wcaddr  dp
+@wcdaaar  dx wcdaar  dp
+@wcdadar  dx wcdadr  dp
+@wcddaar  dx wcddar  dp
+@wcdddar  dx wcdddr  dp
+@wcaaaaar dx wcaaaar dp
+@wcaaadar dx wcaaadr dp
+@wcaadaar dx wcaadar dp
+@wcaaddar dx wcaaddr dp
+@wcadaaar dx wcadaar dp
+@wcadadar dx wcadadr dp
+@wcaddaar dx wcaddar dp
+@wcadddar dx wcadddr dp
+@wcdaaaar dx wcdaaar dp
+@wcdaadar dx wcdaadr dp
+@wcdadaar dx wcdadar dp
+@wcdaddar dx wcdaddr dp
+@wcddaaar dx wcddaar dp
+@wcddadar dx wcddadr dp
+@wcdddaar dx wcdddar dp
+@wcddddar dx wcddddr dp
 
 @doc.wcdr doc.wcar
-@wcdr    dwx swap   dpw
-@wcadr   dwx wcar   dpw
-@wcddr   dwx wcdr   dpw
-@wcaadr  dwx wcaar  dpw
-@wcaddr  dwx wcadr  dpw
-@wcdadr  dwx wcdar  dpw
-@wcdddr  dwx wcddr  dpw
-@wcaaadr dwx wcaaar dpw
-@wcaaddr dwx wcaadr dpw
-@wcadadr dwx wcadar dpw
-@wcadddr dwx wcaddr dpw
-@wcdaadr dwx wcdaar dpw
-@wcdaddr dwx wcdadr dpw
-@wcddadr dwx wcddar dpw
-@wcddddr dwx wcdddr dpw
+@wcdr     dwx swap    dpw
+@wcadr    dwx wcar    dpw
+@wcddr    dwx wcdr    dpw
+@wcaadr   dwx wcaar   dpw
+@wcaddr   dwx wcadr   dpw
+@wcdadr   dwx wcdar   dpw
+@wcdddr   dwx wcddr   dpw
+@wcaaadr  dwx wcaaar  dpw
+@wcaaddr  dwx wcaadr  dpw
+@wcadadr  dwx wcadar  dpw
+@wcadddr  dwx wcaddr  dpw
+@wcdaadr  dwx wcdaar  dpw
+@wcdaddr  dwx wcdadr  dpw
+@wcddadr  dwx wcddar  dpw
+@wcddddr  dwx wcdddr  dpw
+@wcaaaadr dwx wcaaaar dpw
+@wcaaaddr dwx wcaaadr dpw
+@wcaadadr dwx wcaadar dpw
+@wcaadddr dwx wcaaddr dpw
+@wcadaadr dwx wcadaar dpw
+@wcadaddr dwx wcadadr dpw
+@wcaddadr dwx wcaddar dpw
+@wcaddddr dwx wcadddr dpw
+@wcdaaadr dwx wcdaaar dpw
+@wcdaaddr dwx wcdaadr dpw
+@wcdadadr dwx wcdadar dpw
+@wcdadddr dwx wcdaddr dpw
+@wcddaadr dwx wcddaar dpw
+@wcddaddr dwx wcddadr dpw
+@wcdddadr dwx wcdddar dpw
+@wcdddddr dwx wcddddr dpw
+
+
 
 @doc.setcar! "(a*b) a' -- (a'*b); droppable a (cf. wcar)"
 @doc.setcdr! "(a*b) b' -- (a*b'); droppable b (cf. wcdr)"
-@setcar!    wcar    drop
-@setcdr!    wcdr    drop
-@setcaar!   wcaar   drop
-@setcadr!   wcadr   drop
-@setcdar!   wcdar   drop
-@setcddr!   wcddr   drop
-@setcaaar!  wcaaar  drop
-@setcaadr!  wcaadr  drop
-@setcadar!  wcadar  drop
-@setcaddr!  wcaddr  drop
-@setcdaar!  wcdaar  drop
-@setcdadr!  wcdadr  drop
-@setcddar!  wcddar  drop
-@setcdddr!  wcdddr  drop
-@setcaaaar! wcaaaar drop
-@setcaaadr! wcaaadr drop
-@setcaadar! wcaadar drop
-@setcaaddr! wcaaddr drop
-@setcadaar! wcadaar drop
-@setcadadr! wcadadr drop
-@setcaddar! wcaddar drop
-@setcadddr! wcadddr drop
-@setcdaaar! wcdaaar drop
-@setcdaadr! wcdaadr drop
-@setcdadar! wcdadar drop
-@setcdaddr! wcdaddr drop
-@setcddaar! wcddaar drop
-@setcddadr! wcddadr drop
-@setcdddar! wcdddar drop
-@setcddddr! wcddddr drop
+@setcar!     wcar     drop
+@setcdr!     wcdr     drop
+@setcaar!    wcaar    drop
+@setcadr!    wcadr    drop
+@setcdar!    wcdar    drop
+@setcddr!    wcddr    drop
+@setcaaar!   wcaaar   drop
+@setcaadr!   wcaadr   drop
+@setcadar!   wcadar   drop
+@setcaddr!   wcaddr   drop
+@setcdaar!   wcdaar   drop
+@setcdadr!   wcdadr   drop
+@setcddar!   wcddar   drop
+@setcdddr!   wcdddr   drop
+@setcaaaar!  wcaaaar  drop
+@setcaaadr!  wcaaadr  drop
+@setcaadar!  wcaadar  drop
+@setcaaddr!  wcaaddr  drop
+@setcadaar!  wcadaar  drop
+@setcadadr!  wcadadr  drop
+@setcaddar!  wcaddar  drop
+@setcadddr!  wcadddr  drop
+@setcdaaar!  wcdaaar  drop
+@setcdaadr!  wcdaadr  drop
+@setcdadar!  wcdadar  drop
+@setcdaddr!  wcdaddr  drop
+@setcddaar!  wcddaar  drop
+@setcddadr!  wcddadr  drop
+@setcdddar!  wcdddar  drop
+@setcddddr!  wcddddr  drop
+@setcaaaaar! wcaaaaar drop
+@setcaaaadr! wcaaaadr drop
+@setcaaadar! wcaaadar drop
+@setcaaaddr! wcaaaddr drop
+@setcaadaar! wcaadaar drop
+@setcaadadr! wcaadadr drop
+@setcaaddar! wcaaddar drop
+@setcaadddr! wcaadddr drop
+@setcadaaar! wcadaaar drop
+@setcadaadr! wcadaadr drop
+@setcadadar! wcadadar drop
+@setcadaddr! wcadaddr drop
+@setcaddaar! wcaddaar drop
+@setcaddadr! wcaddadr drop
+@setcadddar! wcadddar drop
+@setcaddddr! wcaddddr drop
+@setcdaaaar! wcdaaaar drop
+@setcdaaadr! wcdaaadr drop
+@setcdaadar! wcdaadar drop
+@setcdaaddr! wcdaaddr drop
+@setcdadaar! wcdadaar drop
+@setcdadadr! wcdadadr drop
+@setcdaddar! wcdaddar drop
+@setcdadddr! wcdadddr drop
+@setcddaaar! wcddaaar drop
+@setcddaadr! wcddaadr drop
+@setcddadar! wcddadar drop
+@setcddaddr! wcddaddr drop
+@setcdddaar! wcdddaar drop
+@setcdddadr! wcdddadr drop
+@setcddddar! wcddddar drop
+@setcdddddr! wcdddddr drop
+
 
 
 @doc.apcar
@@ -141,6 +242,22 @@
 @apcdadar dx apcdadr p
 @apcddaar dx apcddar p
 @apcdddar dx apcdddr p
+@apcaaaaar dx apcaaaar p
+@apcaaadar dx apcaaadr p
+@apcaadaar dx apcaadar p
+@apcaaddar dx apcaaddr p
+@apcadaaar dx apcadaar p
+@apcadadar dx apcadadr p
+@apcaddaar dx apcaddar p
+@apcadddar dx apcadddr p
+@apcdaaaar dx apcdaaar p
+@apcdaadar dx apcdaadr p
+@apcdadaar dx apcdadar p
+@apcdaddar dx apcdaddr p
+@apcddaaar dx apcddaar p
+@apcddadar dx apcddadr p
+@apcdddaar dx apcdddar p
+@apcddddar dx apcddddr p
 
 @doc.apcdr doc.apcar
 @apcdr dwx .apply pw
@@ -158,6 +275,23 @@
 @apcdaddr dwx apcdadr pw
 @apcddadr dwx apcddar pw
 @apcddddr dwx apcdddr pw
+@apcaaaadr dwx apcaaaar pw
+@apcaaaddr dwx apcaaadr pw
+@apcaadadr dwx apcaadar pw
+@apcaadddr dwx apcaaddr pw
+@apcadaadr dwx apcadaar pw
+@apcadaddr dwx apcadadr pw
+@apcaddadr dwx apcaddar pw
+@apcaddddr dwx apcadddr pw
+@apcdaaadr dwx apcdaaar pw
+@apcdaaddr dwx apcdaadr pw
+@apcdadadr dwx apcdadar pw
+@apcdadddr dwx apcdaddr pw
+@apcddaadr dwx apcddaar pw
+@apcddaddr dwx apcddadr pw
+@apcdddadr dwx apcdddar pw
+@apcdddddr dwx apcddddr pw
+
 
 @doc.dpcar
 "Apply a function to an element deep in a data structure, hiding the rest of the data structure. In this case, the 'dp' corresponds to the `dip` function, which usually hides one item on the stack; we're instead hiding the structure surrounding the target. Ad-hoc results may be returned through the environment.
@@ -198,6 +332,40 @@
 @dpcddadr [wcddadr] wcxxr→dpcxxr
 @dpcdddar [wcdddar] wcxxr→dpcxxr
 @dpcddddr [wcddddr] wcxxr→dpcxxr
+@dpcaaaaar [wcaaaaar] wcxxr→dpcxxr
+@dpcaaaadr [wcaaaadr] wcxxr→dpcxxr
+@dpcaaadar [wcaaadar] wcxxr→dpcxxr
+@dpcaaaddr [wcaaaddr] wcxxr→dpcxxr
+@dpcaadaar [wcaadaar] wcxxr→dpcxxr
+@dpcaadadr [wcaadadr] wcxxr→dpcxxr
+@dpcaaddar [wcaaddar] wcxxr→dpcxxr
+@dpcaadddr [wcaadddr] wcxxr→dpcxxr
+@dpcadaaar [wcadaaar] wcxxr→dpcxxr
+@dpcadaadr [wcadaadr] wcxxr→dpcxxr
+@dpcadadar [wcadadar] wcxxr→dpcxxr
+@dpcadaddr [wcadaddr] wcxxr→dpcxxr
+@dpcaddaar [wcaddaar] wcxxr→dpcxxr
+@dpcaddadr [wcaddadr] wcxxr→dpcxxr
+@dpcadddar [wcadddar] wcxxr→dpcxxr
+@dpcaddddr [wcaddddr] wcxxr→dpcxxr
+@dpcdaaaar [wcdaaaar] wcxxr→dpcxxr
+@dpcdaaadr [wcdaaadr] wcxxr→dpcxxr
+@dpcdaadar [wcdaadar] wcxxr→dpcxxr
+@dpcdaaddr [wcdaaddr] wcxxr→dpcxxr
+@dpcdadaar [wcdadaar] wcxxr→dpcxxr
+@dpcdadadr [wcdadadr] wcxxr→dpcxxr
+@dpcdaddar [wcdaddar] wcxxr→dpcxxr
+@dpcdadddr [wcdadddr] wcxxr→dpcxxr
+@dpcddaaar [wcddaaar] wcxxr→dpcxxr
+@dpcddaadr [wcddaadr] wcxxr→dpcxxr
+@dpcddadar [wcddadar] wcxxr→dpcxxr
+@dpcddaddr [wcddaddr] wcxxr→dpcxxr
+@dpcdddaar [wcdddaar] wcxxr→dpcxxr
+@dpcdddadr [wcdddadr] wcxxr→dpcxxr
+@dpcddddar [wcddddar] wcxxr→dpcxxr
+@dpcdddddr [wcdddddr] wcxxr→dpcxxr
+
+
 
 @wcxxr→dpcxxr 
  dup .rw swap .rw %z

@@ -1,0 +1,66 @@
+
+@doc.BinarySearchTree
+"This is a simple implementation of a binary search tree. It is not self-balancing and has uniform structure, and thus has much simpler code than (for example) a red-black tree or 2-3 tree. I'm mostly implementing this because I have been feeling a little intimidated by the more sophisticated search trees.
+ 
+ Representation:
+ 
+         T: 1 + N
+         N: (e * (T * T))
+         shorthand: e`BST
+ 
+ This tree is freely allowed to grow imbalanced.
+~
+
+@doc.suffix.bst doc.BinarySearchTree
+
+@doc.empty.bst "-- e`BST"
+@empty.bst intro1 inL
+
+@doc.singleton.bst "e -- e`BST"
+@singleton.bst empty.bst dup pw pw inR
+
+@doc.size.bst "e`BST -- e`BST Nat"
+@size.bst [t.size.bst] take hfix hap
+@t.size.bst [inL 0 discard] [n.size.bst inRd] if
+@n.size.bst wx x hapc rot hap swapd .add inc dpw dpw
+
+@doc.insertKV.bst
+"Insert a `(k*v)` pair, given an ordinal function for keys.
+ 
+         (k*v)`BST (k*v) [(k*k)→Ord] -- (k*v)`BST ((k*v)+1)
+ 
+ In case we replace an existing entry, the old value is removed and returned.
+~
+@insertKV.bst bindK.insertKV.bst swapd [tree.insertKV.bst] bind fixpoint inline
+
+@doc.tree.insertKV.bst "(k*v) (k*v)`BST [insertKV] [k→Ord] -- (k*v)`BST ((k*v)+1)"
+@tree.insertKV.bst take2 [leaf.insertKV.bst] [node.insertKV.bst] if
+@leaf.insertKV.bst discard2 .rw singleton.bst .wl inR
+@node.insertKV.bst caar put2nd .apply [drop find.insertKV.bst] [seek.insertKV.bst] if
+@seek.insertKV.bst [left.insertKV.bst] [right.insertKV.bst] if_
+@find.insertKV.bst discard x inL dpw inRd
+@left.insertKV.bst 
+@right.insertKV.bst
+
+
+@doc.bindK.insertKV.bst "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
+@bindK.insertKV.bst .rw car .wl .bind
+
+
+
+@doc.removeKV.bst
+"Remove a `(k*v)` pair, given a key and an ordinal function on keys.
+ 
+         (k*v)`BST k [(k*k)→Ord] -- (k*v)`BST ((k*v)+1)
+ 
+ The removed value (if any) is returned. 
+~
+
+ 
+
+ 
+ 
+ 
+
+
+

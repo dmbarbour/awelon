@@ -1,14 +1,18 @@
-This is a design document regarding compression, primarily for Awelon Bytecode (ABC) resources, and potentially for ABC network streams. ABC resources are compressed then encrypted. The intention is to save a significant factor for bandwidth and storage by compressing bytecode for storage and transport.
+This is a design document regarding compression, primarily for Awelon Bytecode (ABC) resources, and potentially for ABC network streams. ABC resources are compressed then encrypted. The intention is to save a significant factor for bandwidth and storage by compressing bytecode for storage and transport. Obviously, we cannot compress after encryption, so it's important to standardize the compression.
 
-ABC has a highly repetitive nature and should typically compress very well. 
+ABC has a highly repetitive nature and should typically compress very well, even with a relatively simple algorithm. 
 
-However, ABC may also contain embedded binaries, i.e. via a specialized first-pass compression targeting base16. In many cases such as ciphertext or compressed images or audio, embedded binaries will often not be further compressible. And in these cases we don't want to expand them very much, e.g. total expansion of 2.5% is about the highest I'd find acceptable.
+However, there are a couple important considerations: (a) for embedded compressed binaries (JPEG,MP3,etc.) and cipher texts, I want to keep worst-case expansion to a minimum; (b) for convergent encryption and deterministic resource identifiers, I want 'optimal' compression of the input text (relative to format). 
 
-An advantage of ABC is that I don't actually need to encode lengths or terminators. I could simply zero-fill the end of input, then trim off any remaining zeroes in the input (valid ABC doesn't use any control characters). 
+Meeting both of these constraints seems difficult. Algorithms that support ad-hoc 'runs' of literals allow a low max expansion, but make it very difficult to ensure an optimal parse. Algorithms like LZSS or LZ77 that output one byte at a time tend to have too much worst-case overhead.
+
+Specific goals: Under 2.5% expansion for large, non-compressible binaries. Better than 66% compression for common ABC streams and resources. Effective compression even in the 2k resource size range. 
+
+Note: Compression of the ABC stream itself is mostly for small-scale compression. At the larger scales, ABC resources and ABCD can provide much more effective savings of storage and bandwidth.
 
 ## Initial Compression Pass for Embedded Binaries
 
-An simple but powerful idea for working with embedded binaries: 
+An simple but effective idea for working with embedded binaries: 
 
 * encode binaries in a base16 alphabet (this is what ABC sees)
 * have a specialized compression pass that handles base16
@@ -26,7 +30,7 @@ In case 0xF8 is already in the stream, we'll escape it by following with 0xFE. H
 
 The result is 1:128 expansion for large binaries, or about 0.8%. For 48-byte resource identifiers, the expansion is 4.2%. It seems tempting to create specialized headers for larger sequences, but I'm avoiding that for simplicity reasons.
 
-For determinism, we shall always compress the largest sequence possible.
+For determinism, we shall always compress the largest sequence possible. This is also the optimal encoding.
 
 ## Primary Compression of Bytecode
 
@@ -82,7 +86,7 @@ It isn't clear to me this actually meets the 'greedy algorithm' goals. But there
 
 I'd be interested in a sliding window of about 2k-8k elements, and match lengths of over 60. Encoding larger match lengths using a variable encoding is not a problem. If I don't seek byte alignment, it will be a lot easier to develop a simple LZSS scheme.
 
-### Segmented LZSS
+### Segmented LZSS (primary candidate at this time)
 
 A potential approach is to take a straightforward, optimal LZSS encoding, then classify each sequence of eight phrases as either being purely literals or mixed. A sequence of purely literal phrases is then encoded with one bit overhead for eight bytes, while a mixed sequence is encoded in normal LZSS fashion.
 
