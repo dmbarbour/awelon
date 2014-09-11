@@ -8,7 +8,7 @@ AO is simple, transparent, and acyclic. Recursion is expressed through fixpoint 
 
 *Why AO?*
 
-The primary purpose of AO is to bootstrap Awelon project. Awelon project has a long term vision of leveraging a code-as-material metaphor, i.e. treating software components as physical objects that can be snapped together like Lego blocks. Such an environment would treat users as surrounded by code, operating within it, similar to how users today operate 'within' their data (via desktop and folder metaphors). But first we'll need a lot of *human meaningful* components for various high level domains like robotic control, computer vision, forms and UI widgets, and internet of things. I imagine AO will continue to serve a useful role even after bootstrap.
+The primary purpose of AO is to bootstrap Awelon project. Awelon project requires a lot of high-level software components, across a wide variety of problem domains, be available in the form of readily sharable, securable, streamable, and composable bytecode. AO allows us to start building up recipes for useful components from the lowest level of the individual bytecodes.
 
 A secondary purpose of AO is to explore the effects of a more social programming environment via the global dictionary. I envision a dictionary with 100k+ words describing hundreds or thousands of projects, widgets, applets, and applications, with varying degrees of reusability. My hypothesis is that this will result in much better cross-project refactoring, reuse, integration testing, and debugging. 
 

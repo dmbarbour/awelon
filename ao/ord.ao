@@ -15,12 +15,14 @@
 @doc.rawCompareToCompareOnStack "[(k*k)→Ord] -- [k k -- Ord]"
 @rawCompareToCompareOnStack [dpw .apply] bind
 
-@doc.mkCompareUnits "-- [(1*1)`Compare]; trivial, always equal"
+@doc.mkCompareUnits "-- [1`Compare]; trivial, always equal"
+@doc.mkCompareNums  "-- [Num`Compare]; raw number comparisons"
 @doc.mkCompareProds "[a`Compare] [b`Compare] -- [(a*b)`Compare]"
 @doc.mkCompareSums  "[a`Compare] [b`Compare] -- [(a+b)`Compare]"
 @mkCompareUnits [compareUnits]
 @mkCompareProds [compareProds] bind2 compareOnStackToRawCompare
 @mkCompareSums  [compareSums] bind2 compareOnStackToRawCompare
+@mkCompareNums  [rawCompareNumbers]
 
 @doc.compareUnits "1 1 -- Ord"
 @doc.compareProds "(a1*b1) (a2*b2) [a`Compare] [b`Compare] -- Ord"

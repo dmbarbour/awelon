@@ -13,15 +13,24 @@
 
 @doc.suffix.bst doc.BinarySearchTree
 
+@doc.seal.bst "for debugging only; will probably remove seal later"
+@seal.bst   %r [{:bst}] %r$l
+@unseal.bst %r [{.bst}] %r$l
+@seald.bst   .rw seal.bst .wl
+@unseald.bst .rw unseal.bst .wl
+
 @doc.empty.bst "-- e`BST"
-@empty.bst intro1 inL
+@empty.bst raw.empty.bst seal.bst
+@raw.empty.bst intro1 inL
 
 @doc.singleton.bst "e -- e`BST"
-@singleton.bst empty.bst dup pw pw inR
+@singleton.bst raw.singleton.bst seal.bst
+@raw.singleton.bst node.singleton.bst inR
+@node.singleton.bst empty.bst dup pw pw
 
 @doc.size.bst "e`BST -- e`BST Nat"
 @size.bst [t.size.bst] take hfix hap
-@t.size.bst [inL 0 discard] [n.size.bst inRd] if
+@t.size.bst unseal.bst [inL 0 discard] [n.size.bst inRd] if seald.bst
 @n.size.bst wx x hapc rot hap swapd .add inc dpw dpw
 
 @doc.insertKV.bst
@@ -34,19 +43,16 @@
 @insertKV.bst bindK.insertKV.bst swapd [tree.insertKV.bst] bind fixpoint inline
 
 @doc.tree.insertKV.bst "(k*v) (k*v)`BST [insertKV] [k→Ord] -- (k*v)`BST ((k*v)+1)"
-@tree.insertKV.bst take2 [leaf.insertKV.bst] [node.insertKV.bst] if
-@leaf.insertKV.bst discard2 .rw singleton.bst .wl inR
+@tree.insertKV.bst take2 unseal.bst [leaf.insertKV.bst] [node.insertKV.bst inRd] if seald.bst
+@leaf.insertKV.bst discard2 inR .rw raw.singleton.bst .wl
 @node.insertKV.bst caar put2nd .apply [drop find.insertKV.bst] [seek.insertKV.bst] if
 @seek.insertKV.bst [left.insertKV.bst] [right.insertKV.bst] if_
-@find.insertKV.bst discard x inL dpw inRd
-@left.insertKV.bst 
-@right.insertKV.bst
-
+@find.insertKV.bst  x dpw inL discard 
+@left.insertKV.bst  wx x hap dp dpw
+@right.insertKV.bst wx wx hap dpw dpw
 
 @doc.bindK.insertKV.bst "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
 @bindK.insertKV.bst .rw car .wl .bind
-
-
 
 @doc.removeKV.bst
 "Remove a `(k*v)` pair, given a key and an ordinal function on keys.
