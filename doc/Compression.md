@@ -108,12 +108,12 @@ With a fixed-size offset-length pairs, we can be reasonably certain that 'minima
 
 ...
 
-I'm not sure what offset+length I want. Pros and cons:
+Considering offset+length:
 
 * 12+4: window 227x full match size and 77x link size; many match opportunities; 8-9x max compression; need resources larger than 2k to see any benefit; leans towards larger resources
 * 11+5: window 60x full match size and 38x link size; fewer 'small' matches at the tail end; fewer match opportunities; 16-17x max compression; compression mostly within functions, in-the-small; leans towards smaller resources
 
-I wouldn't be surprised to get near maximum compression when working with 12+4, due to larger scale repetitions of whole functions. I would be surprised to max out the 11+5 compression. OTOH, I think the 11+5 compression might encourage better practices for resource size.
+At the moment, I lean towards 11+5. This should combine nicely with larger scale compression at the level of ABC resources, while allowing effective compression within resources.
 
 ### Other Possibilities?
 

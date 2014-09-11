@@ -87,6 +87,7 @@ import qualified Text.Read as R
 import qualified Crypto.Hash as CH
 import ABC.Operators
 import qualified ABC.Base16 as B16
+import qualified ABC.Compress as ABCZ
 
 -- | HashCT and HashBC are byte strings
 --
@@ -243,14 +244,10 @@ decrypt _ ct = ct
 
 -- todo: implement compression
 compress :: ByteString -> ByteString
-compress = compressBase16 >>> compressCode where
-    compressBase16 = B.unpack >>> B16.compress >>> B.pack
-    compressCode = id -- TODO!
+compress = B.unpack >>> ABCZ.compress >>> B.pack
 
 -- todo: implement decompression
 decompress :: ByteString -> Maybe ByteString
-decompress = decompressCode >>> decompressBase16 where
-    decompressBase16 = fmap (B.unpack >>> B16.decompress >>> B.pack)
-    decompressCode = pure -- TODO!
+decompress = pure . (B.unpack >>> ABCZ.decompress >>> B.pack)
 
 

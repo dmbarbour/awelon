@@ -99,6 +99,7 @@ Library
     ABC.Simplify
     ABC.Resource
     ABC.Base16
+    ABC.Compress
 
     ABC.Imperative.Value
     ABC.Imperative.Operations
