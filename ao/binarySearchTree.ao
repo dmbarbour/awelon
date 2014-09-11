@@ -47,9 +47,9 @@
 @leaf.insertKV.bst discard2 inR .rw raw.singleton.bst .wl
 @node.insertKV.bst caar put2nd .apply [drop find.insertKV.bst] [seek.insertKV.bst] if
 @seek.insertKV.bst [left.insertKV.bst] [right.insertKV.bst] if_
-@find.insertKV.bst  x dpw inL discard 
-@left.insertKV.bst  wx x hap dp dpw
-@right.insertKV.bst wx wx hap dpw dpw
+@find.insertKV.bst x dpw inL discard 
+@left.insertKV.bst swap dwx dx swap hap dp dpw
+@right.insertKV.bst swap dwx dwx swap hap dpw dpw
 
 @doc.bindK.insertKV.bst "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
 @bindK.insertKV.bst .rw car .wl .bind
