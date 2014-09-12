@@ -1,14 +1,13 @@
+lists streams
 
 @doc.BinarySearchTree
-"This is a simple implementation of a binary search tree. It is not self-balancing and has uniform structure, and thus has much simpler code than (for example) a red-black tree or 2-3 tree. I'm mostly implementing this because I have been feeling a little intimidated by the more sophisticated search trees.
- 
- Representation:
+"This is a simple implementation of a binary search tree. Representation:
  
          T: 1 + N
          N: (e * (T * T))
          shorthand: e`BST
  
- This tree is freely allowed to grow imbalanced.
+ This tree is freely allowed to grow imbalanced. Unfortunately, it will be imbalanced very often in practice, e.g. when inserting nodes in sorted order. But this binary search tree can serve a useful role as a prototype for comparing other binary search tree implementations, and for getting started with associative arrays (maps).
 ~
 
 @doc.suffix.bst doc.BinarySearchTree
@@ -32,6 +31,34 @@
 @size.bst [t.size.bst] take hfix hap
 @t.size.bst unseal.bst [inL 0 discard] [n.size.bst inRd] if seald.bst
 @n.size.bst wx x hapc rot hap swapd .add inc dpw dpw
+
+@doc.fmap.bst "x`BST [x→y] -- y`BST"
+@fmap.bst [take2 tree.fmap.bst] bind fixpoint inline
+@tree.fmap.bst unseal.bst [discard2 inL] [node.fmap.bst inR] if seal.bst
+@node.fmap.bst wx x hapc rot put2nd .apply rot hap rot p pw
+
+@doc.toStreamL.bst "x`BST -- x`S; stream elements from left to right"
+@doc.toStreamR.bst "x`BST -- x`S; stream elements from right to left"
+@doc.toListL.bst "x`BST -- x`L; list elements starting with leftmost"
+@doc.toListR.bst "x`BST -- x`L; list elements starting with rightmost"
+
+@toListL.bst empty.l swap [take tree.toListL.bst] fixpoint inline
+@tree.toListL.bst unseal.bst [elim1 discard] [node.toListL.bst] if
+@node.toListL.bst wx wx rotd hapc rot cons.l swap hap
+
+@toListR.bst empty.l swap [take tree.toListR.bst] fixpoint inline
+@tree.toListR.bst unseal.bst [elim1 discard] [node.toListR.bst] if
+@node.toListR.bst wx x rotd hapc rot cons.l swap hap
+
+@toStreamL.bst [%vvr tree.toStreamL.bst postApply .app1] .fixfirst .bind
+@tree.toStreamL.bst take unseal.bst [leaf.toStreamL.bst] [node.toStreamL.bst] if 
+@leaf.toStreamL.bst elim1 discard empty.s
+@node.toStreamL.bst wx x paste .bind unrot put .bind swap cons.s addend.s
+
+@toStreamR.bst [%vvr tree.toStreamR.bst postApply .app1] .fixfirst .bind
+@tree.toStreamR.bst take unseal.bst [leaf.toStreamR.bst] [node.toStreamR.bst] if
+@leaf.toStreamR.bst elim1 discard empty.s
+@node.toStreamR.bst wx wx paste .bind unrot put .bind swap cons.s addend.s
 
 @doc.insertKV.bst
 "Insert a `(k*v)` pair, given an ordinal function for keys.
@@ -61,12 +88,54 @@
  
  The removed value (if any) is returned. 
 ~
+@removeKV.bst .bind [tree.removeKV.bst] bind fixpoint inline
+@tree.removeKV.bst take2 unseal.bst [leaf.removeKV.bst] [node.removeKV.bst] if
+@leaf.removeKV.bst discard2 inL seal.bst intro1 inR
+@node.removeKV.bst caar put2nd .apply [drop find.removeKV.bst] [seek.removeKV.bst] if
+@seek.removeKV.bst [left.removeKV.bst] [right.removeKV.bst] if_ inRd seald.bst
+@left.removeKV.bst wx x hap dp dpw
+@right.removeKV.bst wx wx hap dpw dpw
+@find.removeKV.bst discard x inL take replaceTree.bst put
+
+@doc.replaceTree.bst 
+"After we remove an inner node from a tree, we're left with two children - a left child and a right child. We want to replace these two children with a singular, combined binary search tree. 
+ 
+         (e`BST * e`BST) -- e`BST
+ 
+ This is relatively simple:
+ 
+ * take the successor, the leftmost of the right child, if it exists.
+ * if no successor exists, use the left child.
+~
+@replaceTree.bst wx removeLC.bst [dpw p inR seal.bst] [drop2] if
+
+@doc.removeLC.bst
+"Remove the leftmost child of a tree.
+ 
+        e`BST -- e`BST (e+1)
+ 
+ This operation is relatively straightforward :).
+~ 
+@removeLC.bst [tree.removeLC.bst] take hfix hap
+@tree.removeLC.bst unseal.bst [leaf.removeLC.bst] [node.removeLC.bst] if
+@leaf.removeLC.bst inL seal.bst intro1 inR discard
+@node.removeLC.bst wx x hap [dp dpw inRd seald.bst] [drop2 swap] if inL
+
+@doc.findKV.bst "(k*v)`BST k [(k*k)→Ord] -- (k*v)`BST ((k*v)+1); (copyable k,v)"
+@findKV.bst .bind [take2 tree.findKV.bst] bind fixpoint inline
+@tree.findKV.bst unseal.bst [leaf.findKV.bst inLd] [node.findKV.bst inRd] if seald.bst
+@leaf.findKV.bst discard2 intro1 inR
+@node.findKV.bst caar put2nd .apply [drop find.findKV.bst] [seek.findKV.bst] if
+@seek.findKV.bst [left.findKV.bst] [right.findKV.bst] if_
+@left.findKV.bst wx x hap dp dpw
+@right.findKV.bst wx wx hap dpw dpw
+@find.findKV.bst discard car inL
+
+@doc.testing.bst "A simple (Nat*Nat)`BST for interactive testing purposes."
+@testing.bst 
+ "pack my box with five dozen liquor jugs" dup reverse.l zip.l
+ empty.bst swap [mkCompareNums insertKV.bst drop] each.l
+
+
 
  
-
- 
- 
- 
-
-
-

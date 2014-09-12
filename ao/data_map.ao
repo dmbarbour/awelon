@@ -1,4 +1,4 @@
-ord t23 redBlackTree aatree binarySearchTree
+ord t23 redBlackTree aatree binarySearchTree 
 
 @doc.DataMaps
 "A 'map' in computer science typically refers to an abstract, finite collection of (key, value) pairs where each key appears at most once in the collection. Other terms used for the same or similar ideas include 'dictionary' and 'associative array'. Typical operations on maps include:
@@ -8,9 +8,13 @@ ord t23 redBlackTree aatree binarySearchTree
      compose two maps in various ways (join, union, etc.)
      stream or list processing of (key*value) pairs
  
- Shorthand type: (K,V)`Map
+ A map is typically implemented using balanced binary search trees or hashtables. In this case, for AO words of the `.m` suffix, we'll ultimately be favoring a self-balancing tree with worst-case O(lg N) operations. The map as a whole will additionally track a key comparison function `(K*K)→Ord` and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations).
  
- A map is typically implemented using hashtables or binary search trees. In this case, for AO words of the `.m` suffix, we'll be favoring a self-balancing tree with worst-case O(lg N) operations. The map as a whole will additionally track a key comparison function `(K*K)→Ord` and encapsulate everything behind a discretionary `{:m}` sealer (to prevent accidental manipulations).
+ Representation:
+ 
+         ((K*V)`Tree * [(K*K)→Ord]){:m}      underlying data structure
+         (k,v)`M                             shorthand type descriptor
+         (currently prototyped with naive binary search tree)
  
  While keys must have homogeneous value type for comparisons, the values may have heterogeneous and substructural types, e.g. dependent upon the key. Maps may be used to model ad-hoc record types.
  
@@ -19,5 +23,52 @@ ord t23 redBlackTree aatree binarySearchTree
  The current implementation uses a plain old (imbalanced) binary search tree, more to get us started. It's easy to come back later and upgrade the tree data structure.
 ~
 @doc.suffix.m doc.DataMaps
+
+@seal.m   %r [{:m}] %r$l
+@unseal.m %r [{.m}] %r$l
+@seald.m   .rw seal.m   .wl
+@unseald.m .rw unseal.m .wl
+
+@doc.empty.m "[(k*k)→Ord] -- (k,v)`M; create a new, empty map"
+@doc.emptyNumMap.m "-- (Num,v)`M; create a map keyed by numbers"
+@doc.emptyTextMap.m "-- (Text,v)`M; create a map keyed by text"
+
+@empty.m        empty.bst p seal.m
+@emptyNumMap.m  mkCompareNums empty.m
+@emptyTextMap.m mkCompareTexts empty.m
+
+@doc.insert.m 
+"Insert an element into a map, replacing an existing element if necessary.
+ 
+         (k,v)`M (k*v) -- (k,v)`M ((k*v)+1)
+ 
+ If an element with the given key already exists, it is replaced and the older pair will be returned. Use `insert_.m` to drop the replaced value.
+~
+@insert.m unseald.m dwx swap copy [insertKV.bst] apply3to2 putd dpw seald.m
+
+@doc.insert_.m "(k,v)`M (k*v) -- (k,v)`M; insert then drop prior value (if any)"
+@insert_.m insert.m drop
+
+@doc.insertK.m "(k,v)`M k -- (k,v)`M ((k*v)+1); insert (k*unit) into map (using map as set)"
+@insertK.m intro1 pw insert.m
+
+@doc.insertK_.m "(k,v)`M k -- (k,v)`M; insert (k*unit) into map (using map as set)"
+@insertK_.m insertK.m drop
+
+@doc.size.m "(k,v)`M -- (k,v)`M Nat; count items in map. O(N)."
+@size.m unseal.m x [size.bst] apply1to2 dp seald.m
+
+@doc.remove.m
+"Remove an element from a map by its key.
+ 
+        (k,v)`M k -- (k,v)`M ((k*v)+1)
+ 
+ We'll also return the value identified by this means. Use `remove_.m` if you don't care about value.
+~
+@remove.m unseald.m dwx swap copy [removeKV.bst] apply3to2 putd dpw seald.m
+
+@doc.remove_.m "(k,v)`M k -- (k,v)`M; remove and drop a value by key"
+@remove_.m remove.m drop
+
 
 
