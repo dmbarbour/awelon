@@ -368,7 +368,7 @@
 
 
 @wcxxr→dpcxxr 
- dup .rw swap .rw %z
+ swap .rw dup .rw
  intro1d inline swap
  .wl pw .wl dip wx
  swapd inline elim1
