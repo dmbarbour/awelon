@@ -32,9 +32,10 @@
 @doc.hfix 
 "Fixpoint the function in the hand, such that a function remains recursively available in the hand during evaluation. Intended for use with `hap` or `hapc`, potentially within an 'apply' environment. It is a common data plumbing pattern to 'take' a recursive function, since we often wish to work with some other values before applying a function recursively and the hand is a convenient place to stash the function.
 ~
-@hfix put %r [%^'ol take] %ro %^'ol take
-@hfix.old put [take] composel fixpoint take
-@eqv.hfix [hfix] [hfix.old]
+@hfix hfix#v3
+@hfix#v3 put %r [%l take] %rol .fixfirst take
+@hfix#v2 put %r [%^'ol take] %ro %^'ol take
+@hfix#v1 put [take] composel fixpoint take
 
 @doc.hap "same as 'put inline'; apply a function in the hand to the environment"
 @hap put inline

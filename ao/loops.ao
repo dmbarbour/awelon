@@ -89,20 +89,48 @@
  
  When invoked, the function `foo` has access to itself (in fixpoint form) as a block on the stack. 
  
- Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming programs and AO's simple 'inline everything' semantics. Unfortunately, expressing loops in this manner is relatively awkward, and a direct interpretation will be less efficient than a stored program's jump based loops. The performance issue can be mitigated by a compiler, i.e. recognizing that the same function will be constructed in every step. The awkwardness can be mitigated by good collections libraries and support for collection-oriented programming.
+ Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming programs and AO's simple 'inline everything' semantics. Unfortunately, expressing loops in this manner is relatively awkward, and a direct interpretation will be less efficient than a stored program's jump based loops. The performance issue can be mitigated by a compiler. The awkwardness should be avoided by developing libraries for collection-oriented programming, such that most loops become implicit to processing of collections.
  
- NOTE: Loops in Awelon are required to terminate. Optimizers are allowed to assume termination, and linters or typecheckers are allowed to reject a non-terminating subprogram (if they recognize one). But proof of termination is ultimately left to the developer. Conventional process models - e.g. infinite loops - are not valid in Awelon. Instead, long-running services or applications in Awelon project are generally modeled as bounded RDP behaviors or unbounded streaming code (discussed in detail elsewhere).
- 
- NOTE: Loops are also discouraged in Awelon. Instead, developers are encouraged to compose incremental computations. For example, instead of a sequence of operations that each loop over a full list, consider translating a list to a stream and applying a sequence of transforms, filters, etc. to that stream. Loops can be expressed where needed, but can often be avoided or pushed to the 'edges' of a program. Avoiding loops in subprograms is advantageous for composition and extension.
+ NOTE: Loops in Awelon are required to terminate. The proof burden for termination ultimately falls on the programmer, but a compiler or linter is allowed to issue errors if it can prove non-termination, or warnings if it cannot prove termination. Long running behaviors in Awelon project are modeled with an *implicit* top-level loop, e.g. with RDP or a process object.
 ~
-@fixpoint %r [%^'ol] %ro %^'ol
-@fixpoint.old [dup bind] composel dup bind
+@fixpoint fixpoint#v4
+@fixpoint#v4 %r [%l] %rol .fixfirst
+@fixpoint#v3 %r' [%^'ow^'zo %zlw %vr$c] %r^'owol
+@fixpoint#v2 %r [%^'ol] %ro %^'ol
+@fixpoint#v1 [dup bind] composel dup bind
 
 @doc..fixfirst "[(f*a)→b] -- [a→b]; fixpoint first argument in pair"
 @.fixfirst %r .firstfixfirst %l
 
 @doc..firstfixfirst "([(f*a)→b]*e)→([a→b]*e); a minimal fixpoint"
-@.firstfixfirst [%^'o] %ro %^'o
+@.firstfixfirst .firstfixfirst#v2
+@.firstfixfirst#v2 %' [%^'ow^'zo %w %vr$c] %r^'owo
+@.firstfixfirst#v1 [%^'o] %ro %^'o
+
+
+@doc.sto.fixpoint
+"Simple implementations of fixpoint will tend to double the transport size for the naive bytecode representation of the resulting function. For example:
+ 
+        fixpoint                r[^'ol]o^'ol
+        incd                    rwr#1+lwl
+        [incd] fixpoint         [[^'ol rwr#1+lwl]^'ol rwr#1+lwl]
+ 
+ It is clear that the code for `incd` appears twice in the resulting fixpoint. For a small function like `incd`, this isn't a problem. But this doubling may be an issue for a larger function, especially in contexts of persistent storage, streaming, or distribution.
+ 
+ Fortunately, there are variations of fixpoint with static transport overhead:
+ 
+        sto.fixpoint            r'[^'ow^'zozlwvr$c]^'owol
+        [incd] sto.fixpoint     [[rwr#1+lwl][^'ow^'zozlwvr$c]^'ow^'zozlwvr$c]
+ 
+ For small functions like `incd`, the resulting block is a fair bit larger. However, the logic for `incd` appears only once, and this will also hold for large recursive process objects, streams, and so on. This is essentially achieved by applying the original fixpoint function to a separate function, independent of the target, which itself contains the logic to duplicate, bind, and apply the target.
+ 
+ Note: at this point, all the normal fixpoint functions have been upgraded to static transport overhead variations. But I'm keeping this around to help document my reasoning.
+~
+@sto.fixpoint sto.fixpoint#v1
+@sto.fixpoint#v2 %r' [[%^'ow^'zozlwvr$c] %r %^'ow^'zozlwvr$c] %rwol
+@sto.fixpoint#v1 %r' [%^'ow^'zo %zlw %vr$c] %r^'owol
+@sto.fixpoint#v0 [dupd bind swap inline] fixpoint#v2 bind
+
 
 @doc.factorial.fixpoint "mostly this is a test for fixpoint :)"
 @factorial.fixpoint assertNatural [step.factorial.fixpoint] fixpoint apply
@@ -111,4 +139,4 @@
  [snd dup dec put apply .mul]
  [fst discard]
  if
-@test.factorial.fixpoint 720 6 factorial.fixpoint assertEQ
+@test.factorial.fixpoint 6 factorial.fixpoint 720 assertEQ
