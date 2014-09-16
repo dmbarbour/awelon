@@ -5,6 +5,7 @@ lists streams
  
          T: 1 + N
          N: (e * (T * T))
+         (currently sealed by {:bst})
          shorthand: e`BST
  
  This tree is freely allowed to grow imbalanced. Unfortunately, it will be imbalanced very often in practice, e.g. when inserting nodes in sorted order. But this binary search tree can serve a useful role as a prototype for comparing other binary search tree implementations, and for getting started with associative arrays (maps).

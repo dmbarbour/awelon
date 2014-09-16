@@ -33,8 +33,8 @@ std compiledWords
 
 @doc.debugPrintRaw "annotation to print top value from stack to stderr"
 @doc.debugPrintText "annotation to print top text on stack to stderr (as text)"
-@debugPrintRaw [{&debug print raw}] .apply
-@debugPrintText [{&debug print text}] .apply
+@debugPrintRaw %r [{&debug print raw}] %r$l
+@debugPrintText %r [{&debug print text}] %r$l
 
 @doc.command.io "invoke linear powerblock with (command*arg) message on stack"
 @command.io %zwl .apply x %rwz
