@@ -45,9 +45,9 @@ To recognize such a block in AO, the simplest option is a new syntactic form. In
 
         〚raw awelon bytecode here〛          in AO    
             (compiles to)
-        [raw awelon bytecode here]{&E}l     in ABC
+        [raw awelon bytecode here]{&O}l     in ABC
 
-Here I'm proposing `〚` and `〛` (U+301A, U+301B) and raw ABC within the AO code. The use of raw ABC is useful because the literal object will be frequently rendered or updated under its own logic, and because it acts more like a text or number literal - independent of updates to the dictionary. The resulting ABC code uses a plain old block and indicates it as representing a literal via simple annotation - here `E`, a rather arbitrary but sufficient candidate. Developers can easily extract literals from bytecode back into AO. 
+Here I'm proposing `〚` and `〛` (U+301A, U+301B) and raw ABC within the AO code. The use of raw ABC is useful because the literal object will be frequently rendered or updated under its own logic, and because it acts more like a text or number literal - independent of updates to the dictionary. The resulting ABC code uses a plain old block and indicates it as representing a literal via simple annotation. Developers can easily extract literals from bytecode back into AO. 
 
 Developing a conventional set of methods and queries is a greater challenge. I imagine that any fixed set of methods will prove incomplete for some use case. But we could at least include some higher level conventions:
 
@@ -56,15 +56,25 @@ Developing a conventional set of methods and queries is a greater challenge. I i
 
 Clean separation of queries from update is useful because we rarely want to mix the two (e.g. viewing a literal should not modify it), and further because we must very clearly recognize when the output from a method should be rewritten back into the source code (thereby updating the embedded literal object). Having at least one common query for self description and introspection would enable development environments to offer object-dependent commands to a human user.
 
-A reasonable concern is whether updates and queries should be *semantic* or *generic* in nature. E.g. a semantic update for a state machine diagram might include methods like `"addNewState"`, whereas a generic approach might include methodds like `"onMouseClick"`. I would favor semantic methods. Separation of a semantic model from an environment-specific view and control is valuable for a number of reasons that I shouldn't need to mention here.
+Assuming a preference for semantic, model-specific methods (e.g. `"addNewState"` for a state machine literal) and a clean separation of model and view/control, we'll need a little extra logic to interact with these embedded literal objects across a variety of development environments. 
 
-Assuming a preference for semantic methods, we'll need an extra layer of indirection to interact with these embedded literal objects across a variety of development environments. Objects would include a variety of methods, both for non-interactive presentation (e.g. as text or SVG) and interactive manipulation (e.g. as a UI widget or VR object). (Alternatively, we could push the presentation logics into the environments, e.g. recognize a state machine diagram by some mime-type descriptor and select an appropriate plugin for presentation. However, including the logic within each object is a better fit for Awelon's code-as-material metaphor, and is better for distributing new types and specializations.)
+A development environment would be designed to recognize a few popular views and interactive modes, e.g. view as text or SVG, along with interactive views with a 2D GUI widget. An object can include a few presentation methods that support these modes, e.g. presenting a button then translating it to an operation on the model. Whenever the literal object receives an update command, it will be rewritten in place and we'll regenerate all views based on querying the new model. Facebook's 'React' framework offers some hints on how to make this behavior efficient and avoid disrupting the user.
 
-Including a large amount of logic for update, presentation, introspection, documentation, etc. isn't a big concern, at least not if we assume liberal use of ABC resources. The logic costs for a new type of literal might be amortized across hundreds or thousands of instances. 
+In practice, this allows us to create many new problem-specific literals and rich user interactions without updating the development environments. Updates to the development environments and adding new view/control models would be a rare event for supporting alternative HCI devices (e.g. multi-touch screens, Oculus VR goggles, Thalmic's Myo, LEAP motion) or new features (e.g. animations, video, sound, hardware acceleration). Or fixing bugs, of course.
 
-The main concern for this candidate is: how do we update existing literals? E.g. if we decide to extend image canvas literals with several new methods, what happens to the existing canvas literals? It turns out there are a number of ad-hoc approaches (e.g. rewriting bytecode). But one of the better options might be to provide some methods with the expectation that we'll eventually want to upgrade, e.g. import/export methods for data. We can also use wrappers or adapter patterns, if necessary. 
+Logics for presentation, update, query, documentation, etc. quickly add up.
 
-## Design Requirements and Desiderata
+Obviously, our embedded literal objects would grow excessively bloated without some other consideration. Fortunately, with liberal use of ABC resources (ABC's separate compilation and dynamic linking model) we can easily cache most of the logic and amortize costs across hundreds or thousands of literal object instances. ABC resource IDs can serve a similar reuse role as OOP classes:
+
+        〚bytecode for instance state {#resource ID for fixpoint object logic}〛
+
+Ultimately, for common object types, the transport and storage costs would be scarcely more than the representation of the instance state. And even that could be largely separated into resources, for very large objects.
+
+My main concern for this design candidate: how shall we update existing literals? E.g. if we decide to extend image canvas literals with several new methods, what happens to the existing canvas literals? 
+
+I think the 'right' answer here is that most literal object types should include some suitable import/export logics, such that we can replace the literal with a new version by importing data from the older version. But if we forget to include these logics, we can always resort to more ad-hoc mechanisms, e.g. rewriting some bytecode.
+
+## Requirements, Desiderata, and Synthesis
 
 Requirements:
 
@@ -72,6 +82,7 @@ Requirements:
 * literals are fully computable at compile-time
 * computation of a literal should be pure
 * meaning of a literal is independent of context
+* can manipulate literal programmatically, too
 
 Desiderata:
 
@@ -82,4 +93,27 @@ Desiderata:
 * literal size independent of history of edits
 * consistent across Awelon project environments
 
-I believe the candidate effectively meets both requirements and desiderata. 
+Synthesis:
+
+* to receive inputs for interaction, literals use functions/objects/blocks
+* blocks add one value to stack and are subject to easy partial evaluation
+* easy to enforce purity by limiting embedded caps or evaluation environment
+* development time quoting, binding, and computing leads to ad-hoc raw ABC
+* raw ABC block maintains meaning across contexts and even in ABC streams
+* can extract an arbitrary value from block by applying a query to it
+* need conventions for consistent display across development environments
+* couple presentation models for consistent distribution of new types
+
+A single block as a literal is simple in specification and nature. Using an annotation to distinguish these blocks for display or manipulation even in an ABC stream or software component is simple in specification and nature. The candidate design, embedded literal objects, is the best I've developed to meet my goals for extensible literal types in the context of Awelon project.
+
+An Awelon project development environment would need to recognize generic presentation models (e.g. text, SVG, GUI widget models, animated view modes), and might gradually be extended with new ones, but would generally not know anything specific about the meanings of literals, e.g. about music notation vs. state machine diagrams. 
+
+Liberal use of ABC resources enables megabytes of presentation, query, and update logic to be represented and distributed efficiently, so long as that cost is amortized across enough instances of a datatype. There is no reason an image canvas couldn't include complete logic for a Photoshop-like manipulations toolset.
+
+It's interesting to contrast this with the Type Specific Languages of Wyvern (from Jonathon Aldrich) or more conventional EDSLs. In some ways, AO's extensible literal model is essentially the inversion of such models, essentially operating on precompiled objects and live widgets embedded into the AO/ABC code, followed by ad-hoc programmatic manipulation of the literal and queries to extract values.
+
+## Meta Thoughts
+
+* An interesting possibility is that the same 'embedded literal object' model could also serve as a cornerstone for UI development in Awelon project. This would at least lend itself to the unification of programming and user experience.
+
+* Embedded literal objects aren't refactored the same way as other code. Even just counting instance state, these objects could grow very large. I wonder if this will fill a useful niche for accumulating data within what would otherwise be an almost pure AO dictionary.
