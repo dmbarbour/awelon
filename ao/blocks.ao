@@ -78,15 +78,27 @@
 @.apply1 %r .app1e %l
 @eqv.apply1.intro1Appd [.apply1] [intro1 .applyd]
 
+@dip0 inline
+@dip1 dip
 @dip2 %rwrwrzlzvrwr$wlcrzlwl
 @dip3 dpw dip2 wx
 @dip4 dpw dip3 wx
 @dip5 dpw dip4 wx
 @dip6 dpw dip5 wx
 @dip7 dpw dip6 wx
-@keep2 take dup2 put dip2
-@keep3 take dup3 put dip3
-@keep4 take dup4 put dip4
+@dip8 dpw dip7 wx
+
+@keep0 inline
+@keep1 keep
+@keep2 .rw dup2 pw  .wl dip  wx
+@keep3 .rw dup3 pw pw  .wl dip  wx wx
+@keep4 .rw dup4 pw pw pw  .wl dip wx wx wx
+@keep5 .rw dup5 pw pw pw pw .wl dip wx wx wx wx
+@keep6 .rw dup6 pw pw pw pw pw .wl dip wx wx wx wx wx
+@keep7 .rw dup7 pw pw pw pw pw pw .wl dip wx wx wx wx wx wx
+@keep8 .rw dup8 pw pw pw pw pw pw pw .wl dip wx wx wx wx wx wx wx
+
+@eqv.keep6 [take dup6 put dip6] [keep6]
 
 @apply1to1 apply
 @apply1to2 [pw] compose apply1to1 wx 
@@ -450,10 +462,40 @@
  6 assertEQ1d.n
  8 assertEQ1.n
 
+
+@doc.run "[A] run = A [A]; equivalent to 'dup dip'"
+@run %rvr^z$wlcl
+
+@doc.runN "[A] run3 = A A A [A]"
+@run0
+@run1 run0 run
+@run2 run1 run
+@run3 run2 run
+@run4 run3 run
+@run5 run4 run
+@run6 run5 run
+@run7 run6 run
+@run8 run7 run
+
+@doc.repN "[A] rep3 = A A A"
+@rep0 drop
+@rep1 run0 inline
+@rep2 run1 inline
+@rep3 run2 inline
+@rep4 run3 inline
+@rep5 run4 inline
+@rep6 run5 inline
+@rep7 run6 inline
+@rep8 run7 inline
+
+@eqv.rep1 [inline] [rep1]
+@eqv.rep4 [dup dip dup dip dup dip inline] [rep4]
+
+
 @doc.Quotable
 "Most values in AO are quotable. 
  
- There are some unusual exceptions. For example, distributed values (e.g. a pair of which one value is computed at the GPU and another on the CPU) are not quotable. All values entering a quote must be observable at a common location, which is then inherited by the quotation.
+ There are some unusual exceptions. For example, distributed values (e.g. a pair of which one value is computed at the GPU and another on the CPU) are not quotable. All values entering a quote must be observable at a common location and time, which is then inherited by the quotation.
  
  A quotation is simply a block that reproduces a value. This typically will have special support from the implementation, but will be serialized to code when necessary for display or networking.
  

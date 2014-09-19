@@ -41,6 +41,9 @@
 @cdddaar x cdddar dp
 @cddddar x cddddr dp
 
+@eqv.caar  [caar]  [r car dl]
+@eqv.caaar [caaar] [r r car dl dl]
+
 
 @doc.cdr doc.car
 @cdr     wx dup    dpw
@@ -225,7 +228,6 @@
          apcdr :: (a*b) [b→b'] -- (a*b')
          apcadr :: (a*(b*c)) [b→b'] -- (a*(b'*c))
  
- This method can also be used to set 
 ~
 @apcar dx .apply p
 @apcaar dx apcar p

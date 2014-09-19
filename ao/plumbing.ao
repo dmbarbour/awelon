@@ -107,6 +107,53 @@ lispy
   7 assertEQ1 drop
   6 assertEQ1 drop5
 
+
+@doc.digN 
+"The digN combinators are perhaps a better name for roll, since it more clearly connotates that we're dragging some value upwards from the depths of the stack. digN will correspond to roll(N-1); we're accessing the Nth element under the top of the stack.
+ 
+         dig3 :: d c b a -- c b a d
+ 
+ The reverse operation is buryN. The 'digNd' combinators will dip below the top element on the stack.
+~
+@dig1 roll2
+@dig2 roll3
+@dig3 roll4
+@dig4 roll5
+@dig5 roll6
+@dig6 roll7
+@dig7 roll8
+@dig8 roll9
+
+@dig1d roll2d
+@dig2d roll3d
+@dig3d roll4d
+@dig4d roll5d
+@dig5d roll6d
+@dig6d roll7d
+@dig7d roll8d
+@dig8d roll9d
+
+@doc.buryM
+"The buryN combinators bury the top element from the stack, reversing the corresponding digN operation. This is perhaps a better name than 'unroll'.
+~
+@bury1 unroll2
+@bury2 unroll3
+@bury3 unroll4
+@bury4 unroll5
+@bury5 unroll6
+@bury6 unroll7
+@bury7 unroll8
+@bury8 unroll9
+
+@bury1d unroll2d
+@bury2d unroll3d
+@bury3d unroll4d
+@bury4d unroll5d
+@bury5d unroll6d
+@bury6d unroll7d
+@bury7d unroll8d
+@bury8d unroll9d
+
 @over2 roll2 dup unroll2d
 @over3 roll3 dup unroll3d
 @over4 roll4 dup unroll4d
@@ -145,12 +192,13 @@ lispy
 @doc.dup2 "(Copyable x,y) ⇒ x y -- x y x y"
 @doc.dup3 "(Copyable x,y,z) ⇒ x y z -- x y z x y z"
 @doc.dup4 "(Copyable w,x,y,z) ⇒ w x y z -- w x y z w x y z"
-@dup2 pw dup   dwx   wx
-@dup3 pw pw dup   dwx dwx   wx wx
-@dup4 pw pw pw dup   dwx dwx dwx   wx wx wx
-@dup5 pw pw pw pw dup   dwx dwx dwx dwx   wx wx wx wx
-@dup6 pw pw pw pw pw dup   dwx dwx dwx dwx dwx   wx wx wx wx wx
-@dup7 pw pw pw pw pw pw dup   dwx dwx dwx dwx dwx dwx   wx wx wx wx wx wx
+@dup2 pw   dup   dwx   wx
+@dup3 pw pw   dup   dwx dwx   wx wx
+@dup4 pw pw pw   dup   dwx dwx dwx   wx wx wx
+@dup5 pw pw pw pw   dup   dwx dwx dwx dwx   wx wx wx wx
+@dup6 pw pw pw pw pw   dup   dwx dwx dwx dwx dwx   wx wx wx wx wx
+@dup7 pw pw pw pw pw pw   dup   dwx dwx dwx dwx dwx dwx   wx wx wx wx wx wx
+@dup8 pw pw pw pw pw pw pw   dup   dwx dwx dwx dwx dwx dwx dwx   wx wx wx wx wx wx wx
 
 @dup2.alt .rw dup      .wl dup unroll2d
 @dup3.alt .rw dup2.alt .wl dup unroll3d
