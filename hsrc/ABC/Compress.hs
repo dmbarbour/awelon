@@ -151,18 +151,6 @@ toFlagBits = wb 8 where
     wb 0 _ = []
     wb n w = let (q,r) = w `divMod` 2 in (r /= 0) : wb (n - 1) q
 
--- placeholder LZSS compression 
-lzss_compress :: [Word8] -> [LZSS_Phrase]
-lzss_compress = fmap Lit
-
--- placeholder LZSS decompression
-lzss_decompress :: [LZSS_Phrase] -> [Word8]
-lzss_decompress [] = []
-lzss_decompress (Lit w : lzps) = w : lzss_decompress lzps
-lzss_decompress (Match 0 _ : _ ) = [] -- end of input due to extra zeroes
-lzss_decompress (Match _ _ : _ ) = error $ 
-    "TODO: finish implementing LZSS compression and decompression"
-
 -- test if we have eight literals in a row...
 l8 :: [LZSS_Phrase] -> Maybe ([Word8],[LZSS_Phrase])
 l8 ( (Lit w1) : (Lit w2) : (Lit w3) : (Lit w4) :
@@ -183,6 +171,23 @@ pg_deaggr [] = []
 pg_deaggr ((LG ws):pgs) = (fmap Lit ws) ++ pg_deaggr pgs
 pg_deaggr ((MG ps):pgs) = ps ++ pg_deaggr pgs
 
+
+-- For LZSS compression, I need a history
+
+
+
+
+-- placeholder LZSS compression 
+lzss_compress :: [Word8] -> [LZSS_Phrase]
+lzss_compress = fmap Lit
+
+-- placeholder LZSS decompression
+lzss_decompress :: [LZSS_Phrase] -> [Word8]
+lzss_decompress [] = []
+lzss_decompress (Lit w : lzps) = w : lzss_decompress lzps
+lzss_decompress (Match 0 _ : _ ) = [] -- end of input due to extra zeroes
+lzss_decompress (Match _ _ : _ ) = error $ 
+    "TODO: finish implementing LZSS compression and decompression"
 
 
 
