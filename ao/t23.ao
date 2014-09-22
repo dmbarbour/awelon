@@ -33,11 +33,11 @@
 @fromN2d.t23 .rw fromN2.t23 .wl
 
 @doc.insertKV.t23 
-"Insert a value into a binary search tree, returning an updated tree and the replaced element (if any).
+"Insert or replace a value in a binary search tree. Returns an updated tree and the replaced element.
  
          (k*v)`T23 (k*v) [(k*k)→Ord] -- (k*v)`T23 ((k*v)+1)
  
- Internally, the implementation actually returns either an updated tree or a proposition to split the tree (which looks just like an N2 node). But the root case is pretty trivial.
+ Inserting may grow the tree. See `doc.tree.insertKV.t23` for details.
 ~
 @insertKV.t23 
  bindK.insertKV.t23 take2nd
@@ -49,7 +49,7 @@
 @bindK.insertKV.t23 .rw car .wl .bind
 
 @doc.tree.insertKV.t23 
-"Documenting implementation details here... because this is painful.
+"Documenting implementation details here... because this is relatively complex compared to most data structures.
  
         tree.insert  ::  (k*v)`T23 [tree.insert] [k→Ord] (hand: (k*v)) 
                      -- ((k*v)`T23 + Grow)  (hand: ((k*v)+1))
@@ -90,7 +90,61 @@
 @grow.ltk2.n3.insertKV.t23 l x dp swap fromN2.t23 dwx pw dpw dpw fromN2d.t23 pw
 @grow.gtk2.n3.insertKV.t23 fromN2.t23 pw dpw dpw fromN2d.t23 pw
 
+@doc.removeL.t23 
+"Remove the leftmost element from a 2-3 tree.
+ 
+         e`T23 -- e`T23 (e+1)
+ 
+ This operation may shrink the tree. cf. `doc.Deletion.t23`
+~
+@removeL.t23 root.removeL.t23 merged
+@root.removeL.t23 [tree.removeL.t23] take hfix hap
+@tree.removeL.t23 unseal.t23 [leaf.removeL.t23] [node.removeL.t23] if
+@leaf.removeL.t23 discard fromLeaf.t23 inL intro1 inR
+@node.removeL.t23 [n2.removeL.t23] [n3.removeL.t23] if
+@n2.removeL.t23 "TODO!t23"
+@n3.removeL.t23 "TODO!t23"
 
+@doc.Deletion.t23
+"Deletion in 2-3 trees always starts with a leaf. If the node to be deleted isn't a leaf, we can always swap the node with its in-order successor, which be a leaf.
+ 
+ After we delete a node, the result is either a proper tree or a "hole", a tree with no keys and just one child tree. The job is then reduced to repairing this hole. There are a few different 'repair' cases:
+ 
+ 1) Borrow from a sibling with 3 children.
+ 
+                9                 7
+              /   \     ...     /   \    
+            4 7    _           4     9
+           a b c   d          a b   c d
+ 
+ 2) Borrow from parent with 3 children.
+ 
+                 4   9                  6
+               /   |   \     ...      /   \
+              2    6    _           2 4    9
+             a b  c d   e          a b c  d e
+ 
+ 3) Single sibling with two children: propagate hole upwards.
+ 
+               9                 _
+             /   \      ...      |
+            4     _             4 9
+           a b    c            a b c
+ 
+ 4) If the hole reaches the root, delete the hole.
+ 
+ If we count specific cases for each location, this adds up to about fifteen cases. I'd really prefer not to implement fifteen cases in AO, so I'll be seeking a lighter weight self-balancing tree. Hopefully, red-black trees are lighter weight.
+~
+
+
+@doc.removeK.t23
+"Remove a value from a 2-3 search tree tree, by key.
+ 
+        (k*v)`T23 k [(k*k)→Ord] -- (k*v)`T23 ((k*v)+1)
+ 
+~
+@removeK.t23 .bind [tree.removeK.t23] bind fixpoint inline "TODO!t23"
+@tree.removeK.t23 "TODO!t23"
 
 @doc.fmap.t23 "a`T23 [a→b] -- b`T23; apply function to every element"
 @fmap.t23 [t.fmap.t23] bind fixpoint inline
@@ -99,15 +153,10 @@
 @n2.fmap.t23 {&todo:n2.fmap.t23} 
 @n3.fmap.t23 {&todo:n3.fmap.t23}
 
-
 @doc.height.t23 "a`T23 -- a`T23 Nat; find height of balanced 2-3 tree"
 @doc.size.t23 "a`T23 -- a`T23 Nat; find size (number of elements) of 2-3 tree"
 @doc.assertBalanced.t23 "a`T23 -- a`T23; assert 2-3 tree is balanced"
 @doc.assertSorted.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert 2-3 tree is sorted"
 @doc.validateTree.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert balanced and sorted"
-
-
-
-
 
 
