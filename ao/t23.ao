@@ -106,7 +106,7 @@
 @n3.removeL.t23 "TODO!t23"
 
 @doc.Deletion.t23
-"Deletion in 2-3 trees always starts with a leaf. If the node to be deleted isn't a leaf, we can always swap the node with its in-order successor, which be a leaf.
+"Deletion in 2-3 trees always starts with a leaf. If the node to be deleted isn't a leaf, we can always swap the node with its in-order successor, which will always be a leaf.
  
  After we delete a node, the result is either a proper tree or a "hole", a tree with no keys and just one child tree. The job is then reduced to repairing this hole. There are a few different 'repair' cases:
  
