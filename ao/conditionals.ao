@@ -142,3 +142,71 @@ boolean
 
 @doc.assertInL "(a+b) -- a; see `doc.assert`"
 @assertInL mirror assert
+
+@doc.inLL "a -- ((a+0)+0); in left-left"
+@doc.inLR "a -- ((0+a)+0); in left-right"
+@doc.inRL "a -- (0+(a+0)); in right-left"
+@doc.inRR "a -- (0+(0+a)); in right-right"
+@inLL inL inL
+@inLR inR inL
+@inRL inL inR
+@inRR inR inR
+
+@inLLL inLL inL
+@inLRL inRL inL
+@inLLR inLR inL
+@inLRR inRR inL
+@inRLR inLR inR
+@inRRR inRR inR
+@inRLL inLL inR
+@inRRL inRL inR
+
+@inLLLL inLLL inL
+@inLLLR inLLR inL
+@inLLRL inLRL inL
+@inLLRR inLRR inL
+@inLRLL inRLL inL
+@inLRLR inRLR inL
+@inLRRL inRRL inL
+@inLRRR inRRR inL
+@inRLLL inLLL inR
+@inRLLR inLLR inR
+@inRLRL inLRL inR
+@inRLRR inLRR inR
+@inRRLL inRLL inR
+@inRRLR inRLR inR
+@inRRRL inRRL inR
+@inRRRR inRRR inR
+
+@inLLLLL inLLLL inL
+@inLLLLR inLLLR inL
+@inLLLRL inLLRL inL
+@inLLLRR inLLRR inL
+@inLLRLL inLRLL inL
+@inLLRLR inLRLR inL
+@inLLRRL inLRRL inL
+@inLLRRR inLRRR inL
+@inLRLLL inRLLL inL
+@inLRLLR inRLLR inL
+@inLRLRL inRLRL inL
+@inLRLRR inRLRR inL
+@inLRRLL inRRLL inL
+@inLRRLR inRRLR inL
+@inLRRRL inRRRL inL
+@inLRRRR inRRRR inL
+@inRLLLL inLLLL inR
+@inRLLLR inLLLR inR
+@inRLLRL inLLRL inR
+@inRLLRR inLLRR inR
+@inRLRLL inLRLL inR
+@inRLRLR inLRLR inR
+@inRLRRL inLRRL inR
+@inRLRRR inLRRR inR
+@inRRLLL inRLLL inR
+@inRRLLR inRLLR inR
+@inRRLRL inRLRL inR
+@inRRLRR inRLRR inR
+@inRRRLL inRRLL inR
+@inRRRLR inRRLR inR
+@inRRRRL inRRRL inR
+@inRRRRR inRRRR inR

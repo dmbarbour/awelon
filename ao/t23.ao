@@ -1,24 +1,96 @@
 
 @doc.TwoThreeTree
-"The 2-3 Tree is a balanced B-tree in which every node has one or two data elements, inner nodes have either two or three children and all children are at the same depth. A 2-3 tree is in some ways conceptually simpler than a red-black tree or AA-tree, by making the balancing case more explicit in the data structure. OTOH, having multiple node types for data results in bulky, repetitive bytecode. 
+"The 2-3 Tree is a balanced B-tree in which every node has one or two data elements, inner nodes have either two or three children and all children are at the same depth.
  
  A proposed representation:
  
          T  :: (E + (N2 + N3))
          E  :: unit
-         N2 :: (T * (a * T))
+         N2 :: (T * (a * T)) 
          N3 :: (T * (a * N2)) 
  
          SHORTHAND:  e`T23
  
+ The cost of a 2-3 tree is dealing with three types at every step, which results in relatively bulky logic with a lot of conditionals. This should work well enough even if it's a bit heavy, and 2-3 trees are ultimately the basis for the 2-3 finger trees for sequences. But it might be worth exploring red-black trees and other models to see if any of them prove a bit more lightweight.
 ~
 @doc.suffix.t23 doc.TwoThreeTree
 
+@seal.t23   %r [{:t23}] %r$l
+@unseal.t23 %r [{.t23}] %r$l
+
 @doc.empty.t23 "-- e`T23"
-@empty.t23 intro1 inL
+@empty.t23 intro1 fromLeaf.t23
 
 @doc.singleton.t23 "e -- e`T23"
-@singleton.t23 empty.t23 empty.t23 dpw p inL inR
+@singleton.t23 empty.t23 dup dpw p fromN2.t23
+
+@fromLeaf.t23 r.fromLeaf.t23 seal.t23
+@fromN2.t23 r.fromN2.t23 seal.t23
+@fromN3.t23 r.fromN3.t23 seal.t23
+@r.fromLeaf.t23 inL
+@r.fromN2.t23 inRL
+@r.fromN3.t23 inRR
+@fromN2d.t23 .rw fromN2.t23 .wl
+
+@doc.insertKV.t23 
+"Insert a value into a binary search tree, returning an updated tree and the replaced element (if any).
+ 
+         (k*v)`T23 (k*v) [(k*k)→Ord] -- (k*v)`T23 ((k*v)+1)
+ 
+ Internally, the implementation actually returns either an updated tree or a proposition to split the tree (which looks just like an N2 node). But the root case is pretty trivial.
+~
+@insertKV.t23 
+ bindK.insertKV.t23 take2nd
+ [tree.insertKV.t23] bind fixpoint inline 
+ repairRoot.insertKV.t23 put
+@repairRoot.insertKV.t23 [] [fromN2.t23] if
+
+@doc.bindK.insertKV.t23 "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
+@bindK.insertKV.t23 .rw car .wl .bind
+
+@doc.tree.insertKV.t23 
+"Documenting implementation details here... because this is painful.
+ 
+        tree.insert  ::  (k*v)`T23 [tree.insert] [k→Ord] (hand: (k*v)) 
+                     -- ((k*v)`T23 + Grow)  (hand: ((k*v)+1))
+ 
+ Here we're returning either a tree OR a 'grow' proposition (along with the replaced element in the hand). The type of grow is the same as N2, indicating a new proposed tree of height one greater than the original tree. I.e. if we insert to a leaf, we always get the grow proposition. An N2 node will always absorb a 'grow' proposition by changing to an N3 node. If we attempt to grow an N3 node, the result is a new grow proposition. We can trivially grow the root, resulting in a new two-three tree.
+~
+
+@tree.insertKV.t23 swap take2 unseal.t23 [leaf.insertKV.t23] [node.insertKV.t23] if
+@leaf.insertKV.t23 discard2 put empty.t23 dup dpw p inR swap inR take
+@node.insertKV.t23 [n2.insertKV.t23] [n3.insertKV.t23] if
+
+@n2.insertKV.t23 caadr put .apply [drop eq.n2.insertKV.t23] [neq.n2.insertKV.t23] if inL
+@eq.n2.insertKV.t23 discard put wcadr inL take fromN2.t23
+@neq.n2.insertKV.t23 [lt.n2.insertKV.t23] [gt.n2.insertKV.t23] if_
+@lt.n2.insertKV.t23 x hap [p fromN2.t23] [grow.lt.n2.insertKV.t23 fromN3.t23] if
+@gt.n2.insertKV.t23 wx wx hap [pw pw fromN2.t23] [grow.gt.n2.insertKV.t23 fromN3.t23] if
+
+@doc.grow.lt.n2.insertKV.t23 "(kv2*T3) (T1*(kv1*T2)) -- N3"
+@doc.grow.gt.n2.insertKV.t23 "T1 kv1 (T2*(kv2*T3)) -- N3"
+@grow.lt.n2.insertKV.t23 l x dp p r
+@grow.gt.n2.insertKV.t23 pw pw
+
+@n3.insertKV.t23 caadr paste .apply [drop eqk1.n3.insertKV.t23] [neqk1.n3.insertKV.t23] if
+@eqk1.n3.insertKV.t23 discard2 put wcadr inL take fromN3.t23 inL
+@neqk1.n3.insertKV.t23 [ltk1.n3.insertKV.t23] [gtk1.n3.insertKV.t23] if_
+@ltk1.n3.insertKV.t23 x discard hap [p fromN3.t23 inL] [grow.ltk1.n3.insertKV.t23 inR] if 
+
+@gtk1.n3.insertKV.t23 wx wx caadr put .apply [drop eqk2.n3.insertKV.t23] [neqk2.n3.insertKV.t23] if
+@eqk2.n3.insertKV.t23 discard put wcadr inL take pw pw fromN3.t23 inL
+@neqk2.n3.insertKV.t23 [ltk2.n3.insertKV.t23] [gtk2.n3.insertKV.t23] if_
+@ltk2.n3.insertKV.t23 x hap [p pw pw fromN3.t23 inL] [grow.ltk2.n3.insertKV.t23 inR] if
+@gtk2.n3.insertKV.t23 wx wx hap [pw pw pw pw fromN3.t23 inL] [grow.gtk2.n3.insertKV.t23 inR] if
+
+@doc.grow.ltk1.n3.insertKV.t23 "(kv1*(t2*(kv2*t3))) (t0*(kv0*t1)) -- N2; split left"
+@doc.grow.ltk2.n3.insertKV.t23 "t0 kv0 (kv2*t3) (t1*(kv1*t2)) -- N2; split middle"
+@doc.grow.gtk2.n3.insertKV.t23 "t0 kv0 t1 kv1 (t2*(kv2*t3)) -- N2; split right"
+@grow.ltk1.n3.insertKV.t23 fromN2.t23 swap wx fromN2.t23 pw pw
+@grow.ltk2.n3.insertKV.t23 l x dp swap fromN2.t23 dwx pw dpw dpw fromN2d.t23 pw
+@grow.gtk2.n3.insertKV.t23 fromN2.t23 pw dpw dpw fromN2d.t23 pw
+
+
 
 @doc.fmap.t23 "a`T23 [a→b] -- b`T23; apply function to every element"
 @fmap.t23 [t.fmap.t23] bind fixpoint inline
