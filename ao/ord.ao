@@ -9,6 +9,16 @@
  Here, `EQ` represents that two values are equivalent (or unordered). `LT` and `GT` indicate a less-than or greater-than ordering, assuming the normal irreflexive and transitive properties one should expect from those relationships. Ordinals can avoid a lot of rework when comparing complex objects, such as lists or streams. In many cases, e.g. when working with keys in a map, we'll assume that elements are totally ordered.
 ~
 
+@EQ intro1 inL
+@LT intro1 inRL
+@GT intro1 inRR
+
+
+@doc.ordCase "Ord [onEQ] [onLT] [onGT] -- onEQ (or onLT or onGT, depending on Ordinal"
+@ordCase pw pw swap [eq.ordCase] [neq.ordCase] if
+@eq.ordCase drop wx drop inline
+@neq.ordCase swap x drop wx if_
+
 @doc.compareOnStackToRawCompare "[k k -- Ord] -- [(k*k)→Ord]"
 @compareOnStackToRawCompare [wx] composel applyWrap
 
@@ -44,6 +54,9 @@
 
 @doc.rawCompareNumbers' "(Num(a)*Num(b))→((EQ(a*a))+(LT(a*b)+GT(b*a)))"
 @rawCompareNumbers' %vrw> [%vr>c] %r?Rc
+
+@doc.compareNumbers "Num Num -- Ord"
+@compareNumbers pw [rawCompareNumbers] .apply
 
 @doc.toOrd "(eq+(lt+gt)) -- (1+(1+1)); droppable eq,lt,gt"
 @doc.toOrd\1 "(eq+(lt+gt))→(1+(1+1))"

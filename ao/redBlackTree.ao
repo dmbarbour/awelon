@@ -1,9 +1,9 @@
-lispy loops conditionals
+lispy plumbing loops conditionals
 
 @doc.RedBlackTree
 "The red-black tree is a balanced binary search tree developed by Rudolph Bayer in 1972. Balance is guaranteed by ensuring that the number of 'black' nodes on a path from the root to every leaf is equal, while allowing some flexibility of structure is achieved by allowing alternating nodes on a path to be painted red. The guarantee of O(lg N) manipulations is achieved by guaranteeing that red nodes have only black children, i.e. such that the longest path in the tree (mixed red and black) is no longer than twice the shortest path in the tree.
  
- A red-black tree corresponds to a 2-4 B-tree. Compared to other self-balancing binary search trees, red-black trees have the nice property of a highly uniform structure. However, it also has a lot of special cases to rebalance the tree after insert or delete.
+ A red-black tree corresponds to a 2-4 B-tree. Compared to other self-balancing binary search trees, red-black trees have the nice property of a highly uniform structure. This makes it easier to write zippers, traversals, and hopefully results in less special-case logic (e.g. compared to a direct implementation of a B-tree) for insertion and deletion. 
  
  Proposed representation:
  
@@ -11,51 +11,66 @@ lispy loops conditionals
          Tree:  1 + Node                            leaf+node
          Color: 1 + 1                               black+red
  
-         shorthand: e`RBT
+         shorthand: e'RBT
  
- Alternatively, I could encode the color in the Tree type, e.g. `(1 + (Node + Node))` for black and red nodes. But that results in some awkward code for operations that are mostly independent of color (such as fmap, count, streaming) since I'm always forced to observe color. Ideally, a good compiler could optimize for the common tuple structure. 
+ This representation might be sealed to resist accidental manipulation (see `seal.rbt`).
  
- Note: for the moment, this is implemented as just a binary search tree. 
+ Here I'm using a boolean per node to indicate color. This should minimize interference for code that is independent of color, such as fmap, counting, streaming. One goal, at the moment, is to keep tree balancing lightweight - in the sense of requiring relatively little ABC. 
+ 
+ Note: for the moment, this is implemented as just a binary search tree.
 ~
 
 @doc.suffix.rbt doc.RedBlackTree
 
-@doc.empty.rbt " -- e`RBT"
-@doc.singleton.rbt "e -- e`RBT" 
-@empty.rbt intro1 inL
-@singleton.rbt black.rbt empty.rbt empty.rbt pw pw pw inR
+@seal.rbt   %r [{:rbt}] %r$l
+@unseal.rbt %r [{.rbt}] %r$l
+
+@seald.rbt .rw seal.rbt .wl
+@unseald.rbt .rw unseal.rbt .wl
+
+@doc.empty.rbt " -- e'RBT"
+@doc.singleton.rbt "e -- e'RBT" 
+
+@empty.rbt intro1 fromLeaf.rbt
+@singleton.rbt black.rbt empty.rbt dup pw pw pw fromNode.rbt
+
+@doc.fromNode.rbt "(elem*(Color*(Tree*Tree))) -- elem'RBT"
+@doc.fromLeaf.rbt "unit -- elem'RBT"
+@fromNode.rbt inR seal.rbt
+@fromLeaf.rbt inL seal.rbt
 
 @black.rbt intro1 inL
 @red.rbt intro1 inR
 
-@doc.color.rbt "e`RBT -- e`RBT color; copy color of red-black tree"
-@t.color.rbt [inL black.rbt] [n.color.rbt inRd] if
+@doc.color.rbt "e'RBT -- e'RBT color; copy color of red-black tree"
+@t.color.rbt unseal.rbt [black.rbt inLd] [n.color.rbt inRd] if seald.rbt
 @n.color.rbt cadr
 @assertBlack.rbt t.color.rbt assertInL elim1
 
-@doc.paintItBlack.rbt "e`RBT -- e`RBT; red node to black node"
-@doc.paintItRed.rbt "e`RBT -- e`RBT; black node to red node (no effect on leaf)"
-@paintItBlack.rbt [inL] [n.paintItBlack.rbt inR] if
+@doc.paintItBlack.rbt "e'RBT -- e'RBT; red node to black node"
+@paintItBlack.rbt unseal.rbt r.paintItBlack.rbt seal.rbt 
+@r.paintItBlack.rbt [inL] [n.paintItBlack.rbt inR] if
 @n.paintItBlack.rbt black.rbt setcadr!
-@paintItRed.rbt   [inL] [n.paintItRed.rbt inR] if
-@n.paintItRed.rbt   red.rbt setcadr! 
 
-@doc.blackHeight.rbt "e`RBT -- e`RBT Nat; count black nodes from root to leftmost leaf"
+@doc.paintItRed.rbt "e'RBT -- e'RBT; black node to red node (no effect on leaf)"
+@paintItRed.rbt unseal.rbt r.paintItRed.rbt seal.rbt
+@r.paintItRed.rbt [inL] [n.paintItRed.rbt inR] if
+@n.paintItRed.rbt red.rbt setcadr! 
+
+@doc.blackHeight.rbt "e'RBT -- e'RBT Nat; count black nodes from root to leftmost leaf"
 @blackHeight.rbt [t.blackHeight.rbt] take hfix hap 
-@t.blackHeight.rbt [discard inL 0] [n.blackHeight.rbt inRd] if
-@n.blackHeight.rbt 
- wx wx x hap take p pw pw
- n.color.rbt [hsw inc hsw] [] if_ put
+@t.blackHeight.rbt unseal.rbt [discard inL 0] [n.blackHeight.rbt inRd] if seald.rbt
+@n.blackHeight.rbt wx wx x hap dp dpw dpw take n.color.rbt [hsw inc hsw] [] if_ put
 
 @doc.assertBalanced.rbt 
 "Assert that a red-black tree has the same black-height on every path, and that red nodes have only black children. These two invariants ensure that a red-black tree is 'balanced' in the sense that the longest path from root to leaf is no longer than twice the shortest path, and thus no more than 2*lg(N) steps. 
  
-         e`RBT -- e`RBT   (does not alter input)
+         e'RBT -- e'RBT   (does not alter input)
  
 ~
 @assertBalanced.rbt h.assertBalanced.rbt drop
 @h.assertBalanced.rbt [t.assertBalanced.rbt] take hfix hap
-@t.assertBalanced.rbt [discard inL 0] [n.assertBalanced.rbt inRd] if
+@t.assertBalanced.rbt unseal.rbt [discard inL 0] [n.assertBalanced.rbt inRd] if seald.rbt
 @n.assertBalanced.rbt n.color.rbt [black.assertBalanced.rbt] [red.assertBalanced.rbt] if_
 @black.assertBalanced.rbt 
  wx wx x 
@@ -69,9 +84,9 @@ lispy loops conditionals
  swapd assertEQ1.n
  dpw dpw dpw
 
-@doc.size.rbt "e`RBT -- e`RBT Nat; compute number of nodes in red-black tree"
+@doc.size.rbt "e'RBT -- e'RBT Nat; compute number of nodes in red-black tree"
 @size.rbt [t.size.rbt] take hfix hap
-@t.size.rbt [inL 0 discard] [n.size.rbt] if
+@t.size.rbt unseal.rbt [inL 0 discard] [n.size.rbt] if seald.rbt
 @n.size.rbt 
  wx wx x 
  hapc rot hap 
@@ -82,28 +97,67 @@ lispy loops conditionals
 @doc.Zipper.rbt
 "A zipper to walk a red-black tree. In this case, we have a 'focus' (a particular subtree) and our context is a list of steps back to root. A step has type:
  
-         Step :: (dir * (color * (e * Tree)))
+         Step :: (Dir * (Color * (e * Tree)))
+         Dir :: Left() + Right(); direction of Step (tree is opposite child)
          Context :: List of Step (empty is at root)
          Zipper :: (Tree * Context)
  
- Here `dir` is a boolean, in the left for a left step and in the right for a right step.
+         Shorthand e'Z.RBT
  
- A focus and a list of steps is sufficient to rebuild the tree. More importantly, it should also be sufficient to *rebalance* the tree while rebuilding it, i.e. since we can always see the colors of the next couple nodes.
+ A focus and a list of steps is sufficient to rebuild the tree. More importantly, it should also be sufficient (or nearly so, perhaps with a small amount of extra context) to *rebalance* the tree while rebuilding it, i.e. since we can always see the colors of the next couple nodes.
 ~
+
+@doc.wrap.z.rbt "e'RBT -- e'Z.RBT; wrap tree in zipper"
+@wrap.z.rbt empty.l pw
+
+@dirLeft.z.rbt intro1 inL
+@dirRight.z.rbt intro1 inR
+
+@doc.stepLeft.z.rbt "e'Z.RBT -- e'Z.RBT; step to left child (if any)"
+@doc.stepRight.z.rbt "e'Z.RBT -- e'Z.RBT; step to right child (if any)"
+@doc.stepUp.z.rbt "e'Z.RBT -- e'Z.RBT; step upwards to parent (if any)"
+
+@doc.nodeLeft.z.rbt "(e*(c*(l*r))) -- (l * (L*(c*(e*r))) )"
+@doc.nodeRight.z.rbt "(e*(c*(l*r))) -- (r * (R*(c*(e*r))) )"
+@nodeLeft.z.rbt wc l w r wx w r dirLeft.z.rbt p pw
+@nodeRight.z.rbt wc l w r wc wx w r dirRight.z.rbt p pw
+
+@stepLeft.z.rbt x unseal.rbt [fromLeaf.rbt p] [node.stepLeft.z.rbt] if
+@node.stepLeft.z.rbt nodeLeft.z.rbt wx swapd cons.l pw
+
+@stepRight.z.rbt x unseal.rbt [fromLeaf.rbt p] [node.stepRight.z.rbt] if
+@node.stepRight.z.rbt nodeRight.z.rbt wx swapd cons.l pw
+
+@stepUp.z.rbt x take [x step.exit.z.rbt] [inR] if put p
+
+@doc.exit.z.rbt "e'Z.RBT -- e'RBT; rebuild tree from zipper"
+@exit.z.rbt x take [step.exit.z.rbt] each.l put
+@step.exit.z.rbt x dwc dl dwx putd [p] [pw] if_ pw r fromNode.rbt take
+
+@doc.seek.z.rbt 
+"Search down the zipper until we reach a tree with the requested key, returning the final key comparison.
+ 
+         (k*v)'Z.RBT [k→Ord] -- (k*v)'Z.RBT Ord
+ 
+~
+@seek.z.rbt {&todo}
+
+@seekL.z.rbt "e'Z.RBT -- e'Z.RBT; seek leftmost node"
+
 
 @doc.insertKV.rbt 
 "Insert a value into a red-black binary search tree. 
  
-         (k*v)`RBT (k*v) [(k*k)→Ord] -- (k*v)`RBT ((k*v)+1)
+         (k*v)'RBT (k*v) [(k*k)→Ord] -- (k*v)'RBT ((k*v)+1)
  
- When we insert a node, we always treat it as 'red' initially, in order to keep the tree balanced. If this violates the red-black tree's balancing condition, we'll then repair the tree. If there is already a matching `(k*v)` pair in the tree, we'll return it.
+ The trick is to rebalance the tree after insert, ensuring that the tree is never imbalanced.
 ~
 
 
 @doc.removeK.rbt
 "Remove a value by key from the red-black binary search tree.
  
-         (k*v)`RBT k [(k*k)→Ord] -- (k*v)`RBT ((k*v)+1)
+         (k*v)'RBT k [(k*k)→Ord] -- (k*v)'RBT ((k*v)+1)
  
  We'll return the removed element, rather than deleting it directly.
 ~

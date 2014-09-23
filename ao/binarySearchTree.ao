@@ -134,7 +134,7 @@ lists streams
 
 @doc.testing.bst "A simple (Nat*Nat)`BST for interactive testing purposes."
 @testing.bst 
- "pack my box with five dozen liquor jugs" dup reverse.l zip.l
+ pangram#1 dup reverse.l zip.l
  empty.bst swap [mkCompareNums insertKV.bst drop] each.l
 
 

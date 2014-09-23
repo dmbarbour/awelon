@@ -159,6 +159,10 @@ l_onStack(N) :-
 r_onStack(N) :- 
     path([[ [[x,y],z], s],e], 
          [[ [x,[y,z]], s],e], N).
+
+w_onStack(N) :-
+    path([[ [a,[b,c]], s],e],
+         [[ [b,[a,c]], s],e], N).
 z_onStack(N) :-
     path([[ [a,[b,[c,d]]], s],e],
          [[ [a,[c,[b,d]]], s],e], N).

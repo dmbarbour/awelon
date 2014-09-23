@@ -9,7 +9,7 @@
          N2 :: (T * (a * T)) 
          N3 :: (T * (a * N2)) 
  
-         SHORTHAND:  e`T23
+         SHORTHAND:  e'T23
  
  The cost of a 2-3 tree is dealing with three types at every step, which results in relatively bulky logic with a lot of conditionals. This should work well enough even if it's a bit heavy, and 2-3 trees are ultimately the basis for the 2-3 finger trees for sequences. But it might be worth exploring red-black trees and other models to see if any of them prove a bit more lightweight.
 ~
@@ -17,11 +17,13 @@
 
 @seal.t23   %r [{:t23}] %r$l
 @unseal.t23 %r [{.t23}] %r$l
+@seald.t23   .rw seal.t23 .wl
+@unseald.t23 .rw unseal.t23 .wl
 
-@doc.empty.t23 "-- e`T23"
+@doc.empty.t23 "-- e'T23"
 @empty.t23 intro1 fromLeaf.t23
 
-@doc.singleton.t23 "e -- e`T23"
+@doc.singleton.t23 "e -- e'T23"
 @singleton.t23 empty.t23 dup dpw p fromN2.t23
 
 @fromLeaf.t23 r.fromLeaf.t23 seal.t23
@@ -35,7 +37,7 @@
 @doc.insertKV.t23 
 "Insert or replace a value in a binary search tree. Returns an updated tree and the replaced element.
  
-         (k*v)`T23 (k*v) [(k*k)→Ord] -- (k*v)`T23 ((k*v)+1)
+         (k*v)'T23 (k*v) [(k*k)→Ord] -- (k*v)'T23 ((k*v)+1)
  
  Inserting may grow the tree. See `doc.tree.insertKV.t23` for details.
 ~
@@ -51,8 +53,8 @@
 @doc.tree.insertKV.t23 
 "Documenting implementation details here... because this is relatively complex compared to most data structures.
  
-        tree.insert  ::  (k*v)`T23 [tree.insert] [k→Ord] (hand: (k*v)) 
-                     -- ((k*v)`T23 + Grow)  (hand: ((k*v)+1))
+        tree.insert  ::  (k*v)'T23 [tree.insert] [k→Ord] (hand: (k*v)) 
+                     -- ((k*v)'T23 + Grow)  (hand: ((k*v)+1))
  
  Here we're returning either a tree OR a 'grow' proposition (along with the replaced element in the hand). The type of grow is the same as N2, indicating a new proposed tree of height one greater than the original tree. I.e. if we insert to a leaf, we always get the grow proposition. An N2 node will always absorb a 'grow' proposition by changing to an N3 node. If we attempt to grow an N3 node, the result is a new grow proposition. We can trivially grow the root, resulting in a new two-three tree.
 ~
@@ -90,23 +92,21 @@
 @grow.ltk2.n3.insertKV.t23 l x dp swap fromN2.t23 dwx pw dpw dpw fromN2d.t23 pw
 @grow.gtk2.n3.insertKV.t23 fromN2.t23 pw dpw dpw fromN2d.t23 pw
 
-@doc.removeL.t23 
-"Remove the leftmost element from a 2-3 tree.
- 
-         e`T23 -- e`T23 (e+1)
- 
- This operation may shrink the tree. cf. `doc.Deletion.t23`
-~
-@removeL.t23 root.removeL.t23 merged
-@root.removeL.t23 [tree.removeL.t23] take hfix hap
-@tree.removeL.t23 unseal.t23 [leaf.removeL.t23] [node.removeL.t23] if
-@leaf.removeL.t23 discard fromLeaf.t23 inL intro1 inR
-@node.removeL.t23 [n2.removeL.t23] [n3.removeL.t23] if
-@n2.removeL.t23 "TODO!t23"
-@n3.removeL.t23 "TODO!t23"
+
+@testing.t23 pangram#1 textToTestTree.t23
+@textToTestTree.t23 dup reverse.l zip.l empty.t23 swap [mkCompareNums insertKV.t23 drop] each.l
+
+
+@doc.swapL.t23 "e'T23 e -- e'T23 (e+e); swap element with successor; returns in left on failure"
+@swapL.t23 take [tree.swapL.t23] take hfix hap
+@tree.swapL.t23 unseal.t23 [inL discard put inL] [node.swapL.t23 inRd] if seald.t23
+@node.swapL.t23 [n2.swapL.t23 inLd] [n3.swapL.t23 inRd] if
+@n2.swapL.t23 n*.swapL.t23
+@n3.swapL.t23 n*.swapL.t23
+@n*.swapL.t23 x hap dp [wcadr] [] if inR
 
 @doc.Deletion.t23
-"Deletion in 2-3 trees always starts with a leaf. If the node to be deleted isn't a leaf, we can always swap the node with its in-order successor, which will always be a leaf.
+"Deletion in 2-3 trees always starts with a leaf. If the node to be deleted isn't a leaf, we can always swap the node with its in-order successor, which will always be a leaf. Though, this is ultimately yet another factor that increases the size of the deletopm logic.
  
  After we delete a node, the result is either a proper tree or a "hole", a tree with no keys and just one child tree. The job is then reduced to repairing this hole. There are a few different 'repair' cases:
  
@@ -140,23 +140,40 @@
 @doc.removeK.t23
 "Remove a value from a 2-3 search tree tree, by key.
  
-        (k*v)`T23 k [(k*k)→Ord] -- (k*v)`T23 ((k*v)+1)
+        (k*v)'T23 k [(k*k)→Ord] -- (k*v)'T23 ((k*v)+1)
  
+ Deletion in 2-3 trees is rather complicated. See `doc.Deletion.t23`.
 ~
-@removeK.t23 .bind [tree.removeK.t23] bind fixpoint inline "TODO!t23"
-@tree.removeK.t23 "TODO!t23"
+@removeK.t23 root.removeK.t23 take merge put
 
-@doc.fmap.t23 "a`T23 [a→b] -- b`T23; apply function to every element"
+@doc.root.removeK.t23
+"The inner function `root.removeK.t23` will preserve information about the hole.
+ 
+        (k*v)'T23 k [(k*k)→Ord] -- ((k*v)'T23 + (k*v)'T23)) ((k*v)+1)
+ 
+ The final removal of the root hole is left to `removeK.t23`.
+~
+
+@root.removeK.t23 .bind [tree.removeK.t23] bind fixpoint inline put
+@tree.removeK.t23 swap take2 unseal.t23 [leaf.removeK.t23] [node.removeK.t23] if seal.t23
+@leaf.removeK.t23 fromLeaf.t23 inL intro1 inR discard2
+@node.removeK.t23 [n2.removeK.t23] [n3.removeK.t23] if
+@n2.removeK.t23 "TODO!t23"
+@n3.removeK.t23 "TODO!t23"
+
+
+
+@doc.fmap.t23 "a'T23 [a→b] -- b'T23; apply function to every element"
 @fmap.t23 [t.fmap.t23] bind fixpoint inline
 @t.fmap.t23 [inL] [nn.fmap.t23 inR] if
 @nn.fmap.t23 [n2.fmap.t23 inL] [n3.fmap.t23 inR] if
-@n2.fmap.t23 {&todo:n2.fmap.t23} 
-@n3.fmap.t23 {&todo:n3.fmap.t23}
+@n2.fmap.t23 "TODO!t23"
+@n3.fmap.t23 "TODO!t23"
 
-@doc.height.t23 "a`T23 -- a`T23 Nat; find height of balanced 2-3 tree"
-@doc.size.t23 "a`T23 -- a`T23 Nat; find size (number of elements) of 2-3 tree"
-@doc.assertBalanced.t23 "a`T23 -- a`T23; assert 2-3 tree is balanced"
-@doc.assertSorted.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert 2-3 tree is sorted"
-@doc.validateTree.t23 "(k*v)`T23 [(k*k)→Ord] -- (k*v)`T23; assert balanced and sorted"
+@doc.height.t23 "a'T23 -- a'T23 Nat; find height of balanced 2-3 tree"
+@doc.size.t23 "a'T23 -- a'T23 Nat; find size (number of elements) of 2-3 tree"
+@doc.assertBalanced.t23 "a'T23 -- a'T23; assert 2-3 tree is balanced"
+@doc.assertSorted.t23 "(k*v)'T23 [(k*k)→Ord] -- (k*v)'T23; assert 2-3 tree is sorted"
+@doc.validateTree.t23 "(k*v)'T23 [(k*k)→Ord] -- (k*v)'T23; assert balanced and sorted"
 
 

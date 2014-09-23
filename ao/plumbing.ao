@@ -217,25 +217,31 @@ lispy
 @doc.ShorthandDataShuffling
 "A few short data shufflers for an object on the stack, to compactly support simple manipulations. These operations include:
  
-     p :: y x -- (x*y)
-     x :: (x*y) -- y x
-     w :: (x*y) -- (y*x)
-     z :: ((a*b)*(c*d)) -- ((a*c)*(b*d))
-     l :: (a*(b*c)) -- ((a*b)*c)
-     r :: ((a*b)*c) -- (a*(b*c))
+         p :: y x -- (x*y)
+         x :: (x*y) -- y x
+         w :: (x*y) -- (y*x)
+         l :: (a*(b*c)) -- ((a*b)*c)
+         r :: ((a*b)*c) -- (a*(b*c))
+         wc :: (a*(b*c)) -- (b*(a*c))
+         zc :: (a*(b*(c*d))) -- (a*(c*(b*d)))
  
-  Common combinations are also defined, such as `pw` and `wx`, which pair or extract the second element. The meanings here aren't quite the same as in ABC under the hood, but they are sometimes useful.
+  Common combinations are also defined, such as `pw` and `wx`, which pair or extract the second element. The meaning for `w` is not quite the same as the ABC under the hood, corresponding to a simple pair-swap behavior. But it's very useful to avoid unit allocations.
 ~
 @doc.p "y x -- (x*y)"
 @doc.x "(x*y) -- y x"
 @doc.w "(x*y) -- (y*x)"
 @doc.l "(x*(y*z)) -- ((x*y)*z)"
 @doc.r "((x*y)*z) -- (x*(y*z))"
+@doc.wc "(a*(b*c)) -- (b*(a*c))"
+@doc.zc "(a*(b*(c*d))) -- (a*(c*(b*d)))"
 @p %rwrzwll
 @x %rrwzlwl
 @w %rrwll
 @l %rrwrzwlll
 @r %rrrwzlwll
+@wc %rrwrwzwlwll
+@zc %rrwrwrwzwlwlwll
+
 @pw p w
 @wx w x
 @dp  .rw p  .wl 
@@ -245,6 +251,8 @@ lispy
 @dwx .rw wx .wl 
 @dl  .rw l  .wl 
 @dr  .rw r  .wl 
+@dwc .rw wc .wl
+@dzc .rw zc .wl
 
 @doc..rw "((a*s)*e)→(s*(a*e)); simpler version of 'take' if we don't need environment other than stack"
 @doc..wl "(s*(a*e))→((a*s)*e); simpler version of 'put' if we don't need environment other than stack"
@@ -286,6 +294,13 @@ lispy
 @eqv.id..rw³ [%r .swap %r .swap %r .swap] []
 @eqv.id.lr [l r] []
 @eqv.id.rl [r l] []
+
+@eqv.id.wc [wc wc] []
+@eqv.id.zc [zc zc] []
+@eqv.wc.lxwpr [wc] [l x w p r]
+@eqv.zwzc.wzwc [wc zc wc] [zc wc zc]
+@eqv.zc.wxwcpw [zc] [wx wc pw]
+@eqv.zc.wx^3_swapd_pw^3 [zc] [wx wx wx swapd pw pw pw]
 
 @eqv.id.zip2 [zip2 zip2] []
 @eqv.id.swap [swap swap] []
@@ -378,3 +393,6 @@ lispy
 @test.gratuitousDeeperShuffle 4 5 6 pw p dup vrwlc___ x w p assertEQ1
 
 @eqv.rrrwlll.xwp [%rrrwlll] [x w p]
+
+@eqv.zwz_.wzw_ [w_ z_ w_] [z_ w_ z_]
+

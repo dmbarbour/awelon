@@ -255,3 +255,9 @@
  AO is designed to serve as a relatively generic compositional layer, to enable integration or translation of domain-specific models. AO's words are themselves software components. AO's compositional properties - especially causal commutativity, spatial idempotence, substructural types, and capability security - are very useful in this role. AO is also designed to mitigate common weaknesses of deeply layered abstractions by aggressive use of partial evaluation, dependent type analysis, and program search.
 ~
 
+
+@pangram#1 "pack my box with five dozen liquor jugs"
+@pangram#2 "a quick brown fox jumped over the lazy dog"
+
+
+
