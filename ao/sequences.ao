@@ -1,8 +1,7 @@
 @doc.Sequences
-"Lists are simple data structures with a few nice properties, such as strong normalization. However, lists are also challenging to use for many problems: to manipulate the middle or end of the list is expensive and does not reuse very much information, and to 
- not appropriate for every problem: it can be expensive to manipulate the middle or end of a list. Sequences offer an alternative.
-  
- Sequences are based on finger-trees, which offer O(1) manipulations at each end, and O(lg(N)) manipulations at the middle. In addition, these sequences offer logical reverse, such that reversing the sequence is O(1). But this comes at a cost of complexity.
+"Lists are simple data structures with a few nice properties, such as strong normalization. However, lists are also ineffective or inefficient for problems that involve deep manipulations, especially in a purely functional context like ABC. Sequences, based on finger trees, offer a simple alternative with constant time manipulations at each end and O(lg(N)) whole-sequence operations (split, append, etc.).
  
- The underlying implementation of sequences is sealed, so developers should only use smart constructors to build or manipulate sequences.
+ The logic for sequences is highly involved. For this reason, this implementation of sequences will be a transliteration of sequences as implemented in Haskell (cf. [Data.Sequence](http://hackage.haskell.org/package/containers-0.5.5.1/docs/Data-Sequence.html)). These sequences are based on 2-3 finger-trees.
+ 
+ Sequences will use suffix `.v`.
 ~

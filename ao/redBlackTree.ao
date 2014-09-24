@@ -109,6 +109,7 @@ lispy plumbing loops conditionals
 
 @doc.wrap.z.rbt "e'RBT -- e'Z.RBT; wrap tree in zipper"
 @wrap.z.rbt empty.l pw
+@wrapd.z.rbt .rw wrap.z.rbt .wl
 
 @dirLeft.z.rbt intro1 inL
 @dirRight.z.rbt intro1 inR
@@ -130,20 +131,35 @@ lispy plumbing loops conditionals
 
 @stepUp.z.rbt x take [x step.exit.z.rbt] [inR] if put p
 
-@doc.exit.z.rbt "e'Z.RBT -- e'RBT; rebuild tree from zipper"
+@doc.exit.z.rbt "e'Z.RBT -- e'RBT; rebuild tree from zipper (assuming balance)"
 @exit.z.rbt x take [step.exit.z.rbt] each.l put
 @step.exit.z.rbt x dwc dl dwx putd [p] [pw] if_ pw r fromNode.rbt take
 
+@doc.seekLL.z.rbt "e'Z.RBT -- e'Z.RBT; seek to leftmost leaf node"
+@seekLL.z.rbt x [tree.seekLL.z.rbt] take hfix hap discard p 
+@tree.seekLL.z.rbt unseal.rbt [fromLeaf.rbt] [node.seekLL.z.rbt] if
+@node.seekLL.z.rbt nodeLeft.z.rbt wx consd.l
+
+@doc.seekLN.z.rbt "ZCX (e*(c*(l*r))) -- ZCX (e*(c*(l*r)); (for internal use) seek leftmost data node, adding nodes to zipper context as we go"
+@seekLN.z.rbt [step.seekLN.z.rbt] take hfix hap
+@step.seekLN.z.rbt l w r x unseal.rbt [leftIsLeaf.seekLN.z.rbt] [leftIsNode.seekLN.z.rbt] if
+@leftIsLeaf.seekLN.z.rbt fromLeaf.rbt p l w r discard
+@leftIsNode.seekLN.z.rbt .rw w r wc dirLeft.z.rbt p cons.l .wl hap
+
 @doc.seek.z.rbt 
-"Search down the zipper until we reach a tree with the requested key, returning the final key comparison.
+"Search down the zipper until we reach a tree with the requested key. 
  
-         (k*v)'Z.RBT [k→Ord] -- (k*v)'Z.RBT Ord
+         (k*v)'Z.RBT [k→Ord] -- (k*v)'Z.RBT
  
+ Idempotent. If the key does not exist, we'll reach a leaf where the key could be placed.
 ~
-@seek.z.rbt {&todo}
-
-@seekL.z.rbt "e'Z.RBT -- e'Z.RBT; seek leftmost node"
-
+@seek.z.rbt dx [tree.seek.z.rbt] bind fixpoint inline p
+@tree.seek.z.rbt swap take2 unseal.rbt [leaf.seek.z.rbt] [node.seek.z.rbt] if 
+@leaf.seek.z.rbt fromLeaf.rbt discard2
+@node.seek.z.rbt caar put .apply [eq.node.seek.z.rbt] [lt.node.seek.z.rbt] [gt.node.seek.z.rbt] ordCase
+@eq.node.seek.z.rbt fromNode.rbt discard
+@lt.node.seek.z.rbt nodeLeft.z.rbt wx consd.l hap
+@gt.node.seek.z.rbt nodeRight.z.rbt wx consd.l hap
 
 @doc.insertKV.rbt 
 "Insert a value into a red-black binary search tree. 
@@ -152,7 +168,39 @@ lispy plumbing loops conditionals
  
  The trick is to rebalance the tree after insert, ensuring that the tree is never imbalanced.
 ~
+@insertKV.rbt
+ bindK.insertKV.rbt taked wrapd.z.rbt seek.z.rbt
+ x tree.insertKV.rbt p exit.insertKV.rbt 
+ paintItBlack.rbt put
+@tree.insertKV.rbt unseal.rbt [leaf.insertKV.rbt] [node.insertKV.rbt] if fromNode.rbt
+@leaf.insertKV.rbt fromLeaf.rbt dup p red.rbt p put p intro1 inR take
+@node.insertKV.rbt put wcar inL take
+@bindK.insertKV.rbt .rw dupfst .wl .bind
+@exit.insertKV.rbt exit.z.rbt {&TODO: Write a balancing escape.}
 
+@testing.rbt pangram#1 textToTestTree.rbt 
+@textToTestTree.rbt dup reverse.l zip.l empty.rbt swap [mkCompareNums insertKV.rbt drop] each.l
+
+@doc.findKV.rbt
+"Copy a `(k*v)` pair from a red-black binary search tree.
+ 
+         (k*v)'RBT k [(k*k)→Ord] -- (k*v)'RBT ((k*v)+1)
+ 
+ If no such key exists, a value is returned in the right.
+~
+@findKV.rbt .bind [tree.findKV.rbt] bind fixpoint inline put
+@tree.findKV.rbt swap take2 unseal.rbt [leaf.findKV.rbt inL] [node.findKV.rbt inR] if seal.rbt
+@leaf.findKV.rbt discard2 intro1 inR take
+@node.findKV.rbt caar put .apply [eq.node.findKV.rbt] [lt.node.findKV.rbt] [gt.node.findKV.rbt] ordCase
+@eq.node.findKV.rbt discard dupfst inL take
+@lt.node.findKV.rbt wx wx x hap p pw pw
+@gt.node.findKV.rbt wx wx wx hap pw pw pw
+
+@doc.zfindKV.rbt "find using zipper (equivalent to findKV.rbt)"
+@zfindKV.rbt .bind wrapd.z.rbt seek.z.rbt x tree.zfindKV.rbt p exit.z.rbt put
+@tree.zfindKV.rbt unseal.rbt [intro1 inR take inL] [dupfst inL take inR] if seal.rbt
+
+@eqv.zfind.find.rbt [zfindKV.rbt] [findKV.rbt]
 
 @doc.removeK.rbt
 "Remove a value by key from the red-black binary search tree.
@@ -161,4 +209,6 @@ lispy plumbing loops conditionals
  
  We'll return the removed element, rather than deleting it directly.
 ~
+@removeK
+
 

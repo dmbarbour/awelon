@@ -40,6 +40,7 @@ lispy
 @unroll swap .rw unrot .wl 
 @intro1 %vvrwlcl
 @elim1 %rvrwlcc
+@unit intro1
 
 
 @pick1  dup
@@ -276,8 +277,8 @@ lispy
 @fst %rrw%l
 @snd %rr%l
 
-@doc.dupfst "(x*y) -- (x*y) x"
-@doc.dupsnd "(x*y) -- (x*y) y"
+@doc.dupfst "(x*y) -- (x*y) x; see also 'car' (family of similar functions)"
+@doc.dupsnd "(x*y) -- (x*y) y; see also 'cdr' (family of similar functions)"
 @dupfst x dup dp
 @dupsnd wx dup dpw
 

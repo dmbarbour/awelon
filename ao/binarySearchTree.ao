@@ -80,7 +80,7 @@ lists streams
 @right.insertKV.bst swap dwx dwx swap hap dpw dpw
 
 @doc.bindK.insertKV.bst "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
-@bindK.insertKV.bst .rw car .wl .bind
+@bindK.insertKV.bst .rw dupfst .wl .bind
 
 @doc.removeKV.bst
 "Remove a `(k*v)` pair, given a key and an ordinal function on keys.
@@ -130,7 +130,7 @@ lists streams
 @seek.findKV.bst [left.findKV.bst] [right.findKV.bst] if_
 @left.findKV.bst wx x hap dp dpw
 @right.findKV.bst wx wx hap dpw dpw
-@find.findKV.bst discard car inL
+@find.findKV.bst discard dupfst inL
 
 @doc.testing.bst "A simple (Nat*Nat)`BST for interactive testing purposes."
 @testing.bst 

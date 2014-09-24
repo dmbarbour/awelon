@@ -26,7 +26,7 @@
 @doc.cons.l "a`L a -- a`L; add element to list"
 @doc.consd.l "a`L b a -- a`L b; add element to list"
 @cons.l p inL
-@consd.l swapd cons.l swap
+@consd.l swap dp inLd
 
 @assertEmpty.l assert inR
 @assertNonEmpty.l mirror assert inL

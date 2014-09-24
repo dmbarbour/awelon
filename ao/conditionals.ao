@@ -49,10 +49,10 @@ boolean
 @condSwap p distrib %r [%rwl] %r?l fullFactor wx
 
 @doc.condSelect "(a+b) x y -- a x OR b y; select one value, and merge the other"
-@condSelect p distrib %r [%rwl] %r?l merge x wx drop
+@condSelect p distrib %r [%rwl] %r?l merge x fst
 
 @doc.condSelect_ "(a+b) x y -- x (if in a) OR y (if in b); select value and drop condition"
-@condSelect_ p distrib %r [%rwl] %r?FMw%l wx drop
+@condSelect_ p distrib %r [%rwl] %r?FMw%l fst
 
 @doc.if 
 "The 'if' function enables developers to conveniently model conditional behavior. It operates by selecting a block then invoking it. A few variations of 'if' are provided based on whether you need access to the conditional, and whether you wish to keep it.

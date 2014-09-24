@@ -48,7 +48,7 @@
 @repairRoot.insertKV.t23 [] [fromN2.t23] if
 
 @doc.bindK.insertKV.t23 "(k*v) [(k*k)→Ord] -- (k*v) [k→Ord]"
-@bindK.insertKV.t23 .rw car .wl .bind
+@bindK.insertKV.t23 .rw dupfst .wl .bind
 
 @doc.tree.insertKV.t23 
 "Documenting implementation details here... because this is relatively complex compared to most data structures.

@@ -15,9 +15,10 @@
 
 
 @doc.ordCase "Ord [onEQ] [onLT] [onGT] -- onEQ (or onLT or onGT, depending on Ordinal"
-@ordCase pw pw swap [eq.ordCase] [neq.ordCase] if
-@eq.ordCase drop wx drop inline
-@neq.ordCase swap x drop wx if_
+@ordCase ordSelect inline
+
+@doc.ordSelect "Ord onEQ onLT onGT -- onEQ (or onLT or onGT, depending on Ordinal)"
+@ordSelect pw pw .rw [drop .wl fst] [.wl snd wx condSelect_] if
 
 @doc.compareOnStackToRawCompare "[k k -- Ord] -- [(k*k)→Ord]"
 @compareOnStackToRawCompare [wx] composel applyWrap
