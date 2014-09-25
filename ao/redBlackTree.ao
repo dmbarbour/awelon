@@ -165,13 +165,21 @@ lispy plumbing loops conditionals
  
  The trick is to rebalance the tree after insert, ensuring that the tree is never imbalanced.
 ~
-@insertKV.rbt
- bindK.insertKV.rbt taked wrapd.z.rbt seek.z.rbt
- x tree.insertKV.rbt p exitrb.z.rbt paintItBlack.rbt put
-@tree.insertKV.rbt unseal.rbt [leaf.insertKV.rbt] [node.insertKV.rbt] if fromNode.rbt
-@leaf.insertKV.rbt fromLeaf.rbt dup p red.rbt p put p intro1 inR take
-@node.insertKV.rbt put wcar inL take
+@insertKV.rbt bindK.insertKV.rbt taked wrapd.z.rbt seek.z.rbt put inx.z.rbt
 @bindK.insertKV.rbt .rw dupfst .wl .bind
+
+@doc.inx.z.rbt
+"Insert a value at current location in a zipper, then exit the zipper. Will replace current value, or add a leaf value. The exit will rebalance the tree.
+ 
+         e'Z.RBT e -- e'RBT (e+1)
+ 
+ If a value is replaced, the old element is returned.
+~
+@inx.z.rbt prc.inx.z.rbt take paintItBlack.rbt put
+@prc.inx.z.rbt take x tree.inx.z.rbt p exitrb.z.rbt put
+@tree.inx.z.rbt unseal.rbt [leaf.inx.z.rbt] [node.inx.z.rbt] if fromNode.rbt
+@leaf.inx.z.rbt fromLeaf.rbt dup p red.rbt p put p intro1 inR take
+@node.inx.z.rbt put wcar inL take
 
 @testing.rbt pangram#1 textToTestTree.rbt 
 @textToTestTree.rbt dup reverse.l zip.l empty.rbt swap [mkCompareNums insertKV.rbt drop] each.l
@@ -197,7 +205,6 @@ lispy plumbing loops conditionals
 
 @eqv.zfind.find.rbt [zfindKV.rbt] [findKV.rbt]
 
-
 @doc.removeK.rbt
 "Remove a value by key from the red-black binary search tree.
  
@@ -205,7 +212,19 @@ lispy plumbing loops conditionals
  
  We'll return the removed element.
 ~
-@removeK.rbt .bind wrapd.z.rbt seek.z.rbt "TODO: remove element in red-black tree"
+@removeK.rbt .bind wrapd.z.rbt seek.z.rbt rmx.z.rbt
+
+@doc.rmx.z.rbt
+"Remove the current target of the zipper, then exit the zipper.
+ 
+         e'Z.RBT -- e'RBT (e+1)
+ 
+ Remove and exit are combined mostly because there isn't a well-defined
+~
+@rmx.z.rbt prc.rmx.z.rbt take paintItBlack.rbt put
+@prc.rmx.z.rbt "todo: remove element red-black tree"
+
+
 
 
 
