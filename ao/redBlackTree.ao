@@ -140,12 +140,6 @@ lispy plumbing loops conditionals
 @tree.seekLL.z.rbt unseal.rbt [fromLeaf.rbt] [node.seekLL.z.rbt] if
 @node.seekLL.z.rbt nodeLeft.z.rbt wx consd.l
 
-@doc.seekLN.z.rbt "ZCX (e*(c*(l*r))) -- ZCX (e*(c*(l*r)); (for internal use) seek leftmost data node, adding nodes to zipper context as we go"
-@seekLN.z.rbt [step.seekLN.z.rbt] take hfix hap
-@step.seekLN.z.rbt l w r x unseal.rbt [leftIsLeaf.seekLN.z.rbt] [leftIsNode.seekLN.z.rbt] if
-@leftIsLeaf.seekLN.z.rbt fromLeaf.rbt p l w r discard
-@leftIsNode.seekLN.z.rbt .rw w r wc dirLeft.z.rbt p cons.l .wl hap
-
 @doc.seek.z.rbt 
 "Search down the zipper until we reach a tree with the requested key. 
  
@@ -161,6 +155,9 @@ lispy plumbing loops conditionals
 @lt.node.seek.z.rbt nodeLeft.z.rbt wx consd.l hap
 @gt.node.seek.z.rbt nodeRight.z.rbt wx consd.l hap
 
+@doc.exitrb.z.rbt "e'Z.RBT -- e'RBT; exit a zipper while rebalancing"
+@exitrb.z.rbt exit.z.rbt 
+
 @doc.insertKV.rbt 
 "Insert a value into a red-black binary search tree. 
  
@@ -170,13 +167,11 @@ lispy plumbing loops conditionals
 ~
 @insertKV.rbt
  bindK.insertKV.rbt taked wrapd.z.rbt seek.z.rbt
- x tree.insertKV.rbt p exit.insertKV.rbt 
- paintItBlack.rbt put
+ x tree.insertKV.rbt p exitrb.z.rbt paintItBlack.rbt put
 @tree.insertKV.rbt unseal.rbt [leaf.insertKV.rbt] [node.insertKV.rbt] if fromNode.rbt
 @leaf.insertKV.rbt fromLeaf.rbt dup p red.rbt p put p intro1 inR take
 @node.insertKV.rbt put wcar inL take
 @bindK.insertKV.rbt .rw dupfst .wl .bind
-@exit.insertKV.rbt exit.z.rbt {&TODO: Write a balancing escape.}
 
 @testing.rbt pangram#1 textToTestTree.rbt 
 @textToTestTree.rbt dup reverse.l zip.l empty.rbt swap [mkCompareNums insertKV.rbt drop] each.l
@@ -202,13 +197,15 @@ lispy plumbing loops conditionals
 
 @eqv.zfind.find.rbt [zfindKV.rbt] [findKV.rbt]
 
+
 @doc.removeK.rbt
 "Remove a value by key from the red-black binary search tree.
  
          (k*v)'RBT k [(k*k)→Ord] -- (k*v)'RBT ((k*v)+1)
  
- We'll return the removed element, rather than deleting it directly.
+ We'll return the removed element.
 ~
-@removeK
+@removeK.rbt .bind wrapd.z.rbt seek.z.rbt "TODO: remove element in red-black tree"
+
 
 
