@@ -1,0 +1,12 @@
+process
+
+@doc.Transducer
+"The simple process model (with suffix `.p0`) has several limitations, for example it cannot represent processes where the number of inputs is different from the number of outputs, nor is there a clear way to indicate that the last input has been received. A promising alternative is transducers, which are well described by Rich Hickey [1](http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming)[2](https://www.youtube.com/watch?v=6mTbuzafcII).
+ 
+ The model of transducers Rich Hickey proposes has some weaknesses of its own. Relevantly, it is not ideal for incremental processing. But it does seem feasible to address this at the data structure layer, e.g. by combining transducers with elastic processes. An advantage of transducers, compared to processes, is that they are not internally stateful.
+ 
+ I'll be developing transducers under suffix `.td`. 
+~
+
+
+

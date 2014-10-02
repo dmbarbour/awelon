@@ -1,49 +1,59 @@
 loops blocks streams lists
 
 @doc.Processes
-"A process model describes an interactive behavior. A simple process model:
+"A process model describes an interactive behavior. 
  
-     µP.[a → (P * b)]               shorthand: [a ↣ b] (using U+21A3)
+ A simple process model:
+ 
+         µP.[a → (P * b)]               shorthand: [a ↣ b] (using U+21A3)
  
  In each interactive step, this process receives an input of type `a` and outputs a `b` along with the updated process. More generally, this process might be dependently typed. Further, the expected input and output types may evolve over interactive steps, e.g. type state, protocols, handshakes. 
  
  This process model composes in useful ways:
  
-     (a ↣ b) *(b ↣ c)  → (a ↣ c)                Sequential
-     (a ↣ a')*(b ↣ b') → ((a*b) ↣ (a'*b'))      Concurrent
-     (a ↣ a')*(b ↣ b') → ((a+b) ↣ (a'+b'))      Conditional
+         (a ↣ b) *(b ↣ c)  → (a ↣ c)                Sequential
+         (a ↣ a')*(b ↣ b') → ((a*b) ↣ (a'*b'))      Concurrent
+         (a ↣ a')*(b ↣ b') → ((a+b) ↣ (a'+b'))      Conditional
  
  Processes can also model most object oriented programming patterns, modulo those that rely heavily on aliasing. We can also model environments, e.g. organizations of named processes that can communicate via messages, which may have their own compositions. Processes are a relatively generic approach to programming.
  
- Sadly, this process model is inefficient. A more sophisticated process model could expose structure, optimize dataflows, compose lifted functions, minimize fixpoints. Of course, KISS principle applies; there is value in simplicity. The simple process model proposed here will be developed under suffix `.p`, and may easily coexist with more sophisticated models (e.g. as a common target for integration).
+ This simple process model has several severe weaknesses:
+ 
+ 1. cannot model analysis (1:N) of inputs
+ 2. cannot model synthesis (N:1) of inputs
+ 3. cannot model filtering of inputs
+ 4. cannot short-circuit or terminate
+ 5. opaque; hinders structural optimizations
+ 
+ These concerns should eventually be addressed by subsequent models, such as ElasticProcesses. However, KISS principle applies. Despite these limitations, the simple process model can be useful. The simple process model proposed here will be developed under suffix `.p0`, and may easily coexist with more sophisticated models.
 ~
-@doc.suffix.p doc.Processes
+@doc.suffix.p0 doc.Processes
 
-@doc.lift.p "[a → b] -- [a ↣ b]; function to process"
-@lift.p .bsecond .fixfirst
+@doc.lift.p0 "[a → b] -- [a ↣ b]; function to process"
+@lift.p0 .bsecond .fixfirst
 
-@doc.map.p  "[a -- b] -- [a ↣ b]; function (apply env) to process"
-@map.p applyWrap lift.p
+@doc.map.p0  "[a -- b] -- [a ↣ b]; function (apply env) to process"
+@map.p0 applyWrap lift.p0
 
-@doc.step.p "a [a↣b] -- b [a↣b]; run process one step"
-@step.p .apply x
+@doc.step.p0 "a [a↣b] -- b [a↣b]; run process one step"
+@step.p0 .apply x
 
-@doc.compose.p "[a ↣ b] [b ↣ c] -- [a ↣ c]; compose two processes"
-@compose.p [step.compose.p] .fixfirst .bind .bind
-@step.compose.p %vrwrwr$rwzw$zrz'ozw'olc
-@composel.p swap compose.p
+@doc.compose.p0 "[a ↣ b] [b ↣ c] -- [a ↣ c]; compose two processes"
+@compose.p0 [step.compose.p0] .fixfirst .bind .bind
+@step.compose.p0 %vrwrwr$rwzw$zrz'ozw'olc
+@composel.p0 swap compose.p0
 
-@test.compose.p
+@test.compose.p0
  0
- [inc] map.p
- [mul2] map.p
- compose.p
- step.p step.p step.p step.p
+ [inc] map.p0
+ [mul2] map.p0
+ compose.p0
+ step.p0 step.p0 step.p0 step.p0
  30 assertEQ1d.n
- step.p step.p step.p step.p
+ step.p0 step.p0 step.p0 step.p0
  510 assertEQ1d.n
 
-@doc.state.p
+@doc.state.p0
 "Generate a stateful process using a stack function.
  
      st [st a -- st b] -- [a ↣ b]
@@ -52,83 +62,83 @@ loops blocks streams lists
  
  (Aside: Another interesting possibility is to keep state more implicitly using a whole environment (via introE). Develop this when it comes up.)
 ~
-@state.p %r [preApply wx] %ro [pw postApply] %rwo %l .state.p
+@state.p0 %r [preApply wx] %ro [pw postApply] %rwo %l .state.p0
 
-@doc..state.p 
+@doc..state.p0 
 "A stateful process can be modeled as a pure function that, in addition to its normal input and output, receives a state value and outputs an updated state value. This must be coupled with an initial state.
  
      st [(st*a) → (st*b)] -- [a ↣ b]
  
  Most stateful behaviors can be expressed this way.
 ~
-@.state.p [step.state.p] .bind .fixfirst .bind
-@step.state.p %wvrwr$rz'olc
+@.state.p0 [step.state.p0] .bind .fixfirst .bind
+@step.state.p0 %wvrwr$rz'olc
 
-@doc.first.p   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
-@first.p [step.first.p] .fixfirst .bind 
-@step.first.p %wz$rz'o
-@test.first.p
- 0 0 p inc.p first.p
- step.p step.p step.p step.p
+@doc.first.p0   "[a ↣ a'] -- [(a*b) ↣ (a'*b)]; process first argument"
+@first.p0 [step.first.p0] .fixfirst .bind 
+@step.first.p0 %wz$rz'o
+@test.first.p0
+ 0 0 p inc.p0 first.p0
+ step.p0 step.p0 step.p0 step.p0
  swap x 4 assertEQ1.n 0 assertEQ1d.n
 
-@doc.second.p   "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
-@second.p [step.second.p] .fixfirst .bind 
-@step.second.p %vrwrwrwzw$rwzwlwz'olc
-@test.second.p
- 0 0 p inc.p second.p
- step.p step.p step.p step.p
+@doc.second.p0   "[b ↣ b'] -- [(a*b) ↣ (a*b')]; process second argument"
+@second.p0 [step.second.p0] .fixfirst .bind 
+@step.second.p0 %vrwrwrwzw$rwzwlwz'olc
+@test.second.p0
+ 0 0 p inc.p0 second.p0
+ step.p0 step.p0 step.p0 step.p0
  swap x 0 assertEQ1.n 4 assertEQ1d.n
 
-@doc.left.p     "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
-@left.p [step.left.p] .fixfirst .bind
-@step.left.p %vrwrD [%vr$c] %r?FMz'olc
-@test.left.p#inL
+@doc.left.p0     "[a ↣ a'] -- [(a+b) ↣ (a'+b)]; process left argument"
+@left.p0 [step.left.p0] .fixfirst .bind
+@step.left.p0 %vrwrD [%vr$c] %r?FMz'olc
+@test.left.p0#inL
  0 inL
- inc.p left.p
- step.p step.p step.p step.p
+ inc.p0 left.p0
+ step.p0 step.p0 step.p0 step.p0
  swap assertInL 4 assertEQ1.n
-@test.left.p#inR
+@test.left.p0#inR
  0 inR
- inc.p left.p
- step.p step.p step.p step.p
+ inc.p0 left.p0
+ step.p0 step.p0 step.p0 step.p0
  swap assertInR 0 assertEQ1.n
 
-@doc.right.p    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
-@right.p [step.right.p] .fixfirst .bind
-@step.right.p %vrwrDVRW [%vr$c] %r?WLCFMz'olc
-@test.right.p#inL
+@doc.right.p0    "[b ↣ b'] -- [(a+b) ↣ (a+b')]; process right argument"
+@right.p0 [step.right.p0] .fixfirst .bind
+@step.right.p0 %vrwrDVRW [%vr$c] %r?WLCFMz'olc
+@test.right.p0#inL
  0 inL
- inc.p right.p
- step.p step.p step.p step.p
+ inc.p0 right.p0
+ step.p0 step.p0 step.p0 step.p0
  swap assertInL 0 assertEQ1.n
-@test.right.p#inR
+@test.right.p0#inR
  0 inR
- inc.p right.p
- step.p step.p step.p step.p
+ inc.p0 right.p0
+ step.p0 step.p0 step.p0 step.p0
  swap assertInR 4 assertEQ1.n
 
-@doc.delay.p "a -- [a ↣ a]; delays input one step; initial output provided"
-@delay.p [step.delay.p] .fixfirst .bind
-@step.delay.p %vrwrwz'olc
+@doc.delay.p0 "a -- [a ↣ a]; delays input one step; initial output provided"
+@delay.p0 [step.delay.p0] .fixfirst .bind
+@step.delay.p0 %vrwrwz'olc
 
-@doc.counter.p "-- [a ↣ (N*a)]; add index to output (starting from 1)"
-@doc.counterFrom.p "N -- [a ↣ (N*a)]; add index with initial value"
-@counter.p 1 counterFrom.p
-@counterFrom.p [%rw dup incd %wl pw] state.p
+@doc.counter.p0 "-- [a ↣ (N*a)]; add index to output (starting from 1)"
+@doc.counterFrom.p0 "N -- [a ↣ (N*a)]; add index with initial value"
+@counter.p0 1 counterFrom.p0
+@counterFrom.p0 [%rw dup incd %wl pw] state.p0
 
-@doc.count.p "-- [a ↣ N]; (droppable a); as counter, but drop input"
-@doc.countFrom.p "N -- [a ↣ N]; (droppable a); as counterFrom, but drop input"
-@count.p 1 countFrom.p
-@countFrom.p [drop dup incd] state.p
+@doc.count.p0 "-- [a ↣ N]; (droppable a); as counter, but drop input"
+@doc.countFrom.p0 "N -- [a ↣ N]; (droppable a); as counterFrom, but drop input"
+@count.p0 1 countFrom.p0
+@countFrom.p0 [drop dup incd] state.p0
 
-@test.count.p
-  0 11 countFrom.p 
-  [step.p] 7 repeat
+@test.count.p0
+  0 11 countFrom.p0 
+  [step.p0] 7 repeat
   17 assertEQ1d.n
 
-@inc.p [inc\1] lift.p
-@test.inc.p 
-  11 inc.p 
-  [step.p] 16 repeat
+@inc.p0 [inc\1] lift.p0
+@test.inc.p0 
+  11 inc.p0 
+  [step.p0] 16 repeat
   swap 27 assertEQ

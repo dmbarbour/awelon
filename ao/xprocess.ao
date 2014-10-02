@@ -1,0 +1,38 @@
+process
+
+@doc.ElasticProcesses
+"The simple process model has a few severe weaknesses with respect to modeling 'elastic' behaviors, where the number of outputs may be different from the number of inputs. In particular, examples such as filtering, parsing, or pretty printing are difficult to represent. 
+ 
+ A slightly more sophisticated process model can help model these behaviors. It works as follows:
+ 
+ * Every process is in one of two states: producing or waiting.
+   * If waiting, a process can handle a new input.
+   * If producing, a process can be asked for a new output.
+ * Upon receiving input, a process may change states.
+ * We frequently need to handle a termination of inputs.
+ * We frequently want to short-circuit processing. 
+ 
+ The elastic process model combines some features of streams and some features of processes. The basic type, modeled in AO and lacking the termination feature, is roughly of the form:
+ 
+          µP.([a→P] + [1→(P*b)])
+              wait    produce
+ 
+ To support termination, we generalize this just a little:
+ 
+         ∀t.µP.([(a+t)→P] + [1→((P*b)+t)])
+ 
+ In this model, we terminate by receiving or producing `t`. But we can't short circuit yet, since we don't know what `t` will be. To support short-circuiting, we could simply specialize type `t` with a known type, such as unit.
+ 
+         ∃t,t'.µP.([(a+t)→P] + [1→((P*b)+t')])
+ 
+ This allows us to abort with a known type `t` (perhaps unit, or perhaps a success/failure status indicator) before observing all the available `a` values. This last option also transparently subsumes the earlier cases, i.e. any process polymorphic in termination type cannot short-circuit, and terminal type `0` corresponds to the first case via `(a+0)` and `((P*b)+0)`. The flexible type of `t` also allows some other useful patterns, such as returning unprocessed inputs.
+ 
+ For the current implementation of elastic processes, with suffix `.px`, we'll be favoring the final case, and using the following type shorthand:
+ 
+         ∃t,t'.µP.([(a+t)→P] + [1→((P*b)+t')])
+         [(a+t) ↬ (b+t')]           (↬ U+21AC)
+         word suffix: .px
+ 
+ We'll just call it an elastic process from `a` to `b`, but we'll need to pay attention to termination signals as well when describing the behaviors involved. Many processes should be polymorphic in `t`!
+~
+

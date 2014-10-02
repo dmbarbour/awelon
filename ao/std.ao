@@ -1,6 +1,7 @@
  abc plumbing conditionals blocks
  hands stdenv 
- lists loops streams process
+ lists loops streams process 
+ xprocess transducer
  data_map
  bits
  math stats random
