@@ -10,9 +10,7 @@ loops
  
           step' :: µStep . ∀state. [(arg*state)→((Step*state) + done)]
  
- At this point, we need fixpoint behaviors to model stateful steps.
- 
- If we're going for fixpoint anyway, I don't see any reason not to go the rest of the way to [elastic processes](doc/ElasticProcesses). This allows us to incrementally request only as many results as we need. So I doubt I'll pursue transducers much further than this analysis.
+ At this point, we need fixpoint behaviors to model stateful steps. And we still need completion or initialization. Hickey's transducers are seeming very ad-hoc. Should I continue to develop transducers? I'm leaning towards 'no', at least not in full. But [elastic processes](doc/ElasticProcesses) should cover most of the same use cases.
 ~
 
 
