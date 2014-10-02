@@ -27,12 +27,14 @@ process
  
  This allows us to abort with a known type `t` (perhaps unit, or perhaps a success/failure status indicator) before observing all the available `a` values. This last option also transparently subsumes the earlier cases, i.e. any process polymorphic in termination type cannot short-circuit, and terminal type `0` corresponds to the first case via `(a+0)` and `((P*b)+0)`. The flexible type of `t` also allows some other useful patterns, such as returning unprocessed inputs.
  
- For the current implementation of elastic processes, with suffix `.px`, we'll be favoring the final case, and using the following type shorthand:
+ For now, we'll be favoring the latter variation.
  
-         ∃t,t'.µP.([(a+t)→P] + [1→((P*b)+t')])
-         [(a+t) ↬ (b+t')]           (↬ U+21AC)
+         the type:    ∃t,t'.µP.([(a+t)→P] + [1→((P*b)+t')])
+         shorthand:   [(a+t) ↬ (b+t')]           (↬ U+21AC)
          word suffix: .px
  
- We'll just call it an elastic process from `a` to `b`, but we'll need to pay attention to termination signals as well when describing the behaviors involved. Many processes should be polymorphic in `t`!
+ We'll just call it an elastic process from `a` to `b`. 
+ 
+ More sophisticated process models are also viable, e.g. if I wish to support putback/lookahead, non-determinism, or integration with an effects or messaging model. These elastic processes may be understood as a middle ground on the expressiveness scale - but, importantly, much more expressive than simple processes, which in turn are more expressive than functions.
 ~
 
