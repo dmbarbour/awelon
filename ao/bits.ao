@@ -55,7 +55,7 @@ boolean streams lists
 @pushBit.bitListToWord [mul2] [mul2 inc] if_
 
 @test.wordToBitList
-    0xa5 9
+    165 9
     wordToBitList
     bitListToText
     "010100101" assertEQ
@@ -76,7 +76,10 @@ boolean streams lists
 "(1+1)`L -- text; e.g. of form "01100001"
 ~
 @bitListToText [bitToChar] map.l
-@bitToChar [0x30] [0x31] if_
+@bitToChar [chr:0] [chr:1] if_
+
+@chr:0 48
+@chr:1 49
 
 @doc.bitStreamToText "(1+1)`S -- char`S; characters '0' and '1'"
 @bitStreamToText [bitToChar] map.s
@@ -87,8 +90,8 @@ boolean streams lists
 @doc.textBitsToList
 "textBits -- (1+1)`L; textBits is of form "01100001" (no other characters)
 ~
-@textBitsToList [0x30 gtb] map.l
-@textBitsToWord 0 swap [0x30 gt pushBit.bitListToWord] each.l
+@textBitsToList [chr:0 gtb] map.l
+@textBitsToWord 0 swap [chr:0 gt pushBit.bitListToWord] each.l
 
 @doc.wordStreamToBitStream "word`S width -- bool`S (bigendian bit orientation)"
 @wordStreamToBitStream [wordToBitList fromList.s] bind map.s flatten.s

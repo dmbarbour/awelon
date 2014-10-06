@@ -9,27 +9,19 @@ module AO.Char
 
 import qualified Data.List as L
 
--- most word separators are spaces, but [] and (|) are also okay
--- because it's convenient to write code of form [foo[bar]].
---
--- The current AO parser doesn't actually support ambiguous (foo|bar)
--- code, but does reserve the relevant characters. 
 isWordSep :: Char -> Bool
 isWordSep = flip L.elem " \n[](|)"
 
--- characters restricted from use in words
--- (minus control characters, including LF and DEL)
-wcBlacklist :: [Char]
-wcBlacklist = " []{}\"`(|)⦃⦄⦅⦆〚〛"
-
 isWordStart, isWordCont :: Char -> Bool
 isWordCont c = not (bl || ctl) where
-    bl = c `L.elem` wcBlacklist
+    bl  = L.elem c " []{}\"(|)⦃⦄⦅⦆〚〛"
     ctl = isControl c
-isWordStart c = isWordCont c && not (isDigit c || '%' == c || '@' == c)
+isWordStart c = not (d || bl) && isWordCont c where
+    bl = ('%' == c) || ('@' == c)
+    d = isDigit c
 
--- in token {foo} the token text 'foo' cannot
--- contain newlines or curly braces
+-- a token {foo} the token text 'foo' 
+-- may not contain newline characters or curly braces. 
 isTokenChar :: Char -> Bool
 isTokenChar c = not (lf || cb) where
     lf = ('\n' == c)
@@ -42,7 +34,7 @@ isInlineTextChar c = not (lf || qu) where
     qu = ('"' == c)
 
 isSpace, isControl, isDigit, isNZDigit, isHexDigit :: Char -> Bool
-isSpace c = (' ' == c) || ('\n' == c) -- the only spaces recognized by AO & ABC
+isSpace c = (' ' == c) || ('\n' == c) -- spaces recognized by Awelon project
 isControl c = isC0 || isC1orDEL where
     n = fromEnum c
     isC0 = n <= 0x1F
@@ -52,5 +44,4 @@ isNZDigit c = isDigit c && not ('0' == c)
 isHexDigit c = isDigit c || smallAF || bigAF where
     smallAF = ('a' <= c) && (c <= 'f')
     bigAF = ('A' <= c) && (c <= 'F')
-
 

@@ -113,12 +113,7 @@ isValidToken _ = False
 parseNumber :: (P.Stream s m Char) => P.ParsecT s u m Rational
 parseNumber = parser P.<?> "number" where
     parser = anyNumber >>= \ n -> expectWordSep >> return n
-    anyNumber = parseHexadecimal P.<|> parseDecimal
-    parseHexadecimal =
-        P.try (P.char '0' >> P.char 'x') >> 
-        P.many1 parseHexDigit >>=
-        return . fromIntegral . hexToNum
-    parseHexDigit = P.satisfy isHexDigit P.<?> "hexadecimal digit"
+    anyNumber = parseDecimal
     parseDecimal = 
         P.option False (P.char '-' >> return True) >>= \ bNeg ->
         parseUnsignedIntegral >>= \ n ->
@@ -137,7 +132,7 @@ parseNumber = parser P.<?> "number" where
     parseFragment n =
         (P.char '/' >> fractional n) P.<|>
         (P.char '.' >> decimalDot n) P.<|>
-        (postDecFragment (fromIntegral n))
+        (return (fromIntegral n))
     fractional num = posInt >>= \ den -> return (num % den)
     decimalDot n = 
         P.many1 parseDecimalDigit >>= \ ds ->
@@ -145,26 +140,7 @@ parseNumber = parser P.<?> "number" where
         let fDen = 10 ^ length ds in
         let f = fNum % fDen in
         let r = f + fromIntegral n in
-        postDecFragment r
-    postDecFragment r =
-        (P.char '%' >> return (r * (1 % 100))) P.<|>
-        (P.char 'e' >> scientific r) P.<|>
-        (return r)
-    scientific r =
-        P.option False (P.char '-' >> return True) >>= \ bNeg ->
-        parseUnsignedIntegral >>= \ n ->
-        when ((0 == n) && bNeg) rejectNegZero >>
-        let factor = 10 ^ n in
-        if bNeg then return (r * (1 % factor))
-                else return (r * fromInteger factor)
-
-hexToNum :: [Char] -> Integer
-hexToNum = foldl addHexDigit 0 where
-    addHexDigit n c = 16*n + (fromIntegral (h2i c))
-    h2i c | (('0' <= c) && (c <= '9')) = fromEnum c - fromEnum '0'
-          | (('a' <= c) && (c <= 'f')) = 10 + fromEnum c - fromEnum 'a'
-          | (('A' <= c) && (c <= 'F')) = 10 + fromEnum c - fromEnum 'A'
-          | otherwise = error "illegal hex digit"
+        return r
 
 decToNum :: [Char] -> Integer
 decToNum = foldl addDecDigit 0 where
