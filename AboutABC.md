@@ -486,7 +486,7 @@ ABCD complements ABC's resource model for separate compilation and dynamic linki
 
 ### ABCD for Collections Oriented Programming
 
-Languages designed for collections oriented programming, such as J, K, APL, or SQL, frequently achieve excellent performance even with an interpreter. The bulky computations easily dominate the interpreter overheads, and may even allow an interesting degree of parallelism. Scalar manipulations, e.g. adding or comparing individual numbers, tend to be much less efficient when interpreted. 
+Languages designed for collections oriented programming, such as J, K, APL, or SQL, frequently achieve excellent performance even with an interpreter. The bulky computations easily dominate the interpreter overheads, and may even allow an interesting degree of parallelism or use of GPU computing. Scalar manipulations, e.g. adding or comparing individual numbers, tend to be much less efficient when interpreted. 
 
 During design and development of Awelon Bytecode, it has been very tempting to pursue collections oriented operations and data types. I ultimately decided against this due to the complexity it would add, e.g. needing to make extra choices about which collections to support (arrays, matrices, lists, streams, relations, etc.) and provide the panoply of operators for manipulating them. The conception of ABCD also contributed significantly to my willingness to kick collections oriented features into the future. 
 
