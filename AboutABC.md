@@ -474,9 +474,9 @@ I plan to use a non-conventional base16 alphabet: `bdfghjkmnpqstxyz`. This is th
 
 ## Awelon Bytecode Deflated (ABCD)
 
-I plan to develop a larger bytecode above ABC: ABC Deflated, or ABCD.
+I plan to develop a bytecode above ABC: ABC Deflated, or ABCD.
 
-ABCD extends ABC with a dictionary - one standard dictionary for everyone - that maps higher UTF-8 characters (U+00C0 and above, reserving lower codes) to common, provably correct, widely used ABC subprograms. An ABC runtime will be expected to have a database of these definitions, and perhaps even have specialized optimizations for them. 
+ABCD extends ABC with a universal standard dictionary that maps higher UTF-8 characters to common, widely useful ABC subprograms. An ABC runtime will be expected to have a database of these definitions, and perhaps even have specialized accelerators and optimizations for them. 
 
 ABC streams may then be compressed against this dictionary, or alternatively generated using these operators directly. Further, ABCD interpreters can include specialized implementations for many of these functions. For many functions, a specialized implementation could be much more efficient than interpreting the implementation or even using a generic compiler. Further still, the selected functions could have well understood equational laws to simplify rewrite optimizations. For example, if a function reverses a list, then we know applying it twice results in the input. And if a function maps over a list, then mapping two functions is equivalent to composing the function and mapping once.
 
@@ -484,3 +484,16 @@ Development of ABCD shall be incremental and empirical, driven by actual data fr
 
 ABCD complements ABC's resource model for separate compilation and dynamic linking. ABCD is suitable for relatively short, widely used functions. ABC resources are suitable for project specific software components and large data objects (to leverage content distribution networks and caching). These two techniques fill very different niches, and between them ABC may be minimal with little concern for performance or parsimony.
 
+### ABCD for Collections Oriented Programming
+
+Languages designed for collections oriented programming, such as J, K, APL, or SQL, frequently achieve excellent performance even with an interpreter. The bulky computations easily dominate the interpreter overheads, and may even allow an interesting degree of parallelism. Scalar manipulations, e.g. adding or comparing individual numbers, tend to be much less efficient when interpreted. 
+
+During design and development of Awelon Bytecode, it has been very tempting to pursue collections oriented operations and data types. I ultimately decided against this due to the complexity it would add, e.g. needing to make extra choices about which collections to support (arrays, matrices, lists, streams, relations, etc.) and provide the panoply of operators for manipulating them. The conception of ABCD also contributed significantly to my willingness to kick collections oriented features into the future. 
+
+Simply put, a significant subset of ABCD will be collections oriented.
+
+An ABCD interpreter can provide a few under-the-hood data types for compact representations of arrays, matrices, and so on. Where necessary, or where guided by annotation, the interpreter can convert between these compact representations and the more conventional composite of products and sums. But, with a sufficient set of collections-oriented operators, conversion would mostly occur near the edges of the program. Processing of these collections could be greatly accelerated, parallelized, and optimized based on high-level knowledge of the data structures.
+
+Even serialization may be specialized, e.g. represent a vector of integers as a compact binary string followed by a few operators to interpret it back into a vector.
+
+ABCD offers a viable path to performant collections oriented programming.
