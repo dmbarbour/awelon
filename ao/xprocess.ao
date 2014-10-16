@@ -21,7 +21,7 @@ process
  
          ∀t.µP.([(a+t)→P] + [1→((P*b)+t)])
  
- In this model, we terminate by receiving or producing `t`. But we can't short circuit yet, since we don't know what `t` will be. To support short-circuiting, we could simply specialize type `t` with a known type, such as unit.
+ In this model, we terminate by receiving or producing `t`. But we can't short circuit yet, since we don't know what `t` will be. To further support short-circuiting, we could simply specialize type `t` with a known type, such as unit.
  
          ∃t,t'.µP.([(a+t)→P] + [1→((P*b)+t')])
  
