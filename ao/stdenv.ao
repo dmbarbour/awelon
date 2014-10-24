@@ -17,7 +17,7 @@
  
  The following environment was developed early on, by thought experiment:
  
-         (stack * (hand * (power * ((name * namespace) * unit))))
+         (stack * (hand * (power * ((name * namespace) * unit)))) (DEPRECATED)
  
  Where:
  
@@ -27,7 +27,9 @@
    name: label of current stack, used when switching stacks
    namespace: stack of (label*value) pairs for workspaces and registers
  
- However, this hasn't seen more than shallow use in the dictionary and would be easy to replace. One concern with the above environment is that namespace manipulation is relatively difficult to optimize compared to anonymous data shuffling. I'm considering a variation of the above that provides an extra linear space of anonymous stacks, with `stepLeft` and `stepRight` movements:
+ However, this hasn't seen more than shallow use in the dictionary and would be easy to replace. One concern with the above environment is that namespace manipulation is relatively difficult to optimize compared to anonymous data shuffling. Also, it's challenging to isolate subprograms or reuse them in a new context due to the embedded labels. At this time, I think this experimental environment should be deprecated.
+ 
+ I'm considering a multi-stack environment with a linear space of anonymous stacks, using `stepLeft` and `stepRight` motions to navigate from one stack to another. One might render this in a REPL using something like:
  
          ____v__________    hand: 6 3 8
           1  3  7  5  4     
@@ -51,7 +53,7 @@
  
  This would provide all the space a user needs for normal computations, i.e. without feeling squeezed into a single stack. As demonstrated above, it can also be easy to render in a REPL or on a screen... perhaps even has a bit of a video game feel. Extensions like the namespace would remain possible.
  
- At this time, AO hasn't truly settled on a standard environment. Rather than tying ourselves to anything in particular, we users should continue to experiment, explore, and find a convenient and comfortable design that covers most use cases. I suspect we'll want different environments for different programming media, e.g. text and REPL vs. VR or AR.
+ AO hasn't truly settled on a standard environment. Rather than tying ourselves to anything in particular, we users should continue to experiment, explore, and find a convenient and comfortable design that covers most use cases. I suspect we'll want different environments for different programming media, e.g. text and REPL vs. VR or AR.
 ~
 
 @reifyStack intro1 %rwl

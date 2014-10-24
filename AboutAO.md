@@ -70,7 +70,7 @@ AO literals have a slightly different type than ABC literals.
         In ABC: e -> L * e
         In AO: (s * e) -> ((L * s) * e)
 
-By convention and role, we call the value `s` the stack, and `e` the environment. Literals are added to the stack, but the environment remains accessible. Translation from AO to ABC is trivial: `%l` is implicitly introduced after every literal in AO. AO developers may express ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice; instead, just assume the AO stack while working within AO. The codes `%l`, `%v`, and `%c` are examples of inline ABC. 
+The environment `e` remains accessible at a stable location even as we add literals to the stack `s`. Translation from AO to ABC is trivial: `%l` is implicitly introduced after every literal in AO. AO developers may express ABC behavior with simple bracketing: `%v 42 %c :: e → (42 * e)`. But doing so is inconvenient and uncommon in practice; instead, just assume the AO stack while working within AO. The codes `%l`, `%v`, and `%c` are examples of inline ABC. 
 
 ## Inline ABC
 
@@ -199,13 +199,7 @@ Tests in AO potentially include unit tests, [QuickCheck](http://en.wikipedia.org
 
 The REPL `aoi` has been implemented for AO as part of the Haskell implementation. This operates in a conventional manner: developers can write some code, numbers, and text on a line. A summary of the stack is printed between commands. Developers cannot define new words in the REPL, but may modify and reload the dictionary on-the-fly. 
 
-However, my vision for AO development is closer in nature to spreadsheets than REPLs, leveraging tests for automatic display, and actually working in spreadsheet-like environments for developing difficult algorithms where a lot of internal debugging is useful. A proposed naming convention for spreadsheets is `a1$foo` and `b3$foo`, specifying cells that can be rendered together as a spreadsheet `foo`. When such words are rendered, the redundant `$foo` suffix could be hidden, instead displaying `a1` or `b3` with a configurable color. (Of course, `a1$foo` and the like would remain accessible as plain words in other contexts, including other spreadsheets.)
-
-Spreadsheets generally contain a single value per cell. The same is true in AO, except in AO it is also convention for said value to represent a full stack or multi-stack environment (see below). And such a stack might contain complex values modeling documents or geometries or scene-graphs. An AO spreadsheet could be much richer than conventional spreadsheets.
-
-It is not difficult to model a REPL above a spreadsheet metaphor: simply use a linear sequence of cells (one for each step in the REPL). This pattern could be optimized and have a dedicated entry mode. This live programming REPL has a lot of nice advantages over a conventional REPL - i.e. one can immediately see how changes in code will change the outputs at each step.
-
-*Aside:* Rendering for cells with simple types like `[1→x]` is obvious. However, Conal Elliott's work on [tangible values](http://conal.net/papers/Eros/) suggests that many functions may be usefully rendered. Developers can be given control by specifying a rendering context for common views of the spreadsheet, such that each cell `b3$foo` renders as `[b3$foo] render`. 
+However, my vision for interactive AO development is closer in nature to spreadsheets or iPython notebook than REPLs, allowing the display to automatically update whenever definitions are changed. This might be achieved by naming conventions, e.g. `a1$foo` and `b3$foo` might be contents of different cells in an implicit spreadsheet foo. We could hide or shrink common suffixes. 
 
 ## IDE
 
@@ -241,24 +235,6 @@ Fortunately, we can mitigate *or even reverse* this weakness in context of a ric
 An AO editor can recognize common prefixes or suffixes. Instead of rendering the full word, we could disambiguate using color or style. For example, `foo.projectQux` might render simply as `foo`, but in color blue. Similarly, on edit, auto-complete features with fuzzy find can simplify discovery and use of long words. Style configurations could be sensitive to the user and active project. 
 
 This technique can feasibly *improve* readability, by enabling developers to see by color which words belong to which frameworks or libraries, and easily visualize how code is coupled. Thus, developers are encouraged to simply use a new suffix for words in a new project or framework. Widely useful code can be discovered and refactored later. 
-
-## Multi-Stack Environment
-
-AO words and literals operate on a tacit value. This value is structured as a `(stack * environment)` pair, which allows literals to be added to the stack while keeping the environment in a stable location (e.g. `42 :: (s*e)→((42*s)*e)`). The structure of the `environment` value is determined by convention. However, changing conventions can require widespread edits to the AO dictionary, so it also tends to be stable. In this sense, AO has a 'standard' environment that is implied by the current dictionary. Currently, AO has two standard environments:
- 
-        (stack*(hand*ext))
-        (stack*(hand*(power*((stackName*namedStacks)*ext))))
-
-* stack - the current stack where operations occur
-* hand - auxillary stack to retain values, used as a semantic clipboard
-* named stacks - collection of stacks to serve as workspaces, registers, etc.
-* stack name - name of current stack, so we can switch workspaces
-* power - a block containing `{tokens}` to invoke useful authorities
-* ext - extensions slot, or unit value if not used
- 
-The first environment is common for 'pure' functions, e.g. invoked by the `apply` word. The second environment is a proper extension of the first, and includes multiple `(name*stack)` pairs to serve flexible roles: workspaces, registers, inventories, data storage. Multiple workspaces can be useful when modeling interaction (with implicit synchronization) between implicitly concurrent behaviors.
-
-Long term, Awelon project is intended to take this concept much further - modeling a rich, personal user environment with flexible inventories and tools and navigation through workspaces. However, that form of environment is only suitable for live programming where users can have continuous visual reminders of structure. For an ahead-of-time, textual programming language such as AO, multiple named stacks for global state is near the human limit for complexity.
 
 ## Composition is First Principle
 
