@@ -53,7 +53,14 @@
  
  This would provide all the space a user needs for normal computations, i.e. without feeling squeezed into a single stack. As demonstrated above, it can also be easy to render in a REPL or on a screen... perhaps even has a bit of a video game feel. Extensions like the namespace would remain possible.
  
- AO hasn't truly settled on a standard environment. Rather than tying ourselves to anything in particular, we users should continue to experiment, explore, and find a convenient and comfortable design that covers most use cases. I suspect we'll want different environments for different programming media, e.g. text and REPL vs. VR or AR.
+ Additionally, there may be more benefit in extending the 'hand' concept to be a full 'user' model, with potential concepts like inventory, equipment, preferences and rules. It might be useful to shift the labeled objects into the user model, clarifying that labels are pet names for a given agent rather than part of the environment.
+ 
+         (stack * ((hand*user) * ((stacksLeft*stacksRight) * unit))
+            or perhaps optimize access to hand
+            and generalize separation of user and environment
+         (stack * (hand * ((stacksLeft * stacksRight) * (extUser * extEnv))))
+ 
+ Clearly, AO hasn't settled on a 'standard' environment. This will be left open for further exploration. But the hope is that we'll eventually settle on something that strikes a good balance of simplicity, performance, and convenience.
 ~
 
 @reifyStack intro1 %rwl
@@ -61,10 +68,20 @@
 @doc.reifyStack "(s*e)→((s*Unit)*e) : stack becomes object on fresh stack"
 @doc.restoreStack "((s*Unit)*e)→(s*e) : single object on stack becomes stack"
 
-@doc.wrap.stackHand.env "a → ((a*1)*(1*1)); wrap input in basic stack+hand environment."
-@doc.unwrap.stackHand.env "((a*1)*(1*1)) → a; unwrap value on stack from clean stack+hand environment."
-@doc.apply1to1.stackHand.env "a [a -- b] -- b; apply block to arg in clean stack+hand environment."
-@doc.applyStoS.stackHand.env "..s [..s -- ..s'] -- ..s'; apply block to stack in clean stack+hand environment."
+@doc.pushEnv "a E(stack) -- E(a*stack); push element into reified environment."
+@doc.popEnv  "E(a*stack) -- a E(stack); pop element from reified environment."
+@doc.fullSwapEnv "E(dest) -- E(origin); swap current & reified environments (note: user model is also swapped)."
+@pushEnv %rrzwrzlzll
+@popEnv %rrzrzlwzll
+@fullSwapEnv %rvrwlcl
+
+@doc.stackHand.env 
+"Basic environment consisting of just stack and hand.
+ 
+         (stack * (hand * unit))
+ 
+ See @doc.std.env
+~
 @wrap.stackHand.env      %vvvr
 @unwrap.stackHand.env    %lccc
 @apply1to1.stackHand.env %rwrzvrwvvrrvrrz$wlcllccwlcl
@@ -73,17 +90,33 @@
 @apply0to0.stackHand.env %rvvvrrvrrz$wlcllccc
 @apply1to0.stackHand.env %rwrzvrwvvrrvrrz$wlcllccc
 
+@wrapV.stackHand.env     %rvrwvvrrvrwlcl
+@unwrapV.stackHand.env   %rvrwlcllccwlcl
+@intro.stackHand.env     %vvvrrvrwlcl
+@elim.stackHand.env      %rvrwlcllccc
+@wrapS.stackHand.env     %vvrrwvrvrwlc
+@unwrapS.stackHand.env   %vrwlclcwllcc
+
+@eqv.introPush.wrapV.stackHand.env [intro.stackHand.env pushEnv] [wrapV.stackHand.env]
+@eqv.popElim.unwrapV.stackHand.env [popEnv elim.stackHand.env] [unwrapV.stackHand.env]
+
+
 @doc.std.env 
 "The 'std' standard environment is just a layer of indirection to whichever environment model developers wish to experiment with. Definitions for std.env should generally be a single word from another environment model.
  
  TODO: separate operations into something much more fine grained.
-  single input wrap/unwrap
-  wrap/unwrap single item on stack.
-  wrap/unwrap full stack.
-  intro/clear empty environment.
-  push/pop from stack to/from environment.
+  
+         wrap       :: a → Env(a on stack)
+         unwrap     :: Env(a on stack) → a
+         wrapV      :: a -- Env(a on stack)
+         unwrapV    :: Env(a on stack) -- a 
+         wrapS      :: (s*e)→((Env(s)*1)*e); wrap current stack
+         unwrapS    :: ((Env(s)*1)*e)→(s*e); unwrap current stack
+         unwrapS    :: (fresh stack) Env
+         intro      :: -- Env(empty)
+         elim       :: Env(empty) --
  
- I can also provide a set of default functions.
+ I might also want something for volatile wrappings just for one application. A feature I'd like to have is all the `applyKtoJ` functions be optimal from a small subset of fine-grained operations.
 ~
 @wrap.std.env           wrap.stackHand.env
 @unwrap.std.env       unwrap.stackHand.env

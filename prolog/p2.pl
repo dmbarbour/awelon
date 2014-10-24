@@ -23,6 +23,17 @@ prim([A,unit],c,A).
 dip2_pre(N) :- path( [ [fn,[a,[b,s]]],e ], [fn, [[s,e], [[b,a],unit]]], N).
 dip2_post(N) :- path( [[s,e], [[b,a],unit]], [[a,[b,s]],e], N).
 
+sh_wrapV(N) :- path( [[a,s],e], [[  [[a,unit],[unit,unit]], s], e], N).
+sh_unwrapV(N) :- path( [[  [[a,unit],[unit,unit]], s], e], [[a,s],e],  N).
+sh_intro(N) :- path( [s,e], [[ [unit,[unit,unit]], s], e], N).
+sh_elim(N) :- path( [[ [unit,[unit,unit]], s], e], [s,e], N).
+sh_wrapS(N) :- path( [s,e], [ [[s,[unit,unit]], unit], e], N).
+sh_unwrapS(N) :- path([ [[s,[unit,unit]], unit], e], [s,e], N). 
+
+pushEnv(N) :- path([ [[sE,eE],[a,s]], e],  [ [[[a,sE],eE],s], e], N).
+popEnv(N) :- path( [ [[[a,sE],eE],s], e], [ [[sE,eE],[a,s]], e], N).
+swapEnv(N) :- path( [ [[sD,eD], sO], eO], [ [[sO,eO], sD], eD], N).
+
 
 multiStack_wrap(N) :- path(a, [[a,unit],[unit,[[unit,unit],unit]]], N).
 multiStack_unwrap(N) :- path( [[a,unit],[unit,[[unit,unit],unit]]], a, N).
