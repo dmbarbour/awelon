@@ -7,9 +7,6 @@ ao
  By default, `aoi` loads aoi.ao, searching based on environment variable AO_PATH. The initial dictionary can be configured with AOI_DICT.
 ~
 
-@doc.cle "(io) clear the current environment (except hand and powerblock)"
-@cle introE swapE destroy.io
-
 @doc.cls "(io) clear the current stack (including relevant blocks)"
 @cls reifyStack destroy.io
 

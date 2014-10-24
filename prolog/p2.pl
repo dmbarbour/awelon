@@ -22,6 +22,12 @@ prim([A,unit],c,A).
 
 dip2_pre(N) :- path( [ [fn,[a,[b,s]]],e ], [fn, [[s,e], [[b,a],unit]]], N).
 dip2_post(N) :- path( [[s,e], [[b,a],unit]], [[a,[b,s]],e], N).
+
+
+multiStack_wrap(N) :- path(a, [[a,unit],[unit,[[unit,unit],unit]]], N).
+multiStack_unwrap(N) :- path( [[a,unit],[unit,[[unit,unit],unit]]], a, N).
+
+
 %lib(A,id,A,[]).
 
 %lib([A,[B,[C,D]]], wzw, [C,[B,[A,D]]], [w,z,w]). % rotx

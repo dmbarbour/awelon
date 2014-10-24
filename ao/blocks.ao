@@ -1,3 +1,4 @@
+stdenv
 @doc.Blocks
 "A block in AO consists of code wrapped in square brackets, of form: `[put swap take]` or `[2 add]`. The meaning of a block is a first-class function that may be applied later. Blocks are essential in AO for:
  
@@ -12,41 +13,39 @@
  
  Blocks can be composed.  Composition working together with quotation can also model such features as partial, concurrent, and conditional application.
  
-     compose :: [x→y] [y→z] -- [x→z]      (sequential)
-     bind    :: x [x--y] -- [--y]         (partial)
-     .bind   :: x [(x*y)→z] -- [y→z]      (partial)
-     .bfirst :: [x→y] -- [(x*e)→(y*e)]    (concurrent)
-     .bleft  :: [x→y] -- [(x+e)→(y+e)]    (conditional)
+         compose :: [x→y] [y→z] -- [x→z]      (sequential)
+         bind    :: x [x--y] -- [--y]         (partial)
+         .bind   :: x [(x*y)→z] -- [y→z]      (partial)
+         .bfirst :: [x→y] -- [(x*e)→(y*e)]    (concurrent)
+         .bleft  :: [x→y] -- [(x+e)→(y+e)]    (conditional)
  
  Some readers might be familiar with the notions of 'first' and 'left' from John Hughes' arrow model, which was an important foundation for AO and RDP. The primitive forms of '.curry' and '.bfirst', etc.. aren't very useable in the standard environment, but derived forms will also be available. 
  
  In addition, blocks may be constructed by quotation of a value:
  
-     quote   :: (Quotable x) ⇒ x -- [-- x]
-     unquote :: [-- x] -- x
+         quote   :: (Quotable x) ⇒ x -- [-- x]
+         unquote :: [-- x] -- x
  
  After construction, blocks can be applied in various ways. Developers will mostly use 'apply', which applies a block to the current environment except for the hand. Items in the current hand are hidden. But there are other operations that include (potentially) useful patterns for data hiding and application.
  
-     .apply  :: x [x→y] -- y ; apply block to just top object on stack
-     .applyd :: [x→y] x -- y ; apply block under object
-     apply  :: x [x--y] -- y ; apply block to just top object on stack
-       this variation provides a fresh stack and empty hand
-       (the powerblock, named stacks, etc. are hidden)
-     applyd :: [x--y] x -- y ; apply block under top object on stack
-     applyNtoM :: takes N arguments on stack, generates M results on stack
-       hides everything else (empty hand, no powerblock or named stacks)
-       N and M in range 0..7. 0 outputs suggests effectful block.
-     applyNtoMd :: applyNtoM with block below the N arguments
-     applyS :: apply to full stack (hiding rest of environment)
-     dip    :: h [] -- ; apply block to all except top element on stack
-     dip2   :: h1 h2 [] -- ; apply block to all except top two elements
-     hdip   :: [] -- ; apply block hiding current hand 
-     inline :: [] -- ; apply block as if inline (hand is visible)
-     keep   :: x [x -- y] -- y x; copies element on stack
+         .apply  :: x [x→y] -- y ; apply block to just top object on stack
+         .applyd :: [x→y] x -- y ; apply block under object
+         apply  :: x [x--y] -- y ; apply block to just top object on stack
+           provides a clean environment, just one object on stack
+         applyd :: [x--y] x -- y ; apply block under top object on stack
+         applyNtoM :: takes N arguments on stack, generates M results on stack
+           provides a clean environment, just N objects on stack, just M results at end
+         applyNtoMd :: applyNtoM with block below the N arguments
+         applyS :: apply to full stack (hiding rest of environment)
+         dip    :: h [] -- ; apply block to all except top element on stack
+         dip2   :: h1 h2 [] -- ; apply block to all except top two elements
+         hdip   :: [] -- ; apply block hiding current hand 
+         inline :: [] -- ; apply block as if inline (hand is visible)
+         keep   :: x [x -- y] -- y x; copies element on stack
  
  The set of application words will undoubtedly evolve with experience and convenience in mind.
  
- Todo: add common bi/tri variants from Factor's vocabulary
+ TODO: separate the standard environment model from the apply model (as much as possible)
 ~
 
 @doc.compose "[x→y] [y→z] -- [x→z]; compose functions"
@@ -60,8 +59,8 @@
 @prepose composel
 @wrapfn swapd compose compose
 @.apply p %rr$l
-@apply %rwrzvrwvvrrvrrz$wlcllccwlcl
-@applyS %rwvvrrwvrrz$wlcwllcc
+@apply apply1to1.std.env
+@applyS applyStoS.std.env
 @dip %rwrzvrwr$wlcl
 @hdip reifyHand putd dip take restoreHand
 @inline %rvr$c
@@ -214,7 +213,7 @@
 
 @compressArgs dpw [wx] composel
 
-@apply0to1 %rvvvrrvrrz$wlcllccwlcl
+@apply0to1 apply0to1.std.env
 @apply0to2 [pw] compose apply0to1 wx
 @apply0to3 [pw] compose apply0to2 wx
 @apply0to4 [pw] compose apply0to3 wx
@@ -222,9 +221,9 @@
 @apply0to6 [pw] compose apply0to5 wx
 @apply0to7 [pw] compose apply0to6 wx
 
-@apply0to0 %rvvvrrvrrz$wlcllccc
+@apply0to0 apply0to0.std.env
 
-@apply1to0 %rwrzvrwvvrrvrrz$wlcllccc
+@apply1to0 apply1to0.std.env
 @apply2to0 compressArgs apply1to0
 @apply3to0 compressArgs apply2to0
 @apply4to0 compressArgs apply3to0
@@ -258,8 +257,8 @@
 @doc.preApply "a→((a*1)*(1*1)); wrap argument in `apply` environment"
 @doc.postApply "((a*1)*(1*1))→a; unwrap result from `apply` environment"
 @doc.applyWrap "[a -- b] -- [a→b]; apply 1:1 stack function in `apply` environment"
-@preApply %vvvr
-@postApply %lccc
+@preApply wrap.std.env
+@postApply unwrap.std.env
 @applyWrap %r [preApply] %ro [postApply] %rwol
 @apply.alt applyWrap .apply
 @eqv.apply [apply] [apply.alt]

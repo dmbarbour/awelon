@@ -1,34 +1,57 @@
 @doc.StandardEnvironment
-"AO is not a stack-based programming language, at least not in the traditional sense of having a data stack as a primitive feature. Words operate upon a tacit value, constructed mainly of pairs, numbers, and blocks. This tacit value, however, will typically represent a stack plus an extended, stable environment:
+"AO has many similarities with stack-based programming languages, such as Forth, Factor, and Joy. However, the environment for AO is a value structured of pairs, numbers, and blocks of code, similar in nature to Lisp cons cells. Typically, the tacit argument to any word has the form:
  
-     (currentStack * extendedStableEnvironment)
+         (stack * environment)
  
- Here, `(a * b)` represents an ordered pair of `a` with `b`. The current stack is simply modeled using pairs. Literals in AO are functions that push their value onto the current stack:
+ The stack here is used in a manner very similar to the Forth stack. Most relevantly, literals (text, numbers, blocks) all are pushed onto the stack.
  
-     42 :: (s*e) → ((42*s)*e)
+         42 :: (s * e) →  ((Num(42)*s)*e)
  
- This maps trivially to ABC code `#42l`. It is useful to understand that this structure really is a plain old value. The stack metaphor is built into literals, but the shape of the extended stable environment is much more accessible. Programmers are free to develop ad-hoc conventions for the shape of the extended environment. Further, different environments can easily be used for different subprograms (especially at locations that choke the number of inputs and outputs). 
+ By pushing literals onto the stack, AO ensures the environment has a stable location. The environment then provides a useful place for secondary stacks, inventories, tools, and other values the developer might wish to keep on hand and accessible. The shape of the environment is NOT built into the AO language; rather, it is determined by shared conventions and de-facto standards in the AO dictionary.
  
- The so-called 'standard' environment is simply a set of proposed conventions, embedded in the common words. There are, thus far, two standard environments: an apply environment, and a toplevel multi-stack environment. These share part of their structure:
+ At the moment, the most frequently used environment shape just adds one auxillary stack, which I call the "hand". This takes the following form:
  
-     apply env       :: (s * (h * ex))
-     multi-stack env :: (s * (h * (pb * ((sn * rns) * ex))))
+         (stack * (hand * unit))
+ 
+ Developers can then `take` items from the stack to the hand, or `put` items from the hand to the stack, or sometimes use a copy & paste metaphor. The hand provides both a useful location to stash intermediate values, and a clipboard. Forth frequently uses the return stack in a similar manner. The unit value on the right can be replaced by further environment extensions.
+ 
+ The following environment was developed early on, by thought experiment:
+ 
+         (stack * (hand * (power * ((name * namespace) * unit))))
  
  Where:
-   s: the current stack, where most operations apply
-   h: the hand, auxillary stack, useful as temporary store & clipboard
-   pb: a powerblock, to observe or influence real world
-   sn: name of current stack, used when switching stacks
-   rns: record of (name*stack) pairs for workspaces and registers
-   ex: an extensions slot, default value 'unit'
  
- The apply environment is typically created by the apply word and its many cousins (e.g. apply3to2). It is primarily used for purely functional subprograms, e.g. to control how many inputs a given block can access. The hand is an auxillary stack, useful to keep values out of the way. In general, words should exercise a clean hands policy: assume they start with an empty hand, and end with an empty hand (obviously excepting take, put, copy, paste, juggle, and other hand-manipulation words). The apply word will enforce clean hands.
+   stack: the current stack, where most operations apply
+   hand: the hand, auxillary stack, useful as temporary store & clipboard
+   power: a powerblock, to observe or influence real world
+   name: label of current stack, used when switching stacks
+   namespace: stack of (label*value) pairs for workspaces and registers
  
- The toplevel, multi-stack environment is the typical starting environment for a potentially effectful AO program. It extends the apply environment with a 'powerblock' (a block that contains capabilities to observe or influence the real world), plus a collection of named stacks. Named stacks can serve as registers or workspaces. It can be useful to switch between multiple stacks when modeling concurrent tasks (see @doc.ConcurrencyInAO). The initial stack name is the empty string "". 
+ However, this hasn't seen more than shallow use in the dictionary and would be easy to replace. One concern with the above environment is that namespace manipulation is relatively difficult to optimize compared to anonymous data shuffling. I'm considering a variation of the above that provides an extra linear space of anonymous stacks, with `stepLeft` and `stepRight` movements:
  
- Stack manipulations are often described using 'stack effect' strings, as used in Factor or Forth. For example, "x y z -- y x z" suggests that the top item on the current stack (z) remains in place, and the elements below it are swapped. Such annotations are for documentation purposes, e.g. in a separate word like `doc.swapd`. (AO does not have any built-in support for type description, beyond assertions and merges. Eventually, there may be a `type.` prefix for certain kinds of symbolic validation.)
+         ____v__________    hand: 6 3 8
+          1  3  7  5  4     
+          2  4  8  2  6     
+             5  9     1
+             6
  
- NOTE: The current standard environments share a weakness: they are not readily composable. There is no sensible, general way to combine two stacks. They must instead be kept separate, e.g. constructing a fresh environment for each subprogram, injecting only a few inputs and extracting only a few results. In general, composition will instead occur in other layers. At some point, it may be worth exploring alternative conventions that achieve more composable environments, e.g. based on mashable documents, scene-graphs, and zippers, perhaps wielding an inventory of recomposable tools and lenses.
+        > put stepRight take 0
+ 
+              
+         _______v_______    hand: 7 3 8
+          1  6  0  5  4     
+          2  3  8  2  6     
+             4  9     1
+             5
+             6
+ 
+ This is trivial to model with an additional pair of stacks, one containing stacks to the left and one containing stacks to the right. In addition to motion, we'd have the ability to create a new stack to the left or right, or erase one. The resulting environment, extending the main environment at this time, would have structure:
+ 
+        (stack * (hand * ((stacksLeft*stacksRight) * unit))
+ 
+ This would provide all the space a user needs for normal computations, i.e. without feeling squeezed into a single stack. As demonstrated above, it can also be easy to render in a REPL or on a screen... perhaps even has a bit of a video game feel. Extensions like the namespace would remain possible.
+ 
+ At this time, AO hasn't truly settled on a standard environment. Rather than tying ourselves to anything in particular, we users should continue to experiment, explore, and find a convenient and comfortable design that covers most use cases. I suspect we'll want different environments for different programming media, e.g. text and REPL vs. VR or AR.
 ~
 
 @reifyStack intro1 %rwl
@@ -36,39 +59,35 @@
 @doc.reifyStack "(s*e)→((s*Unit)*e) : stack becomes object on fresh stack"
 @doc.restoreStack "((s*Unit)*e)→(s*e) : single object on stack becomes stack"
 
-@doc.swapStackName "newSN -- oldSN; replace name for current stack"
-@doc.setStackName "SN -- ; set name for the current stack"
-@doc.getStackName "-- SN ; get name for current stack"
-@swapStackName %lzrzrzwrwzwlwzlzlzr
-@setStackName swapStackName drop
-@getStackName intro1 swapStackName copy swapStackName elim1 put
-@eqv.id.swapStackName   [swapStackName swapStackName] []
-@eqv.id.getSetStackName [getStackName setStackName] []
+@doc.wrap.stackHand.env "a → ((a*1)*(1*1)); wrap input in basic stack+hand environment."
+@doc.unwrap.stackHand.env "((a*1)*(1*1)) → a; unwrap value on stack from clean stack+hand environment."
+@doc.apply1to1.stackHand.env "a [a -- b] -- b; apply block to arg in clean stack+hand environment."
+@doc.applyStoS.stackHand.env "..s [..s -- ..s'] -- ..s'; apply block to stack in clean stack+hand environment."
+@wrap.stackHand.env      %vvvr
+@unwrap.stackHand.env    %lccc
+@apply1to1.stackHand.env %rwrzvrwvvrrvrrz$wlcllccwlcl
+@applyStoS.stackHand.env %rwvvrrwvrrz$wlcwllcc
+@apply0to1.stackHand.env %rvvvrrvrrz$wlcllccwlcl
+@apply0to0.stackHand.env %rvvvrrvrrz$wlcllccc
+@apply1to0.stackHand.env %rwrzvrwvvrrvrrz$wlcllccc
 
-@doc.swapPowerBlock "power -- power; replace powerblock in standard env"
-@swapPowerBlock %zrwzwlz
-@eqv.id.swapPowerBlock [swapPowerBlock swapPowerBlock] []
-
-@doc.EnvironmentManipulation
-"AO developers aren't limited to a single instance of the standard environment. Subprograms may be computed in their own complete environments, and objects may be shifted from one environment to another (using the hand, by default, for data shuffling). 
+@doc.std.env 
+"The 'std' standard environment is just a layer of indirection to whichever environment model developers wish to experiment with. Definitions for std.env should generally be a single word from another environment model.
  
- Developers can:
+ TODO: separate operations into something much more fine grained.
+  single input wrap/unwrap
+  wrap/unwrap single item on stack.
+  wrap/unwrap full stack.
+  intro/clear empty environment.
+  push/pop from stack to/from environment.
  
- * create a fresh, empty environment on the stack (introE)
- * safely destroy an empty environment on the stack (elimE)
- * swap current environment with environment on stack (swapE)
- 
- When swapping environments, the current hand and powerblock will follow the user. Moving objects between environments involves use of the hand. A initial stack name for an environment is simply the empty string (which is equivalent to number 3). 
+ I can also provide a set of default functions.
 ~
-
-@doc.introE "adds empty environment object to stack"
-@doc.elimE "deletes empty environment object ('drop' also works, but less safe)"
-@doc.swapE "switch current environment with env on stack; keep hand and power"
-@introE "" %r %vrvrwvrr %vrwlc %l
-@elimE  %r %vrwlc %llcwlclc %l %rCl elim1
-@swapE %zrzwlz %vrwlc %zrwzl
-
-@eqv.id.introElimE [introE elimE] []
-@eqv.id.swapE [swapE swapE] []
-
+@wrap.std.env           wrap.stackHand.env
+@unwrap.std.env       unwrap.stackHand.env
+@apply1to1.std.env apply1to1.stackHand.env
+@applyStoS.std.env applyStoS.stackHand.env
+@apply0to1.std.env apply0to1.stackHand.env
+@apply0to0.std.env apply0to0.stackHand.env
+@apply1to0.std.env apply1to0.stackHand.env
 
