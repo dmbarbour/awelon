@@ -245,7 +245,7 @@
          {.format$rightKey}             unseal cryptographic sealed value
          {$format}                      indicate cryptographically sealed value
  
- The default format, whatver is chosen, won't need to be spelled out. I would like to favor a public/private key model for asymmetric encryption, i.e. such that a holder of just the sealer cannot unseal values, and a holder of just the unsealer cannot seal values. Elliptic curve cryptography (ECC) technologies seem promising in this role (cf [safe curves](http://safecurves.cr.yp.to/)). 
+ The default format, whatver is chosen, won't need to be spelled out. I would like to favor a public/private key model for asymmetric encryption, i.e. such that a holder of just the sealer cannot unseal values, and a holder of just the unsealer cannot seal values. I haven't worked out the details. But ECC does seem promising.
  
  Serializations of sealed values:
  
