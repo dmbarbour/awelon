@@ -42,7 +42,9 @@
 @doc.prefix.eqv.
 "There are many cases where two different expressions should be equivalent. Explicitly asserting so is useful! Not only may equivalencies serve as documentation, but they also can support automatic tests, and provide hints or tests for optimizers and refactoring tools. So prefix 'eqv' provides a generic way to suggest that two subprograms should be equivalent.
  
- The type of any 'eqv.foo' word should be:  ( -- [a→b] [a→b]). 
+ The type of any 'eqv.foo' word should be:
+ 
+         ( -- [a→b] [a→b]). 
  
  That is, developers should simply add two blocks to the current stack (in no particular order) which should have equivalent behavior modulo typeful identity. Use of the 'eqv' prefix enables external tools to systematically discover, document, and validate these assertions. Further, they may later prove useful to optimizers and code rewriting.
 ~
@@ -50,8 +52,8 @@
 @doc.assertEQ 
 "a a -- a a; (annotation) assert equivalence 
  
-     {&≡} :: (a*(a*e))→(a*(a*e))
-       ^ that's U+2261 (dec 8801)
+         {&≡} :: (a*(a*e))→(a*(a*e))
+           ^ that's U+2261 (dec 8801)
  
  This asserts that the two arguments should be equivalent. As an annotation, this has no observable impact on a valid program, but it may cause some invalid programs to be rejected at compile time or fail at run time.
  
@@ -68,26 +70,24 @@
 @assertEQ1ddd rolld assertEQ1 unroll
 
 @doc.asynch
-"Awelon's design includes a 'causal commutativity' property, which is enforced by all Awelon effects models. Causal commutativity allows an arbitrary amount of parallelism, constrained only by dependencies between values. An AO or ABC implementation is free to infer or assume useful places for parallelism (e.g. loading or saving files, or compiling a block), but developers may also suggest parallelism through annotations. 
+"The `{&asynch}` annotation indicates that a block should be evaluated in parallel, allowing the rest of the computation to move on until the result is needed. This will generally be implemented in a promise pipelining style. ABC's causal commutativity feature ensures this parallelism is safe, that parallelism is constrained only by dependencies between values.
  
- `{&asynch}` is such an annotation: it marks that a block should compute asynchronously when subsequently applied. Semantically, `asynch` is an identity function for blocks. But it may potentially impact performance:
+         {&asynch} :: (block*e)→(block*e)
+         asynch    :: block -- block (on AO stack)
  
-     {&asynch} :: block→block
-     asynch    :: block -- block (on AO stack)
- 
- Note that `asynch` cannot model long-running behavior. Besides annotations being non-semantic and discretionary, Awelon requires and assumes termination for every subprogram. An unbounded loop is considered a bug. It would not be atypical for an Awelon runtime to wait for pending asynchronous operations to complete at certain stages - e.g. between REPL commands, or between paragraphs in a command stream. (Long-running behavior is modeled by other means, such as RDP or unbounded command streams.)
-~ 
-@asynch %r [{&asynch}] %r$l
+ However, a little warning: `{&asynch}` is not like threads or processes in procedural code. Asynchronous blocks will not be able to communicate with one another, and are required to terminate. We'll frequently wait for all asynchronous child computations to terminate before returning a result, or before moving on to the next transaction or paragraph.
+~
+@asynch %r {&asynch} %l
 
 @doc.compile
-"The `{&compile}` annotation can support explicit, dynamic compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
+"The `{&compile}` annotation can support explicit compilation. It operates on a block of bytecode and transparently returns a compiled version of that block, with intention to improve performance. This is potentially very useful for staged metaprogramming and other contexts where we might compose a hundred small blocks at runtime. Of course, any benefits must be weighed against the overhead for compiling and linking the code.
  
-         {&compile} :: block→block 
-         compile    :: [a→b] -- [a→b] (on AO stack)
+         {&compile} :: (block*e)→(block*e) 
+         compile    :: block -- block (on AO stack)
  
  Static compilation is also useful, of course. Dynamic compilation can translate to static compilation via partial evaluation, or static per-word compilation may be available; see `doc.prefix.compile!` for more.
 ~
-@compile %r [{&compile}] %r$l
+@compile %r {&compile} %l
 
 @doc.static
 "The `{&static}` annotation is intended to guide partial evaluation. It indicates that a value should be computable and computed at compile-time. It should help when working with embedded DSLs and staged programs.
@@ -98,6 +98,47 @@
  A conforming compiler will take `{&static}` as a strong suggestion, computing the argument if possible and warning the developer otherwise. Even if an argument cannot be wholly evaluated, it might be partially evaluated or lifted out of a loop. More precise annotations may be necessary in some use cases. (Ideas on how to more precisely annotate partial evaluation within the constraints of ABC are welcome.)
 ~
 @static %r {&static} %l
+
+@doc.assertIsolated
+"The `{&isolated}` annotation declares that a block should not contain or mention any machine-specific capabilities, meaning that it does not contain any tokens other than annotations, sealers, unsealers, and dynamically linked resources that are themselves isolated. Isolation is NOT the same as purity. An isolated function may cause effects so long as it receives effectful capabilities as arguments. By design, every function in the AO language is isolated.
+ 
+         {&isolated} :: (block * e) → (block * e)
+         assertIsolated :: block -- block
+ 
+ Isolation is not difficult to enforce dynamically or statically. Of course, as with all annotations, enforcement is strictly optional. In addition to enforcing isolation, the declaration can support optimizers by allowing them to assume isolation.
+~
+@assertIsolated %r {&isolated} %l
+
+@doc.assertPure
+"The `{&pure}` annotation declares that a block should neither observe or influence world state when evaluated. Similar to isolation, the block may use annotations, sealers, unsealers, and dynamically linked resources. However, purity doesn't imply the block is isolated, rather that it simply doesn't use any of the capabilities it can access.
+ 
+         {&pure} :: (block * e) → (block * e)
+         assertPure :: block -- block
+ 
+ In the absence of a Haskell-like type system, purity is relatively difficult to statically validate compared to isolation. Purity requires a fairly precise analysis of data flow, and is frequently 'viral' by implying requirements on the arguments. That said, purity isn't especially difficult to enforce dynamically, e.g. by sandboxing a computation. In addition to enforcing purity, a purity declaration can support optimizers by allowing them to assume purity. However, if all you want is the optimizations, you should consider `assertSafe` instead of `assertPure`.
+~
+@assertPure %r {&pure} %l
+
+@doc.assertSafe
+"The `{&safe}` annotation declares that a block should not influence world state in any significant manner. I'm using the word 'safe' here in the same sense that W3C describes the HTTP methods GET and HEAD to be safe. Compared to purity, safety is a strictly weaker property. Safe but impure computations may observe world state. 
+ 
+         {&safe} :: (block * e) → (block * e)
+         assertSafe :: block -- block
+ 
+ Similar to purity, safety can be difficult to validate statically, but is not especially difficult to enforce dynamically. Declaration of safety can also support optimizers. Safety allows optimizations such as dead code elimination and a restricted form of lazy evaluation (where laziness might be restricted to a particular transaction). This complements ABC's universal properties of causal commutativity and spatial idempotence.
+~
+@assertSafe %r {&safe} %l
+
+@doc.lazy
+"The `{&lazy}` annotation suggests that a computation involving a block should be delayed until we know the result is needed. However, it's a weak suggestion. If you really want laziness, you should model it explicitly, e.g. capturing computations with quotation and composition.
+ 
+         {&lazy} :: (block * e) → (block * e)
+         lazy :: block -- block
+ 
+ Note that `{&lazy}` implies `{&safe}`. Annotations, including `{&lazy}`, are not permitted to affect observable behavior of programs, and safety is necessary to ensure that laziness doesn't impact observable behavior. See `assertSafe`.
+~
+@lazy %r {&lazy} %l
+
 
 @doc.prefix.compile!
 "If you define word `compile!foo` this can act as a directive that the AO system should separately compile the word `foo`. The definition of `compile!foo` should be left empty, at least for now. The `compile!` word may later provide opportunity for optimization directives.
@@ -127,7 +168,7 @@
  To resist confirmation attacks, we can mix in a 'convergence secret', e.g. some high entropy text, with the ABC resource. If we add a 192-bit secret, the cost of a confirmation attack would increase by a factor of roughly 2^192. For compression, a 192-bit convergence secret might be encoded in ABC's base 16 as:
  
      "bpgzmjkydmfyfdhdhptzmnbpdjkndjnsgdjyzpxbsypshqfk
-     ~%
+     ~{&secret}%
  
  A convergence secret should be deterministic, stable across compiles, and cryptographically secure. A simple HMAC of an external secret together with the protected code would work well enough. The `secret!` prefix acts as a directive to the AO compiler. If the word `secret!foo` is defined, then a convergence secret should be generated for when including code for `foo` in a resource. The directives may be used in other ways, too, such as constraining exports.
  
