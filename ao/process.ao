@@ -25,7 +25,7 @@ loops blocks streams lists
  4. cannot short-circuit or terminate
  5. opaque; hinders structural optimizations
  
- These concerns should eventually be addressed by subsequent models, such as ElasticProcesses. However, KISS principle applies. Despite these limitations, the simple process model can be useful. The simple process model proposed here will be developed under suffix `.p0`, and may easily coexist with more sophisticated models.
+ These concerns should eventually be addressed by subsequent models, such as ElasticProcesses. However, KISS principle applies. Despite these limitations, the simple process model can be useful. The simple process model proposed here will be developed under suffix `.p0`, and may easily coexist with more sophisticated models. More sophisticated models include elastic processes  and [machines](https://dl.dropboxusercontent.com/u/4588997/Machines.pdf). I think it may be useful to model machine composition.
 ~
 @doc.suffix.p0 doc.Processes
 
