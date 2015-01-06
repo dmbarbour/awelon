@@ -15,7 +15,7 @@
 
 @doc.toBoolean "(a+b) -- Bool; (droppable a, droppable b)"
 @toBoolean %r toBoolean\1e %l
-@toBoolean\1 %v toBoolean\1e %l
+@toBoolean\1 %v toBoolean\1e %c
 @doc.toBoolean\1e "(a+b)*e → (1+1)*e; droppable a, droppable b"
 @toBoolean\1e %vvrwlcD trimBoolean\1e
 
