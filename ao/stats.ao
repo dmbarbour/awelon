@@ -9,10 +9,8 @@
 ~
 @new.stats 0 0 0 pw pw seal.stats
 
-@sealer.stats [{:stats}]
-@unsealer.stats [{.stats}]
-@seal.stats   %r sealer.stats   %r$l
-@unseal.stats %r unsealer.stats %r$l
+@seal.stats   %r {:stats} %l
+@unseal.stats %r {.stats} %l
 
 @doc.add.stats "stats number -- stats"
 @add.stats 

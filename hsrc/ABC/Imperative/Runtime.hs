@@ -24,13 +24,17 @@ instance Runtime IO
 -- actions. Otherwise, it will fail with appropriate message.
 invokeDefault :: (Monad cx) => String -> Prog cx
 invokeDefault ('&':anno) = invokeAnno anno
-invokeDefault s@(':':_) = return . (S s)
+invokeDefault s@(':':_) = seal s
 invokeDefault ('.':s) = unseal s
 invokeDefault tok = fail . emsg where
     emsg v = "{" ++ tok ++ "} token not recognized @ " ++ show v
 
+seal :: (Monad cx) => String -> V cx -> cx (V cx)
+seal s (P v e) = return (P (S s v) e)
+seal s v = fail $ "{" ++ s ++ "} (seal) @ " ++ show v
+
 unseal :: (Monad cx) => String -> V cx -> cx (V cx)
-unseal s (S (':':s') v) | (s == s') = return v
+unseal s (P (S (':':s') v) e) | (s == s') = return (P v e)
 unseal s v = fail $ "{." ++ s ++ "} (unseal) @ " ++ show v
 
 -- default annotations... only one right now

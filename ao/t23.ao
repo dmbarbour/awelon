@@ -15,8 +15,8 @@
 ~
 @doc.suffix.t23 doc.TwoThreeTree
 
-@seal.t23   %r [{:t23}] %r$l
-@unseal.t23 %r [{.t23}] %r$l
+@seal.t23   %r {:t23} %l
+@unseal.t23 %r {.t23} %l
 @seald.t23   .rw seal.t23 .wl
 @unseald.t23 .rw unseal.t23 .wl
 

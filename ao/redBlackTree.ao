@@ -22,8 +22,8 @@ lispy plumbing loops conditionals
 
 @doc.suffix.rbt doc.RedBlackTree
 
-@seal.rbt   %r [{:rbt}] %r$l
-@unseal.rbt %r [{.rbt}] %r$l
+@seal.rbt   %r {:rbt} %l
+@unseal.rbt %r {.rbt} %l
 
 @seald.rbt .rw seal.rbt .wl
 @unseald.rbt .rw unseal.rbt .wl

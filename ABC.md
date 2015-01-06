@@ -73,8 +73,8 @@ There are some common conventions based on prefix characters. For example:
 
         {&foo}  :: a → a                - annotation capability
 
-        {:foo}  :: a → Sealed foo a     - sealer capability
-        {.foo}  :: Sealed foo a → a     - unsealer capability
+        {:foo}  :: (a*e) → ((foo:a)*e)  - discretionary sealer
+        {.foo}  :: ((foo:a)*e) → (a*e)  - discretionary unsealer
 
         {:format$leftKey}               - cryptographic sealer
         {.format$rightKey}              - cryptographic unsealer
@@ -90,15 +90,11 @@ While annotations are not strongly standardized, it's nice to avoid conflicts an
 
         {&≡}  (that's U+2261) - (a*(a*e))→(a*(a*e)); assert structural equality
         {&static}             - (a*e)→(a*e); try to compute `a` at compile time
-        {&asynch}             - [a→b]→[a→b]; compute block in parallel
-        {&compile}            - [a→b]→[a→b]; optimize performance for block
+        {&asynch}             - ([a→b]*e)→([a→b]*e); compute block in parallel
+        {&compile}            - ([a→b]*e)→([a→b]*e); optimize performance for block
 
         {&debug print raw}    - print ad-hoc input to error console (for human) 
         {&debug print text}   - print textual input to error console (for human)
-
-        {&+location desc}     - stack frame entry, for debugging (by compiler)
-        {&-location desc}     - stack frame exit, for debugging (by compiler)
-        {&~location desc}     - near the described location (no framing)
 
 In general, annotations may be ignored by an environment that doesn't recognize them, and are discretionary within environments that do recognize them. Annotations always have an identity type, and should have no observable impact on a correct program's behavior (modulo performance, debugger integration, etc.). 
 

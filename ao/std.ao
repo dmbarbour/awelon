@@ -234,12 +234,12 @@
 @doc.ValueSealing
 "AO allows seal/unseal actions to be hard-coded using inline ABC. These are represented as:
  
-         {:foo} :: a → Sealed foo a     seal value with 'foo'
-         {.foo} :: Sealed foo a → a     unseal value with 'foo'
+         {:foo} :: (a*e) → ((foo:a)*e)  seal value with 'foo'
+         {.foo} :: ((foo:a)*e) → (a*e)  unseal value with 'foo'
  
- A sealed value is like wrapping a letter in an envelope. In case of discretionary sealers like `{:foo}`, this envelope isn't very secure, but you can at least prevent accidental dependencies on the underlying data - and it's easy to search for all code that unseals a value.
+ A sealed value is like wrapping a letter in an envelope. In case of discretionary sealers like `{:foo}`, this envelope isn't very secure, but you can at least prevent accidental dependencies on the underlying data - and it's easy to search for all code that unseals a value. Aside: I've made a recent change to the structure of sealers, to now operate on a `val*env` pair and thus not requiring the full wrapper.
  
- For secure value sealing, we shall reserve the symbol `$`. This works as follows:
+ For secure value sealing, we shall utilize symbol `$`, as follows:
  
          {:format$leftKey}              seal value cryptographically
          {.format$rightKey}             unseal cryptographic sealed value
@@ -249,7 +249,7 @@
  
  Serializations of sealed values:
  
-         #42 [{:foo}]$                  discretionary sealed value
+         #42{:foo}                      discretionary sealed value
          ["cipherText\n~c]f{$fmt}       cryptographically sealed affine value
  
  Discretionary sealers are simply serialized to bytecode as normal, then sealed again on the remote VM. The data remains accessible for introspection, reflection, and debugging. Discretionary sealers serve many useful roles such as resisting accidental data couplings, aiding a typechecker, or providing hints to a rendering or representation system.
@@ -260,10 +260,11 @@
  
  Sealers and unsealers of either kind may be hard-coded into the dictionary. Hard coding of secure sealers is most interesting when the other end is known by a remote service. Sealed values, however, may not be directly encoded in AO.
 ~
-@sealer [{:}]
-@unsealer [{.}]
-@seal %r sealer %r$l
-@unseal %r unsealer %r$l
+
+@doc.seal "a -- :a; anonymous discretionary seal; see doc.ValueSealing"
+@doc.unseal ":a -- a; unseal a value sealed by 'seal'; see doc.ValueSealing"
+@seal %r {:} %l
+@unseal %r {.} %l
 
 @doc.ConcurrencyInAO
 "AO has a natural capacity for parallelism (see @doc.CausalCommutativity). Concurrency is related, but is a different concept from parallelism. With concurrency, we have independently specified subprograms interacting in a shared environment. 

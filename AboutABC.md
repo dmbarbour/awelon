@@ -387,10 +387,10 @@ Stability is readily achieved using a filepath/URL metaphor: when 'forking' a un
 
 Value sealing is a simple technique with very wide applications. The setup is simple. We have two capabilities - a 'sealer' and the corresponding 'unsealer'. At runtime, these may be allocated as a pair, using a secure uniqueness source (see above). 
 
-        {:u} :: a → Sealed u a        `:` for seal
-        {.u} :: Sealed u a → a        `.` for unseal
+        {:u} :: (a*e) → ((u:a)*e)     `:` for seal
+        {.u} :: ((u:a)*e) → (a*e)     `.` for unseal
 
-Some sealers will be weak, discretionary tags like `{:foo}`, which serve a useful role as something like a structural type tag to resist accidental coupling to internal data structures or provide hints to a rendering engine. Other sealers may be very strong, using cryptographic keys. We'll reserve symbol `$` for cryptographic sealers:
+Some sealers will be weak, discretionary tags like `{:foo}`, which serve a useful role as something like a structural type tag to resist accidental coupling to internal data structures or provide hints to a rendering engine. Other sealers may be very strong, using cryptographic keys. We reserve symbol `$` for cryptographic sealers:
 
         {:format$leftKey}             cryptographic sealer
         {.format$rightKey}            cryptographic unsealer
@@ -400,7 +400,7 @@ Here, format might be something like 'ecc.secp256k1', indicating how the argumen
 
 Serialization formats for discretionary vs. cryptographic sealed values:
 
-        #42 [{:foo}]$                 discretionary sealed value, clearly 42
+        #42{:foo}                     discretionary sealed value, clearly 42
         ["cipherText\n~c]f{$fmt}      cryptographically sealed affine value
 
 For discretionary values, we'll serialize values directly into ABC then seal it again at the remote host. Discretionary sealed values are generally accessible to reflective and introspective capabilities even without properly unsealing them.

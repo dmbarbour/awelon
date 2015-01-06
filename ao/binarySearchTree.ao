@@ -14,8 +14,8 @@ lists streams
 @doc.suffix.bst doc.BinarySearchTree
 
 @doc.seal.bst "for debugging only; will probably remove seal later"
-@seal.bst   %r [{:bst}] %r$l
-@unseal.bst %r [{.bst}] %r$l
+@seal.bst   %r {:bst} %l
+@unseal.bst %r {.bst} %l
 @seald.bst   .rw seal.bst .wl
 @unseald.bst .rw unseal.bst .wl
 

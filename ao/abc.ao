@@ -212,15 +212,15 @@
 ~
 
 @doc.invocations.abc
-"ABC can call out to the environment by using special curly brace operators of the form `{foo}`. This will invoke the environment with token 'foo' and the tacit value. ABC cannot forge the token, i.e. no primitive ABC operators permit moving from "foo" as text to {foo} as an operator. 
+"ABC can call out to the environment by using special curly brace operators of the form `{foo}`. This will invoke the environment with token 'foo' and the tacit value. ABC cannot forge the token, i.e. no primitive ABC operators permit moving from "foo" as text to `{foo}` as an operator. 
  
- It is recommended that implementations for open systems favor cryptographically secure text - i.e. encrypted or signed text (via HMAC or PKI). Consequently, the text between the curly braces is often called "capability text". When wrapped in a block like [{foo}], these invocations become first-class, transferrable and cryptographically securable capabilities.
+ It is recommended that implementations for open systems favor cryptographically secure text - i.e. encrypted or signed text (via HMAC or PKI). Consequently, the text between the curly braces is often called "capability text". When wrapped in a block like `[{foo}]`, these invocations become first-class, transferrable and cryptographically securable capabilities.
  
  AO permits hard-wiring a few classes of invocations. Specifically:
  
- * {&foo} - annotations; to tweak performance or support debugging or typing
- * {:foo} - value sealing; ad-hoc discretionary sealers act as type wrappers
- * {.foo} - unseal a value previously sealed with {:foo}
+ * `{&foo}` - annotations; to tweak performance or support debugging or typing
+ * `{:foo}` - value sealing; ad-hoc discretionary sealers act as type wrappers
+ * `{.foo}` - unseal a value previously sealed with {:foo}
  
  AO can also indirectly utilize `{#resourceId}` separate compilation and linking, via `compile!foo` directives. Resource identifiers are derived from the secure hash of the bytecode and of its compressed, encrypted distribution form.
  

@@ -190,8 +190,8 @@ instance Quotable (V cx) where
         code = quotes . BL . S.toList . b_code 
         k = if (b_rel b) then quotes Op_rel else id
         f = if (b_aff b) then quotes Op_aff else id
-    quotes (S s v) = quotes v . quotes sealer . quotes Op_ap where
-        sealer = BL [Tok s]
+    quotes (S s v) = quotes v . quotes sealer where
+        sealer = Tok s
 
 copyable :: V cx -> Bool
 copyable (N _) = True

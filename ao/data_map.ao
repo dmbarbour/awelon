@@ -24,8 +24,8 @@ ord t23 redBlackTree aatree binarySearchTree
 ~
 @doc.suffix.m doc.DataMaps
 
-@seal.m   %r [{:m}] %r$l
-@unseal.m %r [{.m}] %r$l
+@seal.m   %r {:m} %l
+@unseal.m %r {.m} %l
 @seald.m   .rw seal.m   .wl
 @unseald.m .rw unseal.m .wl
 
