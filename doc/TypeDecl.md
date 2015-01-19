@@ -23,6 +23,8 @@ But I'm not very fond of this approach because it requires explicit maintenance 
 
 Asserting equality of values can be useful, for example when dealing with types parameterized by functions. Examples of such types include a map with a user-provided key comparison function. A small set of useful, simple annotations could possibly go far for type declarations. 
 
+Other good possibilities for typing tactics or strategies may exist.
+
 ## Naming Conventions
 
 Awelon Object (AO) language makes heavy use of naming conventions, e.g. for automatic testing and documentation. Adding a naming convention like `type.` or `typeOf.` would not be a stretch. Perhaps we could use `typeOf.word` to implicitly declare a type for a specific word (in a manner the IDE can track), while `type.` might operate on an arbitrary block (and be considered a form of testing).

@@ -22,6 +22,7 @@ lispy
 @id 
 @dup  %r^zlwl
 @dupd .rw dup .wl 
+@dupdd .rw dupd .wl
 @over dupd swap
 @tuck dup swapd
 @pick .rw over .wl swap

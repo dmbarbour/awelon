@@ -51,6 +51,12 @@ boolean
 @doc.condSelect "(a+b) x y -- a x OR b y; select one value, and merge the other"
 @condSelect p distrib %r [%rwl] %r?l merge x fst
 
+@doc..eitherBind "(a+b) [(a*e)→e'] [(b*e)→e'] -- ([e→e']+[e→e'])"
+@.eitherBind pw distrib %r [%rw%vrw'oc] %r?VRW [%r%vrw'oc] %r?WLC %l
+
+@doc.eitherBind "(a+b) [..e a -- ..e'] [..e b -- ..e'] -- ([..e--..e']+[..e--..e'])"
+@eitherBind .rw [%l] composel .wl [%l] composel .eitherBind
+
 @doc.condSelect_ "(a+b) x y -- x (if in a) OR y (if in b); select value and drop condition"
 @condSelect_ p distrib %r [%rwl] %r?FMw%l fst
 
@@ -71,9 +77,9 @@ boolean
 @doc.ifk "..a (L+R) [..a L -- ..b] [..a R -- ..b] -- ..b (L+R); see @doc.if"
 @doc.ifd "..a (L+R) [..a -- ..b]   [..a -- ..b]   -- ..b (L+R); see @doc.if"
 
-@if  condSelect inline
+@if  eitherBind merge inline
 @if_ condSelect_ inline
-@ifk condSwap drop dupd merged swapd dip
+@ifk dupdd eitherBind merge dip
 @ifd condSwap drop dip
 
 @test.if 

@@ -1,6 +1,24 @@
 (in a state of slow destruction)
 
 
+To support external adapters, the first thing we need to do is abandon the `public static void main(args)` model for applications. That particular 'type' of application forces us to use adapters based on 'calling out' to platform-specific content. We need a type that is more sophisticated, that has enough features that we can wrap something around it rather than only tweak it internally. The 'type' of an application should thus be an object, or even a pure function. I am especially interested in purely functional objects, i.e. functions without side-effects of types like:
+
+    type Object = (Method → (Object, Result)).
+
+This idea is available in more sophisticated varieties, e.g. based on which 'common methods' we want to support, and whether we want to model side-effects using algebraic effects or similar. A more mature option is the 'machines' model presented by Rúnar Óli Bjarnason [1] and implemented as a haskell library by Edward Kmett [2].
+
+This isn't a new idea. The WAI application [3] is a concrete example of an application 'type' oriented towards web servers, and implemented for many 'platforms' like Warp and FastCGI. WAI focuses on HTTP requests and responses. Other application 'types' might focus on user input and display. I think it would only take a handful of application types to cover all the common scenarios from various user applications to services to robotic control and home automation.
+
+The general principle:
+
+**Instead of internal adapters to different platform-types, external adapters to different application-types.**
+
+We never 'escape' to write native code. But we might gradually evolve new application types, and perhaps leverage algebraic effects.
+
+Besides being portable and cross-platform, an advantage of a sophisticated application 'type' is that applications themselves become more readily composable into larger applications and systems. It's easy to combine a record of WAI apps into a larger app with many URL directories. In comparison, it's stupidly difficult to directly compose `int main(args)` in a useful manner.
+
+
+
 Reactive Demand Effects
 -----------------------
 
