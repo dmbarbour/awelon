@@ -297,6 +297,9 @@ stdenv
 @bind3rd [unrot] composel bind
 @bind4th [unroll] composel bind
 
+@doc..prebind_l "[((a*s)*e)→e'] -- [(a*(s*e))→e']"
+@.prebind_l %r [%l] %rol
+
 @.curry [.bind] bind
 @curry  [bind]  bind
 @curry2 [bind curry] bind

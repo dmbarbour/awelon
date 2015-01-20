@@ -55,7 +55,7 @@ boolean
 @.eitherBind pw distrib %r [%rw%vrw'oc] %r?VRW [%r%vrw'oc] %r?WLC %l
 
 @doc.eitherBind "(a+b) [..e a -- ..e'] [..e b -- ..e'] -- ([..e--..e']+[..e--..e'])"
-@eitherBind .rw [%l] composel .wl [%l] composel .eitherBind
+@eitherBind .prebind_l .rw .prebind_l .wl .eitherBind
 
 @doc.condSelect_ "(a+b) x y -- x (if in a) OR y (if in b); select value and drop condition"
 @condSelect_ p distrib %r [%rwl] %r?FMw%l fst

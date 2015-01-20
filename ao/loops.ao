@@ -94,7 +94,7 @@
  NOTE: Loops in Awelon are required to terminate. The proof burden for termination ultimately falls on the programmer, but a compiler or linter is allowed to issue errors if it can prove non-termination, or warnings if it cannot prove termination. Long running behaviors in Awelon project are modeled with an *implicit* top-level loop, e.g. with RDP or a process object.
 ~
 @fixpoint fixpoint#v4
-@fixpoint#v4 %r [%l] %rol .fixfirst
+@fixpoint#v4 .prebind_l .fixfirst
 @fixpoint#v3 %r' [%^'ow^'zo %zlw %vr$c] %r^'owol
 @fixpoint#v2 %r [%^'ol] %ro %^'ol
 @fixpoint#v1 [dup bind] composel dup bind
