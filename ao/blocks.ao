@@ -216,12 +216,12 @@ stdenv
 @compressArgs dpw [wx] composel
 
 @apply0to1 apply0to1.std.env
-@apply0to2 [pw] compose apply0to1 wx
-@apply0to3 [pw] compose apply0to2 wx
-@apply0to4 [pw] compose apply0to3 wx
-@apply0to5 [pw] compose apply0to4 wx
-@apply0to6 [pw] compose apply0to5 wx
-@apply0to7 [pw] compose apply0to6 wx
+@apply0to2 .postbind_pw apply0to1 wx
+@apply0to3 .postbind_pw apply0to2 wx
+@apply0to4 .postbind_pw apply0to3 wx
+@apply0to5 .postbind_pw apply0to4 wx
+@apply0to6 .postbind_pw apply0to5 wx
+@apply0to7 .postbind_pw apply0to6 wx
 
 @apply0to0 apply0to0.std.env
 
