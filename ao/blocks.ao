@@ -100,12 +100,14 @@ stdenv
 @eqv.keep6 [take dup6 put dip6] [keep6]
 
 @apply1to1 apply
-@apply1to2 [pw] compose apply1to1 wx 
-@apply1to3 [pw] compose apply1to2 wx
-@apply1to4 [pw] compose apply1to3 wx
-@apply1to5 [pw] compose apply1to4 wx
-@apply1to6 [pw] compose apply1to5 wx
-@apply1to7 [pw] compose apply1to6 wx
+@apply1to2 .postbind_pw apply1to1 wx 
+@apply1to3 .postbind_pw apply1to2 wx
+@apply1to4 .postbind_pw apply1to3 wx
+@apply1to5 .postbind_pw apply1to4 wx
+@apply1to6 .postbind_pw apply1to5 wx
+@apply1to7 .postbind_pw apply1to6 wx
+
+@.postbind_pw %r [pw] %rwol
 
 @apply1to1d roll2 apply1to1
 @apply1to2d roll2 apply1to2
@@ -401,10 +403,10 @@ stdenv
 @test..tri 5 6 7 [mul2\1] .tri 14 assertEQ1.n 12 assertEQ1d.n 10 assertEQ1dd.n
 
 
-@doc.bi* "apply 2 blocks each to respective input"
+@doc.bi* "apply 2 blocks each to 1 respective input"
 @doc.bi2* "apply 2 blocks each to 2 respective inputs"
 @doc.bi3* "apply 2 blocks each to 3 respective inputs"
-@doc.tri* "apply 3 blocks each to respective input"
+@doc.tri* "apply 3 blocks each to 1 respective input"
 @doc.tri2* "apply 3 blocks each to 2 respective inputs"
 @doc.tri3* "apply 3 blocks each to 3 respective inputs"
 @bi* [dip] dip inline
