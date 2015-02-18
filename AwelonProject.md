@@ -42,15 +42,17 @@ An alternative is to understand programs as something more like a physical machi
 
 A hypothesis of Awelon project is that a code-as-material metaphor will better serve unification of PX and UX. Users should gain a fair comprehension of software components through experience and exposure. A little education or experiment would help fill the gaps.
 
-Of course, like physical material, not all code is easy to use or understand. 
+Of course, like physical material, not all code is easy to use or understand. Like glass, code can be fragile, difficult to modify or extend. Like roots of a tree, code can be deeply entangled with its environment, difficult to extract, or reuse. Like water and cesium, not all code is safe for use in the same system. As programming materials go, we want the analog of [Lego](http://en.wikipedia.org/wiki/Lego) or [Meccano](http://en.wikipedia.org/wiki/Meccano), except cheaper to copy and share.
 
-Like glass, code can be fragile, difficult to modify or extend. Like roots of a tree, code can be deeply entangled with its environment, difficult to extract, or reuse. Like water and cesium, not all code is safe for use in the same system.
-
-As programming materials go, we want the analog of [Lego](http://en.wikipedia.org/wiki/Lego) or [Meccano](http://en.wikipedia.org/wiki/Meccano), except cheaper to copy and share.
-
-Much of Awelon project's design has been oriented around developing code that is safe and easy to modify, extend, disentangle, extract, reuse, and reason about with global principles. The result is [Awelon Bytecode](AboutABC.md). 
+Much of Awelon project's design has been oriented around developing code that is safe and easy to modify, extend, disentangle, extract, reuse, and reason about with global principles. The result is [Awelon Bytecode](AboutABC.md) and [Awelon Object](AboutAO.md) languages.
 
 See also: Conal Elliott's [Tangible Functional Programming](http://conal.net/papers/Eros/).
+
+## Quality through Quantity
+
+While there is much open source code available today, it is typically difficult to access or reuse in a different context than it was originally developed. Hurdles to reuse include packaging models, entangled dependencies, import boiler plate, namespaces, hidden side-effects. But if we could dodge those problems, then [quantity becomes a major asset](https://lukepalmer.wordpress.com/2010/07/22/programming-for-a-culture-approaching-singularity/).
+
+Awelon project languages are designed to mitigate and avoid these issues. Communities and individuals maintain dictionaries of words, and those words are easily shared and adopted. Users have the full power of their community at their fingertips and will be capable of expressing interesting applications in the space of a tweet or URL, limited more by knowledge and imagination than by artificial hurdles. 
 
 ## A new HCI model
 
