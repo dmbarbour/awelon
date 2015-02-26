@@ -453,6 +453,24 @@ For ABC resources, we require *deterministic* compression - i.e. the same input 
 
 *ASIDE:* A remaining vulnerability is confirmation attacks [1](https://tahoe-lafs.org/hacktahoelafs/drew_perttula.html)[2](http://en.wikipedia.org/wiki/Convergent_encryption). An attacker can gain low-entropy information - e.g. a bank account number - by exhaustively compressing and hashing candidates and confirming whether the name exists in the system. To resist this, a compiler should add entropy to potentially sensitive resources via annotation or embedded text. Distinguishing sensitive resources is left to higher level languages and conventions, e.g. in AO we define word `secret!foo` for every sensitive word `foo`.
 
+#### Specialization: Value Linking
+
+A useful case for specialization is to link ABC code who behavior has type `e → value * e` for some arbitrary value, i.e. the same type as a text literal or a quoted value. Once we recognize this special case, we are free to load the value lazily or in parallel. Structure sharing and memcaching becomes trivial. If we know content is a value, we might also try to copy or delete that value, so knowing whether the value is affine or relevant is very useful. So I propose some simple metadata, as a suffix for the secure identifier:
+
+
+        {#secureResourceIdentifier'kf}
+
+The valid suffixes:
+
+        '               normal value
+        'k              relevant value
+        'f              affine value
+        'kf             linear value
+
+Usefully, this technique is compositional. I.e. if we build a value from smaller named values, we can compute whether the composite is affine, relevant, or linear without loading any of the values. Other type information could be left to separate annotations, since it is less essential for reasoning about data plumbing behavior. 
+
+Lazy linking and loading of large, content-addressed data is essential for working with very large structures and values, i.e. much larger than machine memory.
+
 ### ABC Paragraphs
 
 ABC encourages an informal notion of "paragraphs" at least in a streaming context. A paragraph separates a batch of code, serving as a soft indicator of "this is a good point for incremental processing". A well-behaved ABC stream should provide relatively small paragraphs (up to a few kilobytes), and a well-behaved ABC stream processor should respect paragraphs up to some reasonable maximum size (e.g. 64kB) and heuristically prefer to process a whole number of paragraphs at a time. The batch would be typechecked, JIT compiled, then (ideally) applied atomically. 
