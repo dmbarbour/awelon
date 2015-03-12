@@ -28,5 +28,10 @@ sz (Op_w : Op_z : l) (Op_z : r) = -- zwz = wzw
     sz l (Op_w : Op_z : Op_w : r) 
 sz (Op_W : Op_Z : l) (Op_Z : r) = -- ZWZ = WZW
     sz l (Op_W : Op_Z : Op_W : r) 
+
+-- inline functions...
+sz (BL ops : l) (Op_v : Op_r : Op_ap : Op_c : r) = sz l (ops ++ r)
+sz (BL ops : Op_v : l) (Op_ap : Op_c : r) = sz l (ops ++ r)
+
 sz l (op:r) = sz (op:l) r -- no simplifications found; move on
 sz l [] = reverse l -- all done!
