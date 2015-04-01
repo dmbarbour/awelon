@@ -82,11 +82,11 @@ lispy plumbing loops conditionals
  assertBlack.rbt hapc rot 
  assertBlack.rbt hap 
  swapd assertEQ1.n
- dpw dpw dpw
+ dpw dpw dpw 
 
 @doc.size.rbt "e'RBT -- e'RBT Nat; compute number of nodes in red-black tree"
 @size.rbt [t.size.rbt] take hfix hap
-@t.size.rbt unseal.rbt [inL 0 discard] [n.size.rbt] if seald.rbt
+@t.size.rbt unseal.rbt [inL 0 discard] [n.size.rbt inRd] if seald.rbt
 @n.size.rbt 
  wx wx x 
  hapc rot hap 
