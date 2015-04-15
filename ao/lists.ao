@@ -260,14 +260,14 @@
 @doc.nub.l "remove duplicate values from list"
 @nub.l [step.nub.l] fixpoint apply
 @step.nub.l swap [action.nub.l] [nip inR] if
-@action.nub.l x copy remove.l swap inline put cons.l
+@action.nub.l x copy remove.l swap apply put cons.l
 @test.nub.l "hello, world!" nub.l "helo, wrd!" assertTextEQ1
 @eqv.idempotent.nubList [nub.l] [nub.l nub.l]
 
 @doc.nubBy.l "a`L [eq(a a -- Bool)] -- a`L; value a, provide eq function"
 @nubBy.l [step.nubBy.l] bind fixpoint apply
 @step.nubBy.l rot [action.nubBy.l] [nip2 inR] if
-@action.nubBy.l x copy rot bind partitionBy.l drop swap inline put cons.l
+@action.nubBy.l x copy rot bind partitionBy.l drop swap apply put cons.l
 @test.nubBy.l "hello, world!" [eqb] nubBy.l "helo, wrd!" assertTextEQ1
 
 @doc.sortBy.l "a`L [lt(a a -- Bool)]; sort list of values given a less-than function (a a -- Bool)"
