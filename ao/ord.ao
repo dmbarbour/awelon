@@ -83,7 +83,7 @@
 @-ab.compareStreams drop2 discard2 intro1 inL
 
 @doc.compareTexts "text text -- Ord; compare texts lexicographycally by codepoint order"
-@compareTexts [rawCompareNumbers'] compareLists toOrd
+@compareTexts [rawCompareNumbers] compareLists toOrd
 
 @doc.mkCompareLists "[(a*a)→Ord] -- [(a`L * a`L)→Ord]"
 @doc.mkCompareStreams "[(a*a)→Ord] -- [(a`S * a`S)→Ord]"
