@@ -41,7 +41,7 @@
 @compareUnits %c .inL
 @compareProds 
  .rw .rw dx x swapd pw dpw .wl .apply
- [drop .wl .apply] [inR .wl drop] if
+ [drop .wl .apply] [inR .wl drop dropd] if
 @compareSums .rw .rw [?l.compareSums] [?r.compareSums] if
 @?l.compareSums .rw [.wl ll.compareSums] [.wl rl.compareSums] if
 @?r.compareSums .rw [.wl lr.compareSums] [.wl rr.compareSums] if
