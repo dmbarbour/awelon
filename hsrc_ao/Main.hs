@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards, ViewPatterns #-}
+{-# LANGUAGE PatternGuards, ViewPatterns, OverloadedStrings #-}
 
 -- | The `ao` command line executable, with many utilities for
 -- non-interactive programming. 
@@ -8,12 +8,16 @@ module Main
 
 import Control.Applicative
 import Control.Monad
-
+import Data.Monoid
 import Data.Ratio
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.List as L
 import qualified Data.Sequence as S
+
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Set as Set
 
 import qualified Data.IORef as IORef
 
@@ -22,12 +26,14 @@ import qualified System.IO as Sys
 import qualified System.Exit as Sys
 import qualified System.Environment as Env
 import qualified Text.Parsec as P
+import qualified Data.Decimal as Decimal
 
 import ABC.Simplify (simplify)
 import ABC.Operators
 import ABC.Resource
 import ABC.Imperative.Value
 import ABC.Imperative.Interpreter
+import ABC.Quote
 import AO.Dict
 import AO.Code
 import AO.AOFile
@@ -67,6 +73,7 @@ helpMsg =
     \    (Experimental Modes) \n\
     \    \n\
     \    ao ss command         pure octet stream transform (stdin -- stdout) \n\
+    \    ao aodict             dump '.ao' export file for Wikilon\n\
     \\n\
     \All 'exec' operations use the same powers and environment as `aoi`. \n\
     \Streams process stdin to stdout, one AO or ABC paragraph at a time. \n\
@@ -122,6 +129,7 @@ runMode ["uses",ptrn]    = listUses ptrn
 runMode ["defs",ptrn]    = listDefs ptrn
 runMode ["def",word]     = printDef word
 runMode ["test"]         = runAOTests (return . interpret . simplify)
+runMode ["aodict"]       = dumpAODict
 --runMode ["test.jit"]     = runAOTests (abc_jit . simplify)
 runMode _ = putErrLn eMsg >> Sys.exitFailure where
     eMsg = "arguments not recognized; try `ao help`"
@@ -461,4 +469,54 @@ runTypeW w code = Sys.putStrLn (T.unpack w ++ " :: " ++ msg) where
 
 -}
 
+dumpAODict :: IO ()
+dumpAODict = getDict >>= LBS.hPutStr Sys.stdout . renderAODict
 
+aodefToABC :: AO_Code -> [Op]
+aodefToABC = L.concatMap opToABC where
+    opToABC (AO_Word w) = return (Tok ('%' : T.unpack w))
+    opToABC (AO_Block ops) = [BL (aodefToABC ops), Tok "%block"]
+    opToABC (AO_Num r)
+        | (1 == denominator r) = integer r
+        | Just d <- toDecimal r = decimal d
+        | otherwise = ratio r
+    opToABC (AO_Text s) = [TL s, Tok "%literal"]
+    opToABC (AO_ABC op) = [aopToABC op]
+    opToABC (AO_Tok t) = [Tok t]
+    integer n = quote n <> [Tok "%integer"]
+    decimal d = 
+        integer (Decimal.decimalMantissa d) <>
+        integer (toInteger $ Decimal.decimalPlaces d) <>
+        [Tok "%decimal"]
+    ratio r =
+        integer (numerator r) <>
+        integer (denominator r) <>
+        [Tok "%ratio"]
+
+
+-- | attempt to reasonably render AO code into the AODict format.
+renderAODict :: Dict -> LBS.ByteString
+renderAODict d = BB.toLazyByteString $ render Set.empty lw where
+    dm = readAODict d
+    kw = ["integer","literal","block","ratio","decimal"]
+    lw = kw ++ M.keys dm
+    renderText = BB.stringUtf8 . T.unpack
+    renderLine w = 
+        BB.char8 '@' <> renderText w <> BB.char8 ' ' <> 
+        renderDef w <> BB.char8 '\n'
+    renderDef w = case M.lookup w dm of
+        Nothing -> mempty
+        Just def -> BB.stringUtf8 $ "[" ++ show (aodefToABC (fst def)) ++ "][]"
+    render _ [] = mempty
+    render s ws@(w:ws') =
+        if Set.member w s then render s ws' else  
+        let lDeps = maybe [] (aoWords . fst) $ M.lookup w dm in
+        let lNewDeps = L.filter (`Set.notMember` s) $ lDeps in
+        let bHasNewDeps = not (L.null lNewDeps) in
+        if bHasNewDeps then render s (lNewDeps ++ ws) else
+        renderLine w <> render (Set.insert w s) ws'
+    
+toDecimal :: Rational -> Maybe Decimal.Decimal
+toDecimal r = case Decimal.eitherFromRational r of
+    Right d -> Just d
+    _ -> Nothing

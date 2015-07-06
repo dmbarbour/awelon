@@ -89,7 +89,7 @@
  
  When invoked, the function `foo` has access to itself (in fixpoint form) as a block on the stack. 
  
- Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming programs and AO's simple 'inline everything' semantics. Unfortunately, expressing loops in this manner is relatively awkward, and a direct interpretation will be less efficient than a stored program's jump based loops. The performance issue can be mitigated by a compiler. The awkwardness should be avoided by developing libraries for collection-oriented programming, such that most loops become implicit to processing of collections.
+ Loops are expressed this way in Awelon to avoid reliance on a namespace, to support streaming programs and AO's simple 'inline everything' semantics. Unfortunately, expressing loops in this manner is relatively awkward for humans, and a direct interpretation will be less efficient than a stored program's jump based loops. The performance issue can be mitigated by a compiler. The awkwardness should be avoided by developing libraries for collection-oriented programming, such that most loops become implicit to processing of collections.
  
  NOTE: Loops in Awelon are required to terminate. The proof burden for termination ultimately falls on the programmer, but a compiler or linter is allowed to issue errors if it can prove non-termination, or warnings if it cannot prove termination. Long running behaviors in Awelon project are modeled with an *implicit* top-level loop, e.g. with RDP or a process object.
 ~
@@ -99,10 +99,10 @@
 @fixpoint#v2 %r [%^'ol] %ro %^'ol
 @fixpoint#v1 [dup bind] composel dup bind
 
-@doc..fixfirst "[(f*a)→b] -- [a→b]; fixpoint first argument in pair"
+@doc..fixfirst "[([a→b]*a)→b] -- [a→b]; fixpoint first argument in pair"
 @.fixfirst %r .firstfixfirst %l
 
-@doc..firstfixfirst "([(f*a)→b]*e)→([a→b]*e); a minimal fixpoint"
+@doc..firstfixfirst "([([a→b]*a)→b]*e)→([a→b]*e); a minimal fixpoint"
 @.firstfixfirst .firstfixfirst#v2
 @.firstfixfirst#v2 %' [%^'ow^'zo %w %vr$c] %r^'owo
 @.firstfixfirst#v1 [%^'o] %ro %^'o

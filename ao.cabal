@@ -74,6 +74,7 @@ Executable ao
      , system-filepath (>= 0.4.10)
      , plugins (>= 1.5.4)
      , entropy (>= 0.2.2)
+     , Decimal (>= 0.4)
 
   main-is: Main.hs
   ghc-options: -auto-all -Wall -rtsopts -threaded
