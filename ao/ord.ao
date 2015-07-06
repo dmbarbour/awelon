@@ -41,7 +41,7 @@
 @compareUnits %c .inL
 @compareProds 
  .rw .rw dx x swapd pw dpw .wl .apply
- [drop .wl .apply] [inR .wl drop] if
+ [drop .wl .apply] [inR .wl drop dropd] if
 @compareSums .rw .rw [?l.compareSums] [?r.compareSums] if
 @?l.compareSums .rw [.wl ll.compareSums] [.wl rl.compareSums] if
 @?r.compareSums .rw [.wl lr.compareSums] [.wl rr.compareSums] if
@@ -83,7 +83,7 @@
 @-ab.compareStreams drop2 discard2 intro1 inL
 
 @doc.compareTexts "text text -- Ord; compare texts lexicographycally by codepoint order"
-@compareTexts [rawCompareNumbers'] compareLists toOrd
+@compareTexts [rawCompareNumbers] compareLists toOrd
 
 @doc.mkCompareLists "[(a*a)→Ord] -- [(a`L * a`L)→Ord]"
 @doc.mkCompareStreams "[(a*a)→Ord] -- [(a`S * a`S)→Ord]"
