@@ -498,15 +498,14 @@ aodefToABC = L.concatMap opToABC where
 renderAODict :: Dict -> LBS.ByteString
 renderAODict d = BB.toLazyByteString $ render Set.empty lw where
     dm = readAODict d
-    kw = ["integer","literal","block","ratio","decimal"]
-    lw = kw ++ M.keys dm
+    lw = M.keys dm
     renderText = BB.stringUtf8 . T.unpack
-    renderLine w = 
-        BB.char8 '@' <> renderText w <> BB.char8 ' ' <> 
-        renderDef w <> BB.char8 '\n'
-    renderDef w = case M.lookup w dm of
+    renderLine w = case M.lookup w dm of
         Nothing -> mempty
-        Just def -> BB.stringUtf8 $ "[" ++ show (aodefToABC (fst def)) ++ "][]"
+        Just def -> 
+            BB.char8 '@' <> renderText w <> BB.char8 ' ' <> 
+            BB.stringUtf8 (show (aodefToABC (fst def))) <> 
+            BB.char8 '\n'
     render _ [] = mempty
     render s ws@(w:ws') =
         if Set.member w s then render s ws' else  
